@@ -1,0 +1,246 @@
+<!-- received="Wed May 15 11:13:34 1996 " -->
+<!-- sent="Wed, 15 May 1996 11:13:34 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: strip 2.6 breaks images" -->
+<!-- id="m0uJjCg-0001tlC@atheist.tamu.edu" -->
+<!-- inreplyto="9605150638.AA11132@nova.tat.physik.uni-tuebingen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: strip 2.6 breaks images</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: strip 2.6 breaks images</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Wed, 15 May 1996 11:13:34 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#259">[ date ]</a><a href="index.html#259">[ thread ]</a><a href="subject.html#259">[ subject ]</a><a href="author.html#259">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0260.html">Roman Gollent: "X-development sources"</a>
+<li> <b>Previous message:</b> <a href="0258.html">Stephen J. Gaudet: "Re: ...re : overclocking"</a>
+<li> <b>In reply to:</b> <a href="0250.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0282.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<li> <b>Reply:</b> <a href="0282.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; &gt; I have never seen this with any version of the binutils, which </i><br>
+<i>&gt; &gt; makes me wonder if there is some libbfd compatibility problem</i><br>
+<i>&gt; &gt; as with the insmod problem that was reported recently.</i><br>
+<i>&gt; </i><br>
+<i>&gt; can't you reproduce this with my very small idle program ?</i><br>
+<p>
+Ack.  You were right.<br>
+<p>
+There was a problem, but in the kernel rather than the binutils.<br>
+The kernel was ignoring the file offset information so kindly<br>
+provided to it in the ECOFF section headers.<br>
+<p>
+Following is a patch that fixes the problem.<br>
+<p>
+WARNING: I found while testing this patch that my /sbin/getty from<br>
+RedHat 2.1 was actually broken, that is, it contained inconsistant<br>
+offset information.  The one from 3.0.3 is Righteous.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+Index: binfmt_aout.c<br>
+===================================================================<br>
+RCS file: /home/richard/Repository/linux/linux/fs/binfmt_aout.c,v<br>
+retrieving revision 1.1.1.2<br>
+diff -u -r1.1.1.2 binfmt_aout.c<br>
+--- binfmt_aout.c	1996/04/28 06:19:06	1.1.1.2<br>
++++ binfmt_aout.c	1996/05/15 15:43:12<br>
+@@ -261,8 +261,9 @@<br>
+ 	int fd;<br>
+ 	unsigned long error;<br>
+ 	unsigned long p = bprm-&gt;p;<br>
+-	unsigned long fd_offset;<br>
+ 	unsigned long rlim;<br>
++	unsigned long text_offset, text_addr;<br>
++	unsigned long data_offset, data_addr, bss_addr;<br>
+ <br>
+ 	ex = *((struct exec *) bprm-&gt;buf);		/* exec-header */<br>
+ 	if ((N_MAGIC(ex) != ZMAGIC &amp;&amp; N_MAGIC(ex) != OMAGIC &amp;&amp; <br>
+@@ -273,20 +274,62 @@<br>
+ 	}<br>
+ <br>
+ 	current-&gt;personality = PER_LINUX;<br>
+-	fd_offset = N_TXTOFF(ex);<br>
++<br>
++#ifdef __alpha__<br>
++	text_addr = N_TXTADDR(ex);<br>
++	data_addr = N_DATADDR(ex);<br>
++	bss_addr = N_BSSADDR(ex);<br>
++<br>
++	/* Read the ECOFF section headers to find the actual file <br>
++	   positions of the text and data segments.  */<br>
++	{<br>
++		struct scnhdr scns[ex.fh.f_nscns];<br>
++		unsigned long i;<br>
++<br>
++		read_exec(bprm-&gt;inode, sizeof ex, (char*)scns, sizeof scns, 1);<br>
++<br>
++		text_offset = data_offset = ~0UL;<br>
++<br>
++#define SEC(a,b,c,d,e) a|(b&lt;&lt;8)|(c&lt;&lt;16)|(d&lt;&lt;24)|((unsigned long)e&lt;&lt;32)<br>
++		for (i = 0; i &lt; ex.fh.f_nscns; ++i)<br>
++			switch (*(unsigned long *)scns[i].s_name)<br>
++			{<br>
++			    case SEC('.','t','e','x','t'):<br>
++				text_offset = (scns[i].s_scnptr -<br>
++					       (scns[i].s_vaddr &amp; 0xfff));<br>
++				break;<br>
++			    case SEC('.','d','a','t','a'):<br>
++			        data_offset = (scns[i].s_scnptr -<br>
++					       (scns[i].s_vaddr &amp; 0xfff));<br>
++				break;<br>
++			}<br>
++#undef SEC<br>
++<br>
++		i = bprm-&gt;inode-&gt;i_size;<br>
++		if (text_offset &gt;= i || text_offset+ex.a_text &gt; i ||<br>
++		    data_offset &gt;= i || data_offset+ex.a_data &gt; i)<br>
++			return -ENOEXEC;<br>
++	}<br>
++#else<br>
++	text_addr = N_TXTADDR(ex);<br>
++	data_addr = N_DATADDR(ex);<br>
++	bss_addr = N_BSSADDR(ex);<br>
++	text_offset = N_TXTOFF(ex);<br>
++	data_offset = text_offset + ex.a_text;<br>
+ <br>
+ #ifdef __i386__<br>
+-	if (N_MAGIC(ex) == ZMAGIC &amp;&amp; fd_offset != BLOCK_SIZE) {<br>
++	if (N_MAGIC(ex) == ZMAGIC &amp;&amp; text_offset != BLOCK_SIZE) {<br>
+ 		printk(KERN_NOTICE "N_TXTOFF != BLOCK_SIZE. See a.out.h.\n");<br>
+ 		return -ENOEXEC;<br>
+ 	}<br>
+ <br>
+ 	if (N_MAGIC(ex) == ZMAGIC &amp;&amp; ex.a_text &amp;&amp;<br>
+-	    (fd_offset &lt; bprm-&gt;inode-&gt;i_sb-&gt;s_blocksize)) {<br>
++	    (text_offset &lt; bprm-&gt;inode-&gt;i_sb-&gt;s_blocksize)) {<br>
+ 		printk(KERN_NOTICE "N_TXTOFF &lt; BLOCK_SIZE. Please convert binary.\n");<br>
+ 		return -ENOEXEC;<br>
+ 	}<br>
+-#endif<br>
++#endif /* i386 */<br>
++#endif /* alpha */<br>
+ <br>
+ 	/* Check initial limits. This avoids letting people circumvent<br>
+ 	 * size limits imposed on them by creating programs with large<br>
+@@ -302,11 +345,11 @@<br>
+ 	flush_old_exec(bprm);<br>
+ <br>
+ 	current-&gt;mm-&gt;end_code = ex.a_text +<br>
+-		(current-&gt;mm-&gt;start_code = N_TXTADDR(ex));<br>
++		(current-&gt;mm-&gt;start_code = text_addr);<br>
+ 	current-&gt;mm-&gt;end_data = ex.a_data +<br>
+-		(current-&gt;mm-&gt;start_data = N_DATADDR(ex));<br>
++		(current-&gt;mm-&gt;start_data = data_addr);<br>
+ 	current-&gt;mm-&gt;brk = ex.a_bss +<br>
+-		(current-&gt;mm-&gt;start_brk = N_BSSADDR(ex));<br>
++		(current-&gt;mm-&gt;start_brk = bss_addr);<br>
+ <br>
+ 	current-&gt;mm-&gt;rss = 0;<br>
+ 	current-&gt;mm-&gt;mmap = NULL;<br>
+@@ -314,13 +357,16 @@<br>
+ 	current-&gt;sgid = current-&gt;egid = current-&gt;fsgid = bprm-&gt;e_gid;<br>
+  	current-&gt;flags &amp;= ~PF_FORKNOEXEC;<br>
+ 	if (N_MAGIC(ex) == OMAGIC) {<br>
++load_unmapped:<br>
+ #ifdef __alpha__<br>
+-		do_mmap(NULL, N_TXTADDR(ex) &amp; PAGE_MASK,<br>
+-			ex.a_text+ex.a_data + PAGE_SIZE - 1,<br>
++		do_mmap(NULL, text_addr &amp; PAGE_MASK,<br>
++			data_addr+ex.a_data - (text_addr &amp; PAGE_MASK),<br>
+ 			PROT_READ|PROT_WRITE|PROT_EXEC,<br>
+ 			MAP_FIXED|MAP_PRIVATE, 0);<br>
+-		read_exec(bprm-&gt;inode, fd_offset, (char *) N_TXTADDR(ex),<br>
+-			  ex.a_text+ex.a_data, 0);<br>
++		read_exec(bprm-&gt;inode, text_offset, (char *)text_addr,<br>
++			  ex.a_text, 0);<br>
++		read_exec(bprm-&gt;inode, data_offset, (char *)data_addr,<br>
++			  ex.a_data, 0);<br>
+ #else<br>
+ 		do_mmap(NULL, 0, ex.a_text+ex.a_data,<br>
+ 			PROT_READ|PROT_WRITE|PROT_EXEC,<br>
+@@ -338,36 +384,31 @@<br>
+ 		file = current-&gt;files-&gt;fd[fd];<br>
+ 		if (!file-&gt;f_op || !file-&gt;f_op-&gt;mmap) {<br>
+ 			sys_close(fd);<br>
+-			do_mmap(NULL, 0, ex.a_text+ex.a_data,<br>
+-				PROT_READ|PROT_WRITE|PROT_EXEC,<br>
+-				MAP_FIXED|MAP_PRIVATE, 0);<br>
+-			read_exec(bprm-&gt;inode, fd_offset,<br>
+-				  (char *) N_TXTADDR(ex), ex.a_text+ex.a_data, 0);<br>
+-			goto beyond_if;<br>
++			goto load_unmapped;<br>
+ 		}<br>
+ <br>
+-		error = do_mmap(file, N_TXTADDR(ex), ex.a_text,<br>
++		error = do_mmap(file, text_addr, ex.a_text,<br>
+ 			PROT_READ | PROT_EXEC,<br>
+ 			MAP_FIXED | MAP_PRIVATE | MAP_DENYWRITE | MAP_EXECUTABLE,<br>
+-			fd_offset);<br>
++			text_offset);<br>
+ <br>
+-		if (error != N_TXTADDR(ex)) {<br>
++		if (error != text_addr) {<br>
+ 			sys_close(fd);<br>
+ 			send_sig(SIGKILL, current, 0);<br>
+ 			return error;<br>
+ 		}<br>
+ 		<br>
+- 		error = do_mmap(file, N_DATADDR(ex), ex.a_data,<br>
++ 		error = do_mmap(file, data_addr, ex.a_data,<br>
+ 				PROT_READ | PROT_WRITE | PROT_EXEC,<br>
+ 				MAP_FIXED | MAP_PRIVATE | MAP_DENYWRITE | MAP_EXECUTABLE,<br>
+-				fd_offset + ex.a_text);<br>
++				data_offset);<br>
+ 		sys_close(fd);<br>
+-		if (error != N_DATADDR(ex)) {<br>
++		if (error != data_addr) {<br>
+ 			send_sig(SIGKILL, current, 0);<br>
+ 			return error;<br>
+ 		}<br>
+ 	}<br>
+-beyond_if:<br>
++<br>
+ 	if (current-&gt;exec_domain &amp;&amp; current-&gt;exec_domain-&gt;use_count)<br>
+ 		(*current-&gt;exec_domain-&gt;use_count)--;<br>
+ 	if (current-&gt;binfmt &amp;&amp; current-&gt;binfmt-&gt;use_count)<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0260.html">Roman Gollent: "X-development sources"</a>
+<li> <b>Previous message:</b> <a href="0258.html">Stephen J. Gaudet: "Re: ...re : overclocking"</a>
+<li> <b>In reply to:</b> <a href="0250.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0282.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<li> <b>Reply:</b> <a href="0282.html">Harald Koenig: "Re: strip 2.6 breaks images"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

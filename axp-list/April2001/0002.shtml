@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: FFTW performance</H1> 
+	
+<!-- received="Tue Apr 10 18:33:55 2001" -->
+<!-- isoreceived="20010411013355" -->
+<!-- sent="Tue, 10 Apr 2001 14:33:22 -0400 (EDT)" -->
+<!-- isosent="20010410183322" -->
+<!-- name="jeff.sturm@appnet.com" -->
+<!-- email="jeff.sturm@appnet.com" -->
+<!-- subject="Re: FFTW performance" -->
+<!-- id="Pine.LNX.4.21.0104101311030.13504-100000@neoavalon.sigma6.com" -->
+<!-- inreplyto="20010410091022.B26155@linux04.mro.cpqcorp.net" -->
+<STRONG>Subject: </STRONG>Re: FFTW performance<BR>
+<EM>jeff.sturm@appnet.com</EM><BR>
+<STRONG>Date: </STRONG>Tue Apr 10 11:33:22 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#2">[ date ]</A>
+<A HREF="index.shtml#2">[ thread ]</A>
+<A HREF="subject.shtml#2">[ subject ]</A>
+<A HREF="author.shtml#2">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.shtml">James Fowler: "Re: Request For Comment: Low-Cost Alpha Platform Suggestion"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.shtml">Rich Payne: "RE: SRM 5.9 support question, was RE: Request For Comment: Low-Co st Alpha Platform Suggestion"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 10 Apr 2001, Jay Estabrook wrote:
+<BR>
+<EM>&gt; But please, refer to the following document for *lots* of tips,
+</EM><BR>
+<EM>&gt; including a discussion of compiler flags and such:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	<A HREF="http://www.alphalinux.org/docs/perf.html">http://www.alphalinux.org/docs/perf.html</A>
+</EM><BR>
+<P>That's an excellent article.  I appreciate the explanation of replay
+<BR>
+traps, which aren't covered well in any other public document I've seen.
+<BR>
+<P>My only beef is that they aren't really fair to GCC, but I'll excuse it
+<BR>
+because the article isn't meant to be a review, and after CCC is their
+<BR>
+own.  They don't say what version they use, but they called it EGCS, so
+<BR>
+I'd guess it is 2-3 years old.  The GCC backend has made a bit of progress
+<BR>
+since then.
+<BR>
+<P>Besides the points in this article there are a couple of other things I
+<BR>
+learned while tuning my code for Alpha that I haven't seen mentioned
+<BR>
+anywhere else.  Keep reading if you're interested...
+<BR>
+<P>1) Use both register sets where possible.
+<BR>
+<P>Somewhere, sometime long ago I got it into my head that floating-point
+<BR>
+registers are best avoided for non-numeric computing.  That probably comes
+<BR>
+from the days of microprocessors without efficient fp units.  So I tend to
+<BR>
+always use `int' types (including short, long, etc.) to declare local
+<BR>
+variables.
+<BR>
+<P>While tuning a large loop to avoid register spillage, I realized that some
+<BR>
+of the locals didn't really need to be integers, i.e. that rounding errors
+<BR>
+would be tolerable to the algorithm.  Declaring these as double left
+<BR>
+enough integer registers available to avoid spillage altogether.  As a
+<BR>
+result I got an instance 20% improvement.
+<BR>
+<P>Be careful about int&lt;-&gt;fp conversions however; on some CPUs these require
+<BR>
+a memory access (alphas prior to EV6, IIRC).
+<BR>
+<P>The same may hold true for mostly-FP programs; the integer set can go
+<BR>
+underused.
+<BR>
+<P>2) Using extra operations to avoid memory accesses.
+<BR>
+<P>Another habit that dies hard is reducing the complexity of code, favoring
+<BR>
+shorter, simpler instruction sequences everywhere.  Common sense dictates
+<BR>
+that removing a few instructions here and there helps optimize code.  On
+<BR>
+modering CPUs sometimes the reverse is true-- to a certain point, the more
+<BR>
+instructions available inside a function or loop (i.e. the longer a basic
+<BR>
+block) the better job a compiler or CPU can do to schedule.  Sometimes the
+<BR>
+compiler will even insert NOP instructions to help avoid pipeline stalls.
+<BR>
+<P>For most code I work on the critical bottleneck is not the processor's
+<BR>
+pipeline but memory throughput.  One block of code I experimented with
+<BR>
+needed a large array of boolean values, declared as an int[].  I had
+<BR>
+guessed it was memory limited, as my overall CPI was higher than 2.  My
+<BR>
+first attempt to help it allocated the boolean table as a
+<BR>
+char[].  Surprisingly that had negligible effect.  (The original int array
+<BR>
+was not too large to fit in secondary cache anyway, and the real choke
+<BR>
+point I suspect was the CPU's store buffer.)
+<BR>
+<P>Next I tried a bitmap of boolean values.  I wasn't very confident this
+<BR>
+would help, because although the array size became 1/32 its original size
+<BR>
+the code to access random bits was littered with shift and mask
+<BR>
+operations.
+<BR>
+<P>It ran twice as fast as the original, despite performing an equal count of
+<BR>
+load/store instructions.  My CPI shot down below 1, and the alpha now
+<BR>
+performed the loop faster than equivalent code on x86 or sparc (it had
+<BR>
+been slower before).  One explanation for the improvement is that the
+<BR>
+alpha could merge consecutive stores to the same location, which it could
+<BR>
+apparently not do for consecutive locations, even to the same cache line
+<BR>
+(not sure about that though).  The alpha happily consumed the extra
+<BR>
+instructions, feeding both of its integer units.
+<BR>
+<P>Another way to look at it is that the same optimizations we've known for
+<BR>
+decades to avoid disk accesses are now becoming relevant for memory
+<BR>
+access, since memory technology has not held pace with microprocessors.
+<BR>
+<P><PRE>
+--
+Jeff Sturm
+jeff.sturm@commerceone.com
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.shtml">James Fowler: "Re: Request For Comment: Low-Cost Alpha Platform Suggestion"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.shtml">Rich Payne: "RE: SRM 5.9 support question, was RE: Request For Comment: Low-Co st Alpha Platform Suggestion"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat May  5 06:18:12 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

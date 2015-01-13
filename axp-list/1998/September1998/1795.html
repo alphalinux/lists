@@ -1,0 +1,116 @@
+<!-- received="Sun Oct 18 14:48:59 1998 " -->
+<!-- sent="Sun, 18 Oct 1998 19:09:46 +0200" -->
+<!-- name="Stefan Katzenbeisser" -->
+<!-- email="e9625414@student.tuwien.ac.at" -->
+<!-- subject="KMail time" -->
+<!-- id="98101819421300.11586@dolph" -->
+<!-- inreplyto="¨Ö	@¨Ö	@" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>KMail time</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>KMail time</h2>
+
+<b>Stefan Katzenbeisser</b> (<a href="mailto:e9625414@student.tuwien.ac.at"><i>e9625414@student.tuwien.ac.at</i></a>)<br>
+<i>Sun, 18 Oct 1998 19:09:46 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1795">[ date ]</a><a href="index.html#1795">[ thread ]</a><a href="subject.html#1795">[ subject ]</a><a href="author.html#1795">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1796.html">Ivor Dvorecky: "Problem booting Samsung 164UX ("Ruffian") MB"</a>
+<li> <b>Previous message:</b> <a href="1794.html">Stefan van der Eijk: "Re: How supported is QLogic ISP 1040B?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I just investigated the kMail time problem (sometimes it prints 48409<br>
+as the current year). This seems to be some strange gmtime() problem. <br>
+kMail executes the routine _FromUnixTime from the MIMELIB (datetime.cpp)<br>
+twice when it starts up  (don't ask me why...)<br>
+<p>
+void DwDateTime::_FromUnixTime(DwUint32 aTime)<br>
+{<br>
+<p>
+printf("Executing _FromUnixTime with %d\n", aTime);<br>
+<p>
+    DwUint32 t = aTime + mZone*60;<br>
+#if defined(USE_PORTABLE_GMTIME)<br>
+    struct tm tt;<br>
+    my_gmtime_r(&amp;t, &amp;tt);<br>
+#elif defined(HAVE_GMTIME_R)<br>
+    struct tm tt;<br>
+    gmtime_r(&amp;t, &amp;tt);<br>
+#else<br>
+<p>
+printf("gmtime called with %d\n", t);<br>
+<p>
+      struct tm tt = *gmtime((time_t*)&amp;t);<br>
+#endif<br>
+    mYear   = tt.tm_year + 1900;<br>
+    mMonth  = tt.tm_mon + 1;<br>
+    mDay    = tt.tm_mday;<br>
+    mHour   = tt.tm_hour;<br>
+    mMinute = tt.tm_min;<br>
+    mSecond = tt.tm_sec;<br>
+<p>
+    printf("Result: %d\n", mYear);<br>
+}<br>
+<p>
+This is the output when kMail starts up: <br>
+<p>
+Executing _FromUnixTime with 908730326<br>
+gmtime called with 908737526<br>
+Result: 1998<br>
+Executing _FromUnixTime with 908730326<br>
+gmtime called with 908737526<br>
+Result: 48409  <br>
+<p>
+gmtime() gives two *different* results????<br>
+<p>
+In order to avoid that problem, recompile MIMELIB with the<br>
+-DUSE_PORTABLE_GMTIME option and recompile KDE. kMail works fine <br>
+then.<br>
+<p>
+Best,<br>
+S.K. <br>
+<pre>
+--
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+| Stefan Katzenbeisser
+| e-mail: <a href="mailto:skatzenbeisser@acm.org">skatzenbeisser@acm.org</a>
+| <a href="http://stud3.tuwien.ac.at/~e9625414/">http://stud3.tuwien.ac.at/~e9625414/</a>
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+Public PGP key available on my homepage or upon request.
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1796.html">Ivor Dvorecky: "Problem booting Samsung 164UX ("Ruffian") MB"</a>
+<li> <b>Previous message:</b> <a href="1794.html">Stefan van der Eijk: "Re: How supported is QLogic ISP 1040B?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

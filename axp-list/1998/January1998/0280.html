@@ -1,0 +1,184 @@
+<!-- received="Sun Jan 11 22:54:51 1998 " -->
+<!-- sent="Sun, 11 Jan 1998 22:57:58 -0500" -->
+<!-- name="Richard Hadsell" -->
+<!-- email="hadsell@blueskystudios.com" -->
+<!-- subject="alpha egcs-1.0.1 -O2 -mieee internal error--unrecognizable insn" -->
+<!-- id="199801120333.TAA06683@icarus.icarus.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>alpha egcs-1.0.1 -O2 -mieee internal error--unrecognizable insn</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>alpha egcs-1.0.1 -O2 -mieee internal error--unrecognizable insn</h2>
+
+<b>Richard Hadsell</b> (<a href="mailto:hadsell@blueskystudios.com"><i>hadsell@blueskystudios.com</i></a>)<br>
+<i>Sun, 11 Jan 1998 22:57:58 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#280">[ date ]</a><a href="index.html#280">[ thread ]</a><a href="subject.html#280">[ subject ]</a><a href="author.html#280">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0281.html">Heiner Kruener: "Re: g77 (again)"</a>
+<li> <b>Previous message:</b> <a href="0279.html">Stephen Williams: "Re: netscape 4.04"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+This is a multi-part message in MIME format.<br>
+<p>
+--------------61134A7B31D2<br>
+Content-Type: text/plain; charset=us-ascii<br>
+Content-Transfer-Encoding: 7bit<br>
+<p>
+Our egcs-1.0.1 crashes with options -O2 -mieee running on an alpha.  I<br>
+have attached the source and output files, because my mailer would wrap<br>
+the longer lines, making them difficult to read.  I simplified the test<br>
+case as much as I could.  The command line was:<br>
+<p>
+g++ -v -O2 -mieee -c egcsbug1.cc &gt;&amp; egcsbug1.out<br>
+<p>
+It does not fail with -O1 or without -mieee.<br>
+<p>
+<pre>
+-- 
+Dick Hadsell			914-381-8400  Fax: 914-381-9790
+Reply-to:			<a href="mailto:hadsell@blueskystudios.com">hadsell@blueskystudios.com</a>
+Blue Sky | VIFX			<a href="http://www.blueskystudios.com">http://www.blueskystudios.com</a>
+1 South Road, Harrison, NY 10528
+<p>
+--------------61134A7B31D2
+Content-Type: text/plain; charset=us-ascii; name="egcsbug1.cc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="egcsbug1.cc"
+<p>
+<p>
+#include &lt;math.h&gt;
+<p>
+class Vec3 {
+<p>
+public:
+	Vec3 () { }
+	Vec3 (const Vec3&amp; v);
+<p>
+	double	dotProduct (const Vec3&amp; v) const;
+	void	invert (const Vec3&amp; v);
+	void	normalize (const Vec3&amp; v);
+<p>
+protected:
+	double	x[3];
+};
+<p>
+inline	Vec3::Vec3 (const Vec3&amp; v)
+{
+	x[0] = v.x[0]; x[1] = v.x[1]; x[2] = v.x[2];
+}
+<p>
+<p>
+inline	double	Vec3::dotProduct (const Vec3&amp; v) const
+{
+	return x[0] * v.x[0] + x[1] * v.x[1] + x[2] * v.x[2];
+}
+<p>
+inline	void	Vec3::invert (const Vec3&amp; v)
+{
+	x[0] = -v.x[0]; x[1] = -v.x[1]; x[2] = -v.x[2];
+}
+<p>
+inline	void	Vec3::normalize (const Vec3&amp; v)
+{
+	double	norm = v.x[0]*v.x[0] + v.x[1]*v.x[1] +
+		v.x[2]*v.x[2];
+	if (norm != 1. &amp;&amp; norm != 0.) {
+		norm = 1. / sqrt (norm);
+		x[0] = v.x[0] * norm;
+		x[1] = v.x[1] * norm;
+		x[2] = v.x[2] * norm;
+	}
+	else
+		x[0] = v.x[0]; x[1] = v.x[1]; x[2] = v.x[2];
+}
+<p>
+class A {
+<p>
+public:
+	void	fun () const;
+<p>
+protected:
+	A		*next_;
+	Vec3	*inbound_;
+};
+<p>
+void	A::fun () const
+{
+	A&amp;	nxt = *next_;
+<p>
+	nxt.inbound_ = new Vec3;
+<p>
+	if (!nxt.next_) {	// next to last knot in open curve
+		Vec3	tmp (*inbound_);
+		if (inbound_-&gt;dotProduct (tmp) &lt; 0.)
+			nxt.inbound_-&gt;invert (*inbound_);
+		else
+			nxt.inbound_-&gt;normalize (tmp);
+	}
+}
+<p>
+--------------61134A7B31D2
+Content-Type: text/plain; charset=us-ascii; name="egcsbug1.out"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="egcsbug1.out"
+<p>
+Reading specs from /usr/local/lib/gcc-lib/alphaev5-unknown-linux-gnu/egcs-2.90.23/specs
+gcc version egcs-2.90.23 980102 (egcs-1.0.1 release)
+ /usr/local/lib/gcc-lib/alphaev5-unknown-linux-gnu/egcs-2.90.23/cpp -lang-c++ -v -undef -D__GNUC__=2 -D__GNUG__=2 -D__cplusplus -D__GNUC_MINOR__=90 -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -Dlinux -Dunix -D__ELF__ -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -D__linux__ -D__unix__ -D__ELF__ -D__linux -D__unix -Asystem(linux) -Acpu(alpha) -Amachine(alpha) -D__EXCEPTIONS -D__OPTIMIZE__ -D__LANGUAGE_C__ -D__LANGUAGE_C -DLANGUAGE_C -D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus -D_IEEE_FP egcsbug1.cc /tmp/cca16755.ii
+GNU CPP version egcs-2.90.23 980102 (egcs-1.0.1 release) (Alpha Linux/ELF)
+#include "..." search starts here:
+#include &lt;...&gt; search starts here:
+ /usr/local/include/g++
+ /usr/local/include
+ /usr/local/alphaev5-unknown-linux-gnu/include
+ /usr/local/lib/gcc-lib/alphaev5-unknown-linux-gnu/egcs-2.90.23/include
+ /usr/include
+End of search list.
+ /usr/local/lib/gcc-lib/alphaev5-unknown-linux-gnu/egcs-2.90.23/cc1plus /tmp/cca16755.ii -quiet -dumpbase egcsbug1.cc -mieee -O2 -version -o /tmp/cca16755.s
+GNU C++ version egcs-2.90.23 980102 (egcs-1.0.1 release) (alphaev5-unknown-linux-gnu) compiled by GNU C version egcs-2.90.23 980102 (egcs-1.0.1 release).
+egcsbug1.cc: In method `void A::fun() const':
+egcsbug1.cc:71: internal error--unrecognizable insn:
+(insn:DI 288 198 188 (clobber (mem:DF (symbol_ref/u:DI ("*$LC2")))) -1 (nil)
+    (nil))
+egcsbug1.cc:71: confused by earlier errors, bailing out
+<p>
+--------------61134A7B31D2--
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0281.html">Heiner Kruener: "Re: g77 (again)"</a>
+<li> <b>Previous message:</b> <a href="0279.html">Stephen Williams: "Re: netscape 4.04"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

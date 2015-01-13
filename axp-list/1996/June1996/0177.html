@@ -1,0 +1,235 @@
+<!-- received="Sun Jun 16 12:33:36 1996 " -->
+<!-- sent="Sun, 16 Jun 1996 12:33:36 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="AXP patches for procps-1.01" -->
+<!-- id="199606161456.QAA21498@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="199606151740.KAA28742@escher.SD.BBN.COM" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>AXP patches for procps-1.01</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>AXP patches for procps-1.01</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sun, 16 Jun 1996 12:33:36 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#177">[ date ]</a><a href="index.html#177">[ thread ]</a><a href="subject.html#177">[ subject ]</a><a href="author.html#177">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0178.html">Richard Henderson: "Re: Programs that use curses."</a>
+<li> <b>Previous message:</b> <a href="0176.html">Mikael Nykvist: "ANNOUCE: GNU libc rpm's availble."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+here are some more patches for procps-1.01 for AXP.<br>
+<p>
+proc/ksym.c: sizeof() returns size_t which is long;  %*s needs int argument<br>
+<p>
+proc/output.c: #include &lt;string.h&gt;  for strlen()<br>
+<p>
+ps.c:  fixes for 8k page size (again)   and two more HZ dependencies<br>
+<p>
+top.c:  "top -c" doesn't insert spaces between command line arguments<br>
+<p>
+sessreg.c: changed argument for syserr() and sysnerr() from int to long<br>
+        so that pointer and lseek() return value high word doesn't get dropped<br>
+	for 64bit longs/pointer<br>
+<p>
+<p>
+-------------------------------------------------------------------------------<br>
+--- procps-1.01/proc/ksym.c.orig	Wed Jun 12 14:28:22 1996<br>
++++ procps-1.01/proc/ksym.c	Sun Jun 16 11:28:47 1996<br>
+@@ -168,8 +168,8 @@<br>
+ 	if (psdb != -1)<br>
+ 	    fprintf(stderr,<br>
+ 		    "psdatabase has magic no. %*s instead of %*s\n",<br>
+-		    sizeof db_hdr.magic, db_hdr.magic,<br>
+-		    sizeof db_hdr.magic, procps_version);<br>
++		    (int)(sizeof db_hdr.magic), db_hdr.magic,<br>
++		    (int)(sizeof db_hdr.magic), procps_version);<br>
+ 	close(psdb);<br>
+     }<br>
+     return -1;<br>
+--- procps-1.01/proc/output.c.orig	Wed Jun 12 10:19:49 1996<br>
++++ procps-1.01/proc/output.c	Sun Jun 16 11:35:19 1996<br>
+@@ -3,6 +3,7 @@<br>
+   Copyright (C) 1996, Charles Blake.  See COPYING for details.<br>
+ */<br>
+ #include &lt;stdio.h&gt;<br>
++#include &lt;string.h&gt;<br>
+ #include &lt;ctype.h&gt;<br>
+ <br>
+ /* output a string, converting unprintables to octal as we go, and stopping after<br>
+--- procps-1.01/ps.c.orig	Wed Jun 12 14:39:36 1996<br>
++++ procps-1.01/ps.c	Sun Jun 16 11:17:51 1996<br>
+@@ -105,7 +105,7 @@<br>
+     CL_sort     = 1,<br>
+     CL_forest,<br>
+     CL_Sum,<br>
+-    CL_pg_shift = 2;      /* default: show k instead of pages */<br>
++    CL_pg_shift = (PAGE_SHIFT-10);      /* default: show k instead of pages */<br>
+ <br>
+ /* Globals */<br>
+ <br>
+@@ -391,7 +391,7 @@<br>
+ 	sprintf(wchanb, "%-11.11s", wchan(p-&gt;wchan));<br>
+     sprintf(s, "%6x %5d %5d %5d %3d %3d %6d %5d %-11.11s %s%3s",<br>
+ 	    p-&gt;flags, p-&gt;uid, p-&gt;pid, p-&gt;ppid, p-&gt;priority, p-&gt;nice,<br>
+-	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss * 4, wchanb, status(p), p-&gt;ttyc);<br>
++	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; (PAGE_SHIFT-10), wchanb, status(p), p-&gt;ttyc);<br>
+ }<br>
+ <br>
+ void show_jobs(char *s, proc_t *p) {<br>
+@@ -409,18 +409,18 @@<br>
+ 	s += sprintf(s, "%5d    ", p-&gt;uid);<br>
+     else<br>
+ 	s += sprintf(s, "%-8s ", p-&gt;user);<br>
+-    seconds = (((GL_current_time * 100) - p-&gt;start_time) / HZ);<br>
++    seconds = (((GL_current_time * HZ) - p-&gt;start_time) / HZ);<br>
+     start = GL_time_now - seconds;<br>
+     total_time = (p-&gt;utime + p-&gt;stime +<br>
+ 		  (CL_Sum ? p-&gt;cutime + p-&gt;cstime : 0));<br>
+     pcpu = seconds ?<br>
+-	(total_time * 10) / seconds :<br>
++	(total_time * 10 * 100/HZ) / seconds :<br>
+ 	0;<br>
+     if (pcpu &gt; 999) pcpu = 999;<br>
+-    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; 12);<br>
++    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; PAGE_SHIFT);<br>
+     sprintf(s, "%5d %2u.%u %2d.%d %5d %5d %2s %s%.6s ",<br>
+ 	    p-&gt;pid,  pcpu / 10, pcpu % 10,  pmem / 10, pmem % 10,<br>
+-	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; 2, p-&gt;ttyc, status(p),<br>
++	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; (PAGE_SHIFT-10), p-&gt;ttyc, status(p),<br>
+ 	    ctime(&amp;start) + (GL_time_now - start &gt; 3600*24 ? 4 : 10));<br>
+ }<br>
+ <br>
+@@ -440,12 +440,12 @@<br>
+ 		 p-&gt;maj_flt + (CL_Sum ? p-&gt;cmaj_flt : 0),<br>
+ 		 p-&gt;vsize ? (p-&gt;end_code - p-&gt;start_code) &gt;&gt; 10 : 0,<br>
+ 		 p-&gt;vsize ? (p-&gt;vsize - p-&gt;end_code + p-&gt;start_code) &gt;&gt; 10 : 0,<br>
+-		 p-&gt;rss &lt;&lt; 2);<br>
++		 p-&gt;rss &lt;&lt; (PAGE_SHIFT-10));<br>
+     if(p-&gt;rss_rlim == RLIM_INFINITY)<br>
+ 	s += sprintf(s, "   xx ");<br>
+     else<br>
+ 	s += sprintf(s, "%5d ", p-&gt;rss_rlim &gt;&gt; 10);<br>
+-    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; 12);<br>
++    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; PAGE_SHIFT);<br>
+     sprintf(s, "%2d.%d ", pmem / 10, pmem % 10);<br>
+ }<br>
+ <br>
+--- procps-1.01/top.c.orig	Thu Jun 13 05:20:00 1996<br>
++++ procps-1.01/top.c	Sun Jun 16 11:50:07 1996<br>
+@@ -840,6 +840,8 @@<br>
+ 	    if (!show_cmd &amp;&amp; task-&gt;cmdline &amp;&amp; *(task-&gt;cmdline)) {<br>
+ 	        j=0;<br>
+ 	        while(((task-&gt;cmdline)[j] != NULL) &amp;&amp; (strlen(tmp3)&lt;1024)){<br>
++		    if (j &gt; 0) <br>
++		        strcat(tmp3," ");<br>
+ 		    strcat(tmp3,(task-&gt;cmdline)[j]);<br>
+ 		    j++; <br>
+ 	        }<br>
+--- procps-1.01/top.h.orig	Mon Jun 10 11:09:20 1996<br>
++++ procps-1.01/top.h	Sun Jun 16 10:29:07 1996<br>
+@@ -95,7 +95,7 @@<br>
+ int Secure = 0;<br>
+ int Cumulative = 0;<br>
+ int Noidle = 0;<br>
+-int CL_pg_shift = 2;<br>
++int CL_pg_shift = (PAGE_SHIFT-10);<br>
+ int CL_wchan_nout = 0;<br>
+ int show_stats = 1;    /* show status summary */<br>
+ int show_memory = 1;   /* show memory summary */<br>
+--- procps-1.01/sessreg.c.orig	Tue Jan 16 13:15:05 1996<br>
++++ procps-1.01/sessreg.c	Sun Jun 16 10:42:10 1996<br>
+@@ -129,9 +129,7 @@<br>
+ 	return *a;<br>
+ }<br>
+ <br>
+-int syserr (x, s)<br>
+-int	x;<br>
+-char	*s;<br>
++int syserr (long x, char *s)<br>
+ {<br>
+ 	if (x == -1) {<br>
+ 		perror (s);<br>
+@@ -140,9 +138,7 @@<br>
+ 	return x;<br>
+ }<br>
+ <br>
+-int sysnerr (x, s)<br>
+-int	x;<br>
+-char	*s;<br>
++int sysnerr (long x, char *s)<br>
+ {<br>
+ 	if (x == 0) {<br>
+ 		perror (s);<br>
+@@ -225,7 +221,7 @@<br>
+ 	}<br>
+ #endif<br>
+ 	if (!lflag) {<br>
+-		sysnerr ((int) (line_tmp = ttyname (0)), "ttyname");<br>
++		sysnerr ((long)(line_tmp = ttyname (0)), "ttyname");<br>
+ 		line = strrchr(line_tmp, '/');<br>
+ 		if (line)<br>
+ 			line = line + 1;<br>
+@@ -250,7 +246,7 @@<br>
+ #else<br>
+ 		utmp = open (utmp_file, O_RDWR);<br>
+ 		if (utmp != -1) {<br>
+-			syserr ((int) lseek (utmp, (long) (slot_number - 1) * sizeof (struct utmp), 0), "lseek");<br>
++			syserr (lseek (utmp, (long) (slot_number - 1) * sizeof (struct utmp), 0), "lseek");<br>
+ 			sysnerr (write (utmp, (char *) &amp;utmp_entry, sizeof (utmp_entry))<br>
+ 				        == sizeof (utmp_entry), "write utmp entry");<br>
+ 			close (utmp);<br>
+@@ -389,7 +385,7 @@<br>
+ 	struct passwd *pwd = getpwnam(user_name);<br>
+ <br>
+         if ((fd = open(_PATH_LASTLOG, O_RDWR, 0)) &gt;= 0) {<br>
+-		syserr ((int) lseek(fd, (off_t)pwd-&gt;pw_uid * sizeof(ll),  0), "lseek");<br>
++		syserr (lseek(fd, (off_t)pwd-&gt;pw_uid * sizeof(ll),  0), "lseek");<br>
+                 memset((char *)&amp;ll, 0, sizeof(ll));<br>
+                 (void)time(&amp;ll.ll_time);<br>
+                 strncpy(ll.ll_line, line, sizeof(ll.ll_line));<br>
+<p>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0178.html">Richard Henderson: "Re: Programs that use curses."</a>
+<li> <b>Previous message:</b> <a href="0176.html">Mikael Nykvist: "ANNOUCE: GNU libc rpm's availble."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

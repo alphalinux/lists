@@ -1,0 +1,840 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Heretic on the alpha</TITLE>
+<META NAME="Author" CONTENT="Zach Brown (zab@zabbo.net)">
+<META NAME="Subject" CONTENT="Re: Heretic on the alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Heretic on the alpha</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 01:33:30 1999 PST" -->
+<!-- sent="Wed, 20 Jan 1999 17:23:06 -0800 (PST)" -->
+<!-- name="Zach Brown" -->
+<!-- email="zab@zabbo.net" -->
+<!-- subject="Re: Heretic on the alpha" -->
+<!-- id="Pine.LNX.4.03.9901201715060.510-100000@fmuta.zabbo.net" -->
+<!-- inreplyto="Pine.LNX.4.04.9901201325070.23918-100000@sdi.aatech.com" -->
+<STRONG>Zach Brown</STRONG> (<A HREF="mailto:zab@zabbo.net?subject=Re:%20Heretic%20on%20the%20alpha"><EM>zab@zabbo.net</EM></A>)<BR>
+<EM>Wed, 20 Jan 1999 17:23:06 -0800 (PST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1059">[ date ]</A>
+<A HREF="index.html#1059">[ thread ]</A>
+<A HREF="subject.html#1059">[ subject ]</A>
+<A HREF="author.html#1059">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1060.html">Jeff DeMaagd: "Re: Wanna Buy My Alpha?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1058.html">Christian Groessler: "Re: doom and 24-bit display..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="1044.html">Ron Farrer: "doom and 24-bit display..."</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 20 Jan 1999, Jason Duerstock wrote:
+<BR>
+<P><EM>&gt; On Wed, 20 Jan 1999, Ron Farrer wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; I just read on /. that the Heretic source has been ported to Linux
+</EM><BR>
+<EM>&gt; &gt; (x86??) and I was woundering if anyone has tried to compile the source for
+</EM><BR>
+<EM>&gt; &gt; Heretic on our favorite platform?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Someone on IRC was complaining that the source had endianitis (that is,
+</EM><BR>
+<P>*nod*  almost identical to doom's problems, really.  Most of this
+<BR>
+patch was inspired by Thomas Bogendoerfer's doom patch..
+<BR>
+<P>This patch gets you a title screen and such, but loading maps is broken.  
+<BR>
+If someone else could take it from here, I'd be happy.  I'm really tired
+<BR>
+of wading through this &quot;code&quot; :)
+<BR>
+<P>-- zach
+<BR>
+<P>- - - - - -
+<BR>
+007 373 5963
+<BR>
+<P>diff -urN linux-heretic.dist/Makefile linux-heretic/Makefile
+<BR>
+--- linux-heretic.dist/Makefile	Wed Jan 20 13:09:13 1999
+<BR>
++++ linux-heretic/Makefile	Wed Jan 20 14:57:19 1999
+<BR>
+@@ -16,7 +16,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;CFLAGS = -Wall -Wstrict-prototypes $(CDEFS.linux386) \
+<BR>
+-	 -I/usr/X11R6/include $(COPT.x86)
+<BR>
++	 -I/usr/X11R6/include $(COPT.alpha)
+<BR>
+&nbsp;
+<BR>
+&nbsp;X_LDFLAGS = -L/usr/X11R6/lib
+<BR>
+&nbsp;
+<BR>
+diff -urN linux-heretic.dist/doomdata.h linux-heretic/doomdata.h
+<BR>
+--- linux-heretic.dist/doomdata.h	Wed Jan 13 17:41:39 1999
+<BR>
++++ linux-heretic/doomdata.h	Wed Jan 20 16:02:42 1999
+<BR>
+@@ -150,7 +150,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;boolean		masked;	
+<BR>
+&nbsp;&nbsp;&nbsp;short		width;
+<BR>
+&nbsp;&nbsp;&nbsp;short		height;
+<BR>
++/*  ARGH
+<BR>
+&nbsp;&nbsp;&nbsp;void		**columndirectory;	// OBSOLETE
+<BR>
++*/
+<BR>
++	char  obsolete[4];
+<BR>
+&nbsp;&nbsp;&nbsp;short		patchcount;
+<BR>
+&nbsp;&nbsp;&nbsp;mappatch_t	patches[1];
+<BR>
+&nbsp;} maptexture_t;
+<BR>
+diff -urN linux-heretic.dist/doomdef.h linux-heretic/doomdef.h
+<BR>
+--- linux-heretic.dist/doomdef.h	Wed Jan 20 08:14:15 1999
+<BR>
++++ linux-heretic/doomdef.h	Wed Jan 20 15:13:44 1999
+<BR>
+@@ -434,8 +434,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;int			damage;		  /* For missiles */
+<BR>
+&nbsp;&nbsp;&nbsp;int			flags;
+<BR>
+&nbsp;&nbsp;&nbsp;int			flags2;		  /* Heretic flags */
+<BR>
+-  int			special1;	  /* Special info */
+<BR>
+-  int			special2;	  /* Special info */
+<BR>
++	/* need to fit pointers */
+<BR>
++  long			special1;	  /* Special info */
+<BR>
++  long			special2;	  /* Special info */
+<BR>
+&nbsp;&nbsp;&nbsp;int		        health;
+<BR>
+&nbsp;&nbsp;&nbsp;int			movedir;	  /* 0-7 */
+<BR>
+&nbsp;&nbsp;&nbsp;int		        movecount;	  /* when 0, select a new dir */
+<BR>
+Binary files linux-heretic.dist/heretic.wad and linux-heretic/heretic.wad differ
+<BR>
+diff -urN linux-heretic.dist/i_sound.c linux-heretic/i_sound.c
+<BR>
+--- linux-heretic.dist/i_sound.c	Mon Jan 18 05:54:20 1999
+<BR>
++++ linux-heretic/i_sound.c	Wed Jan 20 16:18:01 1999
+<BR>
+@@ -89,7 +89,7 @@
+<BR>
+&nbsp;int 		lengths[NUMSFX];
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* The actual output device. */
+<BR>
+-int	audio_fd;
+<BR>
++int	audio_fd = -1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* The global mixing buffer.
+<BR>
+diff -urN linux-heretic.dist/m_misc.c linux-heretic/m_misc.c
+<BR>
+--- linux-heretic.dist/m_misc.c	Wed Jan 20 09:08:33 1999
+<BR>
++++ linux-heretic/m_misc.c	Wed Jan 20 16:44:10 1999
+<BR>
+@@ -384,7 +384,7 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char    *name;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int     *location;
+<BR>
+-	int     defaultvalue;
+<BR>
++	long     defaultvalue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int     scantranslate;      /* PC scan code hack */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int     untranslated;       /* lousy hack */
+<BR>
+&nbsp;} default_t;
+<BR>
+@@ -476,16 +476,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;{ &quot;usegamma&quot;, &amp;usegamma, 0 },
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+-  { &quot;chatmacro0&quot;, (int *) &amp;chat_macros[0], (int) HUSTR_CHATMACRO0 },
+<BR>
+-  { &quot;chatmacro1&quot;, (int *) &amp;chat_macros[1], (int) HUSTR_CHATMACRO1 },
+<BR>
+-  { &quot;chatmacro2&quot;, (int *) &amp;chat_macros[2], (int) HUSTR_CHATMACRO2 },
+<BR>
+-  { &quot;chatmacro3&quot;, (int *) &amp;chat_macros[3], (int) HUSTR_CHATMACRO3 },
+<BR>
+-  { &quot;chatmacro4&quot;, (int *) &amp;chat_macros[4], (int) HUSTR_CHATMACRO4 },
+<BR>
+-  { &quot;chatmacro5&quot;, (int *) &amp;chat_macros[5], (int) HUSTR_CHATMACRO5 },
+<BR>
+-  { &quot;chatmacro6&quot;, (int *) &amp;chat_macros[6], (int) HUSTR_CHATMACRO6 },
+<BR>
+-  { &quot;chatmacro7&quot;, (int *) &amp;chat_macros[7], (int) HUSTR_CHATMACRO7 },
+<BR>
+-  { &quot;chatmacro8&quot;, (int *) &amp;chat_macros[8], (int) HUSTR_CHATMACRO8 },
+<BR>
+-  { &quot;chatmacro9&quot;, (int *) &amp;chat_macros[9], (int) HUSTR_CHATMACRO9 }
+<BR>
++  { &quot;chatmacro0&quot;, (int *) &amp;chat_macros[0], (long) HUSTR_CHATMACRO0 },
+<BR>
++  { &quot;chatmacro1&quot;, (int *) &amp;chat_macros[1], (long) HUSTR_CHATMACRO1 },
+<BR>
++  { &quot;chatmacro2&quot;, (int *) &amp;chat_macros[2], (long) HUSTR_CHATMACRO2 },
+<BR>
++  { &quot;chatmacro3&quot;, (int *) &amp;chat_macros[3], (long) HUSTR_CHATMACRO3 },
+<BR>
++  { &quot;chatmacro4&quot;, (int *) &amp;chat_macros[4], (long) HUSTR_CHATMACRO4 },
+<BR>
++  { &quot;chatmacro5&quot;, (int *) &amp;chat_macros[5], (long) HUSTR_CHATMACRO5 },
+<BR>
++  { &quot;chatmacro6&quot;, (int *) &amp;chat_macros[6], (long) HUSTR_CHATMACRO6 },
+<BR>
++  { &quot;chatmacro7&quot;, (int *) &amp;chat_macros[7], (long) HUSTR_CHATMACRO7 },
+<BR>
++  { &quot;chatmacro8&quot;, (int *) &amp;chat_macros[8], (long) HUSTR_CHATMACRO8 },
+<BR>
++  { &quot;chatmacro9&quot;, (int *) &amp;chat_macros[9], (long) HUSTR_CHATMACRO9 }
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;int numdefaults;
+<BR>
+@@ -513,7 +513,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (defaults[i].defaultvalue &gt; -0xfff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; defaults[i].defaultvalue &lt; 0xfff)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	  v = *defaults[i].location;
+<BR>
++	  v =*defaults[i].location;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf (f,&quot;%s\t\t%i\n&quot;,defaults[i].name,v);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf (f,&quot;%s\t\t\&quot;%s\&quot;\n&quot;,defaults[i].name,
+<BR>
+@@ -553,6 +553,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;numdefaults = sizeof(defaults)/sizeof(defaults[0]);
+<BR>
+&nbsp;&nbsp;&nbsp;for (i=0 ; i&lt;numdefaults ; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*defaults[i].location = defaults[i].defaultvalue;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;* check for a custom default file
+<BR>
+@@ -594,10 +595,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!strcmp(def, defaults[i].name))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!isstring)
+<BR>
+-		      *defaults[i].location = parm;
+<BR>
++                      *defaults[i].location = parm;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+-		      *defaults[i].location =
+<BR>
+-			(int) newstring;
+<BR>
++                      *defaults[i].location =
+<BR>
++                        (long) newstring;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+diff -urN linux-heretic.dist/p_enemy.c linux-heretic/p_enemy.c
+<BR>
+--- linux-heretic.dist/p_enemy.c	Mon Jan 18 14:14:41 1999
+<BR>
++++ linux-heretic/p_enemy.c	Wed Jan 20 15:15:18 1999
+<BR>
+@@ -1256,7 +1256,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;/*   mo = P_SpawnMissile(actor, actor-&gt;target, MT_EGGFX);   */
+<BR>
+&nbsp;&nbsp;&nbsp;if(mo != NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-      mo-&gt;special1 = (int)actor-&gt;target;
+<BR>
++      mo-&gt;special1 = (long)actor-&gt;target;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -1906,7 +1906,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(mo != NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mo-&gt;z -= 32*FRACUNIT;
+<BR>
+-	  mo-&gt;special1 = (int)target;
+<BR>
++	  mo-&gt;special1 = (long)target;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mo-&gt;special2 = 50;           /* Timer for active sound */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mo-&gt;health = 20*TICSPERSEC;  /* Duration */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S_StartSound(actor, sfx_hedat3);			
+<BR>
+@@ -2372,7 +2372,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;P_ThrustMobj(mo, P_Random()&lt;&lt;24, (fixed_t)(4.5*FRACUNIT));
+<BR>
+&nbsp;&nbsp;&nbsp;S_StartSound(mo, sfx_newpod);
+<BR>
+&nbsp;&nbsp;&nbsp;actor-&gt;special1++;           /* Increment generated pod count */
+<BR>
+-  mo-&gt;special2 = (int)actor;   /* Link the generator to the pod */
+<BR>
++  mo-&gt;special2 = (long)actor;   /* Link the generator to the pod */
+<BR>
+&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN linux-heretic.dist/p_pspr.c linux-heretic/p_pspr.c
+<BR>
+--- linux-heretic.dist/p_pspr.c	Tue Jan 19 04:10:47 1999
+<BR>
++++ linux-heretic/p_pspr.c	Wed Jan 20 15:16:11 1999
+<BR>
+@@ -1252,7 +1252,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mo-&gt;momz = 2*FRACUNIT+((player-&gt;lookdir)&lt;&lt;(FRACBITS-5));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(linetarget)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	  mo-&gt;special1 = (int)linetarget;
+<BR>
++	  mo-&gt;special1 = (long)linetarget;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;S_StartSound(player-&gt;mo, sfx_lobsht);
+<BR>
+@@ -1303,7 +1303,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AimLineAttack(ball, angle, 10*64*FRACUNIT);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(linetarget &amp;&amp; ball-&gt;target != linetarget)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-		  ball-&gt;special1 = (int)linetarget;
+<BR>
++		  ball-&gt;special1 = (long)linetarget;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;angle = R_PointToAngle2(ball-&gt;x, ball-&gt;y,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linetarget-&gt;x, linetarget-&gt;y);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newAngle = true;
+<BR>
+@@ -1469,7 +1469,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;if(linetarget)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-      MissileMobj-&gt;special1 = (int)linetarget;
+<BR>
++      MissileMobj-&gt;special1 = (long)linetarget;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;S_StartSound(MissileMobj, sfx_hrnpow);
+<BR>
+&nbsp;}
+<BR>
+diff -urN linux-heretic.dist/p_setup.c linux-heretic/p_setup.c
+<BR>
+--- linux-heretic.dist/p_setup.c	Tue Jan 19 04:10:57 1999
+<BR>
++++ linux-heretic/p_setup.c	Wed Jan 20 17:08:09 1999
+<BR>
+@@ -456,7 +456,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* build line tables for each sector	 */
+<BR>
+-  linebuffer = Z_Malloc (total*4, PU_LEVEL, 0);
+<BR>
++  linebuffer = Z_Malloc (total*sizeof(void *), PU_LEVEL, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;sector = sectors;
+<BR>
+&nbsp;&nbsp;&nbsp;for (i=0 ; i&lt;numsectors ; i++, sector++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+diff -urN linux-heretic.dist/p_tick.c linux-heretic/p_tick.c
+<BR>
+--- linux-heretic.dist/p_tick.c	Thu Jan 14 16:12:12 1999
+<BR>
++++ linux-heretic/p_tick.c	Wed Jan 20 15:22:11 1999
+<BR>
+@@ -64,7 +64,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j=0 ; j&lt;NUMPSPRITES ; j++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (players[i]. psprites[j].state)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;players[i]. psprites[j].state 
+<BR>
+-	    = &amp;states[ (int)players[i].psprites[j].state ];
+<BR>
++	    = &amp;states[ (long)players[i].psprites[j].state ];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -262,11 +262,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mobj = Z_Malloc (sizeof(*mobj), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (mobj, save_p, sizeof(*mobj));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*mobj);
+<BR>
+-	  mobj-&gt;state = &amp;states[(int)mobj-&gt;state];
+<BR>
++	  mobj-&gt;state = &amp;states[(long)mobj-&gt;state];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mobj-&gt;target = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (mobj-&gt;player)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	      mobj-&gt;player = &amp;players[(int)mobj-&gt;player-1];
+<BR>
++	      mobj-&gt;player = &amp;players[(long)mobj-&gt;player-1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mobj-&gt;player-&gt;mo = mobj;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_SetThingPosition (mobj);
+<BR>
+@@ -424,7 +424,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ceiling = Z_Malloc (sizeof(*ceiling), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (ceiling, save_p, sizeof(*ceiling));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*ceiling);
+<BR>
+-	  ceiling-&gt;sector = &amp;sectors[(int)ceiling-&gt;sector];
+<BR>
++	  ceiling-&gt;sector = &amp;sectors[(long)ceiling-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ceiling-&gt;sector-&gt;specialdata = T_MoveCeiling;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ceiling-&gt;thinker.function.acp1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ceiling-&gt;thinker.function.acp1 = (actionf_p1)T_MoveCeiling;
+<BR>
+@@ -436,7 +436,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;door = Z_Malloc (sizeof(*door), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (door, save_p, sizeof(*door));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*door);
+<BR>
+-	  door-&gt;sector = &amp;sectors[(int)door-&gt;sector];
+<BR>
++	  door-&gt;sector = &amp;sectors[(long)door-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;door-&gt;sector-&gt;specialdata = door;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;door-&gt;thinker.function.acp1 = (actionf_p1)T_VerticalDoor;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AddThinker (&amp;door-&gt;thinker);
+<BR>
+@@ -446,7 +446,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;floor = Z_Malloc (sizeof(*floor), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (floor, save_p, sizeof(*floor));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*floor);
+<BR>
+-	  floor-&gt;sector = &amp;sectors[(int)floor-&gt;sector];
+<BR>
++	  floor-&gt;sector = &amp;sectors[(long)floor-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;floor-&gt;sector-&gt;specialdata = T_MoveFloor;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;floor-&gt;thinker.function.acp1 = (actionf_p1)T_MoveFloor;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AddThinker (&amp;floor-&gt;thinker);
+<BR>
+@@ -456,7 +456,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;plat = Z_Malloc (sizeof(*plat), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (plat, save_p, sizeof(*plat));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*plat);
+<BR>
+-	  plat-&gt;sector = &amp;sectors[(int)plat-&gt;sector];
+<BR>
++	  plat-&gt;sector = &amp;sectors[(long)plat-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;plat-&gt;sector-&gt;specialdata = T_PlatRaise;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (plat-&gt;thinker.function.acp1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;plat-&gt;thinker.function.acp1 = (actionf_p1)T_PlatRaise;
+<BR>
+@@ -468,7 +468,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flash = Z_Malloc (sizeof(*flash), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (flash, save_p, sizeof(*flash));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*flash);
+<BR>
+-	  flash-&gt;sector = &amp;sectors[(int)flash-&gt;sector];
+<BR>
++	  flash-&gt;sector = &amp;sectors[(long)flash-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flash-&gt;thinker.function.acp1 = (actionf_p1)T_LightFlash;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AddThinker (&amp;flash-&gt;thinker);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+@@ -477,7 +477,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strobe = Z_Malloc (sizeof(*strobe), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (strobe, save_p, sizeof(*strobe));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*strobe);
+<BR>
+-	  strobe-&gt;sector = &amp;sectors[(int)strobe-&gt;sector];
+<BR>
++	  strobe-&gt;sector = &amp;sectors[(long)strobe-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strobe-&gt;thinker.function.acp1 = (actionf_p1)T_StrobeFlash;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AddThinker (&amp;strobe-&gt;thinker);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+@@ -486,7 +486,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;glow = Z_Malloc (sizeof(*glow), PU_LEVEL, NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (glow, save_p, sizeof(*glow));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_p += sizeof(*glow);
+<BR>
+-	  glow-&gt;sector = &amp;sectors[(int)glow-&gt;sector];
+<BR>
++	  glow-&gt;sector = &amp;sectors[(long)glow-&gt;sector];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;glow-&gt;thinker.function.acp1 = (actionf_p1)T_Glow;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P_AddThinker (&amp;glow-&gt;thinker);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+diff -urN linux-heretic.dist/r_data.c linux-heretic/r_data.c
+<BR>
+--- linux-heretic.dist/r_data.c	Mon Jan 18 06:39:24 1999
+<BR>
++++ linux-heretic/r_data.c	Wed Jan 20 16:50:05 1999
+<BR>
+@@ -377,13 +377,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;printf(&quot;\x8\x8\x8\x8\x8\x8\x8\x8\x8\x8&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;
+<BR>
+-  textures = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  texturecolumnlump = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  texturecolumnofs = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  texturecomposite = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  texturecompositesize = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  texturewidthmask = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
+-  textureheight = Z_Malloc (numtextures*4, PU_STATIC, 0);
+<BR>
++  textures = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  texturecolumnlump = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  texturecolumnofs = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  texturecomposite = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  texturecompositesize = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  texturewidthmask = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
++  textureheight = Z_Malloc (numtextures*sizeof(void *), PU_STATIC, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;totalwidth = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+@@ -454,7 +454,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;* translation table for global animation
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-  texturetranslation = Z_Malloc ((numtextures+1)*4, PU_STATIC, 0);
+<BR>
++  texturetranslation = Z_Malloc ((numtextures+1)*sizeof(void *), PU_STATIC, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;for (i=0 ; i&lt;numtextures ; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;texturetranslation[i] = i;
+<BR>
+&nbsp;}
+<BR>
+@@ -477,7 +477,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;numflats = lastflat - firstflat + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* translation table for global animation */
+<BR>
+-  flattranslation = Z_Malloc ((numflats+1)*4, PU_STATIC, 0);
+<BR>
++  flattranslation = Z_Malloc ((numflats+1)*sizeof (void*), PU_STATIC, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;for (i=0 ; i&lt;numflats ; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flattranslation[i] = i;
+<BR>
+&nbsp;}
+<BR>
+@@ -501,9 +501,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;firstspritelump = W_GetNumForName (&quot;S_START&quot;) + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;lastspritelump = W_GetNumForName (&quot;S_END&quot;) - 1;
+<BR>
+&nbsp;&nbsp;&nbsp;numspritelumps = lastspritelump - firstspritelump + 1;
+<BR>
+-  spritewidth = Z_Malloc (numspritelumps*4, PU_STATIC, 0);
+<BR>
+-  spriteoffset = Z_Malloc (numspritelumps*4, PU_STATIC, 0);
+<BR>
+-  spritetopoffset = Z_Malloc (numspritelumps*4, PU_STATIC, 0);
+<BR>
++  spritewidth = Z_Malloc (numspritelumps*sizeof(void *), PU_STATIC, 0);
+<BR>
++  spriteoffset = Z_Malloc (numspritelumps*sizeof(void *), PU_STATIC, 0);
+<BR>
++  spritetopoffset = Z_Malloc (numspritelumps*sizeof(void *), PU_STATIC, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;for (i=0 ; i&lt; numspritelumps ; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+@@ -542,7 +542,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;lump = W_GetNumForName(&quot;COLORMAP&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;length = W_LumpLength (lump) + 255;
+<BR>
+&nbsp;&nbsp;&nbsp;colormaps = Z_Malloc (length, PU_STATIC, 0);
+<BR>
+-  colormaps = (byte *)( ((int)colormaps + 255)&amp;~0xff);
+<BR>
++  colormaps = (byte *)( ((long)colormaps + 255)&amp;~0xff);
+<BR>
+&nbsp;&nbsp;&nbsp;W_ReadLump (lump,colormaps);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN linux-heretic.dist/r_draw.c linux-heretic/r_draw.c
+<BR>
+--- linux-heretic.dist/r_draw.c	Thu Jan 14 13:59:47 1999
+<BR>
++++ linux-heretic/r_draw.c	Wed Jan 20 15:25:54 1999
+<BR>
+@@ -257,7 +257,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* Allocate translation tables */
+<BR>
+&nbsp;&nbsp;&nbsp;translationtables = Z_Malloc(256*3+255, PU_STATIC, 0);
+<BR>
+-  translationtables = (byte *)(( (int)translationtables + 255 )&amp; ~255);
+<BR>
++  translationtables = (byte *)(( (long)translationtables + 255 )&amp; ~255);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* Fill out the translation tables */
+<BR>
+&nbsp;&nbsp;&nbsp;for(i = 0; i &lt; 256; i++)
+<BR>
+diff -urN linux-heretic.dist/z_zone.c linux-heretic/z_zone.c
+<BR>
+--- linux-heretic.dist/z_zone.c	Thu Jan 14 09:23:26 1999
+<BR>
++++ linux-heretic/z_zone.c	Wed Jan 20 16:25:24 1999
+<BR>
+@@ -363,7 +363,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;block = (memblock_t *) ( (byte *)ptr - sizeof(memblock_t));
+<BR>
+&nbsp;&nbsp;&nbsp;if (block-&gt;id != ZONEID)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I_Error (&quot;Z_ChangeTag: freed a pointer without ZONEID&quot;);
+<BR>
+-  if (tag &gt;= PU_PURGELEVEL &amp;&amp; (unsigned)block-&gt;user &lt; 0x100)
+<BR>
++  if (tag &gt;= PU_PURGELEVEL &amp;&amp; (unsigned long)block-&gt;user &lt; 0x100)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I_Error (&quot;Z_ChangeTag: an owner is required for purgable blocks&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;block-&gt;tag = tag;
+<BR>
+&nbsp;}
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Heretic%20on%20the%20alpha">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Heretic%20on%20the%20alpha">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1060.html">Jeff DeMaagd: "Re: Wanna Buy My Alpha?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1058.html">Christian Groessler: "Re: doom and 24-bit display..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="1044.html">Ron Farrer: "doom and 24-bit display..."</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:51 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

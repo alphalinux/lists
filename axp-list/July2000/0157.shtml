@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Full-Duplex fix for (tulip) de4x5.c</H1> 
+	
+<!-- received="Thu Jul 13 19:19:31 2000" -->
+<!-- isoreceived="20000714021931" -->
+<!-- sent="Thu, 13 Jul 2000 13:56:10 -0400 (EDT)" -->
+<!-- isosent="20000713175610" -->
+<!-- name="Phillip Ezolt" -->
+<!-- email="ezolt@perf.zko.dec.com" -->
+<!-- subject="Full-Duplex fix for (tulip) de4x5.c" -->
+<!-- id="Pine.OSF.3.96.1000713134947.25333B-100000@perf.zko.dec.com" -->
+<STRONG>Subject: </STRONG>Full-Duplex fix for (tulip) de4x5.c<BR>
+<STRONG>From: </STRONG>Phillip Ezolt (<EM>ezolt@perf.zko.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 13 10:56:10 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#157">[ date ]</A>
+<A HREF="index.shtml#157">[ thread ]</A>
+<A HREF="subject.shtml#157">[ subject ]</A>
+<A HREF="author.shtml#157">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0158.shtml">Phillip Ezolt: "Re: Full-Duplex fix for (tulip) de4x5.c"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0156.shtml">Michal Jaegermann: "Re: Some Rawhide RPMs require RPM 4.0? -- WAS: Where can I get the"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0158.shtml">Phillip Ezolt: "Re: Full-Duplex fix for (tulip) de4x5.c"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi all,
+<BR>
+<P>We've fixed full duplex mode in the de4x5 driver on the DEC DC21142
+<BR>
+network cards, with no performance penalty to the rest of the driver.
+<BR>
+<P>Unless the de4x5 driver maintainer objects, could this patch be added
+<BR>
+to the latest 2.2.X and 2.4.X kernels?
+<BR>
+<P>The Problem
+<BR>
+-----------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;When doing some performance work, we discovered that the de4x5
+<BR>
+network driver would run the Alpha Digital Personal Workstation 600au
+<BR>
+(miata)'s builtin tulip card at half duplex, even when &quot;fdx&quot; (full
+<BR>
+duplex) was specified.
+<BR>
+<P>We received terrible performance when connecting a full duplex
+<BR>
+Win2K machine to the miata. 
+<BR>
+<P>The original throughput on a 100MB-FD network link was
+<BR>
+77k/second. (Terrible)
+<BR>
+<P>After modifications, we received 11,000 k/second. 
+<BR>
+<P>Our tests showed that the duplex setting WAS honored on a slower, 10 MBS
+<BR>
+card DE450 (DC21041), but not the 100MB (DC21142) card. 
+<BR>
+<P>This does not appear to be an Alpha/Linux specific problem. From
+<BR>
+review of the code, it appears to be present on any architecture that
+<BR>
+uses this driver.
+<BR>
+<P>The Solution
+<BR>
+------------
+<BR>
+<P>In the driver, the function srom_map_media() clears the duplex setting
+<BR>
+(lp-&gt;fdx = 0) and then does not honor the command line parameter in
+<BR>
+the case of &quot;Intermediate AutoNegotiation State&quot;. (ANS)
+<BR>
+<P>This could be caused by two bugs.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) The driver is not properly autodetecting Full duplex links.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) The driver is not honoring the user's command line parameters.
+<BR>
+<P>By fixing #2, when can circumvent #1.
+<BR>
+<P>After our modification, the driver behaves more like the user would
+<BR>
+expect.  
+<BR>
+<P>It may not be a full solution, but:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) The driver still works properly with a DC21041. (We've Tested)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) It allows us use full duplex on a DC21142 with good throughput. 
+<BR>
+<P>de4x5 Performance 
+<BR>
+-----------------
+<BR>
+<P>These tests were run using a point to point network connection, ie no
+<BR>
+network switch.
+<BR>
+<P>We ftped a 10,295,264 byte file between a W2K machine and a Miata.
+<BR>
+<P>NOTE: The ftp client only gave two significant figures of precision.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Before Mod    After Mod    Driver Options
+<BR>
+<P>DC21142
+<BR>
+10 (Half Duplex)     1,000 Kb/s    1,000 Kb/s  autosense=10MBS
+<BR>
+10 (Full Duplex)         *         1,200 Kb/s  fdx autosense=10MBS
+<BR>
+100 (Half Duplex)   10,000 Kb/s   10,000 Kb/s  autosense=100MBS
+<BR>
+100 (Full Duplex)       72 Kb/s   11,000 Kb/s  fdx autosense=100MBS
+<BR>
+<P>DC21041
+<BR>
+10 (Half Duplex)     1,000 Kb/s   1,000 Kb/s   autosense=10MBS    
+<BR>
+10 (Full Duplex)     1,100 Kb/s   1,100 Kb/s   fdx autosense=10MBS
+<BR>
+<P>* A 10 second transfer hadn't completed after 2 minutes. 
+<BR>
+<P>The Machine
+<BR>
+-----------
+<BR>
+<P>Digital Personal Workstation 600au (miata) w/ built in DEC DC21142
+<BR>
+(rev 48)). &amp; DE450 DC21041
+<BR>
+<P>Kernel V2.2.14-6.0 (Redhat 6.2 Stock + devpoll patches)
+<BR>
+<P>With the following patch, 10Mbs, 10Mbs-FD, 100Mbs, 100Mbx-FD all work
+<BR>
+on both cards.
+<BR>
+<P>The Patch
+<BR>
+---------
+<BR>
+<P>--- linux/drivers/net/de4x5.c.orig	Mon Aug  9 15:04:39 1999
+<BR>
++++ linux/drivers/net/de4x5.c	Wed Jul 12 20:05:22 2000
+<BR>
+@@ -3231,6 +3231,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case ANS:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lp-&gt;media = ANS;
+<BR>
++	lp-&gt;fdx = lp-&gt;params.fdx;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default: 
+<BR>
+<P>Cheers,
+<BR>
+Phil Ezolt &amp; Bill Carr
+<BR>
+<P>Compaq:  High Performance Server Division/Benchmark Performance Engineering 
+<BR>
+---------------- Alpha, The Fastest Processor on Earth --------------------
+<BR>
+Phillip.Ezolt@compaq.com        |C|O|M|P|A|Q|        ezolt@perf.zko.dec.com
+<BR>
+------------------- See the results at www.spec.org -----------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0158.shtml">Phillip Ezolt: "Re: Full-Duplex fix for (tulip) de4x5.c"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0156.shtml">Michal Jaegermann: "Re: Some Rawhide RPMs require RPM 4.0? -- WAS: Where can I get the"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0158.shtml">Phillip Ezolt: "Re: Full-Duplex fix for (tulip) de4x5.c"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Aug  1 04:53:11 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

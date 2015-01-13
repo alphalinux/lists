@@ -1,0 +1,136 @@
+<!-- received="Fri Mar 13 15:17:27 1998 " -->
+<!-- sent="Mon, 9 Mar 1998 23:20:44 +0300 (MSK)" -->
+<!-- name="Oleg Gusev" -->
+<!-- email="oleg@leontief.ru" -->
+<!-- subject="DU Acroread on Linux" -->
+<!-- id="199803092020.XAA11404@leontief.ru" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>DU Acroread on Linux</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>DU Acroread on Linux</h2>
+
+<b>Oleg Gusev</b> (<a href="mailto:oleg@leontief.ru"><i>oleg@leontief.ru</i></a>)<br>
+<i>Mon, 9 Mar 1998 23:20:44 +0300 (MSK)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#314">[ date ]</a><a href="index.html#314">[ thread ]</a><a href="subject.html#314">[ subject ]</a><a href="author.html#314">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0315.html">David Tucker: "DU Netscape"</a>
+<li> <b>Previous message:</b> <a href="0313.html">Hugo van der Kooij: "Re: Compiling kernel on avanti and other questions"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+ hi,<br>
+<p>
+ after DU Netscape is running now without any problems, i tried to run<br>
+ another useful program - Acrobat Reader ( yes, i know about<br>
+ 'ghostview' and 'xpdf', but running DU binaries makes fun :))<br>
+ I installed it with minor changes in install script and<br>
+ no wonder, it crashed on 2.1.89. The reason for the crash is<br>
+ libpthread.so from DU. I took the simpliest example from<br>
+ linuxthreads package ( ex1.c ), compiled it on DU <br>
+ ( btw it seems you can't staticly compile with pthreads ) <br>
+ and it crashes in the same way as acroread.<br>
+ Here is how it crashed on Linux:<br>
+<p>
+  [root@alpha oleg]# ./ex1<br>
+  set_program_attributes(120000000 2000 140000000 230)<br>
+  get_reply_port: failed allocating new reply port. <br>
+  (os/kern) unknown error code (4e)<br>
+  DECthreads bugcheck (version V3.13-435), terminating execution.<br>
+  vpInit: unknown error code (78) nxm_task_init(1,0x140002000)<br>
+  Aborted (core dumped)<br>
+<p>
+And here is the trace of the same binary on DU4.0:<br>
+<p>
+  $ trace ./ex1<br>
+  Tracing process /proc/22782<br>
+  getpagesize () = 8192<br>
+  obreak (0x14000e230) = 0<br>
+  ^^^^^^<br>
+  Hmm, DU uses 'brk'-SYS_17 and Linux 'set_program_attributes'-SYS_43<br>
+  for some unclear reason. <br>
+<p>
+  getpagesize () = 8192<br>
+  getsysinfo (55ld, 0x11ffff2c0, 4ld, 0x0, (void)) = 1<br>
+              ^^^^<br>
+  Not fully implemented in Linux 'getsysinfo' call requesting the number<br>
+  of CPUs :) I added it on Linux, but the program didn't reach it.<br>
+ <br>
+  obreak (0x14001c230) = 0<br>
+  mprotect (0x14000e000, 8192, 0) = 0<br>
+  obreak (0x14002a230) = 0<br>
+  mprotect (0x14001a000, 8192, 0) = 0<br>
+  sigaction (SIGFPE, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGSEGV, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGBUS, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGILL, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGEMT, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGABRT, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGSYS, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGTRAP, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  sigaction (SIGPIPE, {{0x3ff807b37f8,0x0,0}}, {{0x0,0x0,0}}) = 0<br>
+  obreak (0x140038230) = 0<br>
+  mprotect (0x140026000, 8192, 0) = 0<br>
+  obreak (0x140046230) = 0<br>
+  mprotect (0x140032000, 8192, 0) = 0<br>
+  write (2, 0x14002f798, 19) = Starting process a<br>
+  19<br>
+  write (1, 0x140000100, 1) = a1<br>
+  write (1, 0x140000100, 1) = a1<br>
+  write (2, 0x14003b798, 19) = Starting process b<br>
+  19<br>
+  write (1, 0x140000108, 1) = b1<br>
+  write (1, 0x140000108, 1) = b1<br>
+  close (0) = 0<br>
+  close (1) = 0<br>
+  close (2) = 0<br>
+  sigprocmask (1, 0xfffffffffffff137, 0x0) = 0<br>
+  exit (0) = (0)<br>
+  EXIT [status=0]<br>
+  ./ex1<br>
+<p>
+So no unusual syscalls are used on DU, but why Linux is going another way<br>
+if the emulation is correct ? There are a lot of debugging info inside<br>
+the '/sbin/loader', but even setting _RTD_ARGS='-trace' don't show<br>
+all of it. Any debugging hints are welcomed. Also if somebody knows the <br>
+way how to staticly compile with pthread on DU, i'd like to hear.<br>
+<p>
+Oleg.<br>
+ <br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0315.html">David Tucker: "DU Netscape"</a>
+<li> <b>Previous message:</b> <a href="0313.html">Hugo van der Kooij: "Re: Compiling kernel on avanti and other questions"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

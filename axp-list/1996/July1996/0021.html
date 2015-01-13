@@ -1,0 +1,125 @@
+<!-- received="Fri Jul 12 05:53:27 1996 " -->
+<!-- sent="Fri, 12 Jul 1996 11:35:52 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: MMIO for new NCR810 driver?" -->
+<!-- id="199607120948.LAA11973@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="Pine.LNX.3.91.960711230857.6399C-100000@gerard" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: MMIO for new NCR810 driver?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: MMIO for new NCR810 driver?</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 12 Jul 1996 11:35:52 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#21">[ date ]</a><a href="index.html#21">[ thread ]</a><a href="subject.html#21">[ subject ]</a><a href="author.html#21">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0022.html">Uncle George: "Re: Kernel panic: insl:...(was 3c509 &amp; axp linux)"</a>
+<li> <b>Previous message:</b> <a href="0020.html">Sorin MITRAN: "Re: questions on the PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; I just look into io.h.</i><br>
+<i>&gt; I did not understand a lot all that stuff.</i><br>
+<i>&gt; Address ffffbc0..... seems weird (to an ignorant as I am about Alpha).</i><br>
+<i>&gt; Are you sure that __reab() is expecting addresses that have been remapped </i><br>
+<i>&gt; by vremap() ?</i><br>
+<p>
+no, these strange addresses are almost correct; this is the PAGE_OFFSET<br>
+(asm-alpha/page.h) or IDENT_ADDR (asm-alpha/io.h) and part of the address <br>
+for PCI/ISA bus mapping. from the Xserver sources I only know that the <br>
+ISA/PCI bus is mapped to BUS_BASE / APECS_DENSE_MEM = 0xfffffc0300000000UL,<br>
+so this really should be 0xfffffc0300000000 + 0x44000000 = 0xfffffc0344000000<br>
+AFAIK.<br>
+<p>
+or for kernel symbols:<br>
+	gdb /linux/vmlinux <br>
+	(gdb) x/i init<br>
+	0xfffffc0000310f98 &lt;init&gt;:              27bb0016        ldah    gp, 1441792(t12)<br>
+<p>
+<i>&gt; Perhaps we should use directly the bus base address (44000000).</i><br>
+<i>&gt; It is just an idea. I do not reply to the list because I am very probably </i><br>
+<i>&gt; wrong.</i><br>
+<p>
+I've tried this too (one never knows;) but it really didn't work<br>
+<p>
+<p>
+<i>&gt; Have you some pointer to documentations about Alpha architecture?</i><br>
+<i>&gt; At the moment I am quite ignorant of that. I have to learn something </i><br>
+<i>&gt; about Alpha machines. I am very interested in such hardware.</i><br>
+<p>
+I'd guess this should be all mentioned in <br>
+<p>
+        Alpha AXP Architecture Reference Manual<br>
+        Second Edition<br>
+        Digital Press/Butterworth-Heinemann<br>
+        DEC order #: EY-T132E-DP<br>
+        ISBN 1-55558-145-5<br>
+        Library of Congress: QA76.9.A73A46<br>
+<p>
+but I don't have it (yet?).  so far I'm trying to avoid such problems<br>
+or find some AXP guru (they are all on this list ;-) who knows/tells me.<br>
+for the Xserver so far I only needed the bus base address, everything<br>
+else is in user space and seems to work nicely...<br>
+<p>
+you can find some information in linux/include/asm-alpha/apecs.h (for my XL)<br>
+and linux/include/asm-alpha/lca.h (for UDB/Multia) which define<br>
+<p>
+/linux/include/asm-alpha/apecs.h:#define APECS_DENSE_MEM        (IDENT_ADDR + 0x300000000UL)<br>
+/linux/include/asm-alpha/lca.h:#define LCA_DENSE_MEM            (IDENT_ADDR + 0x300000000UL)<br>
+<p>
+<i>&gt; &gt; ncr_attach: unit=0 chip=810 base=44000000, io_port=b400, irq=11</i><br>
+<i>&gt; &gt; ncr53c810-0: using memory mapped IO at virtual address  0xfffffe0000042000</i><br>
+<i>&gt; &gt; Unable to handle kernel paging request at virtual address ffffbc0200840080</i><br>
+<p>
+I don't understand why the kernel paging request address is much lower than<br>
+the virt. MMIO address and even lower than PAGE_OFFSET or APECS_DENSE_MEM<br>
+<p>
+<p>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0022.html">Uncle George: "Re: Kernel panic: insl:...(was 3c509 &amp; axp linux)"</a>
+<li> <b>Previous message:</b> <a href="0020.html">Sorin MITRAN: "Re: questions on the PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,277 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: There can be only one: LAPACK and F2C vs G77</TITLE>
+<META NAME="Author" CONTENT="Barak Pearlmutter (bap@cs.unm.edu)">
+<META NAME="Subject" CONTENT="There can be only one: LAPACK and F2C vs G77 on the Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>There can be only one: LAPACK and F2C vs G77 on the Alpha</H1>
+<HR>
+<P>
+<!-- received="Wed Feb 17 02:48:47 1999 PST" -->
+<!-- sent="Tue, 16 Feb 1999 19:47:24 -0700 (MST)" -->
+<!-- name="Barak Pearlmutter" -->
+<!-- email="bap@cs.unm.edu" -->
+<!-- subject="There can be only one: LAPACK and F2C vs G77 on the Alpha" -->
+<!-- id="m10Cx1I-0009TuC@sweat.cs.unm.edu" -->
+<!-- inreplyto="" -->
+<STRONG>Barak Pearlmutter</STRONG> (<A HREF="mailto:bap@cs.unm.edu?subject=Re:%20There%20can%20be%20only%20one:%20LAPACK%20and%20F2C%20vs%20G77%20on%20the%20Alpha"><EM>bap@cs.unm.edu</EM></A>)<BR>
+<EM>Tue, 16 Feb 1999 19:47:24 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#196">[ date ]</A>
+<A HREF="index.html#196">[ thread ]</A>
+<A HREF="subject.html#196">[ subject ]</A>
+<A HREF="author.html#196">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0195.html">Chris Lawrence: "Re: Slink release - what's left?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Package: lapack
+<BR>
+Version: 2.0.1-2.1
+<BR>
+<P>Package: f2c
+<BR>
+Version: 19971204-5
+<BR>
+<P>Package: g77
+<BR>
+Version: 1:2.91.60-5
+<BR>
+<P>We are compiling some C code that uses lapack and blas.
+<BR>
+Therefore we used
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;LOADLIBES=-lblas -llapack -lm
+<BR>
+<P>That gave errors
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;/usr/bin/../lib/libblas.so: undefined reference to `e_wsfe'
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;/usr/bin/../lib/libblas.so: undefined reference to `z_abs'
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;/usr/bin/../lib/liblapack.so: undefined reference to `c_sqrt'
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+<P>which can be fixed in two ways, either
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;LOADLIBES=-lblas -llapack -lf2c -lm
+<BR>
+<P>or use &quot;g77&quot; instead of &quot;gcc&quot; as the front end to the linker, thus
+<BR>
+implicitly linking with /usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/libg2c.a
+<BR>
+<P>Both of these succeed and give no error messages, but there's a big
+<BR>
+big hidden problem!
+<BR>
+<P>/usr/include/f2c.h defines integer as a long int, which on an alpha is
+<BR>
+64 bits.  g77 uses 32 bits for an integer, on both i386 and Alpha.
+<BR>
+One presumes that /usr/lib/lapack.so and friends are compiled with one
+<BR>
+or the other, so one of the above ways to link will actually generate
+<BR>
+a good executable on the Alpha.  Unfortunately the way to figure out
+<BR>
+which one is rather unpleasant.
+<BR>
+<P>To look at the big picture: g77 and f2c/fort77 produce mutually
+<BR>
+incompatible executables on the Alpha, due to their having different
+<BR>
+notions of how big an integer is.  /usr/lib/libf2c.so.2.1 is not
+<BR>
+linked to dynamically under normal circumstances, instead it is
+<BR>
+statically linked in (see below for a script showing this - it does
+<BR>
+the same thing on both i386 and Alpha.)  Similarly g77 doesn't produce
+<BR>
+executables dynamically linked to some libg2c.so.
+<BR>
+<P>As a result, libraries compiled out of Fortran files are mute on the
+<BR>
+issue of which world they live in: the F2C world or the G77 world.
+<BR>
+<P><P>There are a few possible fixes.  As a first measure, the Debian Alpha
+<BR>
+team should declare whether f2c/fort77 or g77 is the &quot;official&quot;
+<BR>
+Fortran compiler for the Alpha, and libraries like lapack should
+<BR>
+declare appropriate dependencies to make sure the right one is
+<BR>
+installed, and to give users an extra hint about the matter.
+<BR>
+<P>As a second measure, both fort77 and g77 and &quot;gcc -l f2c&quot; should
+<BR>
+produce executables that dynamically link in an libf2c.so or
+<BR>
+libg2c.so, respectively.
+<BR>
+<P>As a longer-term measure, probably f2c should be modified to use
+<BR>
+32-bit integers, so that gcc, g77, g++, and f2c/fort77 would share the
+<BR>
+same notion of the default machine integer size.  This would
+<BR>
+necessitate recompiling lapack, and would also be a good time to split
+<BR>
+f2c up into libf2c, libf2c-dev, and f2c proper.
+<BR>
+<P>----------------------------------------------------------------
+<BR>
+$ make LDFLAGS='-v -Xlinker --trace'
+<BR>
+cc -v -Xlinker --trace  cntxtica.o normmix-em.o simath1.o matf.o recipies.o dgesvd.o logdetfgh.o read.o -lblas -llapack -lf2c -lm  -o cntxtica
+<BR>
+Reading specs from /usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/specs
+<BR>
+gcc version egcs-2.91.60 Debian 2.1 (egcs-1.1.1 release)
+<BR>
+&nbsp;/usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/collect2 -m elf64alpha -O1 -dynamic-linker /lib/ld-linux.so.2 -o cntxtica /usr/lib/crt1.o /usr/lib/crti.o /usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/crtbegin.o -L/usr/lib/gcc-lib/alpha-linux/egcs-2.91.60 --trace cntxtica.o normmix-em.o simath1.o matf.o recipies.o dgesvd.o logdetfgh.o read.o -lblas -llapack -lf2c -lm -lgcc -lc -lgcc /usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/crtend.o /usr/lib/crtn.o
+<BR>
+/usr/bin/ld: mode elf64alpha
+<BR>
+/usr/lib/crt1.o
+<BR>
+/usr/lib/crti.o
+<BR>
+/usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/crtbegin.o
+<BR>
+cntxtica.o
+<BR>
+normmix-em.o
+<BR>
+simath1.o
+<BR>
+matf.o
+<BR>
+recipies.o
+<BR>
+dgesvd.o
+<BR>
+logdetfgh.o
+<BR>
+read.o
+<BR>
+-lblas (/usr/bin/../lib/libblas.so)
+<BR>
+-llapack (/usr/bin/../lib/liblapack.so)
+<BR>
+(/usr/bin/../lib/libf2c.a)c_abs.o
+<BR>
+(/usr/bin/../lib/libf2c.a)c_div.o
+<BR>
+(/usr/bin/../lib/libf2c.a)c_exp.o
+<BR>
+(/usr/bin/../lib/libf2c.a)c_sqrt.o
+<BR>
+(/usr/bin/../lib/libf2c.a)cabs.o
+<BR>
+(/usr/bin/../lib/libf2c.a)d_lg10.o
+<BR>
+(/usr/bin/../lib/libf2c.a)pow_dd.o
+<BR>
+(/usr/bin/../lib/libf2c.a)r_lg10.o
+<BR>
+(/usr/bin/../lib/libf2c.a)s_cat.o
+<BR>
+(/usr/bin/../lib/libf2c.a)s_cmp.o
+<BR>
+(/usr/bin/../lib/libf2c.a)s_copy.o
+<BR>
+(/usr/bin/../lib/libf2c.a)s_stop.o
+<BR>
+(/usr/bin/../lib/libf2c.a)sig_die.o
+<BR>
+(/usr/bin/../lib/libf2c.a)z_abs.o
+<BR>
+(/usr/bin/../lib/libf2c.a)z_div.o
+<BR>
+(/usr/bin/../lib/libf2c.a)z_exp.o
+<BR>
+(/usr/bin/../lib/libf2c.a)z_sqrt.o
+<BR>
+(/usr/bin/../lib/libf2c.a)close.o
+<BR>
+(/usr/bin/../lib/libf2c.a)endfile.o
+<BR>
+(/usr/bin/../lib/libf2c.a)err.o
+<BR>
+(/usr/bin/../lib/libf2c.a)fmt.o
+<BR>
+(/usr/bin/../lib/libf2c.a)open.o
+<BR>
+(/usr/bin/../lib/libf2c.a)sfe.o
+<BR>
+(/usr/bin/../lib/libf2c.a)util.o
+<BR>
+(/usr/bin/../lib/libf2c.a)wsfe.o
+<BR>
+(/usr/bin/../lib/libf2c.a)F77_aloc.o
+<BR>
+(/usr/bin/../lib/libf2c.a)exit_.o
+<BR>
+(/usr/bin/../lib/libf2c.a)wrtfmt.o
+<BR>
+(/usr/bin/../lib/libf2c.a)fmtlib.o
+<BR>
+(/usr/bin/../lib/libf2c.a)wref.o
+<BR>
+-lm (/usr/bin/../lib/libm.so)
+<BR>
+/lib/libc.so.6.1
+<BR>
+/usr/lib/gcc-lib/alpha-linux/egcs-2.91.60/crtend.o
+<BR>
+/usr/lib/crtn.o
+<BR>
+<P>$ ldd cntxtica
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libblas.so.2 =&gt; /usr/lib/libblas.so.2 (0x0000020000004000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;liblapack.so.2 =&gt; /usr/lib/liblapack.so.2 (0x000002000016a000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libm.so.6.1 =&gt; /lib/libm.so.6.1 (0x000002000069a000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x00000200007c6000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/lib/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0x0000020001000000)
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20There%20can%20be%20only%20one:%20LAPACK%20and%20F2C%20vs%20G77%20on%20the%20Alpha">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20There%20can%20be%20only%20one:%20LAPACK%20and%20F2C%20vs%20G77%20on%20the%20Alpha">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0195.html">Chris Lawrence: "Re: Slink release - what's left?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Feb 16 1999 - 19:00:26 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

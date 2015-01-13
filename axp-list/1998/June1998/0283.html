@@ -1,0 +1,122 @@
+<!-- received="Mon Jun 29 19:09:51 1998 " -->
+<!-- sent="Fri, 8 May 1998 18:27:49 +0200 (MET DST)" -->
+<!-- name="Maciej W. Rozycki" -->
+<!-- email="macro@ds2.pg.gda.pl" -->
+<!-- subject="RE: rescue root floppy" -->
+<!-- id="199805072334.CAA04653@kaarne.cs.tut.fi" -->
+<!-- inreplyto="Pine.LNX.3.95.980508071017.7075B-100000@air.steve.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RE: rescue root floppy</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RE: rescue root floppy</h2>
+
+<b>Maciej W. Rozycki</b> (<a href="mailto:macro@ds2.pg.gda.pl"><i>macro@ds2.pg.gda.pl</i></a>)<br>
+<i>Fri, 8 May 1998 18:27:49 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#283">[ date ]</a><a href="index.html#283">[ thread ]</a><a href="subject.html#283">[ subject ]</a><a href="author.html#283">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0284.html">Ian Kinner: "Re: Last kernel Version"</a>
+<li> <b>Previous message:</b> <a href="0282.html">Todd Fleisher: "libc rpm?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 8 May 1998, Steven N. Hirsch wrote:<br>
+<p>
+<i>&gt; On Fri, 8 May 1998, Alan Wood wrote:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; As this uses PAM, it may need the /etc/pam.* files, and if these reference </i><br>
+<i>&gt; &gt; any of the PAM modules, then these will need to be in /lib/security. </i><br>
+<i>&gt; </i><br>
+<i>&gt; Yes, and by that time you are out of room on a floppy.  I've been through</i><br>
+<i>&gt; this exact exercise...</i><br>
+<i>&gt; </i><br>
+<i>&gt; In order to pull it off, you'd need to build a non-Pamified login (and</i><br>
+<i>&gt; perhaps other things as well).</i><br>
+<p>
+ Why?  All necessary binaries including PAM libraries fit perfectly on a<br>
+single floppy:<br>
+<p>
+# ls -la root.img*<br>
+-r--r--r--   1 root     root      1285201 Mar  1 18:40 root.img.gz<br>
+-rw-r--r--   1 root     root      6291456 Mar  1 18:40 root.img<br>
+# mount -o loop root.img rd<br>
+# df rd<br>
+Filesystem         1024-blocks  Used Available Capacity Mounted on<br>
+/root/alpha/root.img    5371    3739     1632     70%   /root/alpha/rd<br>
+# cd rd<br>
+# chroot . bash<br>
+# ldd /bin/login<br>
+        libcrypt.so.1.1 =&gt; /lib/libcrypt.so.1.1 (0x0000020000002000)<br>
+        libpam.so.0 =&gt; /lib/libpam.so.0 (0x000002000013c000)<br>
+        libdl.so.2.1 =&gt; /lib/libdl.so.2.1 (0x0000020000246000)<br>
+        libpam_misc.so.0 =&gt; /lib/libpam_misc.so.0 (0x000002000034a000)<br>
+        libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x000002000044c000)<br>
+        /lib/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0x0000020001000000)<br>
+# ls /lib/*<br>
+/lib/ld-2.0.6.so             /lib/libnss_db.so.1.1<br>
+/lib/ld-linux.so.2           /lib/libnss_dns-2.0.6.so<br>
+/lib/libc-2.0.6.so           /lib/libnss_dns.so.1.1<br>
+/lib/libc.so.6.1             /lib/libnss_files-2.0.6.so<br>
+/lib/libcom_err.so.2         /lib/libnss_files.so.1.1<br>
+/lib/libcom_err.so.2.0       /lib/libnss_nis-2.0.6.so<br>
+/lib/libcrypt-2.0.6.so       /lib/libnss_nis.so.1.1<br>
+/lib/libcrypt.so.1.1         /lib/libpam.so.0<br>
+/lib/libdl-2.0.6.so          /lib/libpam.so.0.59<br>
+/lib/libdl.so.2.1            /lib/libpam_misc.so.0<br>
+/lib/libe2p.so.2             /lib/libpam_misc.so.0.59<br>
+/lib/libe2p.so.2.3           /lib/libproc.so.1.2<br>
+/lib/libext2fs.so.2          /lib/libtermcap.so.2<br>
+/lib/libext2fs.so.2.3        /lib/libtermcap.so.2.0.8<br>
+/lib/libnsl-2.0.6.so         /lib/libutil-2.0.6.so<br>
+/lib/libnsl.so.1.1           /lib/libutil.so.1.1<br>
+/lib/libnss_compat-2.0.6.so  /lib/libuuid.so.1<br>
+/lib/libnss_compat.so.1.1    /lib/libuuid.so.1.1<br>
+/lib/libnss_db-2.0.6.so<br>
+<p>
+/lib/security:<br>
+pam_pwdb.so<br>
+<p>
+ Seems that everthing necessary is in place and there is still some room<br>
+left -- the image is somewhat smaller than 1474560 bytes.<br>
+<p>
+<pre>
+--
++  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
++--------------------------------------------------------------+
++        e-mail: <a href="mailto:macro@ds2.pg.gda.pl">macro@ds2.pg.gda.pl</a>, PGP key available        +
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0284.html">Ian Kinner: "Re: Last kernel Version"</a>
+<li> <b>Previous message:</b> <a href="0282.html">Todd Fleisher: "libc rpm?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

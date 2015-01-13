@@ -1,0 +1,368 @@
+#!/bin/bash
+################################################################################
+# Compiles a KDE2 snapshot.                                                    #
+# 2000 by Frerich Raabe <raabe@kde.org>                                        #
+################################################################################
+
+# Where are your KDE sources?
+#
+SRCDIR=/discs/c7/kdeb4
+
+# Where shall I put the binaries?
+#
+KDE2DIR=/discs/deskapps/built/kde
+
+# Where is your Qt 2.2.0?
+#
+QTDIR=/discs/c7/kde-built/qt-2.2.0-beta2
+
+# If you would like logfiles of the compilation process, specify a directory
+# here in which the logfiles will be saved. If you want to disable logfile
+# generation, leave this blank.
+#
+LOGDIR=$SRCDIR/log
+
+# It is a good idea to remove the configuration directories of the previous
+# KDE desktop by deleting ~/.kderc and ~/.kde. If you would like to have this
+# script do this automatically for you, add the home directories of the users
+# whose KDE configuration should be resetted to this space seperated list.
+#
+HOMEDIR=""
+
+# Do you want the logfiles to be compressed? Set this variable to "yes" to
+# make the script compress the logfiles using bzip2 (using gzip as a
+# fallback is bzip2 cannot be found) and thereby save some diskspace
+COMPRESSLOGS=yes
+
+# Add modules you want to get compiled to this space-seperated list. Please
+# note that the modules kde-qt-addon, kdesuppor, kdelibs, and kdebase
+# (if you want a KDE2 desktop and not just develope applications for it)
+# must be compiled in exactly that order. Any other modules are optional.
+#
+MODULES="kdesupport kdelibs kdebase kdegraphics kdenetwork \
+         kdegames kdeadmin kdetoys kdeutils kdepim kdemultimedia koffice"
+
+# Do you want a clean install? This is recommended but please note that
+# you cannot use your previous KDE2 desktop while the compilation is
+# running. Set this to "no" to install the new snapshot over the previous
+# one, otherwise set it to "yes".
+#
+INSTALLFROMSCRATCH=no
+
+# Do you plan to use this box otherwise while compiling? If so, you'd
+# probably set this variable to "yes". If this is set to "no", the
+# compilation process will try to eat up all the ressources, which speeds up
+# the overall progress but makes it a PITA to work on this box. ;)
+#
+COMPILENICE=yes
+
+# Set this variable to "yes" to actiave certain cheap tweaks to speed up the
+# compilation process. Those tweaks mainly consist of lowering the
+# optimization of the resulting binary code.
+#
+TWEAKCOMPILE=yes
+
+## Don't modify anything below this line! ######################################
+
+# These strings are defined as variables to make the output look more
+# consistent.
+#
+STR_OKAY="done!"
+STR_ERROR="failed!"
+
+# The variables whose name is prefixed with ERR_ hold the error codes which
+# are returned by the script and depend on the reason for aborting the
+# execution.
+#
+# No error has been noticed, everything seems to be fine.
+#
+ERR_NO_ERROR=0
+
+# Could not change into a directory of a module - wrong owner/access
+# settings?
+#
+ERR_CHANGE_INTO_MOD_DIR=1
+
+# Could not find the file 'Makefile.in' for a module, mostly happens if
+# 'make -f Makefile.cvs' hasn't been executed for a module.
+#
+ERR_NO_MAKEFILE_IN=2
+
+# The 'configure' command failed for a module because the system doesn't
+# support certain features - I hope you activated logfile generation... ;)
+#
+ERR_CONFIGURE_FAIL=3
+
+# The compilation of a module failed - if the module is defined in
+# $CRITICAL_MODULES (see below) the execution is aborted, otherwise the script
+# will continue with the next module.
+#
+ERR_COMPILE_FAIL=4
+
+# The installation of a module failed - this mostly happens if there's not
+# enough free disk space on the partition which $KDE2DIR is mounted to.
+#
+ERR_INSTALL_FAIL=5
+
+# The $SRCDIR variable wasn't set or contains a non-existant directory.
+#
+ERR_INV_SRCDIR=6
+
+# The $QTDIR variable wasn't set, points to a non-existant directory or
+# doesn't contain a bin/, lib/, or include/ subdirectory.
+#
+ERR_INV_QTDIR=7
+
+# Certain modules depend on others - those "base" modules which are required
+# by others to compile and/or run should be listed here to ensure that the
+# script is aborted.
+#
+CRITICAL_MODULES="kde-qt-addon kdesupport kdelibs kdebase"
+
+# Internal variable, do not change.
+#
+DATE=`date +%Y%m%d`
+
+# This function computes the time which was needed for a certain task.
+#
+compute_time() {
+  DURATION=$[$(date +%s)-$STARTTIME]
+  HOURS=$[$DURATION / 3600]
+  MINUTES=$[$[$DURATION % 3600] / 60]
+  SECONDS=$[$DURATION % 60]
+}
+
+# This function installs a compiled CVS module.
+#
+install_module() {
+  echo -n "  Installing..."
+  test $LOGDIR && STARTTIME=`date +%s`
+  if eval "$MAKE_INSTALL"; then
+    if test $LOGDIR; then
+      compute_time
+      echo "Time needed for installation of module $MODULE: $HOURS:$MINUTES:$SECONDS" >> $MAKE_INSTALL_LOG
+    fi
+    test $CMD_COMPRESS && $CMD_COMPRESS $MAKE_INSTALL_LOG
+    echo -e $STR_OKAY
+    echo "Module $MODULE successfully installed in $KDE2DIR!"
+    if test "$MODULE" = kdebase -a -n $HOMEDIR; then
+      for HOME in $HOMEDIR; do
+        test -d $HOME/.kde -a -w $HOME/.kde && rm -rf $HOME/.kde
+        test -e $HOME/.kderc -a -w $HOME/.kderc && rm -f $HOME/.kderc
+      done
+    fi
+  else
+    echo -e $STR_ERROR
+    echo $CRITICAL_MODULES | grep -q $MODULE && exit $ERR_INSTALL_FAIL
+  fi
+}
+
+# Various checks to ensure that valid data has been specified, creates the
+# directory for the logfile in case it doesn't exist already.
+#
+if test -n "$LOGDIR" -a ! -d "$LOGDIR"; then
+  if ! mkdir -p "$LOGDIR" > /dev/null 2>&1; then
+    echo "WARNING: Could not create logfile-directory."
+    echo "WARNING: Logfile generation deactivated."
+    LOGDIR=""
+  fi
+else
+  if test -n "$LOGDIR" -a ! -w "$LOGDIR"; then
+    echo "WARNING: Could not obtain write access to specified logfile-directory."
+    echo "WARNING: Logfile generation deactivated."
+    LOGDIR=""
+  fi
+fi
+test $LOGDIR && STR_ERROR="$STR_ERROR\x00a\x00d\x020\x020Check the logfile in $LOGDIR for further info."
+if test ! -d "$SRCDIR"; then
+  echo "ERROR: Invalid source directory specified!"; exit $ERR_INV_SRCDIR
+fi
+if test ! -d "$QTDIR" -o ! -d "$QTDIR/lib" -o ! -d "$QTDIR/bin" -o ! -d "$QTDIR/include"; then
+  echo "ERROR: Invalid Qt directory specified!"; exit $ERR_INV_QTDIR
+fi
+if test -x /usr/bin/bzip2; then
+  CMD_COMPRESS="/usr/bin/bzip2"
+else
+  if test -x /usr/bin/gzip; then
+    CMD_COMPRESS="/usr/bin/gzip"
+  else
+    echo "WARNING: Neither bzip2 nor gzip was found, disabling compression of logfiles."
+    CMD_COMPRESS=""
+  fi
+fi
+
+# Clean the installation directory if selected.
+#
+if test "$INSTALLFROMSCRATCH" = yes; then
+  if test ! -w $KDE2DIR; then
+    echo "Enter the root password to clean the installation directory."
+    echo "WARNING: All files and directories in $KDE2DIR will be deleted!"
+    echo -n ""
+    su -c"rm -rf $KDE2DIR/*"
+  else
+    rm -rf $KDE2DIR/*
+  fi
+fi
+
+# Optionally activate cheap tweaks.
+#
+if test "$TWEAKCOMPILE" = yes; then
+  CFLAGS="-O0"
+  CXXFLAGS="-O0"
+  export CFLAGS CXXFLAGS
+fi
+
+# Actually start doing something.
+#
+for MODULE in $MODULES; do
+  if ! cd $SRCDIR/$MODULE; then
+    if echo $CRITICAL_MODULES | grep -q $MODULE; then
+      echo "ERROR: Could not change into directory $SRCDIR/$MODULE!"
+      exit $ERR_CHANGE_INTO_MOD_DIR
+    else
+      echo "WARNING: Could not change into directory $SRCDIR/$MODULE."
+      echo "WARNING: Skipping module $MODULE."
+    fi
+  else
+    cd $SRCDIR/$MODULE
+
+    # Check whether 'make -f Makefile.cvs' has been called.
+    #
+    if test ! -e Makefile.in; then
+      if echo $CRITICAL_MODULES | grep -q $MODULE; then
+        echo "ERROR: Please execute 'make -f Makefile.cvs' first for this module!"
+        exit $ERR_NO_MAKEFILE_IN
+      else
+        echo "WARNING: 'make -f Makefile.cvs' seems not to be executed for this"
+        echo "WARNING: module, skipping compilation."
+      fi
+    else
+      echo "Building module: $MODULE"
+
+      # Configure the module.
+      #
+      echo -n "  Configuring..."
+      CONFIGURE="configure --enable-debug --enable-profile --prefix=$KDE2DIR --with-qt-libs=$QTDIR"
+      test "$NICECOMPILE" = yes && CONFIGURE="nice $CONFIGURE"
+      CONFIGURE_LOG="$LOGDIR/$MODULE-configure-$DATE"
+      if test $LOGDIR; then
+        CONFIGURE="$CONFIGURE > $CONFIGURE_LOG 2>&1"
+        STARTTIME=`date +%s`
+      fi
+
+      if eval "$CONFIGURE"; then
+        if test $LOGDIR; then
+          compute_time
+          echo "Time needed for configuration of module $MODULE: $HOURS:$MINUTES:$SECONDS" >> $CONFIGURE_LOG
+        fi
+        test $CMD_COMPRESS && $CMD_COMPRESS $CONFIGURE_LOG
+        echo -e $STR_OKAY
+
+        # Compile the module.
+        #
+        echo -n "  Compiling..."
+        MAKE="make"
+        MAKE_LOG="$LOGDIR/$MODULE-build-$DATE"
+        echo $CRITICAL_MODULES | grep -q $MODULE || MAKE="$MAKE -k"
+        if test $LOGDIR; then
+          MAKE="$MAKE > $MAKE_LOG 2>&1"
+          STARTTIME=`date +%s`
+        fi
+        test "$NICECOMPILE" = yes && MAKE="nice $MAKE"
+
+        if eval "$MAKE"; then
+          if test $LOGDIR; then
+            compute_time
+            echo "Time needed for compilation of module $MODULE: $HOURS:$MINUTES:$SECONDS" >> $MAKE_LOG
+          fi
+          test $CMD_COMPRESS && $CMD_COMPRESS $MAKE_LOG
+          echo -e $STR_OKAY
+
+          # Install the module.
+          #
+          MAKE_INSTALL="make install"
+          MAKE_INSTALL_LOG="$LOGDIR/$MODULE-install-$DATE"
+          test $LOGDIR && MAKE_INSTALL="$MAKE_INSTALL > $MAKE_INSTALL_LOG 2>&1"
+          test "$NICECOMPILE" = yes && MAKE_INSTALL="nice $MAKE_INSTALL"
+          if test ! -w $KDE2DIR; then
+            echo "  Please enter the root password to install module $MODULE."
+            echo -n "  "
+            su -c"install_module"
+          else
+            install_module
+          fi
+        else
+          echo -e $STR_ERROR
+          echo $CRITICAL_MODULES | grep -q $MODULE && exit $ERR_COMPILE_FAIL
+        fi
+      else
+        echo -e $STR_ERROR
+        echo $CRITICAL_MODULES | grep -q $MODULE && exit $ERR_CONFIGURE_FAIL
+      fi
+    fi
+  fi
+done
+
+exit $ERR_NO_ERROR
+
+=head1 NAME
+
+kde-rebuild - Recompiles a tree of KDE CVS modules
+
+=head1 SYNOPSIS
+
+        kde-rebuild
+
+=head1 DESCRIPTIONS
+
+kde-rebuild is intended to recompile a tree of KDE source modules. Those
+modules have to be saved in a common directory, e.g. /kde-cvs/kdelibs,
+/kde-cvs/kdebase, /kde-cvs/kdegraphics etc. The script will take care
+of compiling them in the correct order, checks for dependencies and
+solves them. Before first invokation, the variables at the top of the
+file should be filled with appropriate values to reflect the local
+setup.
+
+Please note that KDE sources which have been downloaded via cvs,
+anoncvs or cvsup have to be prepared in a special matter (e.g. execute
+'make -f Makefile.cvs' and, for cvsup, link kde-common/admin to
+./admin) to be compile ready. Sources which have been aquired from
+tarballs or source RPMs should be compile-ready. Refer to the
+according documentation at http://www.kde.org/cvsup.html for detailed
+information.
+
+=head1 RETURN VALUE
+
+The following error codes are returned by the script.
+
+0 - No error seems to have occured
+
+1 - The script could not change into the directory of a module
+
+2 - The script could not open the file 'Makefile.in' of a module
+
+3 - The configuration of a module failed
+
+4 - The compilation of a module failed
+
+5 - The installation of a module failed
+
+6 - An invalid source directory was specified
+
+7 - An invalid Qt directory was specified
+
+=head1 EXAMPLES
+
+        cd /home/devel/src/scripts; kde-rebuild
+
+=head1 BUGS
+
+Lots, mostly that the script wasn't written with portability in mind
+and therefore won't run very nice on platforms other than Linux.
+
+=head1 AUTHOR
+
+Frerich Raabe <raabe@kde.org>
+
+=cut
+

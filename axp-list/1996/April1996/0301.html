@@ -1,0 +1,201 @@
+<!-- received="Sun Apr 21 13:42:00 1996 " -->
+<!-- sent="Sun, 21 Apr 96 13:42 PDT" -->
+<!-- name="Eric Smith" -->
+<!-- email="eric@goonsquad.spies.com" -->
+<!-- subject="inet patches for multihomed hosts (and IP aliasing)" -->
+<!-- id="m0uB5xz-001Uz3C@goonsquad.spies.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>inet patches for multihomed hosts (and IP aliasing)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>inet patches for multihomed hosts (and IP aliasing)</h2>
+
+<b>Eric Smith</b> (<a href="mailto:eric@goonsquad.spies.com"><i>eric@goonsquad.spies.com</i></a>)<br>
+<i>Sun, 21 Apr 96 13:42 PDT</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#301">[ date ]</a><a href="index.html#301">[ thread ]</a><a href="subject.html#301">[ subject ]</a><a href="author.html#301">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0302.html">Erik Troan: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<li> <b>Previous message:</b> <a href="0300.html">Erik Troan: "Re: ALPHA and Oracle 7"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0307.html">Nigel Metheringham: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<li> <b>Maybe reply:</b> <a href="0307.html">Nigel Metheringham: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+This isn't really Alpha-specific (or even Linux-specific) but since I got it<br>
+working on Red Hat Linux AXP 2.1, I thought I'd share it in case anyone else<br>
+is trying to use an Alpha as an internet server platform.<br>
+<p>
+I upgraded my server machine to the 1.3.90 and turned on IP aliasing.  The<br>
+Apache web server can be easily configured to serve separate directory<br>
+heirarchies to the multiple IP addresses.  However, I also want different<br>
+FTP directories, and I don't want other services (such as Telnet) showing up<br>
+on all the IP addresses.<br>
+<p>
+I came up with a patch (below) to inetd, which adds the ability to specify<br>
+a secific host name or address for each service.<br>
+<p>
+Note that this doesn't solve the problem for other services such as<br>
+named, since they aren't started by inetd.  Rather than patch all such<br>
+programs, I think I will hack the library so that when bind() is called,<br>
+if the IP addrees is 0 and an environment variable (FORCE_IP_ADDR) is<br>
+defined, that the value of the latter gets substituted.<br>
+<p>
+Cheers,<br>
+Eric<br>
+-----------------------------------------------------------------------------<br>
+--- inetd.c.orig	Mon May 23 02:04:45 1994<br>
++++ inetd.c	Sun Apr 21 13:37:11 1996<br>
+@@ -87,6 +87,29 @@<br>
+  * Comment lines are indicated by a `#' in column 1.<br>
+  */<br>
+ <br>
++#ifdef MULTIHOME<br>
++/*<br>
++ * Multihome patch by Eric Smith, 4/19/96<br>
++ * <br>
++ * With this patch enabled, the first field on a line (for non-RPC services)<br>
++ * may be of the format host_name:service_name.  On a multi-homed host, this<br>
++ * is useful to restrict a service to accept connections on only one IP<br>
++ * address, or to run different instances of a service on different IP<br>
++ * addresses.<br>
++ *<br>
++ * If the host name is given as a DNS name, it has to be resolved when inetd<br>
++ * is started (and restarted).  On many systems DNS isn't operational that<br>
++ * early in the boot process; in this case there should be /etc/hosts entries.<br>
++ * Alternatively the host can be specified using dotted decimal notation.<br>
++ *<br>
++ * If no colon is present, or if the host is specified as "*", the original<br>
++ * behavior of wildcarding the address is used.<br>
++ *<br>
++ * This patch has been tested on a Digital UDB (aka Multia) running<br>
++ * Red Hat Linux/AXP 2.1 and Linux kernel version 1.3.90.<br>
++ */<br>
++#endif /* MULTIHOME */<br>
++<br>
+ /*<br>
+  * Here's the scoop concerning the user.group feature:<br>
+  *<br>
+@@ -185,6 +208,9 @@<br>
+ #endif<br>
+ <br>
+ struct	servtab {<br>
++#ifdef MULTIHOME<br>
++        char    *se_host;               /* hostname */<br>
++#endif /* MULTIHOME */<br>
+ 	char	*se_service;		/* name of service */<br>
+ 	int	se_socktype;		/* type of socket to use */<br>
+ 	int	se_family;		/* address family */<br>
+@@ -272,6 +298,32 @@<br>
+ }<br>
+ #endif<br>
+ <br>
++<br>
++#ifdef MULTIHOME<br>
++void get_host_addr (char *cp, struct in_addr *a)<br>
++{<br>
++  int tmp;<br>
++  struct hostent *host;<br>
++<br>
++  a-&gt;s_addr = 0;<br>
++<br>
++  if ((!cp) || (*cp == '\0') || (strcmp (cp, "*") == 0))<br>
++    a-&gt;s_addr = 0;<br>
++  else if ((tmp = inet_addr(cp)) != -1)<br>
++    a-&gt;s_addr = tmp;<br>
++  else if (host = gethostbyname (cp))<br>
++    {<br>
++      if (host-&gt;h_addrtype == AF_INET)<br>
++	memcpy (a, host-&gt;h_addr, sizeof (struct in_addr));<br>
++      else<br>
++	syslog(LOG_WARNING, "non-IP host '%s'\n", cp);<br>
++    }<br>
++  else<br>
++    syslog(LOG_WARNING, "can't resolve host '%s'\n", cp);<br>
++  return;<br>
++}<br>
++#endif /* MULTIHOME */<br>
++<br>
+ main(argc, argv, envp)<br>
+ 	int argc;<br>
+ 	char *argv[], *envp[];<br>
+@@ -617,6 +669,9 @@<br>
+ 		case AF_INET:<br>
+ 			sep-&gt;se_ctrladdr_in.sin_family = AF_INET;<br>
+ 			sep-&gt;se_ctrladdr_size = sizeof sep-&gt;se_ctrladdr_in;<br>
++#ifdef MULTIHOME<br>
++			get_host_addr (sep-&gt;se_host, &amp; sep-&gt;se_ctrladdr_in.sin_addr);<br>
++#endif /* MULTIHOME */<br>
+ 			if (isrpcservice(sep)) {<br>
+ 				struct rpcent *rp;<br>
+ <br>
+@@ -880,6 +935,9 @@<br>
+ 	register struct servtab *sep = &amp;serv;<br>
+ 	int argc;<br>
+ 	char *cp, *arg, *newstr();<br>
++#ifdef MULTIHOME<br>
++	char *cp2;<br>
++#endif /* MULTIHOME */<br>
+ <br>
+ more:<br>
+ #ifdef MULOG<br>
+@@ -918,6 +976,16 @@<br>
+ 		return ((struct servtab *)0);<br>
+ 	bzero((char *)sep, sizeof *sep);<br>
+ 	sep-&gt;se_service = newstr(skip(&amp;cp));<br>
++#ifdef MULTIHOME<br>
++	if (cp2 = strchr (sep-&gt;se_service, ':'))<br>
++	  {<br>
++	    sep-&gt;se_host = sep-&gt;se_service;<br>
++	    sep-&gt;se_service = newstr (cp2+1);<br>
++	    *cp2 = '\0';<br>
++	  }<br>
++	else<br>
++	  sep-&gt;se_host = newstr ("*");<br>
++#endif /* MULTIHOME */<br>
+ 	arg = skip(&amp;cp);<br>
+ 	if (arg == NULL)<br>
+ 		goto more;<br>
+@@ -1049,6 +1117,10 @@<br>
+ {<br>
+ 	int i;<br>
+ <br>
++#ifdef MULTIHOME<br>
++	if (cp-&gt;se_host)<br>
++		free(cp-&gt;se_host);<br>
++#endif MULTIHOME<br>
+ 	if (cp-&gt;se_service)<br>
+ 		free(cp-&gt;se_service);<br>
+ 	if (cp-&gt;se_proto)<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0302.html">Erik Troan: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<li> <b>Previous message:</b> <a href="0300.html">Erik Troan: "Re: ALPHA and Oracle 7"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0307.html">Nigel Metheringham: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<li> <b>Maybe reply:</b> <a href="0307.html">Nigel Metheringham: "Re: inet patches for multihomed hosts (and IP aliasing)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

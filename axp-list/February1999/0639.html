@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: AS200 pcmcia success!</TITLE>
+<META NAME="Author" CONTENT="Larry Snyder (larrys@lexis-nexis.com)">
+<META NAME="Subject" CONTENT="AS200 pcmcia success!">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>AS200 pcmcia success!</H1>
+<HR>
+<P>
+<!-- received="Mon Feb 22 02:40:00 1999 PST" -->
+<!-- sent="Sun, 21 Feb 1999 18:42:59 -0500 (EST)" -->
+<!-- name="Larry Snyder" -->
+<!-- email="larrys@lexis-nexis.com" -->
+<!-- subject="AS200 pcmcia success!" -->
+<!-- id="199902212343.SAA11032@ra.lexis-nexis.com" -->
+<!-- inreplyto="Pine.LNX.4.05.9902210108240.13075-100000@earth.terran.org" -->
+<STRONG>Larry Snyder</STRONG> (<A HREF="mailto:larrys@lexis-nexis.com?subject=Re:%20AS200%20pcmcia%20success!"><EM>larrys@lexis-nexis.com</EM></A>)<BR>
+<EM>Sun, 21 Feb 1999 18:42:59 -0500 (EST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#639">[ date ]</A>
+<A HREF="index.html#639">[ thread ]</A>
+<A HREF="subject.html#639">[ subject ]</A>
+<A HREF="author.html#639">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0640.html">James Hamilton: "?? Booting Redhat from ARC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0638.html">Daniel J. Frasnelli: "Re: 2.2.2pre5 followup (semaphores)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0637.html">Robert Bowles: "Re: 2.2.2pre5 followup (semaphores)"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thanks, folks, you both pointed me in the right direction.
+<BR>
+<P>The fix (lifted from a post to the 'beta' discussion group on
+<BR>
+hyper.stanford.edu from <A HREF="mailto:Marc.Zyngier@bull.net?subject=Re:%20AS200%20pcmcia%20success!">Marc.Zyngier@bull.net</A>):
+<BR>
+<P>In dump_i365.c add the following right after the first three #includes
+<BR>
+<P>#ifdef __alpha__
+<BR>
+#ifndef outb_p
+<BR>
+#define outb_p outb
+<BR>
+#endif
+<BR>
+#ifndef inb_p
+<BR>
+#define inb_p inb
+<BR>
+#endif
+<BR>
+#endif
+<BR>
+<P>The header files were being included, the conditional stuff was what
+<BR>
+shot me.  Oh yeah, the other problem was my bad.  I brewed up a new
+<BR>
+kernel w/ monolithic ide support (and parport ide, just in case pcmcia
+<BR>
+uses any of the same hooks) and my ide_register/unregister problems
+<BR>
+vanished.  Ide as a set of modules didn't work, even if manually
+<BR>
+insmod'd before plugging the flash card in.  Amazing how easy it can
+<BR>
+become to forget about ide when you get wrapped up in these boxes :-)
+<BR>
+Thanx again,
+<BR>
+-ls- 
+<BR>
+<P><P><P><P>&quot;B. James Phillippe&quot; &lt;<A HREF="mailto:bryan@terran.org?subject=Re:%20AS200%20pcmcia%20success!">bryan@terran.org</A>&gt; wrote:
+<BR>
+<EM>&gt; On Sat, 20 Feb 1999, Michal Jaegermann wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Larry Snyder wrote:
+</EM><BR>
+<EM>&gt; &gt; &gt; dump_i365.c(.text+0x28): undefined reference to `outb_p'
+</EM><BR>
+<EM>&gt; &gt; &gt; dump_i365.c(.text+0x40): undefined reference to `inb_p'
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; ...
+</EM><BR>
+<EM>&gt; &gt; That reveals immediately that outb_p (and inb_p) is a macro defined
+</EM><BR>
+<EM>&gt; &gt; in &lt;asm/io.h&gt;.  Looks like that the header was not included, so
+</EM><BR>
+<EM>&gt; &gt; include it.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It seems pausing IO functions are only defined #ifdef __KERNEL__ in
+</EM><BR>
+<EM>&gt; &lt;asm/io.h&gt;.  Perhaps he should try adding -D__KERNEL__ to the CFLAGS.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -bp
+</EM><BR>
+<EM>&gt; --
+</EM><BR>
+<EM>&gt; B. James Phillippe		. <A HREF="mailto:bryan@terran.org?subject=Re:%20AS200%20pcmcia%20success!">bryan@terran.org</A>
+</EM><BR>
+<EM>&gt; Software Engineer, WGT Inc.	. <A HREF="http://www.terran.org/~bryan">http://www.terran.org/~bryan</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20AS200%20pcmcia%20success!">axp-list-request@redhat.com</A> with
+</EM><BR>
+<EM>&gt; 'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20AS200%20pcmcia%20success!">axp-list@redhat.com</A>
+</EM><BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20AS200%20pcmcia%20success!">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20AS200%20pcmcia%20success!">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0640.html">James Hamilton: "?? Booting Redhat from ARC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0638.html">Daniel J. Frasnelli: "Re: 2.2.2pre5 followup (semaphores)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0637.html">Robert Bowles: "Re: 2.2.2pre5 followup (semaphores)"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Feb 21 1999 - 19:00:07 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [PATCH] bogoRe: [PATCH] bogo-resource-man</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)</H1>
+<HR>
+<P>
+<!-- received="Sat May 13 20:17:45 2000" -->
+<!-- isoreceived="20000514031745" -->
+<!-- sent="Fri, 12 May 2000 14:06:30 -0600 (MDT)" -->
+<!-- isosent="20000512200630" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)" -->
+<!-- id="200005122006.OAA01012@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="87u2g3wqxx.fsf@linuxcare.com" -->
+<STRONG>Subject: </STRONG>Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Fri May 12 2000 - 13:06:30 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#23">[ date ]</A>
+<A HREF="index.html#23">[ thread ]</A>
+<A HREF="subject.html#23">[ subject ]</A>
+<A HREF="author.html#23">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Jay Estabrook: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0024.html">Jay Estabrook: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0022.html">Michal Jaegermann: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+David Huggins-Daines wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Michal Jaegermann &lt;michal@ellpspace.math.ualberta.ca&gt; writes:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Nothing exciting, I am afraid.  An attempt to
+</EM><BR>
+<EM>&gt; &gt; boot got stuck on &quot;Calibrating delay loop... &quot; with a power switch as
+</EM><BR>
+<EM>&gt; &gt; the only option out.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Hm, well, I doubt that it's the bios32.c changes that cause that
+</EM><BR>
+<EM>&gt; problem, since the PCI bus layout happens well after that.
+</EM><BR>
+<P>No, it is not bios32.  I know now more.  The problem turned out to be,
+<BR>
+as expected :-), in changes from arch/alpha/kernel/time.c.
+<BR>
+<P>If hwrpb-&gt;cycle_freq is 0, and it is in UX case, then ppm_error
+<BR>
+calculation divides by zero and I was ending up with a pretty
+<BR>
+small error of 0 (why not? it can be anything :-).  As a result
+<BR>
+cycle_freq was left at 0 and a calibrating loop was stuck.
+<BR>
+<P>An included modified patch to time.c from 2.2.15 sets ppp_error in
+<BR>
+such case above a cutoff value of 1000.   This restores an old
+<BR>
+behaviour and UX boots with the following messages:
+<BR>
+<P>..........................
+<BR>
+... Trust DeskStation firmware!
+<BR>
+HWRPB cycle frequency (0) seems inaccurate -
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;using the measured value of 599935302 Hz
+<BR>
+Console: colour VGA+ 80x25
+<BR>
+Calibrating delay loop... 597.69 BogoMIPS
+<BR>
+..........................
+<BR>
+<P><P>Comments?  I do not know which other boards will be caught in the
+<BR>
+same trap.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+&nbsp;&nbsp;michal@harddata.com
+<BR>
+<P>--- linux-2.2.15/arch/alpha/kernel/time.c.orig	Thu May 11 19:07:16 2000
+<BR>
++++ linux-2.2.15/arch/alpha/kernel/time.c	Fri May 12 13:30:40 2000
+<BR>
+@@ -237,7 +237,8 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+-	unsigned long cycle_freq, one_percent;
+<BR>
++	unsigned long cycle_freq, ppm_error = 1024UL;
+<BR>
++	/* force &quot;inaccurate frequency&quot; if cycle_freq is 0 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long diff;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+@@ -262,17 +263,26 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cc1 = cc2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-	/* If the given value is within 1% of what we calculated, 
+<BR>
+-	   accept it.  Otherwise, use what we found.  */
+<BR>
++	/* This code used to check for a 1% error.
+<BR>
++	 * PWS600au reports 598802395 which is way off. (ntpd has problems.)
+<BR>
++	 * So I tightened down the check.  Hal Murray, Feb 27, 2000.
+<BR>
++	 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycle_freq = hwrpb-&gt;cycle_freq;
+<BR>
+-	one_percent = cycle_freq / 100;
+<BR>
+-	diff = cycle_freq - est_cycle_freq;
+<BR>
+-	if (diff &lt; 0)
+<BR>
+-		diff = -diff;
+<BR>
+-	if (diff &gt; one_percent) {
+<BR>
++	if (0 != cycle_freq) {
+<BR>
++		diff = cycle_freq - est_cycle_freq;
+<BR>
++		if (diff &lt; 0)
+<BR>
++			diff = -diff;
+<BR>
++		ppm_error = (diff * 1000000L) / cycle_freq;
+<BR>
++	}
+<BR>
++#if 0
+<BR>
++	printk(&quot;Alpha clock init: HWRPB %lu, Measured %lu, error=%lu ppm.\n&quot;,
+<BR>
++	       hwrpb-&gt;cycle_freq, est_cycle_freq, ppm_error);
+<BR>
++#endif
+<BR>
++ 	if (ppm_error &gt; 1000) {
+<BR>
++		printk(&quot;HWRPB cycle frequency (%lu) seems inaccurate -&quot;
+<BR>
++		       &quot; using the measured value of %lu Hz\n&quot;,
+<BR>
++		       cycle_freq, est_cycle_freq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycle_freq = est_cycle_freq;
+<BR>
+-		printk(&quot;HWRPB cycle frequency bogus.  Estimated %lu Hz\n&quot;,
+<BR>
+-		       cycle_freq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;est_cycle_freq = 0;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Jay Estabrook: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0024.html">Jay Estabrook: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0022.html">Michal Jaegermann: "Re: [PATCH] bogoRe: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

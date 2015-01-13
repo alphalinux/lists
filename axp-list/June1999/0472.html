@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel</TITLE>
+<META NAME="Author" CONTENT="Larry Sendlosky (larry@scrugs.lkg.dec.com)">
+<META NAME="Subject" CONTENT="Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)</H1>
+<HR>
+<P>
+<!-- received="Tue Jun 22 19:12:28 1999" -->
+<!-- isoreceived="19990623021228" -->
+<!-- sent="Tue, 22 Jun 99 14:28:19 EDT" -->
+<!-- isosent="19990622182819" -->
+<!-- name="Larry Sendlosky" -->
+<!-- email="larry@scrugs.lkg.dec.com" -->
+<!-- subject="Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)" -->
+<!-- id="CMM.0.90.4.930076099.larry@scrugs.lkg.dec.com" -->
+<!-- inreplyto="Tue, 22 Jun 1999 21:37:32 +0400" -->
+<STRONG>Subject: </STRONG>Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)<BR>
+<STRONG>From: </STRONG>Larry Sendlosky (<EM>larry@scrugs.lkg.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jun 22 1999 - 11:28:19 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#472">[ date ]</A>
+<A HREF="index.html#472">[ thread ]</A>
+<A HREF="subject.html#472">[ subject ]</A>
+<A HREF="author.html#472">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0473.html">norvierk@muohio.edu: "Re: x11amp/ esd crashes me hard"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0471.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0471.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0496.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0471.html">Larry Sendlosky: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi all,
+<BR>
+<P>Either I'm confused, or nobody reads Richard Henderson's posts
+<BR>
+to the lists. Concerning the addition of the tbia patch below, Richard
+<BR>
+claims that it is not needed because ASNs are being used. He then
+<BR>
+posted a patch yesterday for a bug(s) regarding the wrong ASNs being
+<BR>
+set for a context during certain circumstances. Has anybody tried
+<BR>
+his patch against 2.2.10 to see if their problems go away?
+<BR>
+<P>I've been running his patch on a uni EV6 and a dual EV6 with no
+<BR>
+problems - however, I never did see the problem symptoms with a 
+<BR>
+&quot;virgin&quot; 2.2.9 or 2.2.10.
+<BR>
+<P>The patch below is a sizeable performance hit.
+<BR>
+<P>larry
+<BR>
+<P><P><EM>&gt; On Tue, Jun 22, 1999 at 11:13:53AM +0400, Alexander V. Lukyanov wrote:
+</EM><BR>
+<EM>&gt; &gt; Looks like I have found the problem. 2.2.10 with
+</EM><BR>
+<EM>&gt; &gt; arch/alpha/kernel/entry.S from 2.2.7 works flawlessly for me.
+</EM><BR>
+<EM>&gt; &gt; Can anybody confirm that?
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; One suspicious change in 2.2.8 was removing `call_pal PAL_tbi' after
+</EM><BR>
+<EM>&gt; &gt; PAL_swpctx. What could that mean... I have not tried to back-out that
+</EM><BR>
+<EM>&gt; &gt; part of patch yet, maybe someone will figure out what was wrong with 2.2.8
+</EM><BR>
+<EM>&gt; &gt; patch.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Ok, I have verified that this patch against 2.2.10-ac2 (re-adding two lines)
+</EM><BR>
+<EM>&gt; solves my problem:
+</EM><BR>
+<EM>&gt; --- entry.S-ac2	Mon Jun 21 21:18:50 1999
+</EM><BR>
+<EM>&gt; +++ entry.S	Tue Jun 22 20:28:04 1999
+</EM><BR>
+<EM>&gt; @@ -525,7 +525,8 @@
+</EM><BR>
+<EM>&gt;  	.prologue 0
+</EM><BR>
+<EM>&gt;  	bsr	$1,do_switch_stack
+</EM><BR>
+<EM>&gt;  	call_pal PAL_swpctx
+</EM><BR>
+<EM>&gt; -	unop
+</EM><BR>
+<EM>&gt; +	lda	$16,-2($31)
+</EM><BR>
+<EM>&gt; +	call_pal PAL_tbi
+</EM><BR>
+<EM>&gt;  	bsr	$1,undo_switch_stack
+</EM><BR>
+<EM>&gt;  	lda	$8,0x3fff
+</EM><BR>
+<EM>&gt;  	bic	$30,$8,$8
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; PAL_tbi is &quot;Translation Buffer Invalidate&quot; and -2 argument means &quot;Flush
+</EM><BR>
+<EM>&gt; all TB entries (tbia)&quot;, so I guess it is really needed for context switch.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    Alexander.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><P><P>______________________________________________________________________
+<BR>
+&nbsp;Larry Sendlosky			 	            AMT
+<BR>
+&nbsp;larry@scrugs.lkg.dec.com (978) 506-6640                    Compaq
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0473.html">norvierk@muohio.edu: "Re: x11amp/ esd crashes me hard"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0471.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0471.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0496.html">Alexander V. Lukyanov: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0471.html">Larry Sendlosky: "Re: 2.2.{9,10} strangeness (random SEGV/ILL in kernel compilation)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

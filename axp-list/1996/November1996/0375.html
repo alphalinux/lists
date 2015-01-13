@@ -1,0 +1,147 @@
+<!-- received="Thu Nov  7 16:58:20 1996 " -->
+<!-- sent="Thu, 7 Nov 1996 19:58:14 +0100 (MET)" -->
+<!-- name="Christian Hardmeier" -->
+<!-- email="chrigi@darkstar.chrigi.net" -->
+<!-- subject="Re: 64 Bits from Larry McVoy" -->
+<!-- id="199611071853.MAA10870@gloria.cord.edu" -->
+<!-- inreplyto="9611061220.AA06870@scooter" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 64 Bits from Larry McVoy</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 64 Bits from Larry McVoy</h2>
+
+<b>Christian Hardmeier</b> (<a href="mailto:chrigi@darkstar.chrigi.net"><i>chrigi@darkstar.chrigi.net</i></a>)<br>
+<i>Thu, 7 Nov 1996 19:58:14 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#375">[ date ]</a><a href="index.html#375">[ thread ]</a><a href="subject.html#375">[ subject ]</a><a href="author.html#375">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0376.html">Richard Henderson: "Re: compiling xli - small program to reproduce problem w. gcc"</a>
+<li> <b>Previous message:</b> <a href="0374.html">=?ISO-2022-JP?B?GyRCS1JMbiEhNGQbKEI=?=: "Re: 3.5 inch drive"</a>
+<li> <b>In reply to:</b> <a href="0303.html">Jim Nance: "Re: 64 Bits from Larry McVoy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 6 Nov 1996, Jim Nance wrote:<br>
+<p>
+<i>&gt; First I want to thank all the people who pointed out that I don't know how</i><br>
+<i>&gt; to use open().  I have patched the program call it correctly, and have</i><br>
+<i>&gt; included the errors I am seeing.  Also, I am running on an Alpha, not an</i><br>
+<i>&gt; intel machine.  I would expect compleatly different behavior on an intel</i><br>
+<i>&gt; since the longs are only 32 bits.  Here is the program:</i><br>
+<i>&gt; </i><br>
+[code &amp; output snipped]<br>
+<p>
+I tried the program on two Intel boxes. Both of them reacted similarly:<br>
+<p>
+Script started on Wed Nov  6 12:22:52 1996<br>
+bash$ gcc bigfile_.c<br>
+bigfile_.c: In function `main':<br>
+bigfile_.c:17: warning: integer overflow in expression<br>
+bigfile_.c:17: warning: integer overflow in expression<br>
+bigfile_.c:17: warning: integer overflow in expression<br>
+bash$ a.out<br>
+lseek:: Invalid argument<br>
+bash$ ls -l big*<br>
+-rw-r--r--   1 ch       user            1 Nov  6 12:23 bigfile<br>
+-rw-r--r--   1 ch       user          311 Nov  6 12:23 bigfile.script<br>
+-rw-rw-rw-   1 ch       user          555 Nov  6 12:17 bigfile_.c<br>
+bash$ exit<br>
+exit<br>
+<p>
+Script done on Wed Nov  6 12:23:54 1996<br>
+<p>
+Then, I tried it on an Alpha running NetBSD (unfortunately I have no<br>
+access to a Linux Alpha). It worked perfectly.<br>
+<p>
+Then, I tried the one with _llseek:<br>
+<p>
+Script started on Thu Nov  7 19:55:36 1996<br>
+darkstar:~$ gcc bigfile.c<br>
+darkstar:~$ a.out<br>
+pos: 0x80000000; offset: 0x80000000<br>
+write:: File too large<br>
+darkstar:~$ ls -l bigfile<br>
+-rw-r--r--   1 chrigi   users    2147483648 Nov  7 19:55 bigfile<br>
+darkstar:~$ exit<br>
+Script done on Thu Nov  7 19:56:26 1996<br>
+<p>
+The code follows below.<br>
+<p>
+Christian<br>
+<p>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;sys/types.h&gt;<br>
+#include &lt;sys/stat.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;linux/unistd.h&gt;<br>
+<p>
+#define GB ((long long)(1024*1024*1024))<br>
+#define NG (2048L)<br>
+<p>
+_syscall5(int, _llseek, uint, fd, ulong, hi, ulong, lo, loff_t *, res,<br>
+        uint, wh);<br>
+<p>
+int main()<br>
+{<br>
+    loff_t offset, pos;<br>
+<p>
+    int fd = open("bigfile", O_CREAT|O_TRUNC|O_WRONLY, 0666);<br>
+<p>
+    if(fd&lt;0) {perror("open:"); exit(1);}<br>
+<p>
+    for(offset=0; offset&lt;((long long)NG*(long long)GB); offset += GB) {<br>
+	int   num;<br>
+        if(_llseek(fd, offset&gt;&gt;32, (unsigned long)offset, <br>
+			&amp;pos, SEEK_SET) == -1)<br>
+	{<br>
+		printf("pos: 0x%LX; offset: 0x%LX\n", pos, offset);<br>
+		perror("lseek:"); exit(1);}<br>
+	num=write(fd,"x",1);<br>
+	if(num!=1) {<br>
+		printf("pos: 0x%LX; offset: 0x%LX\n", pos, offset); <br>
+		perror("write:"); exit(1);}<br>
+    }<br>
+<p>
+printf("Done!\n");<br>
+return 0;<br>
+}<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0376.html">Richard Henderson: "Re: compiling xli - small program to reproduce problem w. gcc"</a>
+<li> <b>Previous message:</b> <a href="0374.html">=?ISO-2022-JP?B?GyRCS1JMbiEhNGQbKEI=?=: "Re: 3.5 inch drive"</a>
+<li> <b>In reply to:</b> <a href="0303.html">Jim Nance: "Re: 64 Bits from Larry McVoy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

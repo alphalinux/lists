@@ -1,0 +1,360 @@
+diff -rup linux/arch/alpha/kernel/core_apecs.c 2.3.99-2-2/arch/alpha/kernel/core_apecs.c
+--- linux/arch/alpha/kernel/core_apecs.c	Thu Mar 16 19:30:37 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_apecs.c	Fri Mar 17 16:13:22 2000
+@@ -376,8 +376,12 @@ apecs_init_arch(void)
+ 	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = APECS_CONF;
+ 	hose->index = 0;
++
++	hose->sparse_mem_base = APECS_SPARSE_MEM - IDENT_ADDR;
++	hose->dense_mem_base = APECS_DENSE_MEM - IDENT_ADDR;
++	hose->sparse_io_base = APECS_IO - IDENT_ADDR;
++	hose->dense_io_base = 0;
+ 
+ 	/*
+ 	 * Set up the PCI to main memory translation windows.
+diff -rup linux/arch/alpha/kernel/core_cia.c 2.3.99-2-2/arch/alpha/kernel/core_cia.c
+--- linux/arch/alpha/kernel/core_cia.c	Thu Mar 16 19:31:34 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_cia.c	Fri Mar 17 11:28:58 2000
+@@ -640,7 +640,6 @@ do_init_arch(int is_pyxis)
+ 	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = CIA_CONF;
+ 	hose->index = 0;
+ 
+ 	if (! is_pyxis) {
+@@ -654,6 +653,16 @@ do_init_arch(int is_pyxis)
+ 
+ 		if (request_resource(&iomem_resource, hae_mem) < 0)
+ 			printk(KERN_ERR "Failed to request HAE_MEM\n");
++
++		hose->sparse_mem_base = CIA_SPARSE_MEM - IDENT_ADDR;
++		hose->dense_mem_base = CIA_DENSE_MEM - IDENT_ADDR;
++		hose->sparse_io_base = CIA_IO - IDENT_ADDR;
++		hose->dense_io_base = 0;
++	} else {
++		hose->sparse_mem_base = 0;
++		hose->dense_mem_base = CIA_BW_MEM - IDENT_ADDR;
++		hose->sparse_io_base = 0;
++		hose->dense_io_base = CIA_BW_IO - IDENT_ADDR;
+ 	}
+ 
+ 	/*
+diff -rup linux/arch/alpha/kernel/core_irongate.c 2.3.99-2-2/arch/alpha/kernel/core_irongate.c
+--- linux/arch/alpha/kernel/core_irongate.c	Mon Feb 21 02:49:21 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_irongate.c	Fri Mar 17 11:51:00 2000
+@@ -346,11 +346,15 @@ irongate_init_arch(void)
+ 	 * Create our single hose.
+ 	 */
+ 
+-	hose = alloc_pci_controler();
++	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = IRONGATE_CONF;
+ 	hose->index = 0;
++
++	hose->sparse_mem_base = 0;
++	hose->dense_mem_base = IRONGATE_MEM - IDENT_ADDR;
++	hose->sparse_io_base = 0;
++	hose->dense_io_base = IRONGATE_IO - IDENT_ADDR;
+ 
+ 	hose->sg_isa = hose->sg_pci = NULL;
+ 	__direct_map_base = 0;
+diff -rup linux/arch/alpha/kernel/core_lca.c 2.3.99-2-2/arch/alpha/kernel/core_lca.c
+--- linux/arch/alpha/kernel/core_lca.c	Thu Mar 16 19:30:37 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_lca.c	Fri Mar 17 11:32:50 2000
+@@ -298,8 +298,12 @@ lca_init_arch(void)
+ 	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = LCA_CONF;
+ 	hose->index = 0;
++
++	hose->sparse_mem_base = LCA_SPARSE_MEM - IDENT_ADDR;
++	hose->dense_mem_base = LCA_DENSE_MEM - IDENT_ADDR;
++	hose->sparse_io_base = LCA_IO - IDENT_ADDR;
++	hose->dense_io_base = 0;
+ 
+ 	/*
+ 	 * Set up the PCI to main memory translation windows.
+diff -rup linux/arch/alpha/kernel/core_mcpcia.c 2.3.99-2-2/arch/alpha/kernel/core_mcpcia.c
+--- linux/arch/alpha/kernel/core_mcpcia.c	Thu Mar 16 19:30:37 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_mcpcia.c	Fri Mar 17 11:54:02 2000
+@@ -189,7 +189,7 @@ mk_conf_addr(struct pci_dev *dev, int wh
+ 		bus = 0;
+ 	addr = (bus << 16) | (devfn << 8) | (where);
+ 	addr <<= 5; /* swizzle for SPARSE */
+-	addr |= hose->config_space;
++	addr |= hose->config_space_base;
+ 
+ 	*pci_addr = addr;
+ 	DBG_CFG(("mk_conf_addr: returning pci_addr 0x%lx\n", addr));
+@@ -337,13 +337,19 @@ mcpcia_new_hose(int h)
+ 	int mid = MCPCIA_HOSE2MID(h);
+ 
+ 	hose = alloc_pci_controler();
++	if (h == 0)
++		pci_isa_hose = hose;
+ 	io = alloc_resource();
+ 	mem = alloc_resource();
+ 	hae_mem = alloc_resource();
+ 			
+ 	hose->io_space = io;
+ 	hose->mem_space = hae_mem;
+-	hose->config_space = MCPCIA_CONF(mid);
++	hose->sparse_mem_base = MCPCIA_SPARSE(mid) - IDENT_ADDR;
++	hose->dense_mem_base = MCPCIA_DENSE(mid) - IDENT_ADDR;
++	hose->sparse_io_base = MCPCIA_IO(mid) - IDENT_ADDR;
++	hose->dense_io_base = 0;
++	hose->config_space_base = MCPCIA_CONF(mid);
+ 	hose->index = h;
+ 
+ 	io->start = MCPCIA_IO(mid) - MCPCIA_IO_BIAS;
+diff -rup linux/arch/alpha/kernel/core_polaris.c 2.3.99-2-2/arch/alpha/kernel/core_polaris.c
+--- linux/arch/alpha/kernel/core_polaris.c	Mon Feb 21 02:49:42 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_polaris.c	Fri Mar 17 11:54:10 2000
+@@ -192,11 +192,15 @@ polaris_init_arch(void)
+ 	 * Create our single hose.
+ 	 */
+ 
+-	hose = alloc_pci_controler();
++	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = POLARIS_DENSE_CONFIG_BASE;
+ 	hose->index = 0;
++
++	hose->sparse_mem_base = 0;
++	hose->dense_mem_base = POLARIS_DENSE_MEM_BASE - IDENT_ADDR;
++	hose->sparse_io_base = 0;
++	hose->dense_io_base = POLARIS_DENSE_IO_BASE - IDENT_ADDR;
+ 
+ 	hose->sg_isa = hose->sg_pci = NULL;
+ 
+diff -rup linux/arch/alpha/kernel/core_t2.c 2.3.99-2-2/arch/alpha/kernel/core_t2.c
+--- linux/arch/alpha/kernel/core_t2.c	Mon Feb 21 02:49:21 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_t2.c	Fri Mar 17 11:54:16 2000
+@@ -384,11 +384,15 @@ t2_init_arch(void)
+ 	 * Create our single hose.
+ 	 */
+ 
+-	hose = alloc_pci_controler();
++	pci_isa_hose = hose = alloc_pci_controler();
+ 	hose->io_space = &ioport_resource;
+ 	hose->mem_space = &iomem_resource;
+-	hose->config_space = T2_CONF;
+ 	hose->index = 0;
++
++	hose->sparse_mem_base = T2_SPARSE_MEM - IDENT_ADDR;
++	hose->dense_mem_base = T2_DENSE_MEM - IDENT_ADDR;
++	hose->sparse_io_base = T2_IO - IDENT_ADDR;
++	hose->dense_io_base = 0;
+ 
+ 	hose->sg_isa = hose->sg_pci = NULL;
+ 	__direct_map_base = 0x40000000;
+diff -rup linux/arch/alpha/kernel/core_tsunami.c 2.3.99-2-2/arch/alpha/kernel/core_tsunami.c
+--- linux/arch/alpha/kernel/core_tsunami.c	Thu Mar 16 19:31:28 2000
++++ 2.3.99-2-2/arch/alpha/kernel/core_tsunami.c	Fri Mar 17 16:49:47 2000
+@@ -104,7 +104,7 @@ mk_conf_addr(struct pci_dev *dev, int wh
+ 	*type1 = (bus != 0);
+ 
+ 	addr = (bus << 16) | (device_fn << 8) | where;
+-	addr |= hose->config_space;
++	addr |= hose->config_space_base;
+ 		
+ 	*pci_addr = addr;
+ 	DBG_CFG(("mk_conf_addr: returning pci_addr 0x%lx\n", addr));
+@@ -291,7 +291,16 @@ tsunami_init_one_pchip(tsunami_pchip *pc
+ 	hose->io_space = alloc_resource();
+ 	hose->mem_space = alloc_resource();
+ 
+-	hose->config_space = TSUNAMI_CONF(index);
++	/* This is for userland consumption.  For some reason, the 40-bit
++	   PIO bias that we use in the kernel through KSEG didn't work for
++	   the page table based user mappings.  So make sure we get the
++	   43-bit PIO bias.  */
++	hose->sparse_mem_base = 0;
++	hose->sparse_io_base = 0;
++	hose->dense_mem_base = TSUNAMI_MEM(index)-TSUNAMI_BASE+0x80000000000UL;
++	hose->dense_io_base = TSUNAMI_IO(index)-TSUNAMI_BASE+0x80000000000UL;
++
++	hose->config_space_base = TSUNAMI_CONF(index);
+ 	hose->index = index;
+ 
+ 	hose->io_space->start = TSUNAMI_IO(index) - TSUNAMI_IO_BIAS;
+diff -rup linux/arch/alpha/kernel/entry.S 2.3.99-2-2/arch/alpha/kernel/entry.S
+--- linux/arch/alpha/kernel/entry.S	Thu Mar 16 19:31:28 2000
++++ 2.3.99-2-2/arch/alpha/kernel/entry.S	Fri Mar 17 11:43:49 2000
+@@ -8,7 +8,7 @@
+ 
+ #define SIGCHLD 20
+ 
+-#define NR_SYSCALLS 376
++#define NR_SYSCALLS 377
+ 
+ /*
+  * These offsets must match with alpha_mv in <asm/machvec.h>.
+@@ -1156,3 +1156,4 @@ sys_call_table:
+ 	.quad sys_ni_syscall			/* sys_dipc */
+ 	.quad sys_pivot_root
+ 	.quad sys_mincore			/* 375 */
++	.quad sys_pciconfig_iobase
+diff -rup linux/arch/alpha/kernel/pci.c 2.3.99-2-2/arch/alpha/kernel/pci.c
+--- linux/arch/alpha/kernel/pci.c	Mon Feb 21 02:49:42 2000
++++ 2.3.99-2-2/arch/alpha/kernel/pci.c	Fri Mar 17 14:20:20 2000
+@@ -377,3 +377,39 @@ alloc_resource(void)
+ 
+ 	return res;
+ }
++
++
++/* Provide information on locations of various I/O regions in physical
++   memory.  Do this on a per-card basis so that we choose the right hose.  */
++
++asmlinkage long
++sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
++{
++	struct pci_controler *hose;
++	struct pci_dev *dev;
++
++	/* Special hook for ISA access.  */
++	if (bus == 0 && dfn == 0) {
++		hose = pci_isa_hose;
++	} else {
++		dev = pci_find_slot(bus, dfn);
++		if (!dev)
++			return -ENODEV;
++		hose = dev->sysdata;
++	}
++
++	switch (which) {
++	case IOBASE_HOSE:
++		return hose->index;
++	case IOBASE_SPARSE_MEM:
++		return hose->sparse_mem_base;
++	case IOBASE_DENSE_MEM:
++		return hose->dense_mem_base;
++	case IOBASE_SPARSE_IO:
++		return hose->sparse_io_base;
++	case IOBASE_DENSE_IO:
++		return hose->dense_io_base;
++	}
++
++	return -EOPNOTSUPP;
++}
+diff -rup linux/arch/alpha/kernel/sys_jensen.c 2.3.99-2-2/arch/alpha/kernel/sys_jensen.c
+--- linux/arch/alpha/kernel/sys_jensen.c	Thu Mar 16 19:30:37 2000
++++ 2.3.99-2-2/arch/alpha/kernel/sys_jensen.c	Fri Mar 17 18:10:22 2000
+@@ -29,6 +29,7 @@
+ 
+ #include "proto.h"
+ #include "irq_impl.h"
++#include "pci_impl.h"
+ #include "machvec_impl.h"
+ 
+ 
+@@ -123,6 +124,22 @@ jensen_init_irq(void)
+ static void __init
+ jensen_init_arch(void)
+ {
++	struct pci_controler *hose;
++
++	/* Create a hose so that we can report i/o base addresses to
++	   userland.  */
++
++	pci_isa_hose = hose = alloc_pci_controler();
++	hose->io_space = &ioport_resource;
++	hose->mem_space = &iomem_resource;
++	hose->index = 0;
++
++	hose->sparse_mem_base = EISA_MEM - IDENT_ADDR;
++	hose->dense_mem_base = 0;
++	hose->sparse_io_base = EISA_IO - IDENT_ADDR;
++	hose->dense_io_base = 0;
++
++	hose->sg_isa = hose->sg_pci = NULL;
+ 	__direct_map_base = 0;
+ 	__direct_map_size = 0xffffffff;
+ }
+diff -rup linux/include/asm-alpha/pci.h 2.3.99-2-2/include/asm-alpha/pci.h
+--- linux/include/asm-alpha/pci.h	Thu Mar 16 19:30:38 2000
++++ 2.3.99-2-2/include/asm-alpha/pci.h	Fri Mar 17 18:06:58 2000
+@@ -1,6 +1,8 @@
+ #ifndef __ALPHA_PCI_H
+ #define __ALPHA_PCI_H
+ 
++#ifdef __KERNEL__
++
+ #include <linux/spinlock.h>
+ #include <asm/scatterlist.h>
+ #include <asm/machvec.h>
+@@ -22,7 +24,17 @@ struct pci_controler {
+ 	struct resource *io_space;
+ 	struct resource *mem_space;
+ 
+-	unsigned long config_space;
++	/* The following are for reporting to userland.  The invariant is
++	   that if we report a BWX-capable dense memory, we do not report
++	   a sparse memory at all, even if it exists.  */
++	unsigned long sparse_mem_base;
++	unsigned long dense_mem_base;
++	unsigned long sparse_io_base;
++	unsigned long dense_io_base;
++
++	/* This one's for the kernel only.  It's in KSEG somewhere.  */
++	unsigned long config_space_base;
++
+ 	unsigned int index;
+ 	unsigned int first_busno;
+ 	unsigned int last_busno;
+@@ -126,5 +138,14 @@ pci_dma_sync_sg(struct pci_dev *dev, str
+    you would pass 0x00ffffff as the mask to this function.  */
+ 
+ extern int pci_dma_supported(struct pci_dev *hwdev, dma_addr_t mask);
++
++#endif /* __KERNEL__ */
++
++/* Values for the `which' argument to sys_pciconfig_iobase.  */
++#define IOBASE_HOSE		0
++#define IOBASE_SPARSE_MEM	1
++#define IOBASE_DENSE_MEM	2
++#define IOBASE_SPARSE_IO	3
++#define IOBASE_DENSE_IO		4
+ 
+ #endif /* __ALPHA_PCI_H */
+diff -rup linux/include/asm-alpha/pgtable.h 2.3.99-2-2/include/asm-alpha/pgtable.h
+--- linux/include/asm-alpha/pgtable.h	Thu Mar 16 19:30:38 2000
++++ 2.3.99-2-2/include/asm-alpha/pgtable.h	Fri Mar 17 18:06:58 2000
+@@ -159,6 +159,16 @@ extern unsigned long __zero_page(void);
+  * On certain platforms whose physical address space can overlap KSEG,
+  * namely EV6 and above, we must re-twiddle the physaddr to restore the
+  * correct high-order bits.
++ *
++ * This is extremely confusing until you realize that this is actually
++ * just working around a userspace bug.  The X server was intending to
++ * provide the physical address but instead provided the KSEG address.
++ * Or tried to, except it's not representable.
++ * 
++ * On Tsunami there's nothing meaningful at 0x40000000000, so this is
++ * a safe thing to do.  Come the first core logic that does put something
++ * in this area -- memory or whathaveyou -- then this hack will have
++ * to go away.  So be prepared!
+  */
+ 
+ #if defined(CONFIG_ALPHA_GENERIC) && defined(USE_48_BIT_KSEG)
+diff -rup linux/include/asm-alpha/unistd.h 2.3.99-2-2/include/asm-alpha/unistd.h
+--- linux/include/asm-alpha/unistd.h	Thu Mar 16 19:31:28 2000
++++ 2.3.99-2-2/include/asm-alpha/unistd.h	Fri Mar 17 17:18:36 2000
+@@ -313,6 +313,7 @@
+ #define __NR_dipc			373
+ #define __NR_pivot_root			374
+ #define __NR_mincore			375
++#define __NR_pciconfig_iobase		376
+ 
+ #if defined(__LIBRARY__) && defined(__GNUC__)
+ 
+

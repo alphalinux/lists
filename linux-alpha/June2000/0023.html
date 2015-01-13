@@ -1,0 +1,176 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Problem in PCI bus layout....</TITLE>
+<META NAME="Author" CONTENT="Steffen Persvold (sp@scali.no)">
+<META NAME="Subject" CONTENT="Problem in PCI bus layout....">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Problem in PCI bus layout....</H1>
+<HR>
+<P>
+<!-- received="Sun Jun 25 10:18:41 2000" -->
+<!-- isoreceived="20000625171841" -->
+<!-- sent="Fri, 23 Jun 2000 21:10:52 +0200" -->
+<!-- isosent="20000623191052" -->
+<!-- name="Steffen Persvold" -->
+<!-- email="sp@scali.no" -->
+<!-- subject="Problem in PCI bus layout...." -->
+<!-- id="3953B63C.5D4D113C@scali.no" -->
+<!-- inreplyto="3951EF07.ED9EDABB@scali.no" -->
+<STRONG>Subject: </STRONG>Problem in PCI bus layout....<BR>
+<STRONG>From: </STRONG>Steffen Persvold (<EM>sp@scali.no</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jun 23 2000 - 12:10:52 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#23">[ date ]</A>
+<A HREF="index.html#23">[ thread ]</A>
+<A HREF="subject.html#23">[ subject ]</A>
+<A HREF="author.html#23">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Ivan Kokshaysky: "Re: Unable to mount root fs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">Jan-Benedict Glaw: "Unable to mount root fs"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0020.html">Steffen Persvold: "Problem in PCI bus layout...."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi all,
+<BR>
+<P>Earlier I posted a message to this list, saying that I had some problems
+<BR>
+using a QLogic SCSI card and a Dolphin PCI-SCI card on the same PCI bus.
+<BR>
+The system I used was a Compaq DS-10 466MHz (Tsunami chipset)
+<BR>
+<P>Recently I got a DP264 with two 667MHz EV67's (still Tsunami chipset).
+<BR>
+The motherboard has an onboard Adaptec 7890 (64 bit) SCSI controller
+<BR>
+attached to PCI bus 0 (On this system there are two Pchips).
+<BR>
+<P>If the Doplhin PCI-SCI card was in the same PCI bus as the SCSI chip the
+<BR>
+system wouldn't boot (the SCSI driver just looped in resetting the SCSI
+<BR>
+bus). When I moved the PCI-SCI card to the other bus the problem
+<BR>
+disappeared, but on this bus there was also a Ethernet card (a 3com
+<BR>
+Cyclone card) and sometimes I experienced lockups.
+<BR>
+<P>The Dolphin PCI-SCI card contains a chip called a PSB (PCI-SCI Bridge)
+<BR>
+wich is connected to the PCI bus. This chip is reported as a
+<BR>
+PCI_CLASS_BRIDGE_OTHER (0x680). The function of the SCI card is to 'map'
+<BR>
+remote memory (memory on another machine) to local adresses, so that you
+<BR>
+can read from and write to the remote machine (a very efficient way of
+<BR>
+Message passing +120MB/s). Thus the PSB chip has two Memory regions in
+<BR>
+PCI space, one small for CSR accesses, and one large (typically 256MB)
+<BR>
+for remote memory access.
+<BR>
+<P>So, here is the problem:
+<BR>
+<P>When the machine is powered on, the Dolphin SCI card gets a PCI base
+<BR>
+address for the large memory region from SRM which is 0x40000000 (1GB).
+<BR>
+Since this device reports as a PCI_CLASS_BRIDGE_OTHER, the base address
+<BR>
+is not changed when the Linux Kernel does a bus layout (in bios32.c).
+<BR>
+<P>The base address set up by SRM (0x40000000) is the same address as the
+<BR>
+DMA window used when PCI devices shall access physical memory on the
+<BR>
+Tsunami chipset. Thus when PCI devices try to access physical memory
+<BR>
+matching the size and base of the SCI card (physical memory range 0 -
+<BR>
+256MB), i.e ethernet chips accessing skb_buffers and SCSI cards
+<BR>
+transferring data, the PCI -&gt; memory access is actually redirected to
+<BR>
+the Dolphin SCI card. This is the reson for all my lockups.
+<BR>
+<P>I have patched the 2.2.14 kernel in bios32.c (attached) to do a device
+<BR>
+layout even on devices reported as PCI_CLASS_BRIDGE_OTHER, so that I
+<BR>
+avoid the problem. My question is then, should this patch go into the
+<BR>
+original kernel source ??? I think it should.
+<BR>
+<P>Another issue is the 2.4 kernel, I have not tested with this kernel, but
+<BR>
+from what I've seen I think it should be OK.
+<BR>
+<P>Best Regards
+<BR>
+<PRE>
+-- 
+  Steffen Persvold               Systems Engineer
+  Email : mailto:sp@scali.no     Scali AS (<A HREF="http://www.scali.com">http://www.scali.com</A>)
+  Tlf   : (+47) 22 62 89 50      Olaf Helsets vei 6
+  Fax   : (+47) 22 62 89 51      N-0621 Oslo, Norway
+<P></PRE>
+<P>
+--- linux/arch/alpha/kernel/bios32.c	Tue Jan  4 19:12:11 2000
++++ linux.sci/arch/alpha/kernel/bios32.c	Fri Jun 23 20:50:16 2000
+@@ -709,6 +709,7 @@
+ 
+ 	for (dev = bus-&gt;devices; dev; dev = dev-&gt;sibling) {
+ 		if ((dev-&gt;class &gt;&gt; 16 != PCI_BASE_CLASS_BRIDGE) ||
++		    (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_BRIDGE_OTHER) ||
+ 		    (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_BRIDGE_PCMCIA)) {
+ 			disable_dev(dev);
+ 		}
+@@ -721,6 +722,7 @@
+ 
+ 	for (dev = bus-&gt;devices; dev; dev = dev-&gt;sibling) {
+ 		if ((dev-&gt;class &gt;&gt; 16 != PCI_BASE_CLASS_BRIDGE) ||
++		    (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_BRIDGE_OTHER) ||
+ 		    (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_BRIDGE_PCMCIA)) {
+ 			layout_dev(dev);
+ 		}
+@@ -958,6 +960,7 @@
+ 	 */
+ 	for (dev = pci_devices; dev; dev = dev-&gt;next) {
+ 		if ((dev-&gt;class &gt;&gt; 16 == PCI_BASE_CLASS_BRIDGE) &amp;&amp;
++		    (dev-&gt;class &gt;&gt; 8 != PCI_CLASS_BRIDGE_OTHER) &amp;&amp;
+ 		    (dev-&gt;class &gt;&gt; 8 != PCI_CLASS_BRIDGE_PCMCIA))
+ 			continue;
+ 
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Ivan Kokshaysky: "Re: Unable to mount root fs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">Jan-Benedict Glaw: "Unable to mount root fs"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0020.html">Steffen Persvold: "Problem in PCI bus layout...."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Jul 01 2000 - 05:31:32 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

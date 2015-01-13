@@ -1,0 +1,188 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: new version of powstatd has unaligned tr</TITLE>
+<META NAME="Author" CONTENT="Peter S Galbraith (GalbraithP@dfo-mpo.gc.ca)">
+<META NAME="Subject" CONTENT="Re: new version of powstatd has unaligned traps">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new version of powstatd has unaligned traps</H1>
+<HR>
+<P>
+<!-- received="Tue Nov 30 23:45:48 1999" -->
+<!-- isoreceived="19991201074548" -->
+<!-- sent="Tue, 30 Nov 1999 12:45:20 -0500" -->
+<!-- isosent="19991130174520" -->
+<!-- name="Peter S Galbraith" -->
+<!-- email="GalbraithP@dfo-mpo.gc.ca" -->
+<!-- subject="Re: new version of powstatd has unaligned traps" -->
+<!-- id="199911301745.MAA12124@mixing.qc.dfo.ca" -->
+<!-- inreplyto="19991130104532.B21380@wau.mis.ah.nl" -->
+<STRONG>Subject: </STRONG>Re: new version of powstatd has unaligned traps<BR>
+<STRONG>From: </STRONG>Peter S Galbraith (<EM>GalbraithP@dfo-mpo.gc.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Nov 30 1999 - 09:45:20 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#190">[ date ]</A>
+<A HREF="index.html#190">[ thread ]</A>
+<A HREF="subject.html#190">[ subject ]</A>
+<A HREF="author.html#190">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0191.html">Adam C Powell IV: "Re: Unidentified subject!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0189.html">Peter S Galbraith: "Re: new version of powstatd has unaligned traps"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0185.html">Paul Slootman: "Re: new version of powstatd has unaligned traps"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0194.html">Paul Slootman: "Re: new version of powstatd has unaligned traps"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0185.html">Peter S Galbraith: "Re: new version of powstatd has unaligned traps"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Paul Slootman wrote:
+<BR>
+<P><EM>&gt; If you get a kernel message like so:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  powstatd(15285): unaligned trap at 0000000120024a9c: 000000011ffffa34 2d 10
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; you fire up gdb on powstatd (which must be linked with -g, and with
+</EM><BR>
+<EM>&gt; libc6.1-dbg) and type:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     info line *0x0000000120024a9c
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; which will give you a lines such as:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Line 88 of &quot;bla.c&quot; starts at address 0x120024a40 &lt;_blafunc+10400&gt;
+</EM><BR>
+<EM>&gt;    and ends at 0x120024aa4 &lt;_blafunc+10500&gt;.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So look at line 88 and see what's going on there.
+</EM><BR>
+<P>Well, I must be doing something wrong...
+<BR>
+I installed libc6.1-dbg and:
+<BR>
+<P># make alpha
+<BR>
+cc -DSECURE -Wall -g -DDEBUG -DALPHA -DSTATFILE=\&quot;/etc/powerstatus\&quot;  -DCONFIG=&quot;\&quot;/etc/powstatd.conf\&quot;&quot; powstatd.c  xtea.alpha.c -o powstatd 
+<BR>
+powstatd.c: In function `readSock':
+<BR>
+powstatd.c:1121: warning: long unsigned int format, different type arg (arg 3)
+<BR>
+powstatd.c:1121: warning: long unsigned int format, different type arg (arg 4)
+<BR>
+powstatd.c: In function `tellSlaves':
+<BR>
+powstatd.c:1210: warning: long unsigned int format, different type arg (arg 4)
+<BR>
+powstatd.c:1210: warning: long unsigned int format, different type arg (arg 5)
+<BR>
+xtea.alpha.c: In function `encipher':
+<BR>
+xtea.alpha.c:53: warning: suggest parentheses around arithmetic in operand of ^
+<BR>
+xtea.alpha.c:55: warning: suggest parentheses around arithmetic in operand of ^
+<BR>
+xtea.alpha.c: In function `decipher':
+<BR>
+xtea.alpha.c:71: warning: suggest parentheses around arithmetic in operand of ^
+<BR>
+xtea.alpha.c:73: warning: suggest parentheses around arithmetic in operand of ^
+<BR>
+<P># file ./powstatd
+<BR>
+./powstatd: ELF 64-bit LSB executable, Alpha (unofficial), version 1, dynamically linked (uses shared libs), not stripped
+<BR>
+<P><P>I run powstatd for a while...
+<BR>
+<P># grep unaligned /var/log/messages | grep powstatd
+<BR>
+Nov 29 12:28:55 poseidon kernel: powstatd(300): unaligned trap at 00000200001a5b18: 000000011ffffa8c 27 10
+<BR>
+Nov 29 12:29:26 poseidon kernel: powstatd(302): unaligned trap at 00000200001a5b18: 000000011ffffa8c 27 10
+<BR>
+Nov 29 12:30:13 poseidon kernel: powstatd(306): unaligned trap at 00000200001a5b18: 000000011ffffa9c 27 10
+<BR>
+Nov 29 12:39:53 poseidon kernel: powstatd(359): unaligned trap at 00000200001a5b18: 000000011ffffa8c 27 10
+<BR>
+Nov 29 12:39:54 poseidon kernel: powstatd(359): unaligned trap at 00000200001a5b18: 000000011ffffa8c 27 10
+<BR>
+Nov 30 11:52:07 poseidon kernel: powstatd(296): unaligned trap at 00000200001a5b18: 000000011ffffa6c 27 10
+<BR>
+<P><P># gdb ./powstatd 
+<BR>
+GNU gdb 19990928
+<BR>
+Copyright 1998 Free Software Foundation, Inc.
+<BR>
+GDB is free software, covered by the GNU General Public License, and you are
+<BR>
+welcome to change it and/or distribute copies of it under certain conditions.
+<BR>
+Type &quot;show copying&quot; to see the conditions.
+<BR>
+There is absolutely no warranty for GDB.  Type &quot;show warranty&quot; for details.
+<BR>
+This GDB was configured as &quot;alphaev56-unknown-linux-gnu&quot;...
+<BR>
+(gdb) info line *0x00000200001a5b18
+<BR>
+No line number information available for address 0x200001a5b18
+<BR>
+(gdb) info line *0x000000011ffffa6c
+<BR>
+No line number information available for address 0x11ffffa6c
+<BR>
+(gdb) quit
+<BR>
+<P><P>Am I doing something obviously wrong?
+<BR>
+Thanks,
+<BR>
+<P>Peter
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0191.html">Adam C Powell IV: "Re: Unidentified subject!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0189.html">Peter S Galbraith: "Re: new version of powstatd has unaligned traps"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0185.html">Paul Slootman: "Re: new version of powstatd has unaligned traps"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0194.html">Paul Slootman: "Re: new version of powstatd has unaligned traps"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0185.html">Peter S Galbraith: "Re: new version of powstatd has unaligned traps"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Dec 01 1999 - 06:08:09 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

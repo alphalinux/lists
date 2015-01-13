@@ -1,0 +1,121 @@
+<!-- received="Sat Mar 21 17:43:33 1998 " -->
+<!-- sent="Sat, 21 Mar 1998 14:30:51 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Adventures with xcdroast on Linux/Alpha" -->
+<!-- id="199803212130.OAA30002@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Adventures with xcdroast on Linux/Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Adventures with xcdroast on Linux/Alpha</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Sat, 21 Mar 1998 14:30:51 -0700 (MST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#499">[ date ]</a><a href="index.html#499">[ thread ]</a><a href="subject.html#499">[ subject ]</a><a href="author.html#499">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0500.html">Thomas Bogendoerfer: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0498.html">Loic Prylli: "Re: SX164 Clock Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0545.html">Ralph Gillen: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0545.html">Ralph Gillen: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I tried recently xcdroast-0.96d-beta4; still the latest one I believe<br>
+on Linux machine running "patched up" Red Hat 5.0 distribution.<br>
+It requires tcl/tk 8.0p2 but luckily this is no longer a problem.<br>
+In summary - it works, but...<br>
+<p>
+Here is one show stopper.  With this distribution are included<br>
+sources for cdrecord-1.6a11.  Patches for cdrecord, posted earlier<br>
+in this group by Martin Ostermann, are incorrect accordingly to<br>
+the cdrecord author.  Indeed, he is likely right.  In some situations<br>
+functions fillbytes() and movebytes() are called with negative counts,<br>
+on purpose or by a mistake, and replacing these functions with<br>
+memset() and memmove() is then not a very good idea (converted into<br>
+unsigned long values these counts are becoming pretty big :-).<br>
+On the other hand some macros from a generated header "align.h"<br>
+are applied to addresses which are casted, inside these macros, to<br>
+'int's.  Ouch!  Bombs caused by that are most interesting if not<br>
+entirely unfamiliar.  Patch included below.<br>
+<p>
+The other problem is that cdrecord does not want to run on Alpha with<br>
+a default fifo size of 4 Megs.  I did not have a time to track down<br>
+what is a reall culprit but a call to shmget returns complaining<br>
+about an invalid argument.  Could be a library bug.  I do not know<br>
+at this moment nor have means, temporary - I think, to check it out.<br>
+Dropping this size to somewat smaller value 4000k works.  Unfortunately<br>
+xcdroast does not have means to set this.  Not all is lost.  This value,<br>
+and several others, can be passed to cdrecord via environment variables.<br>
+In order not to type that every time I want to start xcdroast<br>
+I replaced it with the following shell script:<br>
+<p>
+#!/bin/sh<br>
+#<br>
+# A minor hack which seem to be required by cdrecord-1.6 on Alpha<br>
+# A default 4m value for CDR_FIFOSIZE causes errors in shmget;<br>
+# somewhat lower 4000k works fine at the moment<br>
+#<br>
+CDR_FIFOSIZE=4000k ; export CDR_FIFOSIZE<br>
+exec xcdroast.bin<br>
+<p>
+where 'xcdroast.bin' is, obviously enough, a renamed original xcdroast<br>
+executable.  Works very well.<br>
+<p>
+With these two changes I mastered and wrote, using xcdroast interface,<br>
+so far five different CDs without spoiling yet a single one. I did not<br>
+try yet "a file system direct to CD" option in cdrecord.  All writes<br>
+were from pre-mastered images.<br>
+<p>
+  Happy roasting,<br>
+  Michal<br>
+<p>
+begin 644 cdrecord.align.fix.gz<br>
+M'XL("%DP%#4"`V-D9@"-D-%*PS`4AJ_3ISA,D!RR;$MT&lt;ZT,NAM%M-[,2V&amp;D<br>
+M;38+-96F`T'QV&lt;VZ*5MM&lt;2$0SB'??[Z$&lt;PY)6NJD*%,N!A,EQ##/XJ'*L[59<br>
+M5MI6@^2+1(6!&amp;QV#F+@=2!E&lt;CD'X_M1CC/V+DZ&gt;7#42J=`3(43#V`R%V=!@"<br>
+MEQ=7_2FPW1&amp;&amp;'KR5F:E&gt;56(I&gt;O"QKU&gt;T]VQZ&gt;.WQG_(LU:O,:/)&gt;C](I57VP<br>
+M2`AUR]U`JA#AW+5@-H,18!&lt;N#_BXCJ!'$9^P+V)L"V2G^&amp;R,K7N0%V;=8&lt;9.<br>
+M-6L)VSHVVNVVC&lt;^$YDS[.]*9'[YD_G!W^[A&lt;1//%/7:Q1[Y;OO&amp;`OQG?KB@1<br>
+%"7T"````<br>
+`<br>
+end<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0500.html">Thomas Bogendoerfer: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0498.html">Loic Prylli: "Re: SX164 Clock Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0545.html">Ralph Gillen: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0545.html">Ralph Gillen: "Re: Adventures with xcdroast on Linux/Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

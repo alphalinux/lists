@@ -1,0 +1,236 @@
+diff -u aboot-0.7a/ChangeLog aboot-0.7a-alan/ChangeLog
+--- aboot-0.7a/ChangeLog	Tue Jun 27 09:06:06 2000
++++ aboot-0.7a-alan/ChangeLog	Thu Jan  7 19:29:44 2021
+@@ -1,3 +1,16 @@
++2001-01-07  Alan Young  <ayoung@teleport.com>
++        * disk.c: Added logic to look for and interpret a DOS style
++	partition.  A DOS partition will only be looked for if no BSD
++	disklabel is found on the boot disk.  These changes ONLY
++	SUPPORT PRIMARY PARTITIONS.  No extended partition support
++	has been coded.  In addition, the changes only support a EXT2
++	type filesystem as that is all aboot currently supports.
++	* disk.c: If two boot devices are specified on the SRM console
++	command line (i.e. boot dva0,dkb100 ), the second device is used
++	as the filesystem to load the kernel from.  This allows aboot to
++	boot from floppy and load a kernel from the hard disk (or CD).
++	* disk.c: Changed the help menu to be in alphabetical order. :)
++
+ 2000-06-27  David Huggins-Daines  <dhd@linuxcare.com>
+ 
+ 	* README: Removed the doc/ subdirectory, since it was out of sync
+diff -u aboot-0.7a/aboot.c aboot-0.7a-alan/aboot.c
+--- aboot-0.7a/aboot.c	Tue Jun 27 08:40:08 2000
++++ aboot-0.7a-alan/aboot.c	Sat Jan  6 23:42:54 2001
+@@ -53,6 +53,7 @@
+ struct segment* chunks;
+ int             nchunks;
+ 
++char		boot_dev[256] = "";
+ char		boot_file[256] = "";
+ char		initrd_file[256] = "";
+ char		kernel_args[256] = "";
+diff -u aboot-0.7a/disk.c aboot-0.7a-alan/disk.c
+--- aboot-0.7a/disk.c	Tue Jun 27 08:52:50 2000
++++ aboot-0.7a-alan/disk.c	Thu Jan  7 19:36:42 2021
+@@ -3,6 +3,7 @@
+  *
+  * This file is part of aboot, the SRM bootloader for Linux/Alpha
+  * Copyright (C) 1996 Linus Torvalds, David Mosberger, and Michael Schwingen.
++ * Modifications to read a DOS style partition completed by Alan Young.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+@@ -33,6 +34,7 @@
+ #include <bootfs.h>
+ #include <cons.h>
+ #include <disklabel.h>
++#include <doslabel.h>
+ #include <utils.h>
+ 
+ #include <linux/elf.h>
+@@ -46,6 +48,7 @@
+ extern struct bootfs dummyfs;
+ 
+ struct disklabel * label;
++struct doslabel  * DOS_label;
+ int boot_part = -1;
+ 
+ static struct bootfs *bootfs[] = {
+@@ -297,6 +300,86 @@
+ }
+ 
+ 
++static void
++get_DOS_partition (long dev)
++{
++	static char lsect[512], fake_lsect[512];
++	long nread;
++	long i;
++	struct d_partition               * BSDpart;
++	struct DOS_partition_table_entry * DOSpart;
++
++#ifdef DEBUG
++	printf("get_DOS_partition(dev=%lx)\n", dev);
++#endif
++	/* Read the partition table from device dev into lsect.			*/
++	/* The DOS partition table starts at the first sector of the hard disk. */
++	nread = cons_read(dev, &lsect, sizeof(*DOS_label), 0);
++	
++	if (nread != sizeof(*DOS_label)) {
++		printf("aboot: read of DOS disklabel sector failed (nread=%ld)\n",
++		       nread);
++		return;
++	}
++	
++	/* Overlay the sector read from the disk buffer with a structure format... */
++	DOS_label = (struct doslabel*) &lsect[0];
++	
++	/* Attempt to do some basic validation on the structure */
++	if (DOS_label->DOS_magic == 0xAA55)
++	{
++	  printf("aboot: DOS style disklabel found.\n");
++	  
++	  /* Fake out the rest of aboot by copying the DOS parition     */
++	  /* table values to the corresponding values in the disklabel. */
++	  label = (struct disklabel*) &fake_lsect[LABELOFFSET];
++	  
++	  /* set the magic bits */
++	  label->d_magic  = DISKLABELMAGIC;
++	  label->d_magic2 = DISKLABELMAGIC;
++	  
++	  label->d_secsize=512;		/* Not sure if the console translates > 512 */
++	  label->d_npartitions=0;
++
++	  /* copy the primary partition table entries to the disklabel table. */	  
++	  for(i=0;i < 4;i++) {
++
++	     DOSpart = &DOS_label->DOS_entry[i];
++
++#ifdef DEBUG
++	     printf("i=%ul DOSpart->sys_ind=%02X ->start_sector=%ul ->num_sects=%ul\n",
++	     	i,DOSpart->sys_ind,DOSpart->start_sector,DOSpart->num_sects);
++#endif
++
++	     if (DOSpart->sys_ind != 0x00) {
++	     
++		label->d_npartitions++;
++		BSDpart = &label->d_partitions[i];
++		BSDpart->p_size   = DOSpart->num_sects;
++		BSDpart->p_offset = DOSpart->start_sector;
++		BSDpart->p_fsize  = 1;
++	     
++		if (DOSpart->sys_ind == 0x83)		/* ext2 */
++			BSDpart->p_fstype = FS_EXT2;
++		else
++			if (DOSpart->sys_ind == 0x82)	/* swap */
++			  BSDpart->p_fstype = FS_SWAP;
++			else
++			  /* mark it as unused - i.e. FAT or something else */
++			  BSDpart->p_fstype = FS_UNUSED;
++		  
++		BSDpart->p_frag = 0x00;
++		BSDpart->p_cpg  = 0x00;
++	     }
++	  }	  
++	}
++	else {
++		printf("aboot: no DOS style disklabel found.\n");
++		DOS_label = 0;
++	}
++}
++
++
+ struct bootfs *
+ mount_fs (long dev, int partition)
+ {
+@@ -507,14 +590,15 @@
+ print_help(void)
+ {
+ 	printf("Commands:\n"
+-	       " h, ?			Display this message\n"
+-	       " q			Halt the system and return to SRM\n"
+-	       " p 1-8			Look in partition <num> for configuration/kernel\n"
+-	       " l			List preconfigured kernels\n"
+-	       " d <dir>		List directory <dir> in current filesystem\n"
+ 	       " b <file> <args>	Boot kernel in <file> (- for raw boot)\n"
+-	       " i <file>		Use <file> as initial ramdisk\n"
+ 	       "			with arguments <args>\n"
++	       " c <dev>		Change boot device to <dev>\n"
++	       " d <dir>		List directory <dir> in current filesystem\n"
++	       " h, ?			Display this message\n"
++	       " i <file>		Use <file> as initial ramdisk\n"
++	       " l			List preconfigured kernels\n"
++	       " p 1-8			Look in partition <num> for configuration/kernel\n"
++	       " q			Halt the system and return to SRM\n"
+ 	       " 0-9			Boot preconfiguration 0-9 (list with 'l')\n");
+ }
+ 
+@@ -674,6 +758,17 @@
+ 			case '0' ... '9':
+ 				preset = buf[0];
+ 				break;
++			case 'c':
++				/* skip past whitespace */
++				p = strchr(buf, ' ');
++				while (p && *p == ' ') ++p;
++				if (p)
++					strcpy(boot_dev, p);
++				else {
++					printf("Please specify a SRM device name to use as a boot device\n");
++				}
++				break;
++			
+ 			default:
+ 				break;
+ 
+@@ -775,7 +870,8 @@
+ long
+ load_kernel (void)
+ {
+-	char envval[256];
++	char envval[256], envbootdev[256];
++	char *p;
+ 	long result;
+ 	long dev;
+ 
+@@ -793,8 +889,30 @@
+ 		printf("aboot: Can't get BOOTED_DEV environment variable!\n");
+ 		return -1;
+ 	}
++	/*
++	 * check BOOT_DEV vs. BOOTED_DEV, if a second BOOT_DEV device was
++	 * specified, then use it to boot from.  This allows aboot to load
++	 * from one medium and boot a kernel from another.  An example
++	 * being booting aboot from floppy and loading the kernel from
++	 * a DOS partitioned hard disk.
++	 */
++	if (cons_getenv(ENV_BOOT_DEV, envbootdev, sizeof(envbootdev)) < 0) {
++		printf("aboot: Can't get BOOT_DEV environment variable!\n");
++	}
+ #endif
+ 
++	/*
++	 * This loops through the boot dev string looking for a comma
++	 * that (may) seperate the two specified boot devices.
++	 */
++	p=&envbootdev[0];
++	while (p && *p != ',') ++p;
++	if (p) {
++	    strcpy(boot_dev, (++p));
++            printf("aboot: overriding ENV_BOOTED_DEV with '%s'\n", boot_dev);
++            strcpy(envval,boot_dev);
++        }
++
+ 	printf("aboot: booting from device '%s'\n", envval);
+ 	dev = cons_open(envval);
+ 	if (dev < 0) {
+@@ -804,6 +922,9 @@
+ 	}
+ 	dev &= 0xffffffff;
+ 	get_disklabel(dev);
++	/* If no disklabel was found, then look for a DOS style partition format. */
++	if (label == 0)
++	   get_DOS_partition(dev);
+ 
+ 	while (1) {
+ 		get_options(dev);

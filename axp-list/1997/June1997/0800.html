@@ -1,0 +1,194 @@
+<!-- received="Fri Jun 27 05:16:49 1997 " -->
+<!-- sent="Fri, 27 Jun 1997 11:08:43 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: XF86_S3 on AlphaStation 255 problem" -->
+<!-- id="33B37706.41C67EA6@iis.fhg.de" -->
+<!-- inreplyto="XF86_S3 on AlphaStation 255 problem" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: XF86_S3 on AlphaStation 255 problem</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: XF86_S3 on AlphaStation 255 problem</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 27 Jun 1997 11:08:43 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#800">[ date ]</a><a href="index.html#800">[ thread ]</a><a href="subject.html#800">[ subject ]</a><a href="author.html#800">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0801.html">Nils Faerber: "X11 MIT SHM working!"</a>
+<li> <b>Previous message:</b> <a href="0799.html">Harald Koenig: "Re: XF86_S3 on AlphaStation 255 problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I still would like to understand and fix lockup problems for Nikita <br>
+and probably others using S3 cards in AS255 machines.<br>
+<p>
+I'd like to know<br>
+<p>
+- did you try the XFree86 3.3 server ? (if not, why???)<br>
+- does it still lockup without Option "no_pci_disconnect" ?<br>
+- any problems left when adding Option "no_pci_disconnect" ?<br>
+  - did you only try 8bpp so far ?  (this works fine for Nikita,<br>
+    so please test 16/32bpp too!<br>
+<p>
+- does anyone (with or without S3 card) has such a "Fore ATM" card ?<br>
+  any known problems with this card ?<br>
+<p>
+any idea what might be the reason or what to try next ?<br>
+please note that Nikita already rewrote BUSmemcpy.c (see below)<br>
+to use sparse access, but this didn't help either...<br>
+<p>
+<p>
+thanks for any idea, hint, pointer, ...<br>
+<p>
+<p>
+-----Forwarded message from Nikita Schmidt &lt;cetus@snowball.ucd.ie&gt;-----<br>
+<p>
+<p>
+Harald,<br>
+<p>
+I wish to say that I've finally found a configuration that does not<br>
+cause S3 server to lock up the system.  The configuration is simple:<br>
+-bpp 8.  :-(<br>
+Last time I tried 8 bpp when I was fighting startup lockups in 3.2.  It<br>
+did not help, so I never tried it anymore until yesterday.<br>
+<p>
+Now I can say that it *may* be a real hardware problem.  First, the<br>
+argument that "Digital UNIX doesn't lock up" no longer works: Digital<br>
+UNIX operates only in 8 bpp mode.  Second, my investigations have shown<br>
+that the problem arises when (and only when) I have Fore ATM card<br>
+installed.  (It actually doesn't matter what slot S3 is in.)  But in<br>
+order to claim it as a hardware problem I have to install WinNT (grr...<br>
+both harddrives are using disklabel at the moment...) and see if it hangs<br>
+in 16 bpp mode.<br>
+<p>
+Although it's rather strange problem - what on earth difference from the<br>
+PCI bus point of view can there be between 8 and 16 bpp?  Twice as fast<br>
+video scan?  Unlikely - it works in 1280x1024x8, but hangs in<br>
+800x600x16...  Maybe I should try various strange options like<br>
+slow_dram_refresh, but there is a whole lot of them.  Maybe the<br>
+difference in the way S3 accesses video memory in 8 and 16 bpp matters?<br>
+<p>
+Anyway, thanks very-very much for solving the problem in general.  3.3<br>
+server with Option "no_pci_disconnect" is as stable as patched 3.2 - and<br>
+still locks up instantly without this option.  Even on my supposedly buggy<br>
+hardware both work pretty well in 8 bpp, and both may suddenly hang the<br>
+system in 16 bpp mode.  And I tend to consider my lockups completely<br>
+unrelated to that common AS255/S3 problem.<br>
+<p>
+Just in case that you may have some ideas about this weirdness, here's<br>
+the list of things I've tried in hope to make it work (with no luck):<br>
+<p>
+	Option	"number_nine"	- yes, my card is #9, but this option<br>
+				  makes no visible difference;<br>
+	Chipset	"s3_generic";<br>
+	Option	"nolinear";<br>
+	MemBase	&lt;various values, including those from /proc/pci&gt;;<br>
+	rewriting BUSmemcpy.c and lnx-video.c to use sparse space<br>
+		instead of dense space and eliminate other-than-longword<br>
+		accesses and bursts on the PCI.<br>
+<p>
+Forcing Option "nomemaccess" (using proper hack in the code) helps to<br>
+get rid of lockups, but as far as I understand Trios can't read in this<br>
+mode, so the screen eventually gets messy.  Well, that's no surprise, as<br>
+we know that the reason for these lockups is certainly the framebuffer<br>
+access (either through the LFB space or VGA window).<br>
+<p>
+Lastly, some comments on your message.<br>
+<p>
+On May 31, Harald Koenig wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; yes I still remember and try to get hardware where I can reproduce and finally</i><br>
+<i>&gt; fix this myself.</i><br>
+<p>
+I'm afraid I should send you my ATM card for this...  :-)<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; clearing CR67_7 disables "PCI bus disconnect" which might othewise occur if</i><br>
+<i>&gt; AD[1:0] != 00b (unaligned acces) or if the address during the burst goes outside</i><br>
+<i>&gt; the address ranges supported [from the S3 databook].</i><br>
+<i>&gt; </i><br>
+<i>&gt; CR3A_7 must not be set if CR67_7 is zero.  when zero, it *EN*ables "PCI read burst cycles".</i><br>
+<i>&gt; </i><br>
+<p>
+Maybe if PCI burst cycles are disabled in S3, but still happen on the bus<br>
+(originating from the CPU support chipset), either S3 or APECS just goes<br>
+berserk?  That could be an explanation, as Alphas (at least those with<br>
+APECS chipset) almost always generate burst cycles on the PCI when<br>
+accessing it through the dense space.  In this case it's not the<br>
+disconnect feature which is at fault.  After all, there were no<br>
+unaligned accesses, nor accesses near the end of the supported address<br>
+space, when those lockups were happening.<br>
+<p>
+Hold on...  What does Digital UNIX think about it?  Umm, you meant<br>
+CR66_7, not CR67_7, didn't you?  At least your patch says it 66...<br>
+All right, here we go:<br>
+<p>
+CR3A is 0x15 - whoa, burst cycles are enabled, as expected;<br>
+CR66 is 0x89, CR67 is 0x08 - if the register in question is CR66, then<br>
+	DU has PCI disconnect enabled as well.<br>
+<p>
+<i>&gt; I never understood why disabling read burst cycles needs the PCI disconnec feature</i><br>
+<i>&gt; and vice versa; maybe another S3 documentation bug ?!</i><br>
+<i>&gt; </i><br>
+<p>
+I don't see any other reasonable explanation either.  Probably they<br>
+could save a couple of transistors on this.<br>
+<p>
+All right, sorry for taking your time, and thanks again for your help.<br>
+256 colours is better than nothing, although way worse than even 65536.<br>
+<p>
+Best wishes<br>
+<p>
+	Nikita<br>
+<p>
+-----End of forwarded message-----<br>
+<p>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0801.html">Nils Faerber: "X11 MIT SHM working!"</a>
+<li> <b>Previous message:</b> <a href="0799.html">Harald Koenig: "Re: XF86_S3 on AlphaStation 255 problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

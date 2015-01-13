@@ -1,0 +1,454 @@
+<!-- received="Sat Apr 19 09:47:58 1997 " -->
+<!-- sent="Sat, 19 Apr 1997 15:25:58 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: XF86_S3 on AlphaStation 255 problem: firing up gdb..." -->
+<!-- id="3.0.1.32.19970419134621.00ab32f0@net4you.co.at" -->
+<!-- inreplyto="19970419033116.28519@snowball.ucd.ie" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: XF86_S3 on AlphaStation 255 problem: firing up gdb...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: XF86_S3 on AlphaStation 255 problem: firing up gdb...</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sat, 19 Apr 1997 15:25:58 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#821">[ date ]</a><a href="index.html#821">[ thread ]</a><a href="subject.html#821">[ subject ]</a><a href="author.html#821">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0822.html">Tim Waugh: "autofs"</a>
+<li> <b>Previous message:</b> <a href="0820.html">Wolfgang Dreyer: "Re: PYXIS Chipset?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Apr 19, Nikita Schmidt wrote:<br>
+<p>
+<i>&gt; In response to your invitation on axp-list to try debugging 3.2 server</i><br>
+<i>&gt; using gdb I'm sending this ...umm, sorta report.</i><br>
+<p>
+thanks!   which Linux kernel and distribution/version are you using ?<br>
+<p>
+<i>&gt; I can say that I got completely lost in all the mess that is happening.</i><br>
+<i>&gt; I suspect there may be some timing problems (or even race conditions?),</i><br>
+<i>&gt; for the server's behaviour differs depending on where I put breakpoints.</i><br>
+<p>
+I've seen this only once so far when there really was a race condition <br>
+in the server between changing the base address for frame buffer usage<br>
+and enabling "newmmio" register access method (which can't be used with<br>
+Trio64, only Trio64V+ and newer support this).  and I'm almost 110% sure<br>
+this is completely fixed (but maybe still not sure enough ?)<br>
+<p>
+<p>
+first two things to try out:<br>
+<p>
+a) patch s3.c and s3misc.c (1st patch below) and see if this fixes lockups.<br>
+   if not:<br>
+<p>
+b) apply 2nd patch to s3init.c and try again.  maybe you have to specify<br>
+  <br>
+	MemBase 0x01800000<br>
+<p>
+or similar too (use the address you find in /proc/pci after reboot!)<br>
+<p>
+<p>
+<i>&gt; OK, let's start.  First, I turned on Option "fb_debug" to see better</i><br>
+<i>&gt; what's going on and experienced the following phenomena: when I start</i><br>
+<i>&gt; X server without gdb, it fails to find the memory (0x12345678):</i><br>
+<i>&gt; </i><br>
+<i>&gt; If, however, I run the server from gdb, set breakpoints at</i><br>
+<i>&gt; mmio928_s3Initialize and at the entry to fb_debugging loop and then trace</i><br>
+<i>&gt; that loop step by step, 0x12345678 is successfully found at 0xF3000000.</i><br>
+<p>
+no idea why this might happen at all:-(   <br>
+maybe there is some buffering in some hardware bus stuff<br>
+<p>
+<p>
+<i>&gt; OK.  The next point worth attention is s3im.c:607:</i><br>
+<i>&gt; 	bank = offset / s3BankSize;</i><br>
+<i>&gt; I can reach it step by step or by putting breakpoint, that doesn't</i><br>
+<i>&gt; matter.  But if I press n or s on that line, gdb loses the control over the</i><br>
+<i>&gt; program, issues two "hit heuristic-fence-post" messages, after that</i><br>
+<i>&gt; everything dies, the screen remaining black.  If I set breakpoint</i><br>
+<i>&gt; at the line 610 before executing line 607, I get the control back.</i><br>
+<p>
+this is (only) a gdb problem.  here a library routine is called for the<br>
+divide operation...<br>
+<p>
+<i>&gt; It is hard to find the place where the server actually dies, because, as</i><br>
+<i>&gt; I said before, it depends on the placement of the breakpoints.  If, for</i><br>
+<i>&gt; example, I set two breakpoints: at mmio928_s3Initialize and a little bit</i><br>
+<i>&gt; after the place where it returns (xf86Init.c:349), I reach both of them</i><br>
+<i>&gt; without problems.  Further stepping gives me default root window</i><br>
+<i>&gt; pattern, X-like cursor and eventually the server begins to live: I can</i><br>
+<i>&gt; even move the cursor with mouse.  But the server is extremely fragile.</i><br>
+<i>&gt; Although xeyes do not appear to break it and hang the system, window</i><br>
+<i>&gt; manager certainly does.</i><br>
+<p>
+reminds me a bit of the other race condition.  please try<br>
+<p>
+	cat /usr/X11R6/bin/X &gt; /dev/null<br>
+<p>
+before starting X11.  now the whole binary is in the Linux buffer cache<br>
+and paging in from disk isn't necessary anymore.  <br>
+does this eventually fix startup problems ?<br>
+<p>
+<i>&gt; The death of the system seems to be somehow connected to s3ImageWrite</i><br>
+<i>&gt; function.  During non-breakpointed run the server either dies while testing</i><br>
+<i>&gt; BITBLT and dashed line malfunctions, or painting the root window.  Well,</i><br>
+<i>&gt; at least we can say that it happens after setting up font cache but</i><br>
+<i>&gt; before the root window pattern shows up on the display.  If we have fought</i><br>
+<i>&gt; this particular death with breakpoints (like calming down the server</i><br>
+<i>&gt; when it is about to die), the next one never happens due to mouse</i><br>
+<i>&gt; movements or xeyes, which do not cause calls to s3ImageWrite, while</i><br>
+<i>&gt; window manager, which uses it heavily, never survives.  When I have</i><br>
+<i>&gt; breakpoints set at s3im.c:607 and 610 and run a window manager, I can</i><br>
+<i>&gt; trace individual pictures it paints, but eventually issuing the continue</i><br>
+<i>&gt; command at line 610 results in total lockup.</i><br>
+<p>
+<i>&gt; Another issue pointing to the possibility of timing problems is that</i><br>
+<i>&gt; even 3.1.2G server appears to be vulnerable; it's just much more robust</i><br>
+<i>&gt; than 3.2 (probably because of debugging code or something that</i><br>
+<i>&gt; influences timings).  While 3.1.2G works perfectly well when the video card</i><br>
+<i>&gt; is situated in the third slot, it hangs miserably should the card move</i><br>
+<i>&gt; to the slot number one.  Even if it is in the third slot, the presence</i><br>
+<i>&gt; of some other PCI card in slot 1 sometimes causes 3.1.2G server to lock</i><br>
+<i>&gt; the whole system (not very often, though).  In all these cases Digital UNIX</i><br>
+<i>&gt; works stable.</i><br>
+<p>
+sequence of slots used also influences the PCI configuration, address alignments etc.<br>
+it would be very interesting to see the output of "cat /proc/pci" and<br>
+"scanpci" below for the different card configuration (S3 in slot 1, <br>
+S3 in slot 3, S3 in slot 3 and other card (which one?) in slot 1 etc).<br>
+<p>
+<i>&gt; Well, that's all.  I doubt this enormous amount of rubbish can be of any</i><br>
+<i>&gt; real help in tracking down the problem, but I still believe it can at</i><br>
+<i>&gt; least give a slight idea of what kind a beast we are going to face.</i><br>
+<i>&gt; Doesn't look too encouraging...   :-&lt;</i><br>
+<p>
+yep, I have to agree :-(<br>
+but still not really discouraging, so please keep on testing and trying<br>
+to find more data points unless I' really running out of ideas again...<br>
+<p>
+<p>
+Harald<br>
+<p>
+-------------------------------------------------------------------------------<br>
+*** xc/programs/Xserver/hw/xfree86/accel/s3/s3.c~	Thu Mar 13 12:31:07 1997<br>
+--- xc/programs/Xserver/hw/xfree86/accel/s3/s3.c	Sat Apr 19 11:11:39 1997<br>
+***************<br>
+*** 673,682 ****<br>
+      * S3 868/968 only pretend to need 32MB and thus fool <br>
+      * the BIOS PCI auto configuration :-(  */<br>
+   <br>
+!    if (   info.ChipType == S3_868 <br>
+!        || info.ChipType == S3_968 <br>
+!        || info.ChipType == S3_TRIO_32_64  /* only needed for Trio64V+ */<br>
+!        /* || info.ChipType == S3_ViRGE */) {<br>
+        unsigned long base0;<br>
+        char *probed;<br>
+        char map_64m[64];<br>
+--- 673,684 ----<br>
+      * S3 868/968 only pretend to need 32MB and thus fool <br>
+      * the BIOS PCI auto configuration :-(  */<br>
+   <br>
+!    if (found <br>
+!        &amp;&amp; info.ChipType != S3_928<br>
+!        &amp;&amp; info.ChipType != S3_864<br>
+!        &amp;&amp; info.ChipType != S3_964<br>
+!        &amp;&amp; (info.ChipType == S3_TRIO_32_64 &amp;&amp; info.ChipRev &lt; 0x40)  /* only Trio64V+ */<br>
+!        ) {<br>
+        unsigned long base0;<br>
+        char *probed;<br>
+        char map_64m[64];<br>
+<p>
+<p>
+--- xc/programs/Xserver/hw/xfree86/accel/s3/s3misc.c~	Wed Oct 16 16:40:21 1996<br>
++++ xc/programs/Xserver/hw/xfree86/accel/s3/s3misc.c	Sat Apr 19 14:26:42 1997<br>
+@@ -198,6 +198,7 @@<br>
+ 	  &amp;&amp; !OFLG_ISSET(OPTION_NO_MEM_ACCESS, &amp;s3InfoRec.options)) {<br>
+ 	 if (S3_x64_SERIES(s3ChipId)) <br>
+ 	    if (s3InfoRec.MemBase != 0) {<br>
++	       if (S3_TRIO64_SERIES(s3ChipId) ^ S3_TRIO64V_SERIES(s3ChipId))<br>
+ 	       if (s3InfoRec.MemBase &amp; 0x3ffffff) {<br>
+ 		  ErrorF("%s %s: base address not correctly aligned to 64MB\n",<br>
+ 			 XCONFIG_PROBED, s3InfoRec.name);<br>
+-------------------------------------------------------------------------------<br>
+--- xc/programs/Xserver/hw/xfree86/accel/s3/s3init.c~	Thu Mar 13 12:31:07 1997<br>
++++ xc/programs/Xserver/hw/xfree86/accel/s3/s3init.c	Sat Apr 19 14:21:09 1997<br>
+@@ -2764,6 +2764,17 @@<br>
+       tmp = inb(vgaCRReg) &amp; ~0x18;<br>
+       if (s3Mmio928)<br>
+ 	 tmp |= 0x10;<br>
++      if (s3Mmio928) {<br>
++	 if (s3InfoRec.MemBase != 0) {<br>
++	    s3Port59 = (s3InfoRec.MemBase &gt;&gt; 24) &amp; 0xff;<br>
++	    s3Port5A = (s3InfoRec.MemBase &gt;&gt; 16) &amp; 0xe0;;<br>
++	    outb(vgaCRIndex, 0x59);<br>
++	    outb(vgaCRReg, s3Port59);<br>
++	    outb(vgaCRIndex, 0x5a);<br>
++	    outb(vgaCRReg, s3Port5A);<br>
++	    outb(vgaCRIndex, 0x53);<br>
++	 }<br>
++      }<br>
+       if (s3NewMmio) {<br>
+ 	 if (s3InfoRec.MemBase != 0) {<br>
+ 	    s3Port59 = (s3InfoRec.MemBase &gt;&gt; 24) &amp; 0xfc;<br>
+-------------------------------------------------------------------------------<br>
+diff -u 32/s3im.c xc/programs/Xserver/hw/xfree86/accel/s3/s3im.c<br>
+--- 32/s3im.c	Thu Oct 24 16:25:02 1996<br>
++++ xc/programs/Xserver/hw/xfree86/accel/s3/s3im.c	Thu Dec 19 08:47:49 1996<br>
+@@ -892,7 +892,7 @@<br>
+    for (j = 0; j &lt; h; j++) {<br>
+       /* This assumes we can cast odd addresses to short! */<br>
+       short *psrcs = (short *)&amp;psrc[px*s3Bpp];<br>
+-      for (i = 0; i &lt; w; ) {<br>
++      for (i = 0; i &lt; (w &amp; ~1); ) {<br>
+ 	 if (s3InfoRec.bitsPerPixel == 32) {<br>
+ 	    outl (PIX_TRANS, *((int*)(psrcs)));<br>
+ 	    psrcs+=2;<br>
+@@ -903,6 +903,8 @@<br>
+ 	    i += 2;<br>
+ 	 }<br>
+       }<br>
++      if (i &lt; w)  /* can't happen for 32bpp */<br>
++	 outw (PIX_TRANS, *((char*)psrcs));<br>
+       psrc += pwidth;<br>
+    }<br>
+ #if 0<br>
+@@ -975,7 +977,7 @@<br>
+ <br>
+    for (j = 0; j &lt; h; j++) {<br>
+       short *psrcs = (short *)&amp;psrc[px*s3Bpp]; <br>
+-      for (i = 0; i &lt; w; ) {<br>
++      for (i = 0; i &lt; (w &amp; ~1); ) {<br>
+ 	 if (s3InfoRec.bitsPerPixel == 32) {<br>
+ 	    *((long*)(psrcs)) = inl(PIX_TRANS);<br>
+ 	    psrcs += 2;<br>
+@@ -985,6 +987,8 @@<br>
+ 	    i += 2;<br>
+ 	 }<br>
+       }<br>
++      if (i &lt; w)  /* can't happen for 32bpp */<br>
++	 *((char*)psrcs) = inw(PIX_TRANS);<br>
+       psrc += pwidth;<br>
+    }<br>
+    WaitQueue16_32(2,3);<br>
+-------------------------------------------------------------------------------<br>
+begin 644 scanpci.gz<br>
+M'XL("-/&amp;6#,"`W-C86YP8VD`S%I]&lt;%-7=K\R`FQ#$MLXB?.Q&lt;&amp;7S98+CIT_+<br>
+MZ0;T]"UBV8HEC$D"0I8&gt;]AMD29%D8G9+(P,A["YMV99-^6.[XZ3&amp;9&amp;8S':8#<br>
+MF[0)'3;)I-XVW4(^^6.;NJF3L-N=EF3()MM\N.&gt;^&gt;Y[\)%L-"?_T,&gt;+HG'O.<br>
+M[]Q[[CGG/C^]1SU=WBJ=CJA7%5E[C''CM80RZD!Y:,V&lt;CH/8R6+X_V;22)8`<br>
+MOUBC!U2U4V@3FJFT&amp;O46P4&lt;/GV,H!ZKHJ_0&amp;U%.I3D,7DY*+ZC1TR,@9E1)2<br>
+M5[1;6C)&gt;A_J&lt;3GW$Y:]^5&amp;I7!1^VQD(S]U)HKE?T52J@&lt;Z%L?=_T:D_*`^W)<br>
+MQ-VY]-W*3.M1WERFMPKI+4CO0-J$]#:DMY?9+2Y9'5\;NVXJTUN*]$Y2NJ[&amp;<br>
+M,KU;-?NYT'4STEJDAF*&gt;?;VK!NFWD.J_0O_&amp;LKRI+QM?6&lt;%.S;=E:G(A;4"Z<br>
+M`NGR:YRW#FVOMO!\T6MPF+QI-9='-/M%-?9JW%L4_:7$CW5I1WFK(J\A)U9Q<br>
+M&gt;5+-(T5&gt;31S+N?PH;KP%_:Y&gt;79J_G65^U&lt;N/^A=P_JK?7I3_"N5_B/+M*%^.<br>
+M^!M1O@MS^#+JJ]&lt;@SO/R2CY/`&gt;5YE%^HY_("SO\`RIM6E&gt;H?4_9X&amp;&lt;E@/4__<br>
+M%Y&lt;?5VMG=:G?OU+T/YQ5ZUB]GD'YZ;)YOH)^QY=QOR&amp;4OXGR*V7R]Q`G0TMQ<br>
+M/BO+175_;]"5QE_-DUMTI?IZ3=-;*$_6ZW"&gt;F"&gt;GU7PHTZ]#H#\HPU?E?AV?<br>
+MOYI7ZM6#&lt;J$LGGT5Y`,HMY3)230*G2X&gt;E5-R/KI;SN;R)):71N4\B4JIO7(V<br>
+MG2+*&amp;('!E$R&amp;8W**\.'HX'`Z%&lt;WE8]E\-`IL;E\N'DLF228KI_*[R:"43V?R<br>
+MC(S("2*E8@-)*9K.1&gt;4TD1-2*B_OWA&gt;-Q[()DI!SFK',W@21TYDD8;-BW==&amp;<br>
+MHN[MW6(PX"+14&amp;^/R^/&gt;VNN)=@6Z[Q-]GFA$='9YHB03E^/IU&amp;YY,)J58@D-<br>
+M^TA6SDLDZNOJ&lt;8I=T1ZO-^R)J$;1X@K5/@]+B*:D;)9$B]^*05`6JFB`."E#<br>
+MG*(EC`118R01R\&lt;`&gt;B"70Q/PDB#M([EL&gt;[_1V&amp;MC!XO2@/D^W*;I=4H^:&gt;0W<br>
+M:N1'Z)Q&lt;V^./:&gt;3:7CRND2_1R`4-?IU&amp;?D*CKSW7UVOTM6?3:8W^]9ZU_Y^N<br>
+M*5S7[9JSCEV7-/):C?R*1JX]BT8U&lt;FV]#37/R;7U?EFCOTPC+VCDVK/Z:8U\<br>
+MJ4;&gt;0)Y?M_Z)&lt;RU79M^!HVKGLX["O1-Z0F&lt;&lt;A?VG=N]_&lt;$\#^;MUU3`.&amp;?)2<br>
+M`SFW[O,?G6NI/K#_5(?GP3VK]+,^L#FULO%%EZ[P/WNT&lt;;E)&amp;&gt;,V4V!3HY_V<br>
+M50-FMY=CG@'98D+?J]/_VE&lt;'\OM1_N,?,5\KGZHFFYI[E]0[&amp;QI%9U/A+T\1<br>
+M\M#/:O17?+7Z#WW+]!_Y*-A&lt;&gt;)3;#('-^L*W)AG.9L2)@(QAU^M_XVO0_Z=/<br>
+M@#&amp;G@X_9E;%IGQUD-M!7]@76#S[/LACX"_&gt;&gt;U)'IEPCH5Q/Y5$VC0?Q\]M%/<br>
+MV%I!YV0=&gt;:=%7:]^U&lt;+_6%PO')^+Z\WZXUZ=OLY;I3=Z%^E[O8WZG'&gt;[;E5S<br>
+MO=[@;M`[W2OT&lt;7&lt;_S.&lt;+#Y_C\&gt;,L#G.Q97B%K\![8`&amp;\7R.&gt;&gt;P$\`63C7W(\<br>
+MMO8ZLO-L$_FCLY3\Y&amp;PM8#^YPR'6`#[&lt;BES=!?&amp;%NY;)(&lt;!\&amp;S&amp;O_#G$T&lt;+C<br>
+M.(.R7X&amp;,Y46FL&amp;<a href="mailto:.R3K_%4Z">.R3K_%4Z</a>]O]8S"^%LX_@*,ZRS$L0)RS'#K4O_8K&gt;O\AC?O<br>
+M=BP"'\L!Z\/9V9&gt;8O=;?\VA;T/B;0ED2_15`=@9E_2"#FI@Y`AC,_J&lt;H=VCL<br>
+MGT/91K0_!K*$F\N:0.;7;1HW/+'9?P(P=!;J!OXTPSJ!=<a href="mailto:E?_C.O4@NWL;'2U">E?_C.O4@NWL;'2U</a><br>
+M8&gt;\F_^SLHX8I\N6S5?IF]W-`=&gt;#K/-ET1D?VK/'K=IYF?M3/..`^1S8I\SN(<br>
+MF..`&amp;=)]^2P;K]'H+O0!VXD&amp;H.XEFQSZQL,.G?Z0.Z3;-+GB^+2OL?$5UPFB<br>
+MF[S_%NJLK]OL%6QDRX[9Z.L"V3G^1H/#;UC\`^&gt;K$/\W&gt;]GWGSI_`=\9GHKU<br>
+M-%NS@K=S&lt;@7LWPEB4.:Y'&gt;?YZ0_/M2C^P=?"_O]AGO][P;]BT_CO%6RFYMD(<br>
+MJLWQ2C:_F&amp;?34O3S;@6;?YQG&lt;TO13R6;?YIG4U/T\Q\5;%Z=9_/YEZJ?2C;_<br>
+M/,_FOU6;QID*-K^&lt;9_-NT4\EFW^99_-FT&lt;_[%6Q&gt;FV&lt;S5?3S006;-^?9/%_T<br>
+M&lt;[F"S5OS;/X:;!Q@8WC"X/_\]X;5-:P?D4WC+PG4OX3LFH$:FW`"5E6CUP&amp;U<br>
+MZF`U=X(,G%E"Z,=^T!O[7;,?^LN5&amp;LB]*NCK2GT)5-1!?WKRDW6.6L$A@NY,<br>
+M'=1-O?ZHYS3D^AUX5BS_TW,M3WY!Q9;9S5=ACA,,_ZE/6ASP_0SDS56VEO-D<br>
+M)Y&lt;O:G8`?Z::R0'C(1?'F/H3WGOYV;'S)/38D]!C3^[2\7.$S8?UXW'0.SV[<br>
+M&lt;#]&gt;3_[^K$#&gt;.6LG7YZ%6/SL?&amp;'_1#5IF6!]^D:POP$^/EC#31&amp;'N`R^+S%.<br>
+M&gt;_SDG3.5^D&gt;-/BY6771X=!&gt;IAQ#GA-[H`&amp;J86&amp;2DGA&gt;KW/Z?5[5`;VAVW`6Q<br>
+MGH)^4(V]N!][Y-4_/M?21%HGE@-6,_C5Z_=XM/CG"_\Z475QVK-8?]BQJ/$I<br>
+M!_.AN[C+#7.:X'YVN5^L\A;]P)]A5R^`GR:R1O&amp;S"?T&lt;!3\W0!^MP7W3XNL;<br>
+M#T+N''8T`=YRH2"^"WNTE(Q_S&amp;)3MVB/00=KK(:Q&amp;X7SXDLP=@L9?^\2G@EK<br>
+<a href="mailto:M$7\CX#M@3A^3\S.QI;\48TL-#F9O^`OJ'UA\5'0N$1U5">M$7\CX#M@3A^3\S.QI;\48TL-#F9O^`OJ'UA\5'0N$1U5</a>&gt;I&gt;#DH%3R\BN#]B9<br>
+M1C`WKAP]U_(!SFL:&lt;&gt;L0]XVC'/??`+&gt;:;)BX"6)4'Q%%N)^!N%.O[J+#RV)2<br>
+M;Z1&gt;%H\&amp;H\-[&amp;3`N5MWO?ZW*Y&amp;=87V#^'`&amp;L.L"`/ZEG5I`-&amp;^OS3K&amp;!;-G8<br>
+M$'&amp;**RQ.\2(Q^NM!_AKI]=&gt;!O+'1*5X!K-&gt;)V?\&amp;B2A8OT&amp;L;Q]E^\:Q[E"P<br>
+M7.+M"I8+L%P*UFV(U:1@N&lt;1/R[#&gt;1JPK/SC70LF&amp;25C;^U!?[YI^9]C2\+##<br>
+MRVI,^?ZAZ(7Q"3*V?U)'Z'0UT+HQ'J=7$.,9P%@/&amp;`V`L42#L;ALOU6\]65X<br>
+M38CW-XCW$.`)7P-/*,.CB/&lt;3Q%L.&gt;/:O@6&lt;OPUN/&gt;-]'O!&gt;^S_+BVO$&lt;97@"<br>
+MXNU%O"3@^;\&amp;GK\,SXYX`XAW)^#M`CRHQ_=G"YNIX2V#WP%Z#&lt;3@!9MW_?`]<br>
+MA#9;T&gt;;R]\ZUC&amp;).?5?)J1[Q.TI.]4!.]2@YM0]S:E3)J1ZQ?ZPTIYR(]6/`<br>
+M*B!6@6$UAL0QAF4)B2LB(07K`&amp;(=9%CYD+BK#*L=L4+?6[CO0B\]";WT)/32<br>
+MDROA?D"]'Z:@/UW6?VN@OT+OFV#W&gt;;R&amp;#5##AFNNX&gt;4XEY&gt;/L!INQ1INA1@U<br>
+M0PT'($;<a href="mailto:-$*-FK.%6K.$`Q*AY7@W_WLFQ1H_PWLMKF">-$*-FK.%6K.$`Q*AY7@W_WLFQ1H_PWLMKF</a>&amp;&amp;U0`TSK!;`:L$:;L4:<br>
+M9E@M\VKX?&lt;3:&gt;(35&lt;.ODC=&gt;8/T.X]V^A_6\?9_5[[?89M?[1_IG'6;ZU7E.^<br>
+M_:VZ_L=9OK5BOK'UMT.^L?6WP_K;,=]:,=_8^MOGY=NDNO['6;ZU;JQJ%,2?<br>
+MDV9_58:Z#5:'@^WUD_&lt;Z'/`W*O1OQTQ=V7H,6QV.6ABK1?EOJZ*&amp;I1J=5W51<br>
+MPR(-/P6\ZN=%\*,[YG"/CNU@=3A38+1.=!_A=3ES#.@)F&amp;\]G#5LKM_%N18.<br>
+ME^;SRL:77=K[AUV'*^?O-\G='&gt;BW^O#UY^X6Q'KAL&gt;O/W0[$RCS&amp;&lt;W=V4=2P<br>
+MX6UG0%=G\/+&lt;V&lt;!R9X;ESCCFS@:T^?9C/%\7TGT:=5&gt;A;MUC["QIG3P-&lt;J;'<br>
+MQIIP[.HA=BZT3CZG&amp;:O'L4N'6(]OG3P/8Z8G#%O86*VZ_D.L7[=.3K&amp;QM_C8<br>
+M(AP;AS%6`ZP&gt;%JJ#"SB_3T1&lt;_Z'KKX,9Q%I]:.'&lt;8GE5?6CNN0/+J^O)J2GT<br>
+M=^;@]&gt;?46&lt;0:.GC].?448MUY4-ES.'?6BD:&amp;85D+Y\Y:!&lt;.$&amp;&amp;:&amp;D5\K7BJ+<br>
+MY0\1X]*!&lt;RTKWE@KUA]?*\(]K]?"&lt;,ZL%:U$WKC"N$N)S45ROW\:[%\C6?_K<br>
+M56;%?@SM3X!]?&gt;,ZL2&amp;RKG)&lt;QTKCFD7;AYCM&lt;;!]H[+ME3+;.-K2`[P75^K#<br>
+M:OYM0_TK8]&gt;??V[$FAB;RS_U&amp;97:UXZ,S&gt;5?77[:]^G8_E.;T2XY-O^Y5K]6<br>
+M'S"8OAGUOUVF7^FYKO9Y(#DP]SSPTUGY5.O-!I$L_LSWV&gt;RJJ^7/!)G_2X4Y<br>
+M_^HST)=!%H+UOO&gt;=A9^;.B-M=HL=:#:=WI//2A+.PR0(0C"`-,)IJ(\0(U*Q<br>
+M]S[:E1Z4XZ@?&lt;'O:3(+1&amp;NKBO)C/IE-R/*&gt;NR]1IL6P%:NZT"%LYKU+V$R/I<br>
+ML'&gt;84$]`.LKE-H%3JQ6IPHN)6"8OQ8G=9.XPTDQ&lt;;I-S,3J0E1.#RA+L)HNY<br>
+M$ZF=4]"+9.5\.J6.=VCXL"AV&amp;(TVQ!L8R;4-QW)Y*4MA832&gt;3L%RDDDIJ]A9<br>
+MNOJ91QJ/Q8&lt;D.BP-:Q7P8GK"`_U4S,I23N'-'?:`&lt;]Y,0&lt;]D`3V.E&lt;C&amp;RL"8<br>
+MG=7#[22-82"5E]AOMWURK\_3[NZGZ2QM]_4CW]=?_)V-\&gt;SW6AO_);;39FDS<br>
+M(F6!M"-O1[[3Q/7LJ!_J$B,][:$B'D0L;;/TF30N-?*M?7&gt;AGCB236=CH'G7<br>
+MW+C9U&amp;ZSX'C8C'I[8ZDXQ,'7%&gt;B.4+&gt;4S,&lt;4.&gt;&gt;M@A#IU_!F00ASWNQ.Q@8@<br>
+ML&amp;Z7J5-9A\EE%&amp;`AX7W#F:%T:I\ZW^T]]_7XQ&amp;VBRO=ZQ*[A&amp;.2MS0)SI^O#<br>
+M;FJSF*RMZGA8'AR.P3QR\F"*[9MK7SP92TC%/';QS2'AC!278TEY%.5&amp;DTEY<br>
+M_^(!24Y)&gt;5AO.C&lt;D#\1(L(]5#"'!$&lt;C6(9AOP!?8P/:%_5#(XIM-!]-Y.9VB<br>
+M8L1DT?(P+5,I;P0&lt;,9F4&gt;&lt;3P/9LN'H\`6U1JD$;`2RJ=3`]B!+SIK$3#^R"5<br>
+MAY4U&amp;*W64%O06WS;Q&gt;/EU.&gt;.4!O,=$#-FW0V+\'B^B(40FOML%%SGR+GO&amp;!5<br>
+M]0(\M(&amp;4#+.DKG0VP^,LQ9)Y:8^2I]G!;"PSQ)N!&amp;'0IZXY(&gt;R#78=_LED[%<br>
+M/ACF\?7T=O/Z5A(<a href="mailto:C@7.G$(?$2#Q?W(">C@7.G$(?$2#Q?W(</a>&gt;@Q2ZP%`H:+58CIPH0HVQN9I&gt;UTTJ-<br>
+MPD!;,!#0\,)`1$E!#=^O\@+3QQ&lt;KS*Z&gt;(*/;[.8.6Z&gt;7;)-3`^E4@HA\^I`G<br>
+M4C8+J7J_F]JM=<a href="mailto:H%3V.@^.2">H%3V.@^.2</a>&gt;SCF*S"$I@7$$W]@-PT,GS)_8PRW]J9T'LDF()<br>
+M)4[AD%&amp;`#&gt;&lt;4\+"Y=DNC@Q+@!2(1*OKZ!6A1RJ46Y-:@W=YI%!5JMZG4RZE1<br>
+MH;8.,Z,N39Y(;4:3O8T%1L,KX]TCPP/0];I!IO!NV&amp;NSH.3AL)R32*?%YH(P<br>
+M&lt;0H%YQS):8\!$O:%:60H/9SC;96MV\[R&amp;*B-50B+@]6.M(.0GDQ&gt;5NR&amp;8]F\<br>
+MBS7!]MZ8G"#N$-\(K]M%S1TNFPT3+HSKV&amp;*RVJT083^^0&amp;&amp;WNFRL_H%:.FT*<br>
+MM2J\S65B&lt;59X,_(FI*Q?!'C&gt;18*N-J/=91;H&gt;K/-U2&amp;H#&lt;'KQGR3LVE&amp;;5:K<br>
+MU8)4X)0=GPIE4W1A_@1](@T,9[)2CN&lt;#XX.0RO+#(Y(Z'I2AR:=2\LBPPK&gt;9<br>
+MJ)A/QG(TU&amp;\2[+C&gt;8`S:S:B2UV8F$KL"?+Z^K0'::;,)[=#9E?],&amp;KG%HK[G<br>
+M@KRIE#?/\5GE+0=B-;LZ.RPT[`IS_(Y.X`7:I?8:$?-XFWL#[JO9RL]==A+.<br>
+MG;L!9Q#["&gt;VP6HQ(S4A-Q-5%;1VF3L9;+7`:&lt;&amp;KBU&amp;+CU*Q22YOZ_I#*6TIX<br>
+M`7'MQ"5GLR.YN5L2M\&lt;;$NEZK]L=H"%7H-C?X;PP"A8CI'!PH#U'/?DA*0L-<br>
+MFX:2(SEUW&amp;AAG:`=F@,M49JS%\KMN=PJ,%]M\*%.C(A;'I3SL23U/#PB9X8A<br>
+MTDJ+A*,QKZ0%"74:V?$`5#DFR#9)9NV`&gt;"(V1&gt;")6(`^8C9E:%;:2UW%OETJ<br>
+M=U&gt;0.RO(B^=A)"?!J=&amp;EG*7*OG8HQPSI#N/YW.4SF:%0^#D]%U^EGYG;O"XC<br>
+MF&gt;MOICF^KXLG4A!*VF:A/O5]-&gt;3[RGA/&amp;&gt;\JY_M+&gt;9^6-T/JBQ&amp;&gt;MY#']@XK<br>
+MI^S.D5&amp;C(*JO67$&gt;QTTJ+&gt;K!NEV]&gt;,X/9UB?WIJ+#4KWT#4Y^F#;WAVT^$K%<br>
+M7C5^0W*.9K+I07;G-CR2R],!B69'4A3J&amp;&amp;ZI\ZI!+4L*T!M@AS1_Z6&gt;$)P'-<br>
+M[\M(U(B*(539#3=7"6FO')=R%'28-=R4TC6)&gt;VH5S5JE[$`BC*X9I&gt;P%I=3(<br>
+M,&amp;,$TRC=/9***]",MXS&gt;0_=*J00`&lt;A9QD4._;(6,KL$\@%L@16DDM2&gt;5?B15<br>
+M7+?ZA=)P1(QL#5.X$);"D1D4N]TEP"#M$L.*FCJ[4D)[/7V!&lt;*"G&amp;P7J?*@S<br>
+M$(Y0K1WU&gt;T2WI[?(PIVII]NUO&lt;B[1)??4XJBX(AACU#$L8-B+)'(%IDU.44W<br>
+MT-[#\\D3U-@9O]*.ZYFN4&lt;]\C7J6:]2S7J-&gt;;T^PLEY"BJ&lt;34AM_]2U16_KW<br>
+M:"J=;^,X0;$_"B'7[$&lt;PT!WUP5VYRL,=&gt;C04Z"[AX;:]9$]@/MLCGJB@W5=%<br>
+M8BSC366\F99L+:5BB*VLPOJU^]_5X[HOT/.5&gt;N&amp;0V!OV,$4V9!YER%`4E(?2<br>
+MF4S']U`8Q3`5[W&lt;<a href="mailto:RL6Q.FC_@YF\%22`I;%YH%#S">RL6Q.FC_@YF\+`I;%YH%#S</a>),J85D\MPE1T?U_[!_&lt;/+3M<br>
+MEO+Q(68Y5W?!;&lt;9O9-&gt;_?=O_MG=^L6U==1P_3O/'7;OBC%;S2E'=_&amp;F&lt;=?.&lt;<br>
+M`L.=6LDDA#BC6TW:#A&lt;)S5D;ZHJF,:DU4E6(=$R5MP?DJF/*I`F\@81!(/F-<br>
+M\&amp;8T@2(A)"/QX(&lt;^&gt;`(A@P98"*0^46YROK\U]S&gt;WZ228&amp;M_OYR&amp;_&lt;[Z^Y]X;<br>
+MW]_W'M][CX^==N'/#6_P/F"YT8V6FUI]^Y^?V/!]77OK0QL?)[N^\0^9IZ%0<br>
+M&lt;FIRU#D/(5F.CX^MKYT&lt;=;]V](0Z0:SNW^J&amp;GX+N]/F3QXY./G.[ZK3"J&lt;Y]<br>
+M7GOV6')J_`OC)\82(&gt;&gt;D&lt;7L=SLXZ=5E%[/WE/\S2M^G%X,K&amp;H^YQM81X$@P&amp;<br>
+MKL,/XHF:\H&gt;,0:TJ7&lt;8DKRA=QB17E"YCC,M*E['*):7+V.,B_4H^`CK@AR7D<br>
+M6PI7=@65?ZD)C-.&amp;GGP8R^.*,JOT$]#36A_'=8K6G\/W^;2.[4:53LC_@T[X<br>
+M(8Q\D_-W\`[G;S_/TZ2-Z8(?;@[C\U(_GC,/,^^)]]@&amp;/S3$#U5&lt;3]`/Q(-L<br>
+MAQ^JR/\.^QC1+"L_=$$O*KT;&gt;E[I/="S2O=#S]!OY#YD!_R0EOZA@.MGG:_7<br>
+M&lt;!W,/"9M3"_\$!UVWV\-HI[9@WY#&amp;B@_R-P$];!;EWF!*N'6]T]+8?J*W']\<br>
+M7.ZWAMWS*A54OA81\TK_$&gt;*"TDN(&amp;:7_##&amp;M]&amp;7$E-)Q.6.22O\#8D+["I-[<br>
+MQ+6.":QB2N^`'E5Z)_0P?&gt;LI=L(/(<a href="mailto:1QWF7?.SSP@'F2W">1QWF7?.SSP@'F2W</a>&gt;CY-B)?9(Y.WL3\@<br>
+MQ/3)\[@A^"%DZXTAMS]"T&amp;M#]`UI7_KE^0/R/'3=UBO:#Z_96%9Z''I1Z&gt;G7<br>
+M&lt;?U-_Y!-Q"#\L(B\_0QNE"XPCXD'.0`_9)'_00SH2RD_/`(]H?3=T&amp;-*#V`R<br>
+MZS!]1381C\G]5N1M#7I0Y?$-R7.EUQ']2O^3%.@'LHD8D&gt;OI_&lt;Q;0IZ$'YK*<br>
+M#S7Z@WB00W)_:;][_-+*_M;?%ZTH77XS9EGI76A05GHWODA:4OKKT(M*]^&amp;+<br>
+M2$OT)_D(.`P_%)!O4=3SS#_B04;E?JODO]QOHA^(!_D\\C\C^8\!JRGZ@7B0<br>
+M&lt;?@AB?S_\J]M/:'\D((&gt;5_J^W]@84WK?BHU1^HIL(IZ6YP_,6T+,%^&amp;'`/P0<br>
+MARG\RA]Q&amp;0=+WY`VYBOR/&amp;X0&gt;8YYI)N#S'OB/;XJWP="_F_%_$M5U`.[;3P$<br>
+MO:)T0MJ)-/RPC#SW(&lt;G+JG^XDK&gt;QI/2KT(M*?Q7ZDM*O02^P_R'W(=/R_&amp;W0<br>
+<a href="mailto:M_7QZ@?E*/$A.GK\Q_PDQWY3G">M_7QZ@?E*/$A.GK\Q_PDQWY3G</a>&lt;?!#2.8G4_Z0[Y6FZ!O2QGQ+GL&gt;I/$\P[XD'<br>
+M680?XI+_&amp;$\:HQ^(!_F&gt;S%&gt;)_(_##V'Z@7B0)1FOH&gt;XO!0=;?_\A0)^0-J8$<br>
+M/_B9YX28G\JX)/J!$/-S&amp;;\TX/Z\U!R@/XCW^(7\7I;D_RE;KRD_)*&amp;O*/U+<br>
+MT)&gt;5/@6]1%^13&lt;0OU?Q\XYB?KZCR&gt;!+ZDO8#](+2=TW9F*&lt;?R";B=_)\FGE+<br>
+MB+DAXS/H!T),7&lt;8EP0^3&amp;(^=I#^(!WD7?D@P_PDQ#1F_1#\08OXJXY?H!T+,<br>
+M&gt;_!#F'X@Q/CP&gt;\U!^H$0TPT_!."'+OS&gt;CU'^F+Z#_B+T9C_]1#8_C\`/C7[W<br>
+M^*4:\YMXD-WP0U7E?X5^(!YD"'XH,_\),4_`#TOT`R'F,/Q0H!\(,:/PPR+\<br>
+M$#AHZUGEC[XS-J:5/@`]23^1-N!I^"'!?";$'(,?XO0#(&gt;84_!!3SQ^B]`?Q<br>
+M()?@AS#SGQ!S'7X(J?XA2'\0#_);^,'/_"?$_`=^,/0#(6;'0S8V^^@'0IZ$<br>
+M'^KP@P_/URKT!_$@5^"',O.?$+-GCXW%/O?]I27Z@WB0=S]IH\PW,WS#U@OT<br>
+M`_$@1X[8F%?]PT)?Z]]#R2A]"V**_B%M0%?&lt;QB3SF1#SJ&gt;/XO`0_]&amp;*^RICR<br>
+MQT/0PTK?"3VH=-\K*.A^!GISGUM?Q'H:2B]#KRN]`KVF]%]!KRJ]"GU%Z;^'<br>
+M7E%Z$_JRTD&gt;&gt;PWXI_0B6+RK=]RH^?^[C^68S&lt;'41GY=PO%[JM/6L.G[?@9Y4<br>
+M^LO08TJ_"CVL]!]"-TJ/RGW?D%OOAUY3^N/05Y0&gt;@;X&lt;:KW^LM*3T$M*-UGD<br>
+ML=(#V=;[2=<a href="mailto:J#S@%22\@.">J#S@+\@.</a>.[D,3Y6AWOA9.(6D\C?;2.O,EH_1LVIK4^C^L0K&gt;&gt;0<br>
+MMUJ_@GY-ZR_9&amp;-?ZR_`M\YC&lt;A6_##V'DR:X0/O\P;X@'J?W-1C_R_UH1+R@_<br>
+MO`']YEZW_A;TIM)_`KVQE[XBFX?O8_[6&amp;O(VB1NH5&gt;8Q(81XFEO@3O7%OMZU<br>
+M?N)?_38&amp;!WKOJ=\84,NE0[:&gt;W&amp;;[G2K6UWS4UF^@[C]@Z]O1O@$]&lt;,#=7\50<br>
+M3R/F#]R]/ZOA];HL]YB-#=3]J$&lt;1,XAUQ!IB6=HA!AZW,8:81LPC-A$;B&amp;7$<br>
+MFXCQ")9'+",&amp;GL!RJ,=0#R/6H"=07T1&lt;1JPC^J/XOQ!3B`7$*J)_!-M!-'C_<br>
+M4SANZ;WNY[5O($J]"X6/H7X6]&gt;VH)QZP[1]$?0GKD]N-11_F#Y;[']VVWBWM<br>
+MM]CZ`ZB_B/5O0SV(N$L==WE&gt;7$8&gt;R7/E"B)^#M3T(#Z,F-]JMR=ZLP?OD^P_<br>
+MMK]5;?^#I-_9;B[_&gt;&amp;_GK0EC+G_]@Z__8,B8-_O_?&gt;O6.ZOEH%/^)\I1I_P/<br>
+<a href="mailto:ME!-.^3V4TT">ME!-.^3V4TT</a>[Y+R@O..4_HUQPRG]$N&gt;24ZZOEB;&amp;QIT+AB6=/#H&lt;.1CX;.1@9<br>
+M,?&gt;J^=&lt;=X^A()#JR[O_?2#.1BY=F&lt;],O.#$W;V-&amp;2N&lt;NY&amp;;FLR:2F;Z8,9$S<br>
+MERXXB]J8FS&gt;1^9GSTY&amp;S&lt;SF4LN=SJRW..7]S,PO.WZ\Y%&gt;&gt;UN3/3N6FGU=K?<br>
+MT[FY^8M.Q8:UQL[JIF?/G39V!2]&lt;=/33&lt;[.S,Q&gt;&lt;VH6YW,S_Z/SY"?S?DE&lt;%<br>
+MY'$!^?&amp;@6EZ?H_J1\QW*!T4L6/*Y\]BOXC`\T*%\DD"#*&amp;(GMNU7^3J"=7&lt;H<br>
+MWRUTNWUVI_T_A'5W*)\T&gt;]P^6=W&amp;CA;;'U/MQ7?YK6Z?KK8/M&amp;C_#/:I6YUG<br>
+M$CA1'%7[ZU?UXZI]$&gt;V+:']SIWOYD&amp;I_2K67\YH3U_CT!MM_7N6/7)=5T7ZI<br>
+M]^[MSZ*]Y$=F)&amp;#[KQ'&lt;K_C[W=O/JO9)Z:?1FP8VV/^&lt;:B_]?/H&gt;VU]6[;-H<br>
+MGY7V':W;2US$&gt;[]%?5Y9[+/MH[[;^;^^G&gt;S7*]A^C^HGROV^]]??:ON2!]^%<br>
+M)MN/HM^,#OA&lt;VQ5T_7H+3YEU[0]O&lt;/YX&lt;]V^KWW.B=IX_A[;]Z[;]_64T/[M<br>
+,#=K_%_[E(-20*@$`<br>
+`<br>
+end<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0822.html">Tim Waugh: "autofs"</a>
+<li> <b>Previous message:</b> <a href="0820.html">Wolfgang Dreyer: "Re: PYXIS Chipset?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

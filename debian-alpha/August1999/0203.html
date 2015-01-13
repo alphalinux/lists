@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Alignment traps?</TITLE>
+<META NAME="Author" CONTENT="Christopher C Chimelis (chris@classnet.med.miami.edu)">
+<META NAME="Subject" CONTENT="Re: Alignment traps?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alignment traps?</H1>
+<HR>
+<P>
+<!-- received="Sat Sep 04 11:05:51 1999" -->
+<!-- isoreceived="19990904180551" -->
+<!-- sent="Sat, 4 Sep 1999 01:18:18 -0400 (EDT)" -->
+<!-- isosent="19990904051818" -->
+<!-- name="Christopher C Chimelis" -->
+<!-- email="chris@classnet.med.miami.edu" -->
+<!-- subject="Re: Alignment traps?" -->
+<!-- id="Pine.LNX.3.96.990904011701.22253A-100000@beezer.med.miami.edu" -->
+<!-- inreplyto="Pine.LNX.3.96.990903214700.4397E-100000@Wakko.deltatee.com" -->
+<STRONG>Subject: </STRONG>Re: Alignment traps?<BR>
+<STRONG>From: </STRONG>Christopher C Chimelis (<EM>chris@classnet.med.miami.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Sep 03 1999 - 22:18:18 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#203">[ date ]</A>
+<A HREF="index.html#203">[ thread ]</A>
+<A HREF="subject.html#203">[ subject ]</A>
+<A HREF="author.html#203">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0204.html">Oliver: "MULTIA -&gt; SIOCADDRT : Invalid argument"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0202.html">Christopher C Chimelis: "Re: Alignment traps?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0201.html">Jason Gunthorpe: "Alignment traps?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0201.html">Christopher C Chimelis: "Re: Alignment traps?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, 3 Sep 1999, Jason Gunthorpe wrote:
+<BR>
+<P><EM>&gt; Could someone do me a quick favor and figure out why APT 0.3.12 for Alpha
+</EM><BR>
+<EM>&gt; causes alignment traps in the libapt-pkg library? I have a funny little
+</EM><BR>
+<EM>&gt; feeling it has to do with gcc somehow
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; apt-get(10780): unaligned trap at 000002000000ebe8: 000002000049ae3c 29 2
+</EM><BR>
+<EM>&gt; apt-get(10780): unaligned trap at 000002000000ebf4: 000002000049ae3c 2d 
+</EM><BR>
+<P>I believe you're right about this.  It appears to be in the startup code.
+<BR>
+It may extend to other C++ stuff as well (I'm not sure...I'll have to
+<BR>
+dig).  Anyway, here's a neat little programme that I got off of the
+<BR>
+axplist that helps in finding and fixing unaligned accesses:
+<BR>
+<P>#include &lt;errno.h&gt;
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+<P>#ifndef __linux__
+<BR>
+#include &lt;sys/sysinfo.h&gt;
+<BR>
+#else
+<BR>
+#include &lt;asm/sysinfo.h&gt;
+<BR>
+#include &lt;asm/unistd.h&gt;
+<BR>
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P><P>static void usage(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;usage: unaligned  &lt;command-path&gt; [command-args...]\n\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  This program is designed to assist debugging of\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  unaligned traps by running the program in gdb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  and causing it to get SIGBUS when it encounters\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  an unaligned trap.\n\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  It is free software written by Sean Hunter &lt;sean@uncarved.co.uk&gt;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  based on code by Richard Henderson and Andrew Morgan.  It is provided\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;  under the gnu public license without warrantees of any kind.\n\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+}
+<BR>
+<P><P>void trap_unaligned(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+<P>}
+<BR>
+<P><P>int main(int argc, char **argv)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char* tmp_filename;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char* my_debugger = &quot;/usr/bin/gdb&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;FILE* tmp_file;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int curr_arg;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* check that we have at least 1 argument */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (argc &lt; 2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;usage();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;trap_unaligned();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if (argc &gt; 2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* add the extra args to a file to pass to gdb */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename = tmpnam(NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_file = fopen(tmp_filename, &quot;w+&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!tmp_file) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;Unable to create temp file %s reason: %s\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strerror(errno));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;file %s\n&quot;, argv[1]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;set args&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(curr_arg = 2; curr_arg &lt; argc; curr_arg++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot; %s&quot;, argv[curr_arg]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;\n&quot;);
+<BR>
+#ifndef NOAUTORUN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;run\n&quot;);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fclose(tmp_file);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Extra arguments passed to gdb in file %s.\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;Be sure to delete it when you're done.\n\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;execlp(my_debugger, argv[1], &quot;-x&quot;, tmp_filename, NULL);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;execlp(my_debugger, argv[1], NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}	
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* if we fall through to here, our exec failed -- announce the fact */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;Unable to execute command: %s\n&quot;, strerror(errno));
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;usage();
+<BR>
+<P>}
+<BR>
+<P>/* use gcc unaligned.c -o unaliged to compile.  Add -DNOAUTORUN if you
+<BR>
+don't want gdb to automatically run the program */
+<BR>
+<P><P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0204.html">Oliver: "MULTIA -&gt; SIOCADDRT : Invalid argument"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0202.html">Christopher C Chimelis: "Re: Alignment traps?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0201.html">Jason Gunthorpe: "Alignment traps?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0201.html">Christopher C Chimelis: "Re: Alignment traps?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:08 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

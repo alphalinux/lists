@@ -1,0 +1,352 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: More than 1GB RAM with AlphaLinux (was ... 4-8GB RAM)</TITLE>
+<META NAME="Author" CONTENT="Bjorn R. Bjornsson (brb@halo.hi.is)">
+<META NAME="Subject" CONTENT="More than 1GB RAM with AlphaLinux (was ... 4-8GB RAM)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>More than 1GB RAM with AlphaLinux (was ... 4-8GB RAM)</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 09 22:29:37 1999 PST" -->
+<!-- sent="Tue, 9 Mar 1999 22:05:13 +0000 (GMT)" -->
+<!-- name="Bjorn R. Bjornsson" -->
+<!-- email="brb@halo.hi.is" -->
+<!-- subject="More than 1GB RAM with AlphaLinux (was ... 4-8GB RAM)" -->
+<!-- id="199903092205.WAA29035@halo.hi.is" -->
+<!-- inreplyto="" -->
+<STRONG>Bjorn R. Bjornsson</STRONG> (<A HREF="mailto:brb@halo.hi.is?subject=Re:%20More%20than%201GB%20RAM%20with%20AlphaLinux%20(was%20...%204-8GB%20RAM)"><EM>brb@halo.hi.is</EM></A>)<BR>
+<EM>Tue, 9 Mar 1999 22:05:13 +0000 (GMT)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#492">[ date ]</A>
+<A HREF="index.html#492">[ thread ]</A>
+<A HREF="subject.html#492">[ subject ]</A>
+<A HREF="author.html#492">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0493.html">mgraffam@idsi.net: "gcc on alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0491.html">Joakim Roubert: "Re: Howto remove /proc/kcore?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+If I read the code correctly, then few of the Alpha
+<BR>
+systems support more than 1GB RAM running Linux with
+<BR>
+an unmodified kernel.
+<BR>
+<P>However it should be fairly straightforward to support more
+<BR>
+than 1GB of physical RAM on most Alpha systems, although
+<BR>
+I must admit it took me quite some time to get an
+<BR>
+AlphaServer 800 (aka Corelle) to run with more than 1GB.
+<BR>
+PCI limitations ought not to show up until you try go past
+<BR>
+4GB.
+<BR>
+<P>Following is a patch to linux/include/asm-alpha/cia_core.h
+<BR>
+to allow the AlphaServer 800 to support 2GB of RAM (I'm
+<BR>
+also including a uu-encoded version of the patch below).
+<BR>
+<P>--- linux-2.2.3/include/asm-alpha/core_cia.h	Wed Jan 13 18:42:49 1999
+<BR>
++++ linux-2.2.3-brbkludge/include/asm-alpha/core_cia.h	Tue Mar  9 21:25:01 1999
+<BR>
+@@ -77,14 +77,49 @@
+<BR>
+&nbsp;#define CIA_MEM_R2_MASK 0x07ffffff  /* SPARSE Mem region 2 mask is 27 bits */
+<BR>
+&nbsp;#define CIA_MEM_R3_MASK 0x03ffffff  /* SPARSE Mem region 3 mask is 26 bits */
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * Kludge to enable 2GB RAM on Alphaserver 800 (Corelle).
+<BR>
++ * The AlphaLinux firmware/chipset/pci code is in need of a
+<BR>
++ * bit of rewrite, but this kludge is quick, dirty and works.
+<BR>
++ *
+<BR>
++ * It is imperative for these changes to work that that
+<BR>
++ * the SRM initialized PCI configuration is not preserved
+<BR>
++ * at boot time, ie. say NO to 'Use SRM PCI setup' during
+<BR>
++ * kernel config (On the AlphaServer 800, SRM always comes
+<BR>
++ * up with a DMA_WIN_BASE at 1GB * and DMA_WIN_SIZE of 1GB,
+<BR>
++ * regardless of the amount of memory).
+<BR>
++ *
+<BR>
++ * Similar KLUDGES should work for other Alpha systems, although
+<BR>
++ * the SX164 should support 2GB without changes.
+<BR>
++ * Also I see no reason why, setting the dma window at 4GB and
+<BR>
++ * size of 4GB, would not enable the Corelle to run with 4GB of
+<BR>
++ * RAM.
+<BR>
++ *
+<BR>
++ * For further info contact: Bjorn R. Bjornsson, <A HREF="mailto:brb@halo.hi.is?subject=Re:%20More%20than%201GB%20RAM%20with%20AlphaLinux%20(was%20...%204-8GB%20RAM)">brb@halo.hi.is</A>
+<BR>
++ */
+<BR>
++#define BRB_2GB_KLUDGE
+<BR>
++#ifdef BRB_2GB_KLUDGE
+<BR>
++#define CIA_DMA_WIN_BASE_DEFAULT    0x80000000      /* fixed, 2G @ 2G */
+<BR>
++#define CIA_DMA_WIN_SIZE_DEFAULT    0x80000000      /* fixed, 2G @ 2G */
+<BR>
++#else
+<BR>
+&nbsp;#define CIA_DMA_WIN_BASE_DEFAULT	(1024*1024*1024)
+<BR>
+&nbsp;#define CIA_DMA_WIN_SIZE_DEFAULT	(1024*1024*1024)
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SRM_SETUP)
+<BR>
+&nbsp;#define CIA_DMA_WIN_BASE		alpha_mv.dma_win_base
+<BR>
+&nbsp;#define CIA_DMA_WIN_SIZE		alpha_mv.dma_win_size
+<BR>
+&nbsp;#else
+<BR>
++/*
+<BR>
++ * The next source line used to read:
+<BR>
++ *
+<BR>
+&nbsp;#define CIA_DMA_WIN_BASE		CIA_DMA_WIN_SIZE_DEFAULT
+<BR>
++ *
+<BR>
++ * Which is almost certainly a typo, but is literally a Freudian
+<BR>
++ * slip, in view of the chipset spec.
+<BR>
++ */
+<BR>
++#define CIA_DMA_WIN_BASE		CIA_DMA_WIN_BASE_DEFAULT
+<BR>
+&nbsp;#define CIA_DMA_WIN_SIZE		CIA_DMA_WIN_SIZE_DEFAULT
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+@@ -553,6 +588,12 @@
+<BR>
+&nbsp;#define __outw		cia_outw
+<BR>
+&nbsp;#define __outl		cia_outl
+<BR>
+&nbsp;
+<BR>
++#ifdef BRB_2GB_KLUDGE
+<BR>
++#define __readb		cia_readb
+<BR>
++#define __readw		cia_readw
+<BR>
++#define __writeb	cia_writeb
+<BR>
++#define __writew	cia_writew
+<BR>
++#else
+<BR>
+&nbsp;#ifdef CONFIG_ALPHA_SRM_SETUP
+<BR>
+&nbsp;#define __readb		cia_srm_readb
+<BR>
+&nbsp;#define __readw		cia_srm_readw
+<BR>
+@@ -563,6 +604,7 @@
+<BR>
+&nbsp;#define __readw		cia_readw
+<BR>
+&nbsp;#define __writeb	cia_writeb
+<BR>
+&nbsp;#define __writew	cia_writew
+<BR>
++#endif
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __readl		cia_readl
+<BR>
+<P>Here is the uuencoded version:
+<BR>
+<P>begin 644 AS800-2GB-patch
+<BR>
+M+2TM(&amp;QI;G5X+3(N,BXS+VEN8VQU9&amp;4O87-M+6%L&lt;&amp;AA+V-O&lt;F5?8VEA+F@)
+<BR>
+M5V5D($IA;B`Q,R`Q.#HT,CHT.2`Q.3DY&quot;BLK*R!L:6YU&gt;&quot;TR+C(N,RUB&lt;F)K
+<BR>
+M;'5D9V4O:6YC;'5D92]A&lt;VTM86QP:&amp;$O8V]R95]C:6$N:`E4=M;'5D9V4O:6YC;'5D92]A&lt;VTM86QP:&amp;$O8V]R95]C:6$N:`E4=64@36%R(&quot;`Y
+<BR>
+M(#(Q.C(U.C`Q(#$Y.3D*0$`@+3&lt;W+#$T(&quot;LW-RPT.2!`0`H@(V1E9FEN92!#
+<BR>
+M24%?345-7U(R7TU!4TL@,'@P-V9F9F9F9B`@+M24%?345-7U(R7TU!4TL@,'@P-V9F9F9F9B`@+RH@4U!!4E-%($UE;2!R96=I
+<BR>
+M;VX@,B!M87-K(&amp;ES(#(W(&amp;)I=',@*B\*(&quot;-D969I;M;VX@,B!M87-K(&amp;ES(#(W(&amp;)I=',@*B\*(&quot;-D969I;F4@0TE!7TU%35]2,U]-
+<BR>
+M05-+(#!X,#-F9F9F9F8@(&quot;\J(%-005)312!-96T@&lt;F5G:6]N(#,@;6%S:R!I
+<BR>
+M&lt;R`R-B!B:71S(&quot;HO&quot;B`**R\J&quot;BL@*B!+;'5D9V4@=&amp;\@96YA8FQE(#)'0B!2
+<BR>
+M04T@;M04T@;VX@06QP:&amp;%S97)V97(@.#`P(&quot;A#;W)E;&amp;QE*2X**R`J(%1H92!!;'!H
+<BR>
+M84QI;G5X(&amp;9I&lt;FUW87)E+V-H:7!S970O&lt;&amp;-I(&amp;-O9&amp;4@:7,@:6X@;F5E9&quot;!O
+<BR>
+M9B!A&quot;BL@*B!B:70@;V8@&lt;F5W&lt;M9B!A&quot;BL@*B!B:70@;V8@&lt;F5W&lt;FET92P@8G5T('1H:7,@:VQU9&amp;=E(&amp;ES('%U
+<BR>
+M:6-K+&quot;!D:7)T&gt;2!A;F0@=V]R:W,N&quot;BL@*@HK(&quot;M:6-K+&quot;!D:7)T&gt;2!A;F0@=V]R:W,N&quot;BL@*@HK(&quot;H@270@:7,@:6UP97)A=&amp;EV
+<BR>
+M92!F;W(@=&amp;AE&lt;M92!F;W(@=&amp;AE&lt;V4@8VAA;F=E&lt;R!T;R!W;W)K('1H870@=&amp;AA=`HK(&quot;H@=&amp;AE
+<BR>
+M(%-232!I;FET:6%L:7IE9&quot;!M(%-232!I;FET:6%L:7IE9&quot;!00TD@8V]N9FEG=7)A=&amp;EO;B!I&lt;R!N;W0@&lt;')E
+<BR>
+M&lt;V5R=F5D&quot;BL@*B!A=&quot;!B;V]T('1I;64L(&amp;EE+B!M&lt;V5R=F5D&quot;BL@*B!A=&quot;!B;V]T('1I;64L(&amp;EE+B!S87D@3D\@=&amp;\@)U5S92!3
+<BR>
+M4DT@4$-)('-E='5P)R!D=7)I;F&lt;**R`J(&amp;ME&lt;FYE;&quot;!C;VYF:6&lt;@*$]N('1H
+<BR>
+M92!!;'!H85-E&lt;G9E&lt;B`X,#`L(%-232!A;'=A&gt;7,@8V]M97,**R`J('5P('=I
+<BR>
+M=&amp;@@82!$34%?5TE.7T)!M=&amp;@@82!$34%?5TE.7T)!4T4@870@,4=&quot;(&quot;M=&amp;@@82!$34%?5TE.7T)!4T4@870@,4=&quot;(&quot;H@86YD($1-05]724Y?4TE:12!O
+<BR>
+M9B`Q1T(L&quot;BL@*B!R96=A&lt;F1L97-S(&amp;]F('1H92!A;6]U;G0@;V8@;65M;W)Y
+<BR>
+M*2X**R`J&quot;BL@*B!3:6UI;&amp;%R($M,541'15,@&lt;VAO=6QD('=O&lt;M*2X**R`J&quot;BL@*B!3:6UI;&amp;%R($M,541'15,@&lt;VAO=6QD('=O&lt;FL@9F]R(&amp;]T
+<BR>
+M:&amp;5R($%L&lt;&amp;AA('-Y&lt;W1E;7,L(&amp;%L=&amp;AO=6=H&quot;BL@*B!T:&amp;M:&amp;5R($%L&lt;&amp;AA('-Y&lt;W1E;7,L(&amp;%L=&amp;AO=6=H&quot;BL@*B!T:&amp;4@M:&amp;5R($%L&lt;&amp;AA('-Y&lt;W1E;7,L(&amp;%L=&amp;AO=6=H&quot;BL@*B!T:&amp;4@4U@Q-C0@&lt;VAO
+<BR>
+M=6QD('-U&lt;'!O&lt;G0@,D=&quot;('=I=&amp;AO=M=6QD('-U&lt;'!O&lt;G0@,D=&quot;('=I=&amp;AO=70@8VAA;F=E&lt;RX**R`J($%L&lt;V\@22!S
+<BR>
+M964@;F\@&lt;F5A&lt;V]N('=H&gt;2P@&lt;V5T=&amp;EN9R!T:&amp;M964@;F\@&lt;F5A&lt;V]N('=H&gt;2P@&lt;V5T=&amp;EN9R!T:&amp;4@9&amp;UA('=I;F1O=R!A=&quot;`T
+<BR>
+M1T(@86YD&quot;BL@*B!S:7IE(&amp;]F(#1'0BP@=V]U;&amp;0@;F]T(&amp;5N86)L92!T:&amp;4@
+<BR>
+M0V]R96QL92!T;R!R=6X@=VET:&quot;`T1T(@;V8**R`J(%)!32X**R`J&quot;BL@*B!&amp;
+<BR>
+M;W(@9G5R=&amp;AE&lt;B!I;F9O(&amp;-O;G1A8W0Z($)J;W)N(%(N($)J;W)N&lt;W-O;BP@
+<BR>
+M8G)B0&amp;AA;&amp;\N:&amp;DN:7,**R`J+PHK(V1E9FEN92!&quot;4D)?,D=&quot;7TM,541'10HK
+<BR>
+M(VEF9&amp;5F($)20E\R1T)?2TQ51$=%&quot;BLC9&amp;5F:6YE($-)05]$34%?5TE.7T)!
+<BR>
+M4T5?1$5&amp;055,5&quot;`@(&quot;`P&gt;#@P,#`P,#`P(&quot;`@(&quot;`@+M4T5?1$5&amp;055,5&quot;`@(&quot;`P&gt;#@P,#`P,#`P(&quot;`@(&quot;`@+RH@9FEX960L(#)'($`@
+<BR>
+M,D&lt;@*B\**R-D969I;M,D&lt;@*B\**R-D969I;F4@0TE!7T1-05]724Y?4TE:15]$149!54Q4(&quot;`@(#!X
+<BR>
+M.#`P,#`P,#`@(&quot;`@(&quot;`O*B!F:7AE9&quot;P@,D&lt;@0&quot;`R1R`J+PHK(V5L&lt;V4*(&quot;-D
+<BR>
+M969I;M969I;F4@0TE!7T1-05]724Y?0D%315]$149!54Q4&quot;M969I;F4@0TE!7T1-05]724Y?0D%315]$149!54Q4&quot;2@Q,#(T*C$P,C0J,3`R
+<BR>
+M-&quot;D*(&quot;-D969I;M-&quot;D*(&quot;-D969I;F4@0TE!7T1-05]724Y?4TE:15]$149!54Q4&quot;M-&quot;D*(&quot;-D969I;F4@0TE!7T1-05]724Y?4TE:15]$149!54Q4&quot;2@Q,#(T*C$P
+<BR>
+M,C0J,3`R-&quot;D**R-E;M,C0J,3`R-&quot;D**R-E;F1I9@HK&quot;B`*(&quot;-I9B!D969I;F5D*$-/3D9)1U]!3%!(
+<BR>
+M05]'14Y%4DE#*2!\?&quot;!D969I;F5D*$-/3D9)1U]!3%!(05]34DU?4T5455`I
+<BR>
+M&quot;B`C9&amp;5F:6YE($-)05]$34%?5TE.7T)!4T4)&quot;6%L&lt;&amp;AA7VUV+F1M85]W:6Y?
+<BR>
+M8F%S90H@(V1E9FEN92!#24%?1$U!7U=)3E]325I%&quot;0EA;'!H85]M=BYD;6%?
+<BR>
+M=VEN7W-I&gt;F4*(&quot;-E;'-E&quot;BLO*@HK(&quot;M=VEN7W-I&gt;F4*(&quot;-E;'-E&quot;BLO*@HK(&quot;H@5&amp;AE(&amp;YE&gt;'0@&lt;V]U&lt;F-E(&amp;QI;F4@
+<BR>
+M=7-E9&quot;!T;R!M=7-E9&quot;!T;R!R96%D.@HK(&quot;H*(&quot;-D969I;M=7-E9&quot;!T;R!R96%D.@HK(&quot;H*(&quot;-D969I;F4@0TE!7T1-05]724Y?0D%310D)
+<BR>
+M0TE!7T1-05]724Y?4TE:15]$149!54Q4&quot;BL@*@HK(&quot;M0TE!7T1-05]724Y?4TE:15]$149!54Q4&quot;BL@*@HK(&quot;H@5VAI8V@@:7,@86QM
+<BR>
+M;W-T(&amp;-E&lt;G1A:6YL&gt;2!A('1Y&lt;&amp;\L(&amp;)U=&quot;!I&lt;R!L:71E&lt;F%L;'M;W-T(&amp;-E&lt;G1A:6YL&gt;2!A('1Y&lt;&amp;\L(&amp;)U=&quot;!I&lt;R!L:71E&lt;F%L;'D@82!&amp;&lt;F5U
+<BR>
+M9&amp;EA;@HK(&quot;H@&lt;VQI&lt;&quot;P@:6X@=FEE=R!O9B!T:&amp;M9&amp;EA;@HK(&quot;H@&lt;VQI&lt;&quot;P@:6X@=FEE=R!O9B!T:&amp;4@8VAI&lt;'-E=&quot;!S&lt;&amp;5C+@HK
+<BR>
+M(&quot;HO&quot;BLC9&amp;5F:6YE($-)05]$34%?5TE.7T)!4T4)&quot;4-)05]$34%?5TE.7T)!
+<BR>
+M4T5?1$5&amp;055,5`H@(V1E9FEN92!#24%?1$U!7U=)3E]325I%&quot;0E#24%?1$U!
+<BR>
+M7U=)3E]325I%7T1%1D%53%0*(&quot;-E;M7U=)3E]325I%7T1%1D%53%0*(&quot;-E;F1I9@H@&quot;D!`(&quot;TU-3,L-B`M7U=)3E]325I%7T1%1D%53%0*(&quot;-E;F1I9@H@&quot;D!`(&quot;TU-3,L-B`K-3@X+#$R
+<BR>
+M($!`&quot;B`C9&amp;5F:6YE(%]?;W5T=PD)8VEA7V]U='&lt;*(&quot;-D969I;M($!`&quot;B`C9&amp;5F:6YE(%]?;W5T=PD)8VEA7V]U='&lt;*(&quot;-D969I;F4@7U]O=71L
+<BR>
+M&quot;0EC:6%?;W5T;`H@&quot;BLC:M&quot;0EC:6%?;W5T;`H@&quot;BLC:69D968@0E)&quot;7S)'0E]+3%5$1T4**R-D969I;F4@
+<BR>
+M7U]M7U]R96%D8@D)8VEA7W)E861B&quot;BLC9&amp;5F:6YE(%]?&lt;F5A9'&lt;)&quot;6-I85]R96%D
+<BR>
+M=PHK(V1E9FEN92!?7W=R:M=PHK(V1E9FEN92!?7W=R:71E8@EC:6%?=W)I=&amp;5B&quot;BLC9&amp;5F:6YE(%]?=W)I
+<BR>
+M=&amp;5W&quot;6-I85]W&lt;FET97&lt;**R-E;'-E&quot;B`C:M=&amp;5W&quot;6-I85]W&lt;FET97&lt;**R-E;'-E&quot;B`C:69D968@0T].1DE'7T%,4$A!7U-2
+<BR>
+M35]315154`H@(V1E9FEN92!?7W)E861B&quot;0EC:6%?&lt;W)M7W)E861B&quot;B`C9&amp;5F
+<BR>
+M:6YE(%]?&lt;F5A9'&lt;)&quot;6-I85]S&lt;FU?&lt;F5A9'&lt;*0$`@+34V,RPV(&quot;LV,#0L-R!`
+<BR>
+M0`H@(V1E9FEN92!?7W)E861W&quot;0EC:6%?&lt;F5A9'&lt;*(&quot;-D969I;M0`H@(V1E9FEN92!?7W)E861W&quot;0EC:6%?&lt;F5A9'&lt;*(&quot;-D969I;F4@7U]W&lt;FET
+<BR>
+M96()8VEA7W=R:M96()8VEA7W=R:71E8@H@(V1E9FEN92!?7W=R:71E=PEC:6%?=W)I=&amp;5W&quot;BLC
+<BR>
+L96YD:68*(&quot;-E;L96YD:68*(&quot;-E;F1I9@H@&quot;B`C9&amp;5F:6YE(%]?&lt;F5A9&amp;P)&quot;6-I85]R96%D;`H`
+<BR>
+`
+<BR>
+end
+<BR>
+<P>Bjorn R. Bjornsson
+<BR>
+<A HREF="mailto:brb@halo.hi.is?subject=Re:%20More%20than%201GB%20RAM%20with%20AlphaLinux%20(was%20...%204-8GB%20RAM)">brb@halo.hi.is</A>
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20More%20than%201GB%20RAM%20with%20AlphaLinux%20(was%20...%204-8GB%20RAM)">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20More%20than%201GB%20RAM%20with%20AlphaLinux%20(was%20...%204-8GB%20RAM)">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0493.html">mgraffam@idsi.net: "gcc on alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0491.html">Joakim Roubert: "Re: Howto remove /proc/kcore?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Mar 09 1999 - 15:00:18 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

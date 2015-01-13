@@ -1,0 +1,138 @@
+<!-- received="Wed May 22 16:12:20 1996 " -->
+<!-- sent="Wed, 22 May 1996 16:12:20 -0400" -->
+<!-- name="Craig Burley" -->
+<!-- email="burley@gnu.ai.mit.edu" -->
+<!-- subject="gdb improvement for printing FP values, and Linux/Alpha FP bug?" -->
+<!-- id="199605222012.QAA07665@wombat.gnu.ai.mit.edu" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>gdb improvement for printing FP values, and Linux/Alpha FP bug?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>gdb improvement for printing FP values, and Linux/Alpha FP bug?</h2>
+
+<b>Craig Burley</b> (<a href="mailto:burley@gnu.ai.mit.edu"><i>burley@gnu.ai.mit.edu</i></a>)<br>
+<i>Wed, 22 May 1996 16:12:20 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#361">[ date ]</a><a href="index.html#361">[ thread ]</a><a href="subject.html#361">[ subject ]</a><a href="author.html#361">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Previous message:</b> <a href="0360.html">velcro@pobox.com: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Maybe reply:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Maybe reply:</b> <a href="0366.html">David Mosberger-Tang: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Okay Peter, thanks for the pointer -- `i r $f10' does indeed<br>
+show the raw contents (in the wrong byte-order for this machine,<br>
+as you point out ;-), but note that it does so only _after_ it<br>
+shows the floating-point value.<br>
+<p>
+On my Alpha, that means that the output of `i r $f10' when $f10<br>
+contains a denormal is:<br>
+<p>
+(gdb) i r $f10<br>
+f10         Erroneous arithmetic operation<br>
+(gdb)<br>
+<p>
+In other words, I don't get the raw value.  Perhaps this could be<br>
+shown first?<br>
+<p>
+Regardless, for now, due to what you suggest might be a Linux/Alpha bug,<br>
+I can work around this simply by issuing the command again -- at which<br>
+point, apparently, denormal support works properly, because I get<br>
+the appropriate output.<br>
+<p>
+My concern is that, down the road, if _this_ bug is fixed (however<br>
+that might happen), I then wouldn't be able to examine the contents<br>
+of the register at all if the FP contents of the register caused<br>
+a trap.  That's why I'd rather see the raw contents displayed first,<br>
+since that cannot trap, followed by the FP interpretation of the<br>
+contents.  Does that make sense?<br>
+<p>
+I'm sending this along to axp-list in case Linux/Alpha people want<br>
+to comment.  Hope that's okay with you.<br>
+<p>
+        tq vm, (burley)<br>
+<p>
+<p>
+<i>&gt;From: "Peter.Schauer" &lt;<a href="mailto:Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE">Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE</a>&gt;</i><br>
+<i>&gt;Subject: Re: Need Way To Examine Bit Contents of FP Register</i><br>
+<i>&gt;To: <a href="mailto:burley@gnu.ai.mit.edu">burley@gnu.ai.mit.edu</a> (Craig Burley)</i><br>
+<i>&gt;Date: Wed, 22 May 96 21:34:09 MET DST</i><br>
+<i>&gt;Cc: <a href="mailto:shebs@cygnus.com">shebs@cygnus.com</a></i><br>
+<i>&gt;In-Reply-To: &lt;<a href="mailto:199605190410.AAA18249@apple-gunkies.gnu.ai.mit.edu">199605190410.AAA18249@apple-gunkies.gnu.ai.mit.edu</a>&gt;; from "Craig Burley" at May 19, 96 12:10 am</i><br>
+<i>&gt;X-Mailer: ELM [version 2.3 PL6]</i><br>
+<i>&gt;</i><br>
+<i>&gt;E.g. `i r $f16' should supply what you want.</i><br>
+<i>&gt;Please note that the raw format output is in little endian order. This</i><br>
+<i>&gt;will be fixed in the next version of GDB.</i><br>
+<i>&gt;</i><br>
+<i>&gt;The other problem looks like a Linux bug. As long as you aren't calling</i><br>
+<i>&gt;functions in the inferior, I see no way why a print in the debugger</i><br>
+<i>&gt;should affect the inferior. It looks like the kernel is somehow sharing</i><br>
+<i>&gt;FPU state between processes.</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt; Trying to debug some miscompiled code on the Alpha (by g77/gcc),</i><br>
+<i>&gt;&gt; I ran into this frustrating problem using gdb-4.14, which maybe</i><br>
+<i>&gt;&gt; gdb-4.16 addresses, but I haven't tried it yet (need to try</i><br>
+<i>&gt;&gt; applying an AXP patch for 4.15.1, etc., and I don't want to</i><br>
+<i>&gt;&gt; wait to submit this report until I try that, because I might</i><br>
+<i>&gt;&gt; forget).</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; The problem is that if an FP register contains an invalid value,</i><br>
+<i>&gt;&gt; e.g. a denormal, gdb will complain when you try to print it out,</i><br>
+<i>&gt;&gt; even if you try to print it out as hex.  At least, I can't figure</i><br>
+<i>&gt;&gt; out how to get gdb to not access and interpret the contents as</i><br>
+<i>&gt;&gt; a simple bit pattern -- p/x, etc., would all complain.</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; Not only that, but after the first complaint, gdb or Linux or</i><br>
+<i>&gt;&gt; something would manage to set some state differently so not only</i><br>
+<i>&gt;&gt; did the complaint go away, but so did the crash for the program</i><br>
+<i>&gt;&gt; being debugged.  Even "file a.out" still resulted in the program</i><br>
+<i>&gt;&gt; running fine, despite undoubtedly still internally trapping on the</i><br>
+<i>&gt;&gt; denormal -- I had to exit and reenter gdb repeatedly to resurrect</i><br>
+<i>&gt;&gt; the abort that normally (?) happens on the trap.  But, maybe this</i><br>
+<i>&gt;&gt; is a behavior of Linux or something.</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; Let me know if you need a transcript of these problems.</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt;         tq vm, (burley)</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt;-- </i><br>
+<i>&gt;Peter Schauer			<a href="mailto:pes@regent.e-technik.tu-muenchen.de">pes@regent.e-technik.tu-muenchen.de</a></i><br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Previous message:</b> <a href="0360.html">velcro@pobox.com: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Maybe reply:</b> <a href="0362.html">David  Mosberger: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<li> <b>Maybe reply:</b> <a href="0366.html">David Mosberger-Tang: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

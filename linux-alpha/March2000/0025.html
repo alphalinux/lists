@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 09 04:36:36 2000" -->
+<!-- isoreceived="20000309123636" -->
+<!-- sent="Thu, 9 Mar 2000 04:09:45 +0100 (CET)" -->
+<!-- isosent="20000309030945" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.21.0003090332570.4457-100000@alpha.random" -->
+<!-- inreplyto="20000308175510.A14253@cygnus.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 08 2000 - 19:09:45 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#25">[ date ]</A>
+<A HREF="index.html#25">[ thread ]</A>
+<A HREF="subject.html#25">[ subject ]</A>
+<A HREF="author.html#25">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0026.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0024.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0022.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0027.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0022.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 8 Mar 2000, Richard Henderson wrote:
+<BR>
+<P><EM>&gt;On Wed, Mar 08, 2000 at 06:02:26PM -0700, yodaiken@fsmlabs.com wrote:
+</EM><BR>
+<EM>&gt;&gt; &gt; if different IRQs are delivered to different CPUs, then there is no global
+</EM><BR>
+<EM>&gt;&gt; &gt; spinlock connection between them. Also see /proc/irq/*/smp_affinity. Eg.  
+</EM><BR>
+<EM>&gt;&gt; 
+</EM><BR>
+<EM>&gt;&gt; I've been thinking about this change and still don't see what good it 
+</EM><BR>
+<EM>&gt;&gt; does.
+</EM><BR>
+<EM>&gt;&gt; On a UP -- no change except code is more complex
+</EM><BR>
+<EM>&gt;&gt; On a SMP box  performance loss without using affinity.
+</EM><BR>
+<EM>&gt;&gt;         Take two spinlocks instead of one, more cache boucing etc.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;Actually, it does make sense on Alpha.  We don't really take advantage
+</EM><BR>
+<EM>&gt;of it at the moment but --
+</EM><BR>
+<P>It make sense also on X86 and we are just taking advantage of it see my
+<BR>
+other email.
+<BR>
+<P><EM>&gt;We don't need any spinlocks at all.
+</EM><BR>
+<P>I don't think so.
+<BR>
+<P><EM>&gt;Each cpu has its own interrupt mask register, so the actual interrupt
+</EM><BR>
+<EM>&gt;handler needn't worry about communicating with other processors. 
+</EM><BR>
+<P>Yes, but we definitely need the per irq-desc locking to avoid to run the
+<BR>
+irq handler on two CPUs at the same time.
+<BR>
+<P>For the per-controller lock I had a strong reason for adding it too (at
+<BR>
+first I took the wrong lock-less way of only replacing the ~&amp;| with atomic
+<BR>
+set_bit/clear_bit). Without it this is what can happen:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu0 running irq0		cpu1 running irq1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;------------------		-------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handler-&gt;ack(0) -&gt; disable_irq(0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handler-&gt;ack(1) -&gt; disable_irq(1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = cached_irq_mask &amp; ~(1UL&lt;&lt;1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask = mask
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = cached_irq_mask &amp; ~(1UL&lt;&lt;0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask = mask
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync(mask)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync(mask) irq0 was still enabled
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in this mask!!!!
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;returns thinking irq0 is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disabled bit it isn't (lockup)
+<BR>
+<P>With the additional lock the set-clear-bit + flush-new-mask-to-hardware is
+<BR>
+atomic and the above SMP race can't happen anymore.
+<BR>
+<P><EM>&gt;an interprocessor interrupt.  This is more heavy-weight than a spinlock,
+</EM><BR>
+<EM>&gt;but it ought to be much less frequent.
+</EM><BR>
+<P>Hug, handler-&gt;enable_irq()/handler-&gt;disable_irq() are called for _each_
+<BR>
+irq.
+<BR>
+<P>And the real enable_irq()/disable_irq() is not less frequent than
+<BR>
+interrupts in the 3c509 case (it may be the only operation while
+<BR>
+transmitting data in UDP and that's an issue at least for multicasting). I
+<BR>
+think using IPI for synchronization is a loss even if possible thing to
+<BR>
+do. enable_irq/disable_irq should be really fast. (And it's not fully
+<BR>
+clear to me how to solve the above race by using IPI btw :).
+<BR>
+<P><EM>&gt;What we ought to do is initialize the affinity mask with some initial
+</EM><BR>
+<EM>&gt;static distribution, [..]
+</EM><BR>
+<P>Agreed, if there are platforms supporting 8/16-way SMP that is a very good
+<BR>
+idea. It can be done as a per platform init thing to call in the
+<BR>
+alpha_mv.init_irq callback.
+<BR>
+<P>The current default for dp264 should be ok at lest for 2-way and maybe ok
+<BR>
+for 4-way too (max number of CPU supported by dp264).
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0026.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0024.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0022.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0027.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0022.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

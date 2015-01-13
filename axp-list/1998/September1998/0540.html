@@ -1,0 +1,134 @@
+<!-- received="Mon Sep 21 11:48:34 1998 " -->
+<!-- sent="Mon, 21 Sep 98 15:41:07 +0100" -->
+<!-- name="Richard Black" -->
+<!-- email="rjb@dcs.gla.ac.uk" -->
+<!-- subject="at least two bugs in strace-3.1-5" -->
+<!-- id="9809211441.AA14164@bathurst" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>at least two bugs in strace-3.1-5</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>at least two bugs in strace-3.1-5</h2>
+
+<b>Richard Black</b> (<a href="mailto:rjb@dcs.gla.ac.uk"><i>rjb@dcs.gla.ac.uk</i></a>)<br>
+<i>Mon, 21 Sep 98 15:41:07 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#540">[ date ]</a><a href="index.html#540">[ thread ]</a><a href="subject.html#540">[ subject ]</a><a href="author.html#540">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0541.html">Uncle George: "Re: Dynamic Linkage Problem"</a>
+<li> <b>Previous message:</b> <a href="0539.html">Don Myroon: "Re: Milo/kernel problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Summary:<br>
+<p>
+I discovered a bug in strace (on alpha), and on investigating discovered that <br>
+the source RPM appears not to compile on either alpha or intel (multiple <br>
+problems)<br>
+<p>
+Details:<br>
+<p>
+1)<br>
+<p>
+The following program, when run under strace on alpha linux shows that strace <br>
+on alpha linux does not record the mmap call correctly.  It is recorded <br>
+correctly on intel linux.<br>
+<p>
+#include &lt;unistd.h&gt;<br>
+#include &lt;sys/mman.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+<p>
+int main(int argc, char **argv)<br>
+{<br>
+    int fd = open("/etc/passwd", O_RDONLY);<br>
+<p>
+    if (mmap(NULL, 8192, PROT_READ, MAP_PRIVATE, fd, 0) == 0)<br>
+	perror("mmap:");<br>
+    return 0;<br>
+}<br>
+<p>
+gives:<br>
+<p>
+open("/etc/passwd", O_RDONLY)           = 3<br>
+mmap(0, 0, 0x1ffff480, 0 /* MAP_??? */, 2, 0) = 0x1555556a000<br>
+exit(0)                                 = ?<br>
+<p>
+on alpha, but the correct<br>
+<p>
+open("/etc/passwd", O_RDONLY)           = 5<br>
+mmap(0, 8192, PROT_READ, MAP_PRIVATE, 5, 0) = 0x400b5000<br>
+_exit(0)                                = ?<br>
+<p>
+on intel.<br>
+<p>
+<p>
+<p>
+2)<br>
+<p>
+- Also the strace source rpm (even with the supplied patches) does not compile <br>
+on either alpha or intel because of a missing kernel include file.  <br>
+strace-3.1/process.c includes &lt;sys/prctl.h&gt; which in turn includes <br>
+&lt;linux/prctl.h&gt;, but that header file does not exist.<br>
+<p>
+- On intel, the file syscall.c does not compile because of the errors:<br>
+<p>
+syscall.c: In function `trace_syscall':<br>
+syscall.c:513: `ORIG_EAX' undeclared (first use this function)<br>
+syscall.c:513: (Each undeclared identifier is reported only once<br>
+syscall.c:513: for each function it appears in.)<br>
+syscall.c:613: `EAX' undeclared (first use this function)<br>
+make: *** [syscall.o] Error 1<br>
+<p>
+- On alpha even if config.h is modified to say<br>
+#undef HAVE_PRCTL<br>
+the build still fails in <br>
+<p>
+sock.c: In function `sock_ioctl':<br>
+sock.c:60: warning: implicit declaration of function `_IOW'<br>
+sock.c:60: parse error before `int'<br>
+sock.c:76: warning: unreachable code at beginning of switch statement<br>
+<p>
+It is necessary to also include sys/ioctl.h to get the (buggy) binary shipped <br>
+in the binary rpm file.<br>
+<p>
+Richard<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0541.html">Uncle George: "Re: Dynamic Linkage Problem"</a>
+<li> <b>Previous message:</b> <a href="0539.html">Don Myroon: "Re: Milo/kernel problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

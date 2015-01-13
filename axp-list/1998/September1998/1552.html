@@ -1,0 +1,126 @@
+<!-- received="Mon Oct 12 14:11:44 1998 " -->
+<!-- sent="Mon, 12 Oct 1998 20:02:37 +0300 (EEST)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="Re: various network drivers at Linux kernels (was: Miata Networking...)" -->
+<!-- id="19981012170244Z92258-461+9@mea.tmt.tele.fi" -->
+<!-- inreplyto="Pine.SUN.3.91.981011201906.10565C-100000@yukon" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: various network drivers at Linux kernels (was: Miata Networking...)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: various network drivers at Linux kernels (was: Miata Networking...)</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@sonera.fi"><i>matti.aarnio@sonera.fi</i></a>)<br>
+<i>Mon, 12 Oct 1998 20:02:37 +0300 (EEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1552">[ date ]</a><a href="index.html#1552">[ thread ]</a><a href="subject.html#1552">[ subject ]</a><a href="author.html#1552">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1553.html">bert hubert: "Re: Booting 2.1.x on a AlphaStation 4/200 using aboot"</a>
+<li> <b>Previous message:</b> <a href="1551.html">Michal Jaegermann: "Re: Booting 2.1.x on a AlphaStation 4/200 using aboot"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Donald Becker &lt;<a href="mailto:becker@cesdis1.gsfc.nasa.gov">becker@cesdis1.gsfc.nasa.gov</a>&gt; replies to me:<br>
+... <br>
+<i>&gt; This "buffer deficit" scheme has another beneficial effect: most new chips</i><br>
+<i>&gt; which implement hardware flow control can only trigger FC packets when</i><br>
+<i>&gt; running out of buffers, not in response to a driver-level request.  BTW,</i><br>
+<i>&gt; hardware flow control is unrelated to the misnamed code in the new kernel.</i><br>
+<i>&gt; That new code should be called "randomly drop packets when actually doing</i><br>
+<i>&gt; work".</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; Speaking of which, a quick browse shows me that: </i><br>
+<i>&gt; &gt; tulip.c at 2.0.35 has this rx_skbuff[] ring problem.</i><br>
+<i>&gt;</i><br>
+<i>&gt; See above -- it just has a different structure.</i><br>
+<p>
+ Eh ?  Ok, I take your word on it.<br>
+<p>
+<i>&gt; &gt; 3c59x.c (up to and including version 0.99G!) driver does blow up if that</i><br>
+<i>&gt; &gt; ring can not be refilled successfully...</i><br>
+<i>&gt; </i><br>
+<i>&gt; The 3c59x.c driver has a related bug: it has a limit check at the end of a</i><br>
+<i>&gt; loop instead of the beginning.  (A mistaken optimization on my part.)  If</i><br>
+<i>&gt; the receive ring cannot be filled and empties completely, there are</i><br>
+<i>&gt; obviously no packets to receive.  But with the limit check at the end of the</i><br>
+<i>&gt; loop, the driver will think that and old, already-processed packet is a new</i><br>
+<i>&gt; one.  Disaster occurs..  This same bug exists in the eepro100.c driver.</i><br>
+<i>&gt; (However the current tulip driver *does* have the check in the correct</i><br>
+<i>&gt; place.)</i><br>
+<p>
+	When can I have the fixed 3c59x.c ?<br>
+	Could it be worth pushing to Linus too ?<br>
+<p>
+...<br>
+<i>&gt; &gt; de4x5.c (v0.542) driver will always alloc a new skb at an Alpha, and</i><br>
+<i>&gt; &gt; then copy the data there.  If the alloc fails, it is skipped. (No kernel</i><br>
+<i>&gt; &gt; crash from that...)  (But this isn't Donald's  rx_skbuff[]  beasts either..)</i><br>
+<i>&gt; </i><br>
+<i>&gt; That's similar to what my drivers used to do.  It's a natural progression</i><br>
+<i>&gt; from the original driver model, which was "copy into a fresh skbuff", to the</i><br>
+<i>&gt; zero-copy "receive directly into an skbuff and refill the slot immediately".</i><br>
+<i>&gt; </i><br>
+<i>&gt; An advantage to copying with the Alpha is that the Tulip must have</i><br>
+<i>&gt; word-aligned receive buffers.  With 14 byte Ethernet headers, the IP headers</i><br>
+<i>&gt; are always misaligned.  The Linux protocol code doesn't (didn't) have</i><br>
+<i>&gt; get_unaligned() calls for disassembling packets, so uncopied packets cause</i><br>
+<i>&gt; alignment traps.  When copying packets (or with a better chip) you can do</i><br>
+<i>&gt; skb_reserve(skb,2) to align the IP header.</i><br>
+<p>
+	I puzzled this a bit, and then pulled 21143HRM (Hardware Reference<br>
+	Manual) from Intel's site. <br>
+<p>
+	The chip supports having two buffers per ring descriptor entry,<br>
+	but there the rule of 'buffer size must be multiple of 4 bytes'<br>
+	does seem to block a possibly interesting way to split the frame<br>
+	into two parts with nice alignments...  ("Copy the first 14 octets<br>
+	into buffer 1, then continue into buffer2 for the rest. Create the<br>
+	buffer1 to be 16 bytes before buffer2, and copy the initial 14<br>
+	bytes into proper alignment after the reception.")<br>
+<p>
+	Of course the manual does not say, what will happen in this case<br>
+	the receive buffer1 size is 14, would the chip just store 14 real<br>
+	input bytes, and two nonsense ones into the buffer area, or would<br>
+	it completely refuse to store the bytes, or would it store 16 bytes,<br>
+	and then continue with buffer2 ?<br>
+<p>
+<i>&gt; Donald Becker					  <a href="mailto:becker@cesdis.gsfc.nasa.gov">becker@cesdis.gsfc.nasa.gov</a></i><br>
+<i>&gt; 301-286-0882	     <a href="http://cesdis.gsfc.nasa.gov/people/becker/whoiam.html">http://cesdis.gsfc.nasa.gov/people/becker/whoiam.html</a></i><br>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@sonera.fi">matti.aarnio@sonera.fi</a>&gt;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1553.html">bert hubert: "Re: Booting 2.1.x on a AlphaStation 4/200 using aboot"</a>
+<li> <b>Previous message:</b> <a href="1551.html">Michal Jaegermann: "Re: Booting 2.1.x on a AlphaStation 4/200 using aboot"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

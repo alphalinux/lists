@@ -1,0 +1,134 @@
+<!-- received="Thu May  1 20:41:42 1997 " -->
+<!-- sent="Thu, 01 May 1997 20:16:52 +0500" -->
+<!-- name="jestabro@amt.tay1.dec.com" -->
+<!-- email="jestabro@amt.tay1.dec.com" -->
+<!-- subject="Re: PCI mapping question" -->
+<!-- id="199705020016.UAA00790@alpha0.estabrook.org" -->
+<!-- inreplyto="199705012208.AAA01982@batman.ag1.mpi-sb.mpg.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: PCI mapping question</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: PCI mapping question</h2>
+
+<a href="mailto:jestabro@amt.tay1.dec.com"><i>jestabro@amt.tay1.dec.com</i></a><br>
+<i>Thu, 01 May 1997 20:16:52 +0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#19">[ date ]</a><a href="index.html#19">[ thread ]</a><a href="subject.html#19">[ subject ]</a><a href="author.html#19">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0020.html">josh: "netscape 4.0/osf under linux, anybody?"</a>
+<li> <b>Previous message:</b> <a href="0018.html">Ben Scott: "aboot problems"</a>
+<li> <b>In reply to:</b> <a href="0015.html">Hein Roehrig: "PCI mapping question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0025.html">Kari Davidsson: "Re: PCI mapping question"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt; Hein Roehrig said:</i><br>
+<i>&gt; </i><br>
+<i>&gt; I got rather confused trying to understand how I access PCI memory</i><br>
+<i>&gt; from kernel resp. user mode. </i><br>
+<i>&gt; </i><br>
+<i>&gt; Say, I have a 32-bit PCI address. How do I get the corresponding</i><br>
+<i>&gt; physical address that I can use for ioremap resp. mmap on /dev/mem ?</i><br>
+<p>
+For user space access to PCI bus memory via "mmap", you need to use the<br>
+LIBC routine "unsigned long _bus_base(void)"; add the PCI bus address to<br>
+the value returned by that (unsigned long!!!), and pass that along to<br>
+"mmap" as the physical address.<br>
+<p>
+The Alphas have (a minimum of) 34 bits of physical address space;<br>
+part of that (called DENSE memory space) maps to PCI bus memory.<br>
+<p>
+User memory mapped to PCI bus DENSE space *MUST* be accessed on natural<br>
+boundaries of 4 (int) and 8 (long) bytes *ONLY*, otherwise you get unaligned<br>
+access traps (harmless except to performance) at least, bus hangs at worst.<br>
+<p>
+If you want to access in smaller chunks (byte and short), refer to the Alpha<br>
+Architecture manual (available as PS or PDF on the Digital Semiconductor<br>
+website) about SPARSE memory space. There's another LIBC routine,<br>
+"unsigned long _bus_base_sparse(void)" that helps the user to "mmap"<br>
+such as well.<br>
+<p>
+For examples of both usages, refer to XFree86 3.2 sources in the<br>
+"os-support/linux/" and "common_hw/" areas under programs/Xserver/hw/xfree86/.<br>
+<p>
+<p>
+<i>&gt; For the LCA, bus_to_virt substracts 1G from the bus address -- thats</i><br>
+<i>&gt; weird, if it is meant to translate PCI addresses to virtual addresses, </i><br>
+<i>&gt; esp. since bios32.c layouts the PCI bus to start at 16M... Obviously,</i><br>
+<i>&gt; I must be missing something!?</i><br>
+<p>
+Not quite...<br>
+<p>
+"virt_to_bus()" converts a kernel virtual address into an address a<br>
+DMA-capable device can use to access host memory from off the PCI/ISA<br>
+bus. For example, a SCSI driver would use "virt_to_bus()" to get an address<br>
+that the controller could use at which to put a block off disk into memory.<br>
+<p>
+"bus_to_virt()" is usually used only by drivers whose controllers pass back<br>
+an address they (the controller) used to put something into host memory,<br>
+and now the driver needs to get at that data directly.<br>
+<p>
+The Alpha hardware (typically) has "DMA windows" on the PCI bus; these are<br>
+(1 or more) ranges of PCI addresses which allow direct access off the bus<br>
+into host memory. Usually, the range of PCI addresses from 1Gb to 2Gb-1<br>
+is setup to correspond to host memory addresses 0 to 1Gb-1.<br>
+<p>
+Thus, "virt_to_bus()" takes a kernel virtual host memory address (usually :-),<br>
+and converts it to physical, then adds the DMA window "base". The final<br>
+address, when presented by a peripheral controller (like SCSI or Ethernet)<br>
+onto the PCI bus, will trigger access to the desired host memory. Note that<br>
+the final address is *not* directly usable by the kernel.<br>
+<p>
+Enough? :-)<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools - LINUX Project<br>
+Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202<br>
+151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0020.html">josh: "netscape 4.0/osf under linux, anybody?"</a>
+<li> <b>Previous message:</b> <a href="0018.html">Ben Scott: "aboot problems"</a>
+<li> <b>In reply to:</b> <a href="0015.html">Hein Roehrig: "PCI mapping question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0025.html">Kari Davidsson: "Re: PCI mapping question"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

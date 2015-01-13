@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: potato alpha install experience...</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@linuxcare.com)">
+<META NAME="Subject" CONTENT="Re: potato alpha install experience...">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: potato alpha install experience...</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 22 23:06:38 2000" -->
+<!-- isoreceived="20000323070638" -->
+<!-- sent="22 Mar 2000 15:11:09 -0500" -->
+<!-- isosent="20000322201109" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Re: potato alpha install experience..." -->
+<!-- id="87zorqojdu.fsf@saison.thepuffigroup.com" -->
+<!-- inreplyto="Wed, 22 Mar 2000 09:42:15 -0800&quot;" -->
+<STRONG>Subject: </STRONG>Re: potato alpha install experience...<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 22 2000 - 12:11:09 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#115">[ date ]</A>
+<A HREF="index.html#115">[ thread ]</A>
+<A HREF="subject.html#115">[ subject ]</A>
+<A HREF="author.html#115">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0116.html">Brian Macy: "Re: potato alpha install experience..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0114.html">Ernest Johanson: "Re: mod-perl on alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0116.html">Brian Macy: "Re: potato alpha install experience..."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0112.html">David Huggins-Daines: "Re: potato alpha install experience..."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Brian Macy &lt;bmacy@siteROCK.com&gt; writes:
+<BR>
+<P><EM>&gt; - Installing kernel and modules kind of worked... it worked but it
+</EM><BR>
+<EM>&gt; didn't increment to the next step
+</EM><BR>
+<P>Yeah, that's because it installed an uncompressed kernel as
+<BR>
+/boot/vmlinux, but the main menu code looks for /boot/vmlinuz in order
+<BR>
+to determine whether the kernel is installed.  Now it installs a
+<BR>
+compressed kernel as /boot/vmlinuz (the PowerPC people are going to
+<BR>
+have to fix this eventually since they use uncompressed kernels)
+<BR>
+<P><EM>&gt; - The tulip driver only got installed if I manually modprobe'd it myself
+</EM><BR>
+<EM>&gt; or forced it via Configure Drivers
+</EM><BR>
+<P>I presume you used the 2.2.8 disks then.  Try the ones I put on
+<BR>
+<A HREF="http://www.debian.org/dhd,">http://www.debian.org/dhd,</A> they have the de4x5 driver built in.
+<BR>
+<P><EM>&gt; - aboot didn't install... still not sure why (I left 4megs at the start
+</EM><BR>
+<EM>&gt; of the disk for it)... but the rescue was easy enough
+</EM><BR>
+<P>Yeah - again, fixed on the pre-2.2.9 disks
+<BR>
+<P><EM>&gt; - the default aboot.conf was setup really weird... I installed to sda1
+</EM><BR>
+<EM>&gt; but it was setup to boot off of sda2
+</EM><BR>
+<P>Yes, dbootstrap runs abootconf to set the default partition, and
+<BR>
+doesn't put the partition number in aboot.conf.  So if you installed
+<BR>
+aboot manually, you got the default of 2.
+<BR>
+<P><EM>&gt; - doing an swriteboot /dev/sda bootlx still didn't get me a device where
+</EM><BR>
+<EM>&gt; I could 'boot dka0' but 'boot dka100' works so I'm assuming it's just my
+</EM><BR>
+<EM>&gt; ignorance of aboot
+</EM><BR>
+<P>The new aboot's swriteboot preserves the old default partition when
+<BR>
+it's run.  In your case it seems this wasn't much of a feature :)
+<BR>
+<P><EM>&gt; - dhcp/pump don't work... I'll probably do some debugging on this to see
+</EM><BR>
+<EM>&gt; what I can do
+</EM><BR>
+<P>In dbootstrap, or after the initial boot?  The latter is a known
+<BR>
+problem - because the netbase maintainer hasn't incorporated the patch
+<BR>
+I sent to make it build on Alpha yet ... probably he's waiting to fix
+<BR>
+the other bugs before releasing a new package.
+<BR>
+<P><EM>&gt; - Multia's are *not* Y2k complaint in any sense of the word. Setting the
+</EM><BR>
+<EM>&gt; date in SRM yields 1980. After rebooting (even if the date was set in
+</EM><BR>
+<EM>&gt; the hardware using hwclock) the date is read from the hardware as 2176.
+</EM><BR>
+<EM>&gt; If I use hwclock to write it to the hardware and read it back (without
+</EM><BR>
+<EM>&gt; rebooting) it is correct.
+</EM><BR>
+<P>That's because hwclock is really, really stupid.  The kernel's RTC
+<BR>
+driver knows how to guess the console epoch correctly, but hwclock
+<BR>
+seems to think the SRM epoch is 1900 (it's 1952), and then &quot;windows&quot;
+<BR>
+the number it gets.  This should get fixed soon, I hope...
+<BR>
+<P><EM>&gt; - I've figured out how to set the default when just 'boot' is executed
+</EM><BR>
+<EM>&gt; in the SRM but I haven't figured out a way to get it to auto-boot to
+</EM><BR>
+<EM>&gt; it... preferably with a delay before it's executed but I'd live with
+</EM><BR>
+<EM>&gt; just automatically booting into it.
+</EM><BR>
+<P>set auto_action boot
+<BR>
+<P>See the updated SRM HOWTO in /usr/share/doc/aboot for more info...
+<BR>
+<P><PRE>
+-- 
+David Huggins-Daines, Senior Linux Consultant, Linuxcare, Inc.
+613.562.1239 desk, 613.223.0225 mobile
+dhuggins@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0116.html">Brian Macy: "Re: potato alpha install experience..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0114.html">Ernest Johanson: "Re: mod-perl on alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0116.html">Brian Macy: "Re: potato alpha install experience..."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0112.html">David Huggins-Daines: "Re: potato alpha install experience..."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:02 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

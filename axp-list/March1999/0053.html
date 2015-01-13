@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Maximum file size</TITLE>
+<META NAME="Author" CONTENT="Matti Aarnio (matti.aarnio@sonera.fi)">
+<META NAME="Subject" CONTENT="Re: Maximum file size">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Maximum file size</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 02 12:41:36 1999 PST" -->
+<!-- sent="Tue, 2 Mar 1999 14:29:16 +0200 (EET)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="Re: Maximum file size" -->
+<!-- id="19990302122917Z92300-891+51@mea.tmt.tele.fi" -->
+<!-- inreplyto="36D7EA62.41C67EA6@iis.fhg.de" -->
+<STRONG>Matti Aarnio</STRONG> (<A HREF="mailto:matti.aarnio@sonera.fi?subject=Re:%20Maximum%20file%20size"><EM>matti.aarnio@sonera.fi</EM></A>)<BR>
+<EM>Tue, 2 Mar 1999 14:29:16 +0200 (EET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#53">[ date ]</A>
+<A HREF="index.html#53">[ thread ]</A>
+<A HREF="subject.html#53">[ subject ]</A>
+<A HREF="author.html#53">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0052.html">Heinz Ulrich Stille: "Re: AXPpci33 and onboard-NCR8xx SCSI"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0050.html">Christian Uhde: "AXPpci33 and onboard-NCR8xx SCSI"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Stefan Schroepfer &lt;<A HREF="mailto:scr@iis.fhg.de?subject=Re:%20Maximum%20file%20size">scr@iis.fhg.de</A>&gt; asks:
+<BR>
+<EM>&gt; What is the maximum file size in ext2 filesystems?
+</EM><BR>
+<EM>&gt; Is there any difference between 32 and 64 bit systems?
+</EM><BR>
+<EM>&gt; Is there some filesystem implemented in Linux/Alpha,
+</EM><BR>
+<EM>&gt; which can handle files bigger than 2GB?
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The answer is a bit complex.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;With 2.0 series kernels there is *radical* difference
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in between 32 and 64 bit systems at what they can support.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;With latter 2.1 and 2.2 the differences are partly fixed.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Namely in 2.0 the VFS layer supports file offsets/sizes up
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to system 'long'/'u_long' values -- 2G-1 for 32-bit machines.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In 2.2 the VFS layer supports offsets/sizes mostly up to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;64-bit 'long long', however mainly so called buffer cache
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in the kernel limits things in 32-bit systems to 2G-1.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;So with 64-bit machines we are limited by filesystem internal
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limits, not VFS.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;With EXT2 the limit is a bit more complex to tell; it depends
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;at the block-size in the filesystem, and ultimately it is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limited to be 4G blocks of 512 bytes which is limit for all
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;block devices in Linux.  (And ext2 can't span multiple devices;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a MD RAID* is just *one* device for ext2 ...)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;From  <A HREF="ftp://mea.tmt.tele.fi/linux/LFS/try-lfs.c">ftp://mea.tmt.tele.fi/linux/LFS/try-lfs.c</A>  comments:
+<BR>
+<P>&nbsp;* This program will terminate at llseek() resulting EINVAL
+<BR>
+&nbsp;* error.  The reason is that the underlying EXT2 FS has its
+<BR>
+&nbsp;* own limitations for maximum file sizes depending the basic
+<BR>
+&nbsp;* block size used to create the filesystem:
+<BR>
+&nbsp;*  1k blocks allow   16 G + epsilon
+<BR>
+&nbsp;*  2k blocks allow  256 G + epsilon
+<BR>
+&nbsp;*  4k blocks allow 4096 G + epsilon
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* The full formula for the classical UNIX indirectly addressed block
+<BR>
+&nbsp;* index scheme is:
+<BR>
+&nbsp;*    B = blocksize_in_bytes
+<BR>
+&nbsp;*    maxsize = ( (B/4)^3 + (B/4)^2 + (B/4) + 10 ) * B
+<BR>
+&nbsp;* Epsilon(s) above are thus the first and 2nd power terms, which are
+<BR>
+&nbsp;* less than 1/250 of the main term. (1/1000 at 4k blocks)
+<BR>
+<P><P><EM>&gt; Thanks,
+</EM><BR>
+<EM>&gt; Stefan Schroepfer
+</EM><BR>
+<EM>&gt; <A HREF="mailto:scr@iis.fhg.de?subject=Re:%20Maximum%20file%20size">scr@iis.fhg.de</A>
+</EM><BR>
+<P>/Matti Aarnio &lt;<A HREF="mailto:matti.aarnio@sonera.fi?subject=Re:%20Maximum%20file%20size">matti.aarnio@sonera.fi</A>&gt;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Maximum%20file%20size">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Maximum%20file%20size">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0052.html">Heinz Ulrich Stille: "Re: AXPpci33 and onboard-NCR8xx SCSI"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0050.html">Christian Uhde: "AXPpci33 and onboard-NCR8xx SCSI"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Mar 02 1999 - 05:01:10 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

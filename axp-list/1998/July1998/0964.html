@@ -1,0 +1,114 @@
+<!-- received="Fri Jul 31 00:18:57 1998 " -->
+<!-- sent="Thu, 30 Jul 1998 20:55:37 -0400" -->
+<!-- name="Paul Tomblin" -->
+<!-- email="ptomblin@xcski.com" -->
+<!-- subject="Re: SCSI-1" -->
+<!-- id="199807302147.XAA08241@stefan.sime.com" -->
+<!-- inreplyto="Pine.BSI.3.95.980730144403.7465B-100000@shell1.cybercom.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SCSI-1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SCSI-1</h2>
+
+<b>Paul Tomblin</b> (<a href="mailto:ptomblin@xcski.com"><i>ptomblin@xcski.com</i></a>)<br>
+<i>Thu, 30 Jul 1998 20:55:37 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#964">[ date ]</a><a href="index.html#964">[ thread ]</a><a href="subject.html#964">[ subject ]</a><a href="author.html#964">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0965.html">Paul Tomblin: "Re: SLIP/PPP configuration"</a>
+<li> <b>Previous message:</b> <a href="0963.html">Paul Tomblin: "Re: Uncle George's JDK?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Quoting Keith Baker (<a href="mailto:toaster@cybercom.net">toaster@cybercom.net</a>):<br>
+<i>&gt; I recently came across about 5 scsi-1 cd-rom drives (Apple - Sony</i><br>
+<i>&gt; Mech, Nec)</i><br>
+<i>&gt; They all cause scsi over or under flows on my alpha.  My Intel box gets</i><br>
+<i>&gt; the same thing but handles it much more gracefully.  THe intel screams</i><br>
+<i>&gt; once about it and then shuts up.  The alpha resets the scsi bus over and</i><br>
+<i>&gt; over again.  The chain is fine (Same error over and over no matter what</i><br>
+<i>&gt; config)  Is there any special support that I need in the kernel for these?</i><br>
+<p>
+I struggled with this on my UDB.  The SCSI controller in the UDB is a<br>
+NCR53C810, and the default driver (I think it's CONFIG_SCSI_GENERIC_NCR5380)<br>
+in the kernel for this controller does this<br>
+- continually resets over and over.  (It does in 2.0.34 - it was fine in<br>
+  2.0.30).  So I switched to using the ncr537,8xx (CONFIG_SCSI_NCR53C7xx), and<br>
+it works "better".  Instead of resetting over and over and over again, it<br>
+barfs out a huge error message on boot up, then works fine.<br>
+<p>
+The messages it produces look like:<br>
+scsi0 channel 0 : resetting for second half of retries.<br>
+SCSI bus is being reset for host 0 channel 0.<br>
+scsi0 : DCMD|DBC=0x50000000, DNAD=0x405f4cf8 (virt 0xfffffc00005f4cf8)<br>
+         DSA=0x459ae214 (virt 0xfffffc00059ae214)<br>
+         DSPS=0x405f4e08, TEMP=0x405f4988 (virt 0xfffffc00005f4988), DMODE=0x80<br>
+         SXFER=0x0, SCNTL3=0x13<br>
+         phase=MSGIN, 0 bytes in SCSI FIFO<br>
+         STEST0=0x7<br>
+scsi0 : DSP 0x405f4cf0 (virt 0xfffffc00005f4cf0) -&gt;<br>
+0x405f4cf0 (virt 0xfffffc00005f4cf0) : 0x50000000 0x405f4e08 (virt 0xfffffc00005f4e08)<br>
+0x405f4cf8 (virt 0xfffffc00005f4cf8) : 0x60000200 0x00000000 (virt 0x0000000000000000)<br>
+0x405f4d00 (virt 0xfffffc00005f4d00) : 0x78388000 0x00000000 (virt 0x0000000000000000)<br>
+0x405f4d08 (virt 0xfffffc00005f4d08) : 0x0f000001 0x405f4668 (virt 0xfffffc00005f4668)<br>
+0x405f4d10 (virt 0xfffffc00005f4d10) : 0x78389000 0x00000000 (virt 0x0000000000000000)<br>
+0x405f4d18 (virt 0xfffffc00005f4d18) : 0xc0000004 0x405f4664 (virt 0xfffffc00005f4664) 0x00008834 (virt 0x0000000000000000)<br>
+scsi0 : issue queue<br>
+scsi0 : schedule dsa array :<br>
+scsi0 : end schedule dsa array<br>
+scsi0 : reconnect_dsa_head :<br>
+scsi0 : end reconnect_dsa_head<br>
+scsi0: lost command 2004<br>
+scsi0 : target 3 ignored SDTR and went into COMMAND OUT<br>
+scsi : aborting command due to timeout : pid 2004, scsi0, channel 0, id 3, lun 0 Start/Stop Unit 00 00 00 03 00 <br>
+scsi0 : DANGER : command running, can not abort.<br>
+Max size:20339   Log zone size:2048<br>
+First datazone:24   Root inode number 49152<br>
+ISO9660 Extensions: RRIP_1991A<br>
+scsi0 : target 0 accepting asynchronous SCSI<br>
+scsi0 : setting target 0 to asynchronous SCSI<br>
+scsi0 : target 1 accepting asynchronous SCSI<br>
+scsi0 : setting target 1 to asynchronous SCSI<br>
+<p>
+<pre>
+-- 
+Paul Tomblin, <a href="mailto:ptomblin@xcski.com">ptomblin@xcski.com</a>.
+"An appointment is an engagement to see someone, while a morningstar is a
+large lump of metal used for viciously crushing skulls.  It is important not
+to confuse the two, isn't it, Mr. --?" - Terry Pratchett
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0965.html">Paul Tomblin: "Re: SLIP/PPP configuration"</a>
+<li> <b>Previous message:</b> <a href="0963.html">Paul Tomblin: "Re: Uncle George's JDK?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,224 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: gdb and core files revisited</TITLE>
+<META NAME="Author" CONTENT="Mikolaj J. Habryn (dichro-axp-list@rcpt.to)">
+<META NAME="Subject" CONTENT="Re: gdb and core files revisited">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: gdb and core files revisited</H1>
+<HR>
+<P>
+<!-- received="Mon Apr 12 04:11:48 1999 PDT" -->
+<!-- sent="12 Apr 1999 12:11:21 +0800" -->
+<!-- name="Mikolaj J. Habryn" -->
+<!-- email="dichro-axp-list@rcpt.to" -->
+<!-- subject="Re: gdb and core files revisited" -->
+<!-- id="s2vd81aqxzq.fsf@mermaid.ucc.gu.uwa.edu.au" -->
+<!-- inreplyto="Sat, 10 Apr 1999 11:08:10 -0700 (PDT)&quot;" -->
+<STRONG>Mikolaj J. Habryn</STRONG> (<A HREF="mailto:dichro-axp-list@rcpt.to?subject=Re:%20gdb%20and%20core%20files%20revisited"><EM>dichro-axp-list@rcpt.to</EM></A>)<BR>
+<EM>12 Apr 1999 12:11:21 +0800</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#296">[ date ]</A>
+<A HREF="index.html#296">[ thread ]</A>
+<A HREF="subject.html#296">[ subject ]</A>
+<A HREF="author.html#296">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0295.html">designer seven: "Question: PHP w/ phplib on Alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;&gt;&gt;&gt;&gt; &quot;JW&quot; == Jack Wathey &lt;<A HREF="mailto:wathey@salk.edu?subject=Re:%20gdb%20and%20core%20files%20revisited">wathey@salk.edu</A>&gt; writes:
+</EM><BR>
+<P><EM>    JW&gt; I've spent about 3 days digging through the internals of gdb,
+</EM><BR>
+<EM>    JW&gt; trying to fix this, but it is just beyond my meager brain.
+</EM><BR>
+<EM>    JW&gt; Has anyone, anywhere (possibly Debian types?), managed to get
+</EM><BR>
+<EM>    JW&gt; gdb to work with a core file on an Alpha Linux machine running
+</EM><BR>
+<EM>    JW&gt; a 2.2 kernel?  If so, please tell me how.
+</EM><BR>
+<P>&nbsp;&nbsp;Yes, but this was quite a while ago. I didn't propagate the patch
+<BR>
+beyond the debian list since it was embarrassingly crude. It also
+<BR>
+didn't get much testing, since this was the heyday of the
+<BR>
+register_frame_info confusion. Anyhow - it think it might have used to
+<BR>
+work for me (maybe).
+<BR>
+<P>m.
+<BR>
+<P>PS: as an addendum, someone (rth?) posted a guide to solving this. I
+<BR>
+can't remember what it was, but I couldn't work out how to do it
+<BR>
+without making a lot more deltas than this.
+<BR>
+<P>diff -Nru gdb-orig/bfd/elf.c gdb-4.17.19981224/bfd/elf.c
+<BR>
+--- gdb-orig/bfd/elf.c	Mon Dec  7 08:33:14 1998
+<BR>
++++ gdb-4.17.19981224/bfd/elf.c	Mon Jan 18 10:58:52 1999
+<BR>
+@@ -4839,6 +4839,28 @@
+<BR>
+&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined (HAVE_PRSTATUS_T)
+<BR>
++struct newtimeval {
+<BR>
++	long tv_sec;
+<BR>
++	long tv_usec;
+<BR>
++};
+<BR>
++
+<BR>
++struct newprstat {
+<BR>
++	struct elf_siginfo pr_info;     /* Info associated with signal */
+<BR>
++	short   pr_cursig;              /* Current signal */
+<BR>
++	unsigned long pr_sigpend;       /* Set of pending signals */
+<BR>
++	unsigned long pr_sighold;       /* Set of held signals */
+<BR>
++	pid_t   pr_pid;
+<BR>
++	pid_t   pr_ppid;
+<BR>
++	pid_t   pr_pgrp;
+<BR>
++	pid_t   pr_sid;
+<BR>
++	struct newtimeval pr_utime;        /* User time */
+<BR>
++	struct newtimeval pr_stime;        /* System time */
+<BR>
++	struct newtimeval pr_cutime;       /* Cumulative user time */
+<BR>
++	struct newtimeval pr_cstime;       /* Cumulative system time */
+<BR>
++	elf_gregset_t pr_reg;   /* GP registers */
+<BR>
++	int pr_fpvalid;         /* True if math co-processor being used.  */
+<BR>
++};
+<BR>
++
+<BR>
+&nbsp;static boolean
+<BR>
+&nbsp;elfcore_grok_prstatus (abfd, note)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bfd* abfd;
+<BR>
+@@ -4850,9 +4872,35 @@
+<BR>
+&nbsp;&nbsp;&nbsp;asection* sect;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;if (note-&gt;descsz != sizeof (prstat))
+<BR>
++#ifdef alpha
+<BR>
++		if(note-&gt;descsz == sizeof(struct newprstat)) {
+<BR>
++				prstat.pr_info = ((struct newprstat *)note-&gt;descdata)-&gt;pr_info;
+<BR>
++				prstat.pr_cursig = ((struct newprstat *)note-&gt;descdata)-&gt;pr_cursig;
+<BR>
++				prstat.pr_sigpend = ((struct newprstat *)note-&gt;descdata)-&gt;pr_sigpend;
+<BR>
++				prstat.pr_sighold = ((struct newprstat *)note-&gt;descdata)-&gt;pr_sighold;
+<BR>
++				prstat.pr_pid = ((struct newprstat *)note-&gt;descdata)-&gt;pr_pid;
+<BR>
++				prstat.pr_ppid = ((struct newprstat *)note-&gt;descdata)-&gt;pr_ppid;
+<BR>
++				prstat.pr_pgrp = ((struct newprstat *)note-&gt;descdata)-&gt;pr_pgrp;
+<BR>
++				prstat.pr_sid = ((struct newprstat *)note-&gt;descdata)-&gt;pr_sid;
+<BR>
++				prstat.pr_utime.tv_sec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_utime.tv_sec;
+<BR>
++				prstat.pr_utime.tv_usec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_utime.tv_usec;
+<BR>
++				prstat.pr_stime.tv_sec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_stime.tv_sec;
+<BR>
++				prstat.pr_stime.tv_usec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_stime.tv_usec;
+<BR>
++				prstat.pr_cutime.tv_sec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_cutime.tv_sec;
+<BR>
++				prstat.pr_cutime.tv_usec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_cutime.tv_usec;
+<BR>
++				prstat.pr_cstime.tv_sec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_cstime.tv_sec;
+<BR>
++				prstat.pr_cstime.tv_usec = ((struct newprstat *)note-&gt;descdata)-&gt;pr_cstime.tv_usec;
+<BR>
++				memcpy(&amp;prstat.pr_reg, &amp;((struct newprstat *)note-&gt;descdata)-&gt;pr_reg,
+<BR>
++							 sizeof(elf_gregset_t));
+<BR>
++				prstat.pr_fpvalid = ((struct newprstat *)note-&gt;descdata)-&gt;pr_fpvalid;
+<BR>
++		} else {
+<BR>
++			return true;
+<BR>
++		}
+<BR>
++#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return true;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;memcpy (&amp;prstat, note-&gt;descdata, sizeof (prstat));
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;elf_tdata (abfd)-&gt;core_signal = prstat.pr_cursig;
+<BR>
+&nbsp;&nbsp;&nbsp;elf_tdata (abfd)-&gt;core_pid = prstat.pr_pid;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20gdb%20and%20core%20files%20revisited">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20gdb%20and%20core%20files%20revisited">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0295.html">designer seven: "Question: PHP w/ phplib on Alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Apr 11 1999 - 22:00:12 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

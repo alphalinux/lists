@@ -1,0 +1,185 @@
+<!-- received="Mon Sep 15 06:23:58 1997 " -->
+<!-- sent="Mon, 15 Sep 1997 09:22:08 -0500 (EST)" -->
+<!-- name="Leslie F. Donaldson" -->
+<!-- email="donaldlf@cs.rose-hulman.edu" -->
+<!-- subject="Patches to 2.1.55 For AXP(Alpha) compiling" -->
+<!-- id="199709151422.JAA00979@vulture.cs.rose-hulman.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Patches to 2.1.55 For AXP(Alpha) compiling</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Patches to 2.1.55 For AXP(Alpha) compiling</h2>
+
+<b>Leslie F. Donaldson</b> (<a href="mailto:donaldlf@cs.rose-hulman.edu"><i>donaldlf@cs.rose-hulman.edu</i></a>)<br>
+<i>Mon, 15 Sep 1997 09:22:08 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#281">[ date ]</a><a href="index.html#281">[ thread ]</a><a href="subject.html#281">[ subject ]</a><a href="author.html#281">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0282.html">Benoit E. Donnette: "Re: Woohoo! overclocking!"</a>
+<li> <b>Previous message:</b> <a href="0280.html">Rob Zook: "Re: Woohoo! overclocking!"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0298.html">Leslie F. Donaldson: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<li> <b>Maybe reply:</b> <a href="0298.html">Leslie F. Donaldson: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<li> <b>Maybe reply:</b> <a href="0306.html">David S. Miller: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello All,<br>
+<p>
+  Just to let everyone know I try to stay near the cutting edge of kernel<br>
+  tech on my systems. So I am going to try to keep current on kernel releases<br>
+  and create patch files to allow them to compile on AXP(Alpha)s<br>
+<p>
+  Enclosed below is a patch file to allow linux 2.1.55 to compile on<br>
+AXP(Alpha) boxes.<br>
+  - Fixed two many arguments to file argument<br>
+  - Two versions of pci error. removed the smaller one from bios32.c<br>
+  - Patched aic7xxx.c to compile.<br>
+  Note:<br>
+  - paraport does work in this release(some problems in previous.)<br>
+  - SMP option does not work in 2.1.55 I will see if I need to or can<br>
+     debug it in 2.1.56.<br>
+<p>
+Leslie Donaldson<br>
+/----------------------------\ Current Contractor: Oxford International<br>
+<i>|    Leslie F. Donaldson     | Current Customer  : Entergy Inc. </i><br>
+<i>|    Computer Contractor     | Skills: Unix/OS9/VMS/Linux/SUN-OS/C/C++/assembly</i><br>
+<i>| Have Computer will travel. | Curr   : <a href="http://www.cs.rose-hulman.edu/~donaldlf">http://www.cs.rose-hulman.edu/~donaldlf</a></i><br>
+\----------------------------/ Current Email  : <a href="mailto:donaldlf@cs.rose-hulman.edu">donaldlf@cs.rose-hulman.edu</a><br>
+Goth Code V1.1: GoCS$$ TYg(T6,T9) B11Bk!^1 C6b-- P0(1,7) M+ a24 n--- b++:+<br>
+                H6'11" g m---- w+ r+++ D--~!% h+ s10 k+++ R-- Ssw LusCA++<br>
+<p>
+*** linux/arch/alpha/kernel/bios32.c.old	Sat Sep 13 11:49:57 1997<br>
+--- linux/arch/alpha/kernel/bios32.c	Sat Sep 13 11:50:34 1997<br>
+***************<br>
+*** 1181,1186 ****<br>
+--- 1181,1188 ----<br>
+  	return mem_start;<br>
+  }<br>
+  <br>
++ /*<br>
++ look in linux/drivers/pci/pci.c<br>
+  <br>
+  const char *pcibios_strerror (int error)<br>
+  {<br>
+***************<br>
+*** 1207,1213 ****<br>
+  			return buf;<br>
+  	}<br>
+  }<br>
+! <br>
+  asmlinkage int sys_pciconfig_read(<br>
+  	unsigned long bus,<br>
+  	unsigned long dfn,<br>
+--- 1209,1215 ----<br>
+  			return buf;<br>
+  	}<br>
+  }<br>
+! */<br>
+  asmlinkage int sys_pciconfig_read(<br>
+  	unsigned long bus,<br>
+  	unsigned long dfn,<br>
+*** linux/arch/alpha/kernel/osf_sys.c.old	Fri Sep  5 18:58:08 1997<br>
+--- linux/arch/alpha/kernel/osf_sys.c	Sat Sep 13 11:45:30 1997<br>
+***************<br>
+*** 164,170 ****<br>
+  	if (!file-&gt;f_op || !file-&gt;f_op-&gt;readdir)<br>
+  		goto out;<br>
+  <br>
+! 	error = file-&gt;f_op-&gt;readdir(inode, file, &amp;buf, osf_filldir);<br>
+  	if (error &lt; 0)<br>
+  		goto out;<br>
+  <br>
+--- 164,170 ----<br>
+  	if (!file-&gt;f_op || !file-&gt;f_op-&gt;readdir)<br>
+  		goto out;<br>
+  <br>
+! 	error = file-&gt;f_op-&gt;readdir(file, &amp;buf, osf_filldir);<br>
+  	if (error &lt; 0)<br>
+  		goto out;<br>
+  <br>
+*** linux/drivers/pci/pci.c.old	Sat Sep 13 11:55:48 1997<br>
+--- linux/drivers/pci/pci.c	Sat Sep 13 11:56:12 1997<br>
+***************<br>
+*** 675,681 ****<br>
+  <br>
+  const char *pcibios_strerror(int error)<br>
+  {<br>
+! 	static char buf[32];<br>
+  <br>
+  	switch (error) {<br>
+  		case PCIBIOS_SUCCESSFUL:<br>
+--- 675,681 ----<br>
+  <br>
+  const char *pcibios_strerror(int error)<br>
+  {<br>
+! 	static char buf[80];<br>
+  <br>
+  	switch (error) {<br>
+  		case PCIBIOS_SUCCESSFUL:<br>
+*** linux/drivers/scsi/aic7xxx.c.old	Fri Sep  5 18:58:42 1997<br>
+--- linux/drivers/scsi/aic7xxx.c	Sat Sep 13 11:15:09 1997<br>
+***************<br>
+*** 992,997 ****<br>
+--- 992,998 ----<br>
+  {<br>
+    if (p-&gt;maddr != NULL)<br>
+    {<br>
++ #ifdef 0<br>
+      __asm __volatile("<br>
+        cld;<br>
+      1:  lodsb;<br>
+***************<br>
+*** 1001,1006 ****<br>
+--- 1002,1014 ----<br>
+        "r" ((p)-&gt;maddr + (port)),<br>
+        "S" ((valp)), "c" ((size))  :<br>
+        "%esi", "%ecx", "%eax");<br>
++ #else<br>
++       unsigned char *iop = ((p)-&gt;maddr + (port));<br>
++       const unsigned char *dp = (valp);<br>
++       int xferlen = (size);<br>
++       for (; xferlen; --xferlen)<br>
++           *iop = *dp++;<br>
++ #endif<br>
+    }<br>
+    else<br>
+    {<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0282.html">Benoit E. Donnette: "Re: Woohoo! overclocking!"</a>
+<li> <b>Previous message:</b> <a href="0280.html">Rob Zook: "Re: Woohoo! overclocking!"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0298.html">Leslie F. Donaldson: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<li> <b>Maybe reply:</b> <a href="0298.html">Leslie F. Donaldson: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<li> <b>Maybe reply:</b> <a href="0306.html">David S. Miller: "Re: Patches to 2.1.55 For AXP(Alpha) compiling"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

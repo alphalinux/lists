@@ -1,0 +1,155 @@
+<!-- received="Tue Nov 19 17:30:10 1996 " -->
+<!-- sent="Tue, 19 Nov 1996 17:12:43 -0500" -->
+<!-- name="Przemek Klosowski" -->
+<!-- email="przemek@rrdjazz.nist.gov" -->
+<!-- subject="Alpha Linux as engine for floating point calculations: compiler toolchain issues (RedHat 4.0)" -->
+<!-- id="199611192212.RAA13594@rrdjazz.nist.gov" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Alpha Linux as engine for floating point calculations: compiler toolchain issues (RedHat 4.0)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Alpha Linux as engine for floating point calculations: compiler toolchain issues (RedHat 4.0)</h2>
+
+<b>Przemek Klosowski</b> (<a href="mailto:przemek@rrdjazz.nist.gov"><i>przemek@rrdjazz.nist.gov</i></a>)<br>
+<i>Tue, 19 Nov 1996 17:12:43 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#833">[ date ]</a><a href="index.html#833">[ thread ]</a><a href="subject.html#833">[ subject ]</a><a href="author.html#833">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0834.html">Marc Singer: "NFS package dependency error"</a>
+<li> <b>Previous message:</b> <a href="0832.html">Marc Singer: "Unaligned memory explained."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Some people recently discussed suitability of Linux Alpha for running<br>
+numerical codes. Of course Alpha CPU is very well suited for such CPU<br>
+load, since it has excellent ratio of FP speed to general integer<br>
+manipulation, which in itself is remarkable (SpecFP95/SpecInt95 of<br>
+11/14 for 400MHz Alpha 21164 versus 8.09/6.70 for Pentium Pro 200MHz).<br>
+<p>
+We recently had run our own benchmark (a monte carlo simulation<br>
+program, spending most of time generating random numbers and running<br>
+some floating point-intensive code). We got excellent results: the<br>
+executive summary is that, if the code works, a 300MHz Alpha runs<br>
+faster than SGI's 200MHz R10000, a formidable FP engine (see below<br>
+for the explanation of the 'if' statement).<br>
+<p>
+This is just one benchmark, and of course it may or may not be<br>
+representative of what would work for other people.<br>
+<p>
+CPU    Clock Compiled     Run   run    comments<br>
+       (MHz)    on         on   time <br>
+------- --- -----------  ------ ----- -------------------------------<br>
+Pentium  90 Linux       Linux    2.2  <br>
+Pentium 166 Linux       Linux    1.6  Pentia aren't too bad here; PPro/200 should halve the run time<br>
+R10000  200 SGI Irix    SGI Irix 1.0  all results normalized to this machine<br>
+Alpha   166 OSF         OSF      1.3 <br>
+Alpha   300 Linux/RH303 Linux    1.7  effect of older, less optimized library and compiler<br>
+Alpha   300 OSF         Linux    0.43 statically linked executable generated on OSF, run under Linux<br>
+Alpha   300 Linux/RH4.0 Linux    0.55 recent glibc and gcc are just 25% behind OSF compiler/libraries<br>
+<p>
+Gcc and the libraries made a great progress recently! Thanks to Richard and<br>
+David and all the others who worked on it.<br>
+<p>
+There are, however, some pesky issues that get in the way of happiness of<br>
+owners of RH 4.0 (gcc-2.7.2-9, glibc-0.960906-1)<br>
+<p>
+ - Floating constant compilation bug.<br>
+<p>
+   C code 'double entendre = 2.2250738585072014e-308;'<br>
+   generates in the following (incorrect) assembly:<br>
+        entendre:<br>
+          .t_floating 2.22507385850720138309e-308<br>
+<p>
+   the assembler compiles this to  ('objdump --full-contents testfpconst.o')<br>
+            0000 ffffffff ffff0f00                    ........      <br>
+   whereas it should have been<br>
+            0000 00000000 00001000                    ........        <br>
+<p>
+   Note that the above number is DBL_MIN (I wrote it explicitly to simplify the example).<br>
+<p>
+   In itself, this would be a nuisance, but for numbers near the ends of the dynamic<br>
+   range it leads us right into another trap:<br>
+<p>
+ - IEEE exception support<br>
+<p>
+   The following code<br>
+<p>
+	     #include &lt;math.h&gt;<br>
+<p>
+	     main(){ <br>
+		short pants = 2;<br>
+		double entendre = DBL_MIN;<br>
+<p>
+		if (pants &lt; entendre) {<br>
+ 		   entendre = M_PI;<br>
+		}<br>
+	     }<br>
+   traps with a FP error in the 'if' statement. Even though the constant DBL_MIN is<br>
+   not compiled properly---it is supposed to be the smallest normalized positive number,<br>
+   and it ends up being denormalized---it still should calculate OK. I tried the standard<br>
+   Intel trick of linking in the libieee.a library (-lieee), but it didn't change anything.<br>
+<p>
+ - I can't make profiling to work<br>
+  <br>
+   Regular timer-based profiling dies at runtime<br>
+<p>
+	$ gcc -p -o testdebug testdebug.c<br>
+	$ ./testdebug<br>
+	monstartup: out of memory<br>
+<p>
+   which is clearly not the case:<br>
+<p>
+	$ cat /proc/meminfo <br>
+	total:    used:    free:  shared: buffers:  cached:<br>
+	Mem:  63406080 60293120  3112960 46735360  2990080 25772032<br>
+<p>
+   At the same time gprof-based profiling misses some library symbols<br>
+<p>
+	gcc -pg -o testdebug testdebug.c<br>
+	/usr/lib/gcrt1.o: In function `__gmon_start__':<br>
+	gmon-start.c(.text+0xd8): undefined reference to `_start'<br>
+<p>
+ - debugger (gdb 4.16 as in gdb-4.16-5 RPM): sometimes, when single-stepping a program<br>
+   (compiled with -g, of course), the floating point variables aren't accessible (bogus <br>
+   values are printed out). I suspect a damage is being done to the stack frame, because<br>
+   single-stepping calls to printf() results in bogus values being printed out as well.<br>
+   If a program is run from background to background, this doesn't occur. <br>
+<p>
+   I haven't been able to demonstrate it on a simple, short file; I will try this later<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0834.html">Marc Singer: "NFS package dependency error"</a>
+<li> <b>Previous message:</b> <a href="0832.html">Marc Singer: "Unaligned memory explained."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

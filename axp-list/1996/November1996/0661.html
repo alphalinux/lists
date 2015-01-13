@@ -1,0 +1,100 @@
+<!-- received="Thu Nov 14 13:17:26 1996 " -->
+<!-- sent="Thu, 14 Nov 1996 12:49:47 -0500" -->
+<!-- name="Przemek Klosowski" -->
+<!-- email="przemek@rrdjazz.nist.gov" -->
+<!-- subject="Problem report with RH4.0: lpr" -->
+<!-- id="199611141749.MAA24711@rrdjazz.nist.gov" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Problem report with RH4.0: lpr</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Problem report with RH4.0: lpr</h2>
+
+<b>Przemek Klosowski</b> (<a href="mailto:przemek@rrdjazz.nist.gov"><i>przemek@rrdjazz.nist.gov</i></a>)<br>
+<i>Thu, 14 Nov 1996 12:49:47 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#661">[ date ]</a><a href="index.html#661">[ thread ]</a><a href="subject.html#661">[ subject ]</a><a href="author.html#661">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0662.html">Philip Blundell: "2.1.9"</a>
+<li> <b>Previous message:</b> <a href="0660.html">Stephen J. Gaudet: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I upgraded to 4.0 from 3.0.3 and then installed the RPMs from <br>
+/pub/redhat/redhat-4.0/updates/axp, including lpr-0.12-1.axp.rpm <br>
+<p>
+'lpr' dumps core when presented with unknown printer<br>
+<p>
+  # lpr -Pnosuchprinter<br>
+  Segmentation fault<br>
+<p>
+It looks like it is due to a questionable code in lpr.c:<br>
+<p>
+ fatal("%s: unknown printer", s);<br>
+<p>
+where 'fatal()' is defined as follows:<br>
+ fatal(msg, a1, a2, a3)<br>
+        char *msg;<br>
+ {<br>
+        printf("%s: ", name);<br>
+        printf(msg, a1, a2, a3);<br>
+        putchar('\n');<br>
+        exit(1);<br>
+ }<br>
+<p>
+The pointers are implicitly declared as integers, and are truncated.<br>
+The proper solution is to define fatal() using varargs; a simple<br>
+patch is to declare a1 a2 a3 as void *:<br>
+<p>
+ fatal(msg, a1, a2, a3)<br>
+        char *msg;<br>
++       void *a1, *a2, *a3;<br>
+ {<br>
+<p>
+There are 3 places where such unsavory practices take place in lpr-0.12-1:<br>
+<p>
+common_source/common.c:338:/*VARARGS1*/<br>
+lpd/printjob.c:1291:/*VARARGS1*/<br>
+lpr/lpr.c:751:/*VARARGS1*/<br>
+<p>
+			przemek klosowski &lt;przemek@nist.gov&gt;  (301) 975-6249<br>
+			Reactor Division (bldg. 235), E111 <br>
+			National Institute of Standards and Technology<br>
+			Gaithersburg, MD 20899,      USA<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0662.html">Philip Blundell: "2.1.9"</a>
+<li> <b>Previous message:</b> <a href="0660.html">Stephen J. Gaudet: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,216 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Linux Install on AlphaServer 4X00 5/400 21164 400</TITLE>
+<META NAME="Author" CONTENT="Peter Rival (frival@zk3.dec.com)">
+<META NAME="Subject" CONTENT="Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 23 14:24:15 1999" -->
+<!-- isoreceived="19990723212415" -->
+<!-- sent="Fri, 23 Jul 1999 09:37:58 -0400" -->
+<!-- isosent="19990723133758" -->
+<!-- name="Peter Rival" -->
+<!-- email="frival@zk3.dec.com" -->
+<!-- subject="Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz" -->
+<!-- id="37987036.FEFC2FFF@zk3.dec.com" -->
+<!-- inreplyto="Pine.BSF.4.05.9907220944570.17500-100000@semuta.feral.com" -->
+<STRONG>Subject: </STRONG>Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz<BR>
+<STRONG>From: </STRONG>Peter Rival (<EM>frival@zk3.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jul 23 1999 - 06:37:58 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#457">[ date ]</A>
+<A HREF="index.html#457">[ thread ]</A>
+<A HREF="subject.html#457">[ subject ]</A>
+<A HREF="author.html#457">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0458.html">Igor Schein: "Re: RedHat installation"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0456.html">Xiaozhou Qiu: "Re: RedHat installation"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0426.html">Matthew Jacob: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0461.html">Matthew Jacob: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0426.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&lt;snip&gt;
+<BR>
+<P><EM>&gt; FWIW, here's the NetBSD boot messages which also say what it actually
+</EM><BR>
+<EM>&gt; is... If you have a vastly different h/w variant of Rawhide, it'd be cool
+</EM><BR>
+<EM>&gt; to know whether this kernel (which is ELF based to could be loaded by
+</EM><BR>
+<EM>&gt; linux) copes with *your* h/w.....
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; [ preserving 309552 bytes of netbsd ELF symbol table ]
+</EM><BR>
+<EM>&gt; consinit: not using prom console
+</EM><BR>
+<EM>&gt; Copyright (c) 1996, 1997, 1998, 1999
+</EM><BR>
+<EM>&gt;     The NetBSD Foundation, Inc.  All rights reserved.
+</EM><BR>
+<EM>&gt; Copyright (c) 1982, 1986, 1989, 1991, 1993
+</EM><BR>
+<P>&lt;chop&gt;
+<BR>
+<P>Okay...it looks like you've got a really nice setup here...  From an initial scan of these boot messages, you
+<BR>
+have 6 KZPBA-CB adapters, each connected to a BA356/BA36R-type shelf which is fully populated with seven disks.
+<BR>
+You also have the internal NCR SCSI adapter, as well as (it appears) another NCR with two disks hanging off of
+<BR>
+it.  You have one DE500 ethernet card, as well as it appears, two RoadRunner HIPPI cards which are the only
+<BR>
+interesting thing out of this lot that I don't know if I can manage to rummage up.
+<BR>
+<P>It appears this system is actually an AS4000 (Durango/Wrangler), not a rawhide (AS4100) as I had first expected.
+<BR>
+But then...I have also gotten an durango to install from the RH 6.0 CD.  Could you re-send exactly where the
+<BR>
+install chokes for you - I seem to have deleted it.
+<BR>
+<P>I'm going to try building a current kernel with support for all these fun items (as well as serial console
+<BR>
+support), stick it on a boot disk, and see what I get.  I also took a look (finally) at what the kernel does
+<BR>
+after freeing the initial memory.  Here's the code, which becomes immediately self-evident, unfortunately:
+<BR>
+<P>static int init(void * unused)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lock_kernel();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do_basic_setup();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Ok, we have completed the initial bootup, and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* we're essentially up and running. Get rid of the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* initmem segments and start the user-mode stuff..
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free_initmem();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlock_kernel();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (open(&quot;/dev/console&quot;, O_RDWR, 0) &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Warning: unable to open an initial console.\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void) dup(0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void) dup(0);
+<BR>
+<P>....
+<BR>
+<P>My guess is that yes, the install kernel never intended to support serial console.  I'd call that an oversight if
+<BR>
+that's the case, but one that probably wouldn't happen again.  We'll see what happens - this shouldn't take too
+<BR>
+long...
+<BR>
+<P>&nbsp;- Pete
+<BR>
+<P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+&nbsp;
+<p>&lt;snip>
+<blockquote TYPE=CITE>FWIW, here's the NetBSD boot messages which also
+say what it actually
+<br>is... If you have a vastly different h/w variant of Rawhide, it'd be
+cool
+<br>to know whether this kernel (which is ELF based to could be loaded
+by
+<br>linux) copes with *your* h/w.....
+<p>[ preserving 309552 bytes of netbsd ELF symbol table ]
+<br>consinit: not using prom console
+<br>Copyright (c) 1996, 1997, 1998, 1999
+<br>&nbsp;&nbsp;&nbsp; The NetBSD Foundation, Inc.&nbsp; All rights reserved.
+<br>Copyright (c) 1982, 1986, 1989, 1991, 1993</blockquote>
+&lt;chop>
+<p>Okay...it looks like you've got a really nice setup here...&nbsp; From
+an initial scan of these boot messages, you have 6 KZPBA-CB adapters, each
+connected to a BA356/BA36R-type shelf which is fully populated with seven
+disks.&nbsp; You also have the internal NCR SCSI adapter, as well as (it
+appears) another NCR with two disks hanging off of it.&nbsp; You have one
+DE500 ethernet card, as well as it appears, two RoadRunner HIPPI cards
+which are the only interesting thing out of this lot that I don't know
+if I can manage to rummage up.
+<p>It appears this system is actually an AS4000 (Durango/Wrangler), not
+a rawhide (AS4100) as I had first expected.&nbsp; But then...I have also
+gotten an durango to install from the RH 6.0 CD.&nbsp; Could you re-send
+exactly where the install chokes for you - I seem to have deleted it.
+<p>I'm going to try building a current kernel with support for all these
+fun items (as well as serial console support), stick it on a boot disk,
+and see what I get.&nbsp; I also took a look (finally) at what the kernel
+does after freeing the initial memory.&nbsp; Here's the code, which becomes
+immediately self-evident, unfortunately:<tt></tt>
+<p><tt>static int init(void * unused)</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lock_kernel();</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; do_basic_setup();</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /*</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; * Ok, we have
+completed the initial bootup, and</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; * we're essentially
+up and running. Get rid of the</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; * initmem segments
+and start the user-mode stuff..</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; */</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; free_initmem();</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; unlock_kernel();</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (open("/dev/console",
+O_RDWR, 0) &lt; 0)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+printk("Warning: unable to open an initial console.\n");</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (void) dup(0);</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (void) dup(0);</tt>
+<br><tt>&nbsp;</tt>
+<br><tt>....</tt><tt></tt>
+<p>My guess is that yes, the install kernel never intended to support serial
+console.&nbsp; I'd call that an oversight if that's the case, but one that
+probably wouldn't happen again.&nbsp; We'll see what happens - this shouldn't
+take too long...
+<p>&nbsp;- Pete
+
+
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0458.html">Igor Schein: "Re: RedHat installation"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0456.html">Xiaozhou Qiu: "Re: RedHat installation"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0426.html">Matthew Jacob: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0461.html">Matthew Jacob: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0426.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:36 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

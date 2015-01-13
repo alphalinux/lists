@@ -1,0 +1,194 @@
+<!-- received="Thu Sep 11 10:39:46 1997 " -->
+<!-- sent="Thu, 11 Sep 1997 11:38:46 -0700 (PDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="Re: Error: macro requires $at register while noat in effect" -->
+<!-- id="199709111838.LAA20427@rtl.cygnus.com" -->
+<!-- inreplyto="199709111242.PAA23522@blinky.bfr.co.il" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Error: macro requires $at register while noat in effect</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Error: macro requires $at register while noat in effect</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:rth@cygnus.com"><i>rth@cygnus.com</i></a>)<br>
+<i>Thu, 11 Sep 1997 11:38:46 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#201">[ date ]</a><a href="index.html#201">[ thread ]</a><a href="subject.html#201">[ subject ]</a><a href="author.html#201">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0202.html">Joern Raffel: "Urgent, quake is not running ;-)"</a>
+<li> <b>Previous message:</b> <a href="0200.html">Harald Koenig: "Re: Call of executables under LINUX"</a>
+<li> <b>In reply to:</b> <a href="0182.html">Tom Browder: "Re: Slow Rlogin"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; My code is straight C.  It doesn't have any assembler in it.</i><br>
+<p>
+Sure enough.  Here's a patch.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+--- config/alpha/alpha.c.orig	Thu Sep 11 11:26:12 1997<br>
++++ config/alpha/alpha.c	Thu Sep 11 11:28:46 1997<br>
+@@ -1553,7 +1553,7 @@ output_prolog (file, size)<br>
+   int int_reg_save_area_size = 0;<br>
+   rtx insn;<br>
+   unsigned reg_mask = 0;<br>
+-  int i;<br>
++  int i, sa_reg;<br>
+ <br>
+   /* There seems to be no good hook to reset per-function flags.<br>
+      Do so here.  */<br>
+@@ -1708,11 +1708,29 @@ output_prolog (file, size)<br>
+ 	       frame_size, current_function_pretend_args_size);<br>
+     }<br>
+ <br>
++  /* Cope with very large offsets to the register save area.  */<br>
++  sa_reg = 30;<br>
++  if (reg_offset + sa_size &gt; 0x8000)<br>
++    {<br>
++      int low = ((reg_offset &amp; 0xffff) ^ 0x8000) - 0x8000;<br>
++      if (low + sa_size &lt;= 0x8000)<br>
++	{<br>
++	  add_long_const (file, reg_offset - low, 30, 24, 24);<br>
++	  reg_offset = low;<br>
++	}<br>
++      else<br>
++	{<br>
++          add_long_const (file, reg_offset, 30, 24, 24);<br>
++          reg_offset = 0;<br>
++	}<br>
++      sa_reg = 24;<br>
++    }<br>
++<br>
+   /* Save register 26 if any other register needs to be saved.  */<br>
+   if (sa_size != 0)<br>
+     {<br>
+       reg_mask |= 1 &lt;&lt; 26;<br>
+-      fprintf (file, "\tstq $26,%d($30)\n", reg_offset);<br>
++      fprintf (file, "\tstq $26,%d($%d)\n", reg_offset, sa_reg);<br>
+       reg_offset += 8;<br>
+       int_reg_save_area_size += 8;<br>
+     }<br>
+@@ -1722,7 +1740,7 @@ output_prolog (file, size)<br>
+     if (! fixed_regs[i] &amp;&amp; ! call_used_regs[i] &amp;&amp; regs_ever_live[i] &amp;&amp; i != 26)<br>
+       {<br>
+ 	reg_mask |= 1 &lt;&lt; i;<br>
+-	fprintf (file, "\tstq $%d,%d($30)\n", i, reg_offset);<br>
++	fprintf (file, "\tstq $%d,%d($%d)\n", i, reg_offset, sa_reg);<br>
+ 	reg_offset += 8;<br>
+ 	int_reg_save_area_size += 8;<br>
+       }<br>
+@@ -1742,7 +1760,7 @@ output_prolog (file, size)<br>
+ 	&amp;&amp; regs_ever_live[i + 32])<br>
+       {<br>
+ 	reg_mask |= 1 &lt;&lt; i;<br>
+-	fprintf (file, "\tstt $f%d,%d($30)\n", i, reg_offset);<br>
++	fprintf (file, "\tstt $f%d,%d($%d)\n", i, reg_offset, sa_reg);<br>
+ 	reg_offset += 8;<br>
+       }<br>
+ <br>
+@@ -1790,6 +1808,7 @@ output_epilog (file, size)<br>
+   if (insn == 0 || GET_CODE (insn) != BARRIER)<br>
+     {<br>
+       int fp_offset = 0;<br>
++      int sa_reg;<br>
+ <br>
+       final_prescan_insn (NULL_RTX, NULL_RTX, 0);<br>
+ <br>
+@@ -1797,11 +1816,29 @@ output_epilog (file, size)<br>
+       if (frame_pointer_needed)<br>
+ 	fprintf (file, "\tbis $15,$15,$30\n");<br>
+ <br>
++      /* Cope with large offsets to the register save area.  */<br>
++      sa_reg = 30;<br>
++      if (reg_offset + sa_size &gt; 0x8000)<br>
++	{<br>
++          int low = ((reg_offset &amp; 0xffff) ^ 0x8000) - 0x8000;<br>
++          if (low + sa_size &lt;= 0x8000)<br>
++	    {<br>
++	      add_long_const (file, reg_offset - low, 30, 24, 24);<br>
++	      reg_offset = low;<br>
++	    }<br>
++          else<br>
++	    {<br>
++              add_long_const (file, reg_offset, 30, 24, 24);<br>
++              reg_offset = 0;<br>
++	    }<br>
++	  sa_reg = 24;<br>
++	}<br>
++<br>
+       /* Restore all the registers, starting with the return address<br>
+ 	 register.  */<br>
+       if (sa_size != 0)<br>
+ 	{<br>
+-	  fprintf (file, "\tldq $26,%d($30)\n", reg_offset);<br>
++	  fprintf (file, "\tldq $26,%d($%d)\n", reg_offset, sa_reg);<br>
+ 	  reg_offset += 8;<br>
+ 	}<br>
+ <br>
+@@ -1816,7 +1853,7 @@ output_epilog (file, size)<br>
+ 	    if (i == HARD_FRAME_POINTER_REGNUM &amp;&amp; frame_pointer_needed)<br>
+ 	      fp_offset = reg_offset;<br>
+ 	    else<br>
+-	      fprintf (file, "\tldq $%d,%d($30)\n", i, reg_offset);<br>
++	      fprintf (file, "\tldq $%d,%d($%d)\n", i, reg_offset, sa_reg);<br>
+ 	    reg_offset += 8;<br>
+ 	  }<br>
+ <br>
+@@ -1824,7 +1861,7 @@ output_epilog (file, size)<br>
+ 	if (! fixed_regs[i + 32] &amp;&amp; ! call_used_regs[i + 32]<br>
+ 	    &amp;&amp; regs_ever_live[i + 32])<br>
+ 	  {<br>
+-	    fprintf (file, "\tldt $f%d,%d($30)\n", i, reg_offset);<br>
++	    fprintf (file, "\tldt $f%d,%d($%d)\n", i, reg_offset, sa_reg);<br>
+ 	    reg_offset += 8;<br>
+ 	  }<br>
+ <br>
+@@ -1839,7 +1876,7 @@ output_epilog (file, size)<br>
+ 	 now.  This must be done in one instruction immediately<br>
+ 	 before the SP update.  */<br>
+       if (restore_fp &amp;&amp; fp_offset)<br>
+-	fprintf (file, "\tldq $15,%d($30)\n", fp_offset);<br>
++	fprintf (file, "\tldq $15,%d($%d)\n", fp_offset, sa_reg);<br>
+ <br>
+       /* Now update the stack pointer, if needed.  Only one instruction must<br>
+ 	 modify the stack pointer.  It must be the last instruction in the<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0202.html">Joern Raffel: "Urgent, quake is not running ;-)"</a>
+<li> <b>Previous message:</b> <a href="0200.html">Harald Koenig: "Re: Call of executables under LINUX"</a>
+<li> <b>In reply to:</b> <a href="0182.html">Tom Browder: "Re: Slow Rlogin"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

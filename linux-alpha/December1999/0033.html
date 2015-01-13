@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [patch] irq rewrite</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: [patch] irq rewrite">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patch] irq rewrite</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 08 20:57:24 1999" -->
+<!-- isoreceived="19991209045724" -->
+<!-- sent="Wed, 8 Dec 1999 18:21:58 +0100 (CET)" -->
+<!-- isosent="19991208172158" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: [patch] irq rewrite" -->
+<!-- id="Pine.LNX.4.10.9912081758400.9281-100000@alpha.random" -->
+<!-- inreplyto="19991207213936.A17249@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: [patch] irq rewrite<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Dec 08 1999 - 09:21:58 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#33">[ date ]</A>
+<A HREF="index.html#33">[ thread ]</A>
+<A HREF="subject.html#33">[ subject ]</A>
+<A HREF="author.html#33">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Christof Struck: "RE: RedHat 6.0 on multia,   stock ethernet driver has misaligned  code"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Tenhave, Tim: "RE: RedHat 6.0 on multia,   stock ethernet driver has misaligned  code"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0029.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 7 Dec 1999, Richard Henderson wrote:
+<BR>
+<P><EM>&gt;(1) What in the world is the difference between shutdown/disable
+</EM><BR>
+<EM>&gt;end/enable supposed to be in hw_interrupt_type?  There appear to
+</EM><BR>
+<EM>&gt;be zero instances of such a difference in the existing code base.
+</EM><BR>
+<P>There's no difference in the alpha (infact both functions does the same
+<BR>
+thing). The difference is that you may have to configure an irq controller
+<BR>
+to work and to shutdown when you won't use it anymore. So shutdown and
+<BR>
+startup can take a long time while the disable/enable must be very fast. I
+<BR>
+agree it looks more like power management stuff ;). CPUs that implements
+<BR>
+cpu_idle with a `while (!current-&gt;need_resched);' or that have only one
+<BR>
+irq controller probably will never need such a feature ;). Anyway the
+<BR>
+current code is generic enough and we don't lose anything in performances
+<BR>
+as I just said shutdown/startup are not in fast-paths.
+<BR>
+<P><EM>&gt;(4)
+</EM><BR>
+<EM>&gt;+       if (irqflags &amp; SA_SHIRQ) {
+</EM><BR>
+<EM>&gt;+               if (!dev_id)
+</EM><BR>
+<EM>&gt;+                       printk(&quot;Bad boy: %s (at 0x%x) called us without \
+</EM><BR>
+<EM>&gt;+		 a dev_id\n&quot;, devname, (&amp;irq)[-1]);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;Careful, that should be %p and __builtin_return_address.
+</EM><BR>
+<EM>&gt;Obviously directly copied from x86, but it's technically
+</EM><BR>
+<EM>&gt;wrong there too.
+</EM><BR>
+<P>Agreed obviously ;).
+<BR>
+<P><EM>&gt;(5) I don't think you can get rid of PROBE_MASK, though it's kind
+</EM><BR>
+<EM>&gt;of hard to see from just the patch.  Does your replacement code
+</EM><BR>
+<EM>&gt;have some mechanism to prevent certain IRQs from being probed?
+</EM><BR>
+<P>Yes.
+<BR>
+<P><EM>&gt;Similarly, 
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;+       for (i = NR_IRQS-1; i &gt; 0; i--) 
+</EM><BR>
+<EM>&gt;+               if (!irq_desc[i].action) 
+</EM><BR>
+<EM>&gt;+                       irq_desc[i].handler-&gt;startup(i);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;should probably be iterating over ACTUAL_NR_IRQS instead.
+</EM><BR>
+<P>No, that's the _whole_ point.
+<BR>
+<P>The rewrite gets rid of the old ugly stuff completly. All the PROBE_MASK
+<BR>
+stuff gets delete by design. I'll probably get rid of ACTUAL_NR_IRQS too,
+<BR>
+now I changed the irq.c i386 code to use ACTUAL_NR_IRQS where necessary to
+<BR>
+be more strict and to more easily catch bugs but I plan to remove it and
+<BR>
+to go with NR_IRQS soon. It's the irq controller init code that must take
+<BR>
+care to implement the hw_handler for real irqs, all the rest in irq.c
+<BR>
+should _not_ know anything about the details of the underlying hardware.
+<BR>
+<P>At compile time the -&gt;startup will be a noop. _Only_ if the irq controller
+<BR>
+initialization will register the hw_controller handler in the
+<BR>
+irq_desc[irq].handler, _then_ the -&gt;startup will do something and you'll
+<BR>
+have a chance to get such an irq detected in the irq probe stage.
+<BR>
+<P>And it will do so _only_ for irqs that have no action registered yet.
+<BR>
+<P>BTW, the trick to take the timer irq always disabled during the irq probe
+<BR>
+was extremely ugly (it was associated with the other ugliness of having
+<BR>
+the irqaction of the timer interrupt set to NULL by magic):
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* The normal mask includes all the IRQs except timer IRQ 0.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#define _PROBE_MASK(nr_irqs)    \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(((nr_irqs &gt; 63) ? ~0UL : ((1UL &lt;&lt; (nr_irqs &amp; 63)) - 1)) &amp; ~1UL)
+<BR>
+<P>The rewrite I did cleanup all such stuff and shares the plain i386 code
+<BR>
+with the advantage that I don't risk to insert bugs (I just catched the
+<BR>
+last one some month ago in the i386 port and I don't want to reinvent the
+<BR>
+wheel ;), and it has the other advantage that if somebody will fix a new
+<BR>
+i386 bug, we'll get such bugfix for free on alpha too. So I am heavily
+<BR>
+reducing the differences between the two ports in the most critical part
+<BR>
+of the irq handling (SMP raceland). Also the controller drivers like
+<BR>
+kernel/i8259.c could be shared theorically (actually it's not possible
+<BR>
+because i386 is very arch-dirty there and basically puts all the very i386
+<BR>
+stuff there (irq entry vectors and the like) but such sutff could be moved
+<BR>
+elsewhere in the future, and right now I had to copy it from i386/kernel
+<BR>
+to alpha/kernel and remove the top of the file).
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Christof Struck: "RE: RedHat 6.0 on multia,   stock ethernet driver has misaligned  code"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Tenhave, Tim: "RE: RedHat 6.0 on multia,   stock ethernet driver has misaligned  code"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0029.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: LX164 and rpcc</TITLE>
+<META NAME="Author" CONTENT="Hannu Mallat (hmallat@peak3.cs.hut.fi)">
+<META NAME="Subject" CONTENT="Re: LX164 and rpcc">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: LX164 and rpcc</H1>
+<HR>
+<P>
+<!-- received="Tue Dec 29 14:05:29 1998 PST" -->
+<!-- sent="Tue, 29 Dec 1998 16:03:57 +0200 (EET)" -->
+<!-- name="Hannu Mallat" -->
+<!-- email="hmallat@peak3.cs.hut.fi" -->
+<!-- subject="Re: LX164 and rpcc" -->
+<!-- id="Pine.LNX.3.96.981229155412.3078B-100000@peak3.cs.hut.fi" -->
+<!-- inreplyto="199812261850.NAA01639@alpha1.estabrook.org" -->
+<STRONG>Hannu Mallat</STRONG> (<A HREF="mailto:hmallat@peak3.cs.hut.fi?subject=Re:%20LX164%20and%20rpcc"><EM>hmallat@peak3.cs.hut.fi</EM></A>)<BR>
+<EM>Tue, 29 Dec 1998 16:03:57 +0200 (EET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#21">[ date ]</A>
+<A HREF="index.html#21">[ thread ]</A>
+<A HREF="subject.html#21">[ subject ]</A>
+<A HREF="author.html#21">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">Dan Smely: "XFree86 crash (Failed to set IOPL for I/O)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Richard Henderson: "axp smp patch for 2.2.0 pre1"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sat, 26 Dec 1998 <A HREF="mailto:Jay.Estabrook@digital.com?subject=Re:%20LX164%20and%20rpcc">Jay.Estabrook@digital.com</A> wrote:
+<BR>
+<P><EM>&gt; One can successfully build/link MILO *ONLY* under RH 4.2, unless you want
+</EM><BR>
+<EM>&gt; to use the free x86 BIOS emulator (not recommended for most VGA cards).
+</EM><BR>
+<P>Ok, I threw in RH 4.2 on another partition and got a working milo. I
+<BR>
+managed to get reasonable-looking PCC values even after a munmap() by
+<BR>
+modifying palcode/lx164/osfpal.S as follows:
+<BR>
+<P>[[root@peak9 lx164]# diff -c osfpal.S.old osfpal.S
+<BR>
+*** osfpal.S.old        Wed Dec 28 17:46:35 2078
+<BR>
+--- osfpal.S    Tue Dec 29 14:09:18 1998
+<BR>
+***************
+<BR>
+*** 2042,2048 ****
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mfpr    v0, ptPcbb              // Get current PCBB
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq_p   t8, PCB_Q_FEN(a0)       // Get new FEN
+<BR>
+-       ldq_p   t9, PCB_L_PCC(a0)       // Get new ASN 
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srl     p5, 32, p7              // Move CC&lt;OFFSET&gt; to low longword
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mfpr    t10, ptUsp              // Get the user stack pointer
+<BR>
+--- 2042,2047 ----
+<BR>
+***************
+<BR>
+*** 2064,2069 ****
+<BR>
+--- 2063,2069 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mfpr    p7, icsr                // Get current ICSR value
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and     t8, 1, t8               // Clean new FEN value to single bit
+<BR>
++       sll     t8, ICSR_V_FPE, t8      // Shift new FEN into position
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br      zero, CallPal_SwpCtxCont
+<BR>
+&nbsp;&nbsp;
+<BR>
+<P>&nbsp;&nbsp;/*
+<BR>
+***************
+<BR>
+*** 3402,3410 ****
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN_BLOCK
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;CallPal_SwpCtxCont:
+<BR>
+-       sll     t8, ICSR_V_FPE, t8      // Shift new FEN into position
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bic     p7, t10, p7             // Clean ISR&lt;FPE&gt; 
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srl     t9, 32, t10             // Move ASN to low longword
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq_p   p6, PCB_Q_PTBR(a0)      // Get the new page table base
+<BR>
+&nbsp;&nbsp;
+<BR>
+--- 3402,3410 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN_BLOCK
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;CallPal_SwpCtxCont:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bic     p7, t10, p7             // Clean ISR&lt;FPE&gt; 
+<BR>
+&nbsp;&nbsp;
+<BR>
++       ldq_p   t9, PCB_L_PCC(a0)       // Get new ASN 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srl     t9, 32, t10             // Move ASN to low longword
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq_p   p6, PCB_Q_PTBR(a0)      // Get the new page table base
+<BR>
+&nbsp;&nbsp;
+<BR>
+I suppose there were some instruction scheduling issues that decided
+<BR>
+the original placing of ldq_p t9, but I wouldn't know anything about 
+<BR>
+that, so I just placed it near the point of use.
+<BR>
+<P>I haven't yet properly validated the PCC values after my patch: they seem 
+<BR>
+to be in the right order of magnitude ;-)
+<BR>
+<P>Hannu
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20LX164%20and%20rpcc">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20LX164%20and%20rpcc">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">Dan Smely: "XFree86 crash (Failed to set IOPL for I/O)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Richard Henderson: "axp smp patch for 2.2.0 pre1"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:45 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

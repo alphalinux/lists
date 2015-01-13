@@ -1,0 +1,145 @@
+<!-- received="Wed Apr 16 07:24:34 1997 " -->
+<!-- sent="Wed, 16 Apr 1997 11:21:26 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: X on AlphaStation 255 with S3 Trio64 [giving up]" -->
+<!-- id="Pine.OSF.3.95.970415234940.9359A-100000@aurora.alaska.edu" -->
+<!-- inreplyto="Pine.LNX.3.95.970415191232.4103E-100000@atlas.ujavcali.edu.co" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: X on AlphaStation 255 with S3 Trio64 [giving up]</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: X on AlphaStation 255 with S3 Trio64 [giving up]</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Wed, 16 Apr 1997 11:21:26 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#713">[ date ]</a><a href="index.html#713">[ thread ]</a><a href="subject.html#713">[ subject ]</a><a href="author.html#713">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0714.html">K. Hansen: "Re: Please bench : Alpha Vs (Pentium OR PentiumPro)"</a>
+<li> <b>Previous message:</b> <a href="0712.html">Uncle George: "Re: Please bench : Alpha Vs (Pentium OR PentiumPro)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Apr 15, Gabriel TAMURA wrote:<br>
+<p>
+<i>&gt; Has anyone solved the problem with X in the AlphaStation 255 with S3</i><br>
+<i>&gt; Trio64 (2 Mb vram) and 32 MB (or 64MB, I have tested on both</i><br>
+<i>&gt; configurations) ?</i><br>
+<p>
+I've seen some similar reports now for these AlphaStation 255 but I don't<br>
+have any realy idea and even worse I don't have such a machine for<br>
+reproducing and locating the real problem :-(<br>
+<p>
+I'd really like to understand and fix this one but I need your help!<br>
+<p>
+whoever has such a AlphaStation 255, problems with XFree86 3.2 S3 server<br>
+and a possiblity for network login (or serial terminal) to be able to<br>
+debug the Xserver while running, PLEASE do this:<br>
+<p>
+<p>
+please get the XFree86 3.2 server-only sources <br>
+<p>
+	ftp.XFree86.org:/pub/XFree86/3.2/source/X32servonly.tgz<br>
+<p>
+(read README in the same directory about necessary changes to xc/config/cf/xf86site.def!!!).<br>
+you'll need to create xc/config/cf/host.def saying<br>
+<p>
+	#define BuildServersOnly YES<br>
+<p>
+	#define XF86S3Server            YES<br>
+<p>
+	#define XF86MonoServer          NO<br>
+	#define XF86MonoDualServer	NO<br>
+	#define XF86I8514Server         NO<br>
+	#define XF86Mach8Server         NO<br>
+	#define XF86Mach32Server        NO<br>
+	#define XF86Mach64Server        NO<br>
+	#define XF86P9000Server		NO<br>
+	#define XF86AGXServer		NO<br>
+	#define XF86W32Server		NO<br>
+	#define XF86I128Server		NO<br>
+<p>
+	#define XnestServer             NO<br>
+	#define XVirtualFramebufferServer NO<br>
+<p>
+the easiest way to to get a server with limited (but all necessary) debuging stuff<br>
+is to compile a first S3 server using "make World".  then do<br>
+<p>
+	cd ..../xc/programs/Xserver/hw/xfree86/accel/s3<br>
+	rm *.o */*.o<br>
+	make "CDEBUGFLAGS = -O -g3"<br>
+	cd ../../../..               (or cd .../xc/programs/Xserver)<br>
+	make XF86_S3 SUBDIRS=mi<br>
+<p>
+<p>
+then login remotely and start this server in gdb after setting some breakpoints:<br>
+<p>
+	cd ...../xc/programs/Xserver<br>
+	gdb ./XF86_S3<br>
+	b s3Probe<br>
+	b s3Init<br>
+	b s3Initialize<br>
+	b mmio928_s3Initialize<br>
+	b newmmio_s3Initialize<br>
+	r<br>
+<p>
+<p>
+the 3 critical routines when starting X11 are in s3Probe, s3Init and s3Initialize.<br>
+so stepping through these routines (using 's' for step or 'n' for next)<br>
+should finally either crash your machine at a very specific point in code<br>
+(sync your disks before starting...)  or the server will startup fine.<br>
+<p>
+knowing where it crashes hopefully gives enough information to find/fix this problem.<br>
+<p>
+<p>
+any takers ???   *please*<br>
+<p>
+<p>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0714.html">K. Hansen: "Re: Please bench : Alpha Vs (Pentium OR PentiumPro)"</a>
+<li> <b>Previous message:</b> <a href="0712.html">Uncle George: "Re: Please bench : Alpha Vs (Pentium OR PentiumPro)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

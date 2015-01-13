@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: test3-pre8 compile fixes</TITLE>
+<META NAME="Author" CONTENT=" ()">
+<META NAME="Subject" CONTENT="test3-pre8 compile fixes">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>test3-pre8 compile fixes</H1>
+<HR>
+<P>
+<!-- received="Tue Jul 11 00:37:22 2000" -->
+<!-- isoreceived="20000711073722" -->
+<!-- sent="Tue, 11 Jul 2000 01:03:23 +0200 (CEST)" -->
+<!-- isosent="20000710230323" -->
+<!-- subject="test3-pre8 compile fixes" -->
+<!-- id="Pine.LNX.4.21.0007102335120.642-100000@inspiron.random" -->
+<STRONG>Subject: </STRONG>test3-pre8 compile fixes<BR>
+<EM></EM><BR>
+<STRONG>Date: </STRONG>Mon Jul 10 2000 - 16:03:23 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#4">[ date ]</A>
+<A HREF="index.html#4">[ thread ]</A>
+<A HREF="subject.html#4">[ subject ]</A>
+<A HREF="author.html#4">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">: "alpha bug ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">: "Weird lockups"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">: "alpha bug ???"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This patch fixes a couple of compile troubles (and a little bug) in the
+<BR>
+alpha port:
+<BR>
+<P>--- 2.4.0-test3-pre8/fs/nfsd/nfsfh.c.~1~	Mon Jul 10 18:15:46 2000
+<BR>
++++ 2.4.0-test3-pre8/fs/nfsd/nfsfh.c	Tue Jul 11 00:22:12 2000
+<BR>
+@@ -379,7 +379,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* It's a directory, or we are required to confirm the file's
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* location in the tree.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	dprintk(&quot;nfs_fh: need to look harder for %d/%ld\n&quot;,sb-&gt;s_dev,ino);
+<BR>
++	dprintk(&quot;nfs_fh: need to look harder for %d/%ld\n&quot;,sb-&gt;s_dev, (unsigned long) ino);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;down(&amp;sb-&gt;s_nfsd_free_path_sem);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* claiming the semaphore might have allowed things to get fixed up */
+<BR>
+--- 2.4.0-test3-pre8/fs/locks.c.~1~	Mon Jul 10 18:15:45 2000
+<BR>
++++ 2.4.0-test3-pre8/fs/locks.c	Tue Jul 11 00:31:11 2000
+<BR>
+@@ -296,7 +296,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!list_empty(&amp;waiter-&gt;fl_block)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;locks_insert_block: removing duplicated lock &quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;(pid=%d %Ld-%Ld type=%d)\n&quot;, waiter-&gt;fl_pid,
+<BR>
+-			waiter-&gt;fl_start, waiter-&gt;fl_end, waiter-&gt;fl_type);
+<BR>
++			(long long) waiter-&gt;fl_start, (long long) waiter-&gt;fl_end, waiter-&gt;fl_type);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;locks_delete_block(waiter);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;list_add_tail(&amp;waiter-&gt;fl_block, &amp;blocker-&gt;fl_block);
+<BR>
+--- 2.4.0-test3-pre8/arch/alpha/kernel/pci_iommu.c.~1~	Sat Jun 24 16:02:27 2000
+<BR>
++++ 2.4.0-test3-pre8/arch/alpha/kernel/pci_iommu.c	Tue Jul 11 00:36:05 2000
+<BR>
+@@ -416,7 +416,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptes = &amp;arena-&gt;ptes[dma_ofs];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sg = leader;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do {
+<BR>
++#if DEBUG_ALLOC &gt; 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct scatterlist *last_sg = sg;
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size = sg-&gt;length;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paddr = virt_to_phys(sg-&gt;address);
+<BR>
+--- 2.4.0-test3-pre8/arch/alpha/lib/fpreg.c.~1~	Wed Dec  8 00:05:25 1999
+<BR>
++++ 2.4.0-test3-pre8/arch/alpha/lib/fpreg.c	Tue Jul 11 00:58:13 2000
+<BR>
+@@ -13,7 +13,7 @@
+<BR>
+&nbsp;unsigned long
+<BR>
+&nbsp;alpha_read_fp_reg (unsigned long reg)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long val;
+<BR>
++	unsigned long val = 0xbeefbeef;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (reg) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case  0: STT( 0, val); break;
+<BR>
+@@ -106,7 +106,7 @@
+<BR>
+&nbsp;unsigned long
+<BR>
+&nbsp;alpha_read_fp_reg_s (unsigned long reg)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long val;
+<BR>
++	unsigned long val = 0xbeefbeef;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (reg) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case  0: STS( 0, val); break;
+<BR>
+--- 2.4.0-test3-pre8/arch/alpha/mm/extable.c.~1~	Sat Jun 24 16:02:27 2000
+<BR>
++++ 2.4.0-test3-pre8/arch/alpha/mm/extable.c	Tue Jul 11 00:56:19 2000
+<BR>
+@@ -88,7 +88,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret = search_exception_table_without_gp(addr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ret) {
+<BR>
+-		printk(KERN_ALERT, &quot;%s: [%lx] EX_TABLE search fail with&quot;
+<BR>
++		printk(KERN_ALERT &quot;%s: [%lx] EX_TABLE search fail with&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;exc frame GP, success with raw GP\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;comm, addr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+--- 2.4.0-test3-pre8/arch/alpha/Makefile.~1~	Mon Jul 10 18:15:21 2000
+<BR>
++++ 2.4.0-test3-pre8/arch/alpha/Makefile	Tue Jul 11 01:03:37 2000
+<BR>
+@@ -117,6 +117,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;archdep:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@$(MAKEBOOT) dep
+<BR>
++
+<BR>
++vmlinux: arch/alpha/vmlinux.lds
+<BR>
++
+<BR>
++arch/alpha/vmlinux.lds: arch/alpha/vmlinux.lds.in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$(CPP) $(CPPFLAGS) -xc -P arch/alpha/vmlinux.lds.in -o arch/alpha/vmlinux.lds
+<BR>
+&nbsp;
+<BR>
+&nbsp;bootpfile:
+<BR>
+--- 2.4.0-test3-pre8/include/asm-alpha/elf.h.~1~	Thu Apr 27 17:56:42 2000
+<BR>
++++ 2.4.0-test3-pre8/include/asm-alpha/elf.h	Tue Jul 11 00:32:26 2000
+<BR>
+@@ -127,7 +127,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;#define SET_PERSONALITY(EX, IBCS2)				\
+<BR>
+-	set_personality((EX).e_flags &amp; EF_ALPHA_32BIT		\
+<BR>
++	set_personality(((EX).e_flags &amp; EF_ALPHA_32BIT)		\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;? PER_LINUX_32BIT : (IBCS2) ? PER_SVR4 : PER_LINUX)
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+--- 2.4.0-test3-pre8/include/linux/highmem.h.~1~	Mon Jul 10 18:56:24 2000
+<BR>
++++ 2.4.0-test3-pre8/include/linux/highmem.h	Tue Jul 11 00:13:42 2000
+<BR>
+@@ -23,7 +23,7 @@
+<BR>
+&nbsp;extern inline unsigned int nr_free_highpages(void) { return 0; }
+<BR>
+&nbsp;#define prepare_highmem_swapout(page) page
+<BR>
+&nbsp;#define replace_with_highmem(page) page
+<BR>
+-#define kmap(page) page_address(page)
+<BR>
++#define kmap(page) ({ page_address(page); })
+<BR>
+&nbsp;#define kunmap(page) do { } while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* CONFIG_HIGHMEM */
+<BR>
+--- 2.4.0-test3-pre8/kernel/sched.c.~1~	Mon Jul 10 18:15:50 2000
+<BR>
++++ 2.4.0-test3-pre8/kernel/sched.c	Mon Jul 10 23:38:33 2000
+<BR>
+@@ -219,7 +219,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* one will have the least active cache context.) Also find
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* the executing process which has the least priority.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	oldest_idle = -1ULL;
+<BR>
++	oldest_idle = -1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;target_tsk = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max_prio = 1;
+<BR>
+&nbsp;
+<BR>
+@@ -239,7 +239,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;target_tsk = tsk;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+-			if (oldest_idle == -1ULL) {
+<BR>
++			if (oldest_idle == -1) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int prio = preemption_goodness(tsk, p, cpu);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (prio &gt; max_prio) {
+<BR>
+@@ -251,7 +251,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tsk = target_tsk;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (tsk) {
+<BR>
+-		if (oldest_idle != -1ULL)
+<BR>
++		if (oldest_idle != -1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto send_now_idle;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto preempt_now;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P><P><P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">: "alpha bug ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">: "Weird lockups"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">: "alpha bug ???"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:15 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

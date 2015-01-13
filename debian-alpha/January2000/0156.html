@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: -taso flag?</TITLE>
+<META NAME="Author" CONTENT="Christopher C. Chimelis (chris@debian.org)">
+<META NAME="Subject" CONTENT="Re: -taso flag?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: -taso flag?</H1>
+<HR>
+<P>
+<!-- received="Wed Jan 19 22:41:07 2000" -->
+<!-- isoreceived="20000120064107" -->
+<!-- sent="Wed, 19 Jan 2000 17:17:15 -0500 (EST)" -->
+<!-- isosent="20000119221715" -->
+<!-- name="Christopher C. Chimelis" -->
+<!-- email="chris@debian.org" -->
+<!-- subject="Re: -taso flag?" -->
+<!-- id="Pine.LNX.3.96.1000119170658.29923A-100000@spawn.besmarter.com" -->
+<!-- inreplyto="20000119140453.A65478@toxic.magnesium.net" -->
+<STRONG>Subject: </STRONG>Re: -taso flag?<BR>
+<STRONG>From: </STRONG>Christopher C. Chimelis (<EM>chris@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jan 19 2000 - 14:17:15 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#156">[ date ]</A>
+<A HREF="index.html#156">[ thread ]</A>
+<A HREF="subject.html#156">[ subject ]</A>
+<A HREF="author.html#156">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0157.html">Ron Farrer: "Re: -taso flag?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0155.html">simonst@WellsFargo.COM: "AS1000 PCI network device name"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0157.html">Ron Farrer: "Re: -taso flag?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+BTW, I'm cc'ing debian-alpha on this in case there's any similar questions
+<BR>
+in people's heads :-)
+<BR>
+<P>On 19 Jan 2000, Ron Farrer wrote:
+<BR>
+<P><EM>&gt; Compile it normally, i.e. &quot;cc var_size.c -o var_size&quot; to make sure it
+</EM><BR>
+<EM>&gt; works then try using the 32-bit flag.  
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Shouldn't both the 32-bit and 64-bit versions be indentified correctly
+</EM><BR>
+<EM>&gt; by file? 
+</EM><BR>
+<P>Ok, my test programme is nearly identical to yours, so this is easy to
+<BR>
+comment on (I've been messing with this since you wrote the first email to
+<BR>
+me).
+<BR>
+<P>Here's the scoop: the -taso flag doesn't alter anything but the base
+<BR>
+memory address space.  It won't &quot;scale&quot; down the sizes of things, but
+<BR>
+makes it so that pointer addresses will truncate and still fit into an
+<BR>
+int-sized variable.  So, it won't act like using a SMALL memory model (to
+<BR>
+liken it to Windows development models in the past), where it would resize
+<BR>
+ints and longs to act just like i386's, but it will scale down where the
+<BR>
+memory locations are so that they fit in the lower 32-bit address space,
+<BR>
+thus making them safe for people that do pointer arithematic or assign
+<BR>
+memory addresses to 32-bit ints.
+<BR>
+<P><EM>&gt; $ file var_size_32-bit
+</EM><BR>
+<EM>&gt; var_size_32-bit: ELF 64-bit LSB executable, Alpha (unofficial), version
+</EM><BR>
+<EM>&gt; 1, dynamically linked (uses shared libs), not stripped
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; $ file var_size_64-bit
+</EM><BR>
+<EM>&gt; var_size_64-bit: ELF 64-bit LSB executable, Alpha (unofficial), version
+</EM><BR>
+<EM>&gt; 1, dynamically linked (uses shared libs), not stripped
+</EM><BR>
+<P>The file info won't change.  We never changed to using an ELF32 file
+<BR>
+format (which we wouldn't want to do), just modified where the linker
+<BR>
+places things in memory.  FYI, I'm not sure the Linux kernel on Alpha
+<BR>
+supports elf32alpha anymore (not since the BLADE days, if I remember
+<BR>
+correctly), but I could be wrong.
+<BR>
+<P><EM>&gt; I thought maybe I was just missing something? 
+</EM><BR>
+<P>Kinda...I think the problem was that you misunderstood what the thing
+<BR>
+actually did.  Try this:
+<BR>
+<P>objdump -x var_size_64-bit &gt; 64.dump
+<BR>
+objdump -x var_size_32-bit &gt; 32.dump
+<BR>
+<P>and diff the two using the -uN flags to diff (unified, context aware).
+<BR>
+Now, in that diff, take a look at the differences in the memory locations.
+<BR>
+They should be shifted down to an identically-numbered (or close to it)
+<BR>
+address that will fit in 32-bit ints.
+<BR>
+<P>Here's a sample from my test programme (it's only a snippet):
+<BR>
+<P>- 11 .fini         0000004c  0000000120000680  0000000120000680  00000680
+<BR>
+2**5
+<BR>
++ 11 .fini         0000004c  0000000012000680  0000000012000680  00000680
+<BR>
+2**5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CONTENTS, ALLOC, LOAD, READONLY, CODE
+<BR>
+- 12 .rodata       00000047  00000001200006cc  00000001200006cc  000006cc
+<BR>
+2**2
+<BR>
++ 12 .rodata       00000047  00000000120006cc  00000000120006cc  000006cc
+<BR>
+2**2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CONTENTS, ALLOC, LOAD, READONLY, DATA
+<BR>
+- 13 .data         00000008  0000000120100718  0000000120100718  00000718
+<BR>
+2**3
+<BR>
++ 13 .data         00000008  0000000012100718  0000000012100718  00000718
+<BR>
+2**3
+<BR>
+<P>I snagged the .data section especially so that you can see the differences
+<BR>
+(that's the spot that really matters).  Check the second and third columns
+<BR>
+of the last two lines...
+<BR>
+<P>Let me know if you have any questions.  I'm glad it worked and proud to
+<BR>
+say that we're the first linux dist that's going to include -taso in the
+<BR>
+binutils package in a release distribution :-)
+<BR>
+<P>C
+<BR>
+<P><P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0157.html">Ron Farrer: "Re: -taso flag?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0155.html">simonst@WellsFargo.COM: "AS1000 PCI network device name"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0157.html">Ron Farrer: "Re: -taso flag?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Feb 01 2000 - 05:33:34 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

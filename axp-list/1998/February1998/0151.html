@@ -1,0 +1,316 @@
+<!-- received="Sun Feb 15 11:28:33 1998 " -->
+<!-- sent="Sun, 15 Feb 1998 16:23:00 +0100 (MET)" -->
+<!-- name="Quezcal" -->
+<!-- email="quezcal@xyllomer.uni-paderborn.de" -->
+<!-- subject="[PATCH] fixes for xosview" -->
+<!-- id="199802151523.QAA02658@xyllomer.uni-paderborn.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>[PATCH] fixes for xosview</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>[PATCH] fixes for xosview</h2>
+
+<b>Quezcal</b> (<a href="mailto:quezcal@xyllomer.uni-paderborn.de"><i>quezcal@xyllomer.uni-paderborn.de</i></a>)<br>
+<i>Sun, 15 Feb 1998 16:23:00 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#151">[ date ]</a><a href="index.html#151">[ thread ]</a><a href="subject.html#151">[ subject ]</a><a href="author.html#151">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0152.html">Erik Ogan: "libdl, libc (&amp; PAM) on RHL 4.2 Alpha"</a>
+<li> <b>Previous message:</b> <a href="0150.html">Jeffrey Demaagd: "Re: Alpha 200 4/100 PS/2 Mouse Broke in Linux only"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I wanted to get xosview running, this is a diff to build it on a<br>
+rh-5.0 system from the xosview source from the SRPMS with egcs in<br>
+/usr/local, dont to the c++ -&gt; /usr/local/bin/c++ change if you dont<br>
+have that.<br>
+.<br>
+<p>
+Changes:<br>
+<p>
+- remove suid root. we dont need it.<br>
+- Change Xdefaults to something that results in less CPU usage (less<br>
+  updates) and have no network monitor per default so we dont crash when<br>
+  the kernel has no ip accounting<br>
+- Fix some X weirdness<br>
+- remove serial monitor, no idea how to make it work and I dont need it.<br>
+- fix number of IRQs. Check for your Systems irqs in /usr/include/asm/irq.h<br>
+  I dont use NO_IRQS as we need a String defined, too. Too much hassle to<br>
+  do it the nice way right now.<br>
+- fix the TOP define so we find our libraries<br>
+<p>
+Hope this helps anybody who wants xosview. Maybe someone at redhat will<br>
+include the binary in the distribution again. And does some of these "fixes"<br>
+the nice proper way.<br>
+<p>
+Olaf<br>
+<p>
+<p>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/Makefile xosview-1.4.1-AXP/Makefile<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/Makefile	Fri Mar  8 22:00:32 1996<br>
++++ xosview-1.4.1-AXP/Makefile	Sun Feb 15 16:00:56 1998<br>
+@@ -36,7 +36,7 @@<br>
+ <br>
+ ifeq ($(METERDIR),linux)<br>
+ install: <br>
+-	install -c -s -m 4755  $(EXE) /usr/bin/X11<br>
++	install -c -s -m 755  $(EXE) /usr/bin/X11<br>
+ 	install -c Xdefaults /usr/lib/X11/app-defaults/XOsview<br>
+ endif<br>
+ <br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/Makefile.config xosview-1.4.1-AXP/Makefile.config<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/Makefile.config	Sun Feb 15 16:10:55 1998<br>
++++ xosview-1.4.1-AXP/Makefile.config	Sun Feb  8 09:35:51 1998<br>
+@@ -12,7 +12,7 @@<br>
+ #  filesystem for NetBSD does not yet provide enough information for<br>
+ #  xosview to use it exclusively.<br>
+ <br>
+-TOP = ./<br>
++TOP = .<br>
+ <br>
+ #<br>
+ # Choose your OS<br>
+@@ -29,14 +29,14 @@<br>
+ #<br>
+ # C++ compiler<br>
+ #<br>
+-CXX      = c++<br>
++CXX      = /usr/local/bin/c++<br>
+ CXXFLAGS = -Wall -pipe $(DEFINES)<br>
+ <br>
+ #<br>
+ # Link flags and libraries<br>
+ #<br>
+ LFLAGS    = -L$(METERDIR) -L/usr/X11R6/lib<br>
+-LIBS      = -lmeter -lX11<br>
++LIBS      = -lmeter -lX11 -lstdc++<br>
+ <br>
+ ifeq ($(METERDIR),linux)<br>
+ # **********  Begin Linux specific stuff.  ************<br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/Xdefaults xosview-1.4.1-AXP/Xdefaults<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/Xdefaults	Fri Mar  8 17:11:03 1996<br>
++++ xosview-1.4.1-AXP/Xdefaults	Sun Feb 15 16:01:26 1998<br>
+@@ -8,65 +8,65 @@<br>
+ ! xosview*geometry:         +5+5<br>
+ ! xosview*display:<br>
+ xosview*labels: True<br>
+-xosview*meterLabelColor:  wheat<br>
++!xosview*meterLabelColor:  wheat<br>
+ xosview*usedlabels:       True<br>
+-xosview*usedLabelColor:   orange<br>
++!xosview*usedLabelColor:   orange<br>
+ xosview*borderwidth:      0<br>
+ xosview*font:             7x13bold<br>
+-xosview*background:       navy<br>
+-xosview*foreground:       wheat<br>
++!xosview*background:       navy<br>
++!xosview*foreground:       wheat<br>
+ <br>
+ <br>
+ ! Load Meter Resources<br>
+ <br>
+ xosview*load: True<br>
+-xosview*loadWarnColor:    orange<br>
+-xosview*loadProcColor:    seagreen<br>
+-xosview*loadIdleColor:    aquamarine<br>
++!xosview*loadWarnColor:    orange<br>
++!xosview*loadProcColor:    seagreen<br>
++!xosview*loadIdleColor:    aquamarine<br>
+ xosview*loadPriority:     50<br>
+ xosview*loadAlarmThreshold: 2<br>
+ <br>
+ ! CPU Meter Resources<br>
+ <br>
+ xosview*cpu: True<br>
+-xosview*cpuUserColor:       seagreen<br>
+-xosview*cpuNiceColor:       yellow<br>
+-xosview*cpuSystemColor:     orange<br>
+-xosview*cpuInterruptColor : red<br>
+-xosview*cpuFreeColor:       aquamarine<br>
+-xosview*cpuPriority:        1<br>
++!xosview*cpuUserColor:       seagreen<br>
++!xosview*cpuNiceColor:       yellow<br>
++!xosview*cpuSystemColor:     orange<br>
++!xosview*cpuInterruptColor : red<br>
++!xosview*cpuFreeColor:       aquamarine<br>
++xosview*cpuPriority:        10<br>
+ xosview*cpuDecay:           True<br>
+ <br>
+ ! Memory Meter Resources<br>
+ !  Not all of these are used by a specific platform.<br>
+ <br>
+ xosview*mem: True<br>
+-xosview*memUsedColor:     seagreen<br>
+-xosview*memSharedColor:   SkyBlue<br>
+-xosview*memBufferColor:   orange<br>
+-xosview*memFreeColor:     aquamarine<br>
+-xosview*memTextColor:     blue<br>
+-xosview*memOtherColor:    orange<br>
+-xosview*memActiveColor:	  blue<br>
+-xosview*memInactiveColor: lightblue<br>
++!xosview*memUsedColor:     seagreen<br>
++!xosview*memSharedColor:   SkyBlue<br>
++!xosview*memBufferColor:   orange<br>
++!xosview*memFreeColor:     aquamarine<br>
++!xosview*memTextColor:     blue<br>
++!xosview*memOtherColor:    orange<br>
++!xosview*memActiveColor:	  blue<br>
++!xosview*memInactiveColor: lightblue<br>
+ xosview*memPriority:      10<br>
+-xosview*memDecay:         False<br>
++xosview*memDecay:         True <br>
+ <br>
+ ! Swap Meter Resources<br>
+ <br>
+ xosview*swap: True<br>
+-xosview*swapUsedColor:    seagreen<br>
+-xosview*swapFreeColor:    aquamarine<br>
+-xosview*swapPriority:     10<br>
+-xosview*swapDecay:        False<br>
++!xosview*swapUsedColor:    seagreen<br>
++!xosview*swapFreeColor:    aquamarine<br>
++xosview*swapPriority:     50<br>
++xosview*swapDecay:        True<br>
+ <br>
+ ! Network Meter Resources<br>
+ <br>
+-xosview*network: 2000<br>
++xosview*network: 0<br>
+ xosview*netInColor:       SkyBlue<br>
+ xosview*netOutColor:      SlateBlue1<br>
+ xosview*netBackground:    aquamarine<br>
+-xosview*netPriority:      2<br>
++xosview*netPriority:      600<br>
+ xosview*netDecay:         True<br>
+ <br>
+ ! Serial Meter Resources<br>
+@@ -77,10 +77,10 @@<br>
+ xosview*serial4: False<br>
+ xosview*serialOnColor:    red<br>
+ xosview*serialOffColor:   aquamarine<br>
+-xosview*serialPriority:   1<br>
++xosview*serialPriority:   600<br>
+ <br>
+ ! Interrupt Meter Resources<br>
+ <br>
+ xosview*interrupts:       True<br>
+-xosview*intOnColor:       red<br>
+-xosview*intOffColor:      aquamarine<br>
++!xosview*intOnColor:       red<br>
++!xosview*intOffColor:      aquamarine<br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/linux/intmeter.cc xosview-1.4.1-AXP/linux/intmeter.cc<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/linux/intmeter.cc	Fri Feb 16 16:45:27 1996<br>
++++ xosview-1.4.1-AXP/linux/intmeter.cc	Sun Feb 15 15:59:35 1998<br>
+@@ -16,9 +16,9 @@<br>
+ IntMeter::IntMeter( XOSView *parent,<br>
+ 		   const char *, const char *, int dolegends,<br>
+ 		   int dousedlegends )<br>
+-: BitMeter( parent, "INTS", "IRQs (0 - 15)", 16, <br>
++: BitMeter( parent, "INTS", NOIRQTXT, NOIRQ, <br>
+ 	    dolegends, dousedlegends ) {<br>
+-  for ( int i = 0 ; i &lt; 16 ; i++ )<br>
++  for ( int i = 0 ; i &lt; NOIRQ; i++ )<br>
+     irqs_[i] = lastirqs_[i] = 0;<br>
+ <br>
+ }<br>
+@@ -29,7 +29,7 @@<br>
+ void IntMeter::checkevent( void ){<br>
+   getirqs();<br>
+ <br>
+-  for ( int i = 0 ; i &lt; 16 ; i++ ){<br>
++  for ( int i = 0 ; i &lt; NOIRQ ; i++ ){<br>
+     bits_[i] = ((irqs_[i] - lastirqs_[i]) != 0);<br>
+     lastirqs_[i] = irqs_[i];<br>
+   }<br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/linux/intmeter.h xosview-1.4.1-AXP/linux/intmeter.h<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/linux/intmeter.h	Fri Feb 16 16:45:27 1996<br>
++++ xosview-1.4.1-AXP/linux/intmeter.h	Sun Feb 15 15:58:49 1998<br>
+@@ -9,6 +9,8 @@<br>
+ <br>
+ #include "bitmeter.h"<br>
+ <br>
++#define NOIRQ 33<br>
++#define NOIRQTXT "IRQs (0 - 32)"<br>
+ <br>
+ class IntMeter : public BitMeter {<br>
+ public:<br>
+@@ -21,7 +23,7 @@<br>
+ <br>
+   void checkResources( void );<br>
+ protected:<br>
+-  unsigned long irqs_[16], lastirqs_[16];<br>
++  unsigned long irqs_[NOIRQ], lastirqs_[NOIRQ];<br>
+ <br>
+   void getirqs( void );<br>
+ };<br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/linux/serialmeter.cc xosview-1.4.1-AXP/linux/serialmeter.cc<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/linux/serialmeter.cc	Fri Feb 16 16:45:27 1996<br>
++++ xosview-1.4.1-AXP/linux/serialmeter.cc	Sun Feb  8 09:35:51 1998<br>
+@@ -63,8 +63,12 @@<br>
+ <br>
+ void SerialMeter::getserial( void ){<br>
+   // get the LSR and MSR<br>
+-  unsigned char lsr = inb(_port + UART_LSR);<br>
+-  unsigned char msr = inb(_port + UART_MSR);<br>
++  //  unsigned char lsr = inb(_port + UART_LSR);<br>
++  // unsigned char msr = inb(_port + UART_MSR);<br>
++<br>
++  // Broken , no serial<br>
++  unsigned char lsr = 0;<br>
++  unsigned char msr = 0;<br>
+ <br>
+   //cerr &lt;&lt;"lsr = " &lt;&lt;(int)lsr &lt;&lt;", msr = " &lt;&lt;(int)msr &lt;&lt;endl;<br>
+ <br>
+diff -bur -N /usr/src/redhat/BUILD/xosview-1.4.1/xwin.cc xosview-1.4.1-AXP/xwin.cc<br>
+--- /usr/src/redhat/BUILD/xosview-1.4.1/xwin.cc	Fri Feb 16 16:45:30 1996<br>
++++ xosview-1.4.1-AXP/xwin.cc	Sun Feb  8 09:35:52 1998<br>
+@@ -46,9 +46,9 @@<br>
+   <br>
+   // Set up the default Events<br>
+   events_ = NULL;<br>
+-  addEvent( new Event( this, ConfigureNotify, configureEvent ) );<br>
+-  addEvent( new Event( this, ClientMessage, deleteEvent ) );<br>
+-  addEvent( new Event( this, MappingNotify, mappingNotify ) );<br>
++  addEvent( new Event( this, ConfigureNotify, &amp;configureEvent ) );<br>
++  addEvent( new Event( this, ClientMessage, &amp;deleteEvent ) );<br>
++  addEvent( new Event( this, MappingNotify, &amp;mappingNotify ) );<br>
+ <br>
+   //openDisplay();  //  Done explicitly in xosview.cc.<br>
+ }<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0152.html">Erik Ogan: "libdl, libc (&amp; PAM) on RHL 4.2 Alpha"</a>
+<li> <b>Previous message:</b> <a href="0150.html">Jeffrey Demaagd: "Re: Alpha 200 4/100 PS/2 Mouse Broke in Linux only"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

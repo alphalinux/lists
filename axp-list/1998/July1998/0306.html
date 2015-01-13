@@ -1,0 +1,326 @@
+<!-- received="Sat Jul  4 12:13:38 1998 " -->
+<!-- sent="Sun, 05 Jul 1998 00:04:16 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="Re: Web browser for AlphaLinux?" -->
+<!-- id="19980705000416O.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="19980703235801Z.goto@statabo.rim.or.jp" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Web browser for AlphaLinux?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Web browser for AlphaLinux?</h2>
+
+<b>Kazushige Goto</b> (<a href="mailto:goto@statabo.rim.or.jp"><i>goto@statabo.rim.or.jp</i></a>)<br>
+<i>Sun, 05 Jul 1998 00:04:16 +0900</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#306">[ date ]</a><a href="index.html#306">[ thread ]</a><a href="subject.html#306">[ subject ]</a><a href="author.html#306">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0307.html">Dana Canfield: "Re: HELP! Group of users ready to throw in the towel."</a>
+<li> <b>Previous message:</b> <a href="0305.html">JOHN PRICE: "RE: Help: 10base2 on UDB install"</a>
+<li> <b>In reply to:</b> <a href="0180.html">Brian E.W. Wood: "RE: KDE compiling problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+From: Kazushige Goto &lt;<a href="mailto:goto@statabo.rim.or.jp">goto@statabo.rim.or.jp</a>&gt;<br>
+Subject: Re: Web browser for AlphaLinux?<br>
+<p>
+goto&gt; I'll make non-X_LOCALE version as soon as possible.<br>
+<p>
+I've just put mozilla binaries on my ftp site.<br>
+<p>
+ftp.eni.co.jp/.2/Linux-Alpha-JP/ftp.statabo.rim.or.jp/Motif/Mozilla/RedHat<br>
+<p>
+This directory contains patch and some binaries.<br>
+<p>
+    mozilla-SWiM-static.tar.gz : Using with SWiM Motif and statically<br>
+                                 linked with X11 libs and Motif libs.<br>
+<p>
+    mozilla-SWiM.tar.gz        : Using with SWiM Motif<br>
+<p>
+    mozilla-lesstif.tar.gz     : Using with Lesstif current<br>
+<p>
+    mozilla-axp.diff           : patch for Linux/Alpha<br>
+<p>
+    X11libs.tar.gz             : X11R6.3 shared libraries<br>
+<p>
+<p>
+The lesstif-current version also works fine(a little bit wrong,<br>
+though).  You can build mozilla binary by yourself.<br>
+<p>
+If you want to build mozilla, you must set environment as follows,<br>
+<p>
+setenv NO_SECURITY 1<br>
+setenv MOZ_MEDIUM  1<br>
+setenv MOZILLA_CLIENT 1<br>
+setenv NO_MDUPDATE 1<br>
+<p>
+If you want optimized version, please set this.<br>
+<p>
+setenv BUILD_OPT 1<br>
+<p>
+p.s.<br>
+  Please make directory /usr/X11R6/lib/X11/mozilla before building.<br>
+<p>
+I attend the patch,  this patch is based on Uncle George's patch.<br>
+<p>
+<p>
+Thanks,<br>
+  <a href="mailto:goto@statabo.rim.or.jp">goto@statabo.rim.or.jp</a><br>
+<p>
+diff -ru mozilla.old/cmd/xfe/Makefile mozilla/cmd/xfe/Makefile<br>
+--- mozilla.old/cmd/xfe/Makefile	Thu Jun  4 02:03:22 1998<br>
++++ mozilla/cmd/xfe/Makefile	Sat Jul  4 15:52:49 1998<br>
+@@ -637,11 +637,13 @@<br>
+ #<br>
+ -include $(DEPTH)/config/motif.mk<br>
+ <br>
++CCLD		= $(CC)<br>
+ XTOOLLIB	= -L/usr/X11R6/lib -lXt -lSM -lICE<br>
+ XLIB		= -lXext -lX11<br>
+ XMULIB		= -lXmu -lXpm<br>
++LDFLAGS		+= -Wl,-rpath /usr/X11R6/lib/X11/mozilla<br>
+ <br>
+-ifeq ($(OS_RELEASE),2.0)<br>
++ifneq (,$(filter 2.0 2.1,$(OS_RELEASE)))<br>
+ ifeq ($(CPU_ARCH),ppc)<br>
+ MOTIFLIB	= /usr/local/lib/libXm.a<br>
+ else<br>
+diff -ru mozilla.old/config/Linux.mk mozilla/config/Linux.mk<br>
+--- mozilla.old/config/Linux.mk	Thu Jun  4 01:57:39 1998<br>
++++ mozilla/config/Linux.mk	Sat Jul  4 16:04:09 1998<br>
+@@ -95,7 +95,7 @@<br>
+ PORT_FLAGS		+= -DNO_INT64_T<br>
+ PLATFORM_FLAGS		+= -DLINUX2_0<br>
+ BUILD_UNIX_PLUGINS	= 1<br>
+-MKSHLIB			= $(CC) -shared -Wl,-soname -Wl,$(@:$(OBJDIR)/%.so=%.so)<br>
++MKSHLIB			= $(CC) -shared -Wl,-soname=$(@:$(OBJDIR)/%.so=%.so)<br>
+ ifdef BUILD_OPT<br>
+ OPTIMIZER		= -O2<br>
+ endif<br>
+diff -ru mozilla.old/config/xmversion.sh mozilla/config/xmversion.sh<br>
+--- mozilla.old/config/xmversion.sh	Thu Jun  4 01:57:41 1998<br>
++++ mozilla/config/xmversion.sh	Sat Jul  4 15:08:45 1998<br>
+@@ -57,6 +57,11 @@<br>
+ 			i386|i486|i586|i686)<br>
+ 				MOTIF_LIB_DIR=/usr/X11R6/lib<br>
+ 				;;<br>
++<br>
++			alpha)<br>
++				MOTIF_LIB_DIR=/usr/X11R6/lib<br>
++				;;<br>
++<br>
+ 		esac<br>
+ 		;;<br>
+ <br>
+diff -ru mozilla.old/include/garray.h mozilla/include/garray.h<br>
+--- mozilla.old/include/garray.h	Thu Jun  4 01:48:07 1998<br>
++++ mozilla/include/garray.h	Sat Jul  4 15:08:45 1998<br>
+@@ -188,7 +188,7 @@<br>
+ template&lt;class PTRTYPE&gt;<br>
+ class TXP_GrowableArray: public CXP_GrowableArray {<br>
+ public:<br>
+-    PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int32)m_pData[nIndex]; }<br>
++    PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int64)m_pData[nIndex]; }<br>
+     PTRTYPE&amp; operator[](int nIndex){ return *(PTRTYPE*)&amp;m_pData[nIndex]; }<br>
+     int Add(PTRTYPE newElement){ return CXP_GrowableArray::Add( (void*) newElement ); }<br>
+ };<br>
+@@ -201,7 +201,7 @@<br>
+ #define Declare_GrowableArray(NAME,PTRTYPE)                                 \<br>
+     class TXP_GrowableArray_##NAME: public CXP_GrowableArray {                          \<br>
+     public:                                                                             \<br>
+-        PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int32)m_pData[nIndex]; }\<br>
++        PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int64)m_pData[nIndex]; }\<br>
+         PTRTYPE&amp; operator[](int nIndex){ return *(PTRTYPE*)&amp;m_pData[nIndex]; }          \<br>
+         int Add(PTRTYPE newElement){ return CXP_GrowableArray::Add( (void*) newElement ); } \<br>
+     };                                                                                 \<br>
+@@ -241,12 +241,12 @@<br>
+ #define Declare_PtrStack(NAME, PTRTYPE) \<br>
+     class TXP_PtrStack_##NAME : public CXP_PtrStack {                   \<br>
+     public:                                                             \<br>
+-        void Push( PTRTYPE t ){ CXP_PtrStack::Push((void*)(int32)t); }  \<br>
+-        PTRTYPE Top(){ return (PTRTYPE)(int32)CXP_PtrStack::Top(); }    \<br>
+-        PTRTYPE Pop(){ return (PTRTYPE)(int32)CXP_PtrStack::Pop(); }    \<br>
+-        PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int32)m_pData[nIndex]; }\<br>
++        void Push( PTRTYPE t ){ CXP_PtrStack::Push((void*)(int64)t); }  \<br>
++        PTRTYPE Top(){ return (PTRTYPE)(int64)CXP_PtrStack::Top(); }    \<br>
++        PTRTYPE Pop(){ return (PTRTYPE)(int64)CXP_PtrStack::Pop(); }    \<br>
++        PTRTYPE operator[](int nIndex) const { return (PTRTYPE)(int64)m_pData[nIndex]; }\<br>
+         PTRTYPE&amp; operator[](int nIndex){ return *(PTRTYPE*)&amp;m_pData[nIndex]; }          \<br>
+-        int Add(PTRTYPE newElement){ return CXP_GrowableArray::Add( (void*)(int32)newElement ); } \<br>
++        int Add(PTRTYPE newElement){ return CXP_GrowableArray::Add( (void*)(int64)newElement ); } \<br>
+     };                                                                  \<br>
+ <br>
+ <br>
+diff -ru mozilla.old/js/src/jsapi.c mozilla/js/src/jsapi.c<br>
+--- mozilla.old/js/src/jsapi.c	Thu Jun  4 01:49:26 1998<br>
++++ mozilla/js/src/jsapi.c	Sat Jul  4 15:08:45 1998<br>
+@@ -1178,18 +1178,39 @@<br>
+ 	 */<br>
+ 	jsdouble d = cds-&gt;dval;<br>
+ <br>
+-        /* We can't do a (jsint) cast to check against JSDOUBLE_IS_INT until we<br>
+-         * know that d is not NaN, or we risk a FPE on some platforms.<br>
+-         */<br>
+-        if (JSDOUBLE_IS_NaN(d)) {<br>
++#if defined(linux) &amp;&amp; defined (__alpha__)<br>
++        {<br>
++          jsint i;<br>
++          if (isnan(d)) i = 0;<br>
++          else if (i=isinf(d)) {<br>
++            if ( i &lt; 0 )<br>
++              i = 0x80000000;<br>
++            else<br>
++              i = 0x07ffffff;<br>
++          }<br>
++          else<br>
++            {<br>
++              union feeb {<br>
++                double d;<br>
++                long l;<br>
++              } feeb;<br>
++              long l;<br>
++              feeb.d = d;<br>
++              l = d;<br>
++              i = (jsint) l;<br>
++            }<br>
++          if (JSDOUBLE_IS_INT(d, i) &amp;&amp; INT_FITS_IN_JSVAL(i))<br>
++            value = INT_TO_JSVAL(i);<br>
++          else<br>
+             value = DOUBLE_TO_JSVAL(&amp;cds-&gt;dval);<br>
+-        } else {<br>
++        }<br>
++#else<br>
+             jsint i = (jsint)d;<br>
+             <br>
+             value = (JSDOUBLE_IS_INT(d, i) &amp;&amp; INT_FITS_IN_JSVAL(i))<br>
+ 		? INT_TO_JSVAL(i)<br>
+ 		: DOUBLE_TO_JSVAL(&amp;cds-&gt;dval);<br>
+-        }<br>
++#endif<br>
+ #else<br>
+ 	ok = js_NewNumberValue(cx, cds-&gt;dval, &amp;value);<br>
+ 	if (!ok)<br>
+diff -ru mozilla.old/js/src/jsnum.c mozilla/js/src/jsnum.c<br>
+--- mozilla.old/js/src/jsnum.c	Thu Jun  4 01:49:28 1998<br>
++++ mozilla/js/src/jsnum.c	Sat Jul  4 15:08:45 1998<br>
+@@ -358,7 +358,11 @@<br>
+     {0,                         "POSITIVE_INFINITY"},<br>
+     {0,                         "NEGATIVE_INFINITY"},<br>
+     {1.7976931348623157E+308,   "MAX_VALUE"},<br>
++#if !( defined(linux) &amp;&amp; defined(__alpha__))<br>
+     {0,                         "MIN_VALUE"},<br>
++#else<br>
++    {2.2250738585072013E-308,   "MIN_VALUE"},<br>
++#endif<br>
+     {0}<br>
+ };<br>
+ <br>
+@@ -410,9 +414,11 @@<br>
+ 	    return NULL;<br>
+ 	}<br>
+ <br>
++#if !( defined(linux) &amp;&amp; defined(__alpha__))<br>
+ 	u.s.hi = 0;<br>
+ 	u.s.lo = 1;<br>
+ 	number_constants[NC_MIN_VALUE].dval = u.d;<br>
++#endif<br>
+     }<br>
+ <br>
+     if (!JS_DefineFunctions(cx, obj, number_functions))<br>
+diff -ru mozilla.old/js/src/jsnum.h mozilla/js/src/jsnum.h<br>
+--- mozilla.old/js/src/jsnum.h	Thu Jun  4 01:49:28 1998<br>
++++ mozilla/js/src/jsnum.h	Sat Jul  4 15:08:45 1998<br>
+@@ -59,7 +59,7 @@<br>
+ <br>
+ #define JSDOUBLE_IS_INT_2(d, i)	(!JSDOUBLE_IS_NEGZERO(d) &amp;&amp; (jsdouble)i == d)<br>
+ <br>
+-#ifdef XP_PC<br>
++#if defined(XP_PC) || (defined(linux) &amp;&amp; defined (__alpha))<br>
+ /* XXX MSVC miscompiles NaN floating point comparisons for ==, !=, &lt;, and &lt;= */<br>
+ #define JSDOUBLE_IS_INT(d, i)	(!JSDOUBLE_IS_NaN(d) &amp;&amp; JSDOUBLE_IS_INT_2(d, i))<br>
+ #else<br>
+diff -ru mozilla.old/nsprpub/pr/include/md/_linux.h mozilla/nsprpub/pr/include/md/_linux.h<br>
+--- mozilla.old/nsprpub/pr/include/md/_linux.h	Thu Jun  4 01:53:59 1998<br>
++++ mozilla/nsprpub/pr/include/md/_linux.h	Sat Jul  4 15:08:45 1998<br>
+@@ -31,6 +31,8 @@<br>
+ #define _PR_SI_ARCHITECTURE "ppc"<br>
+ #elif defined(__alpha)<br>
+ #define _PR_SI_ARCHITECTURE "alpha"<br>
++/* Move VMBASE to beyond 32 bits so we can readily observe ptr truncation */<br>
++#define _PR_STACK_VMBASE 0x15450000000L<br>
+ #elif defined(__mc68000__)<br>
+ #define _PR_SI_ARCHITECTURE "m68k"<br>
+ #else<br>
+@@ -39,7 +41,9 @@<br>
+ #define PR_DLL_SUFFIX		".so"<br>
+ <br>
+ #define _PR_VMBASE              0x30000000<br>
+-#define _PR_STACK_VMBASE	0x50000000<br>
++#if !defined _PR_STACK_VMBASE<br>
++#define _PR_STACK_VMBASE 0x50000000<br>
++#endif<br>
+ #define _MD_DEFAULT_STACK_SIZE	65536L<br>
+ #define _MD_MMAP_FLAGS          MAP_PRIVATE<br>
+ <br>
+diff -ru mozilla.old/nsprpub/pr/src/md/unix/unix.c mozilla/nsprpub/pr/src/md/unix/unix.c<br>
+--- mozilla.old/nsprpub/pr/src/md/unix/unix.c	Thu Jun  4 01:54:11 1998<br>
++++ mozilla/nsprpub/pr/src/md/unix/unix.c	Sat Jul  4 15:08:45 1998<br>
+@@ -38,6 +38,10 @@<br>
+ #include &lt;sys/filio.h&gt;<br>
+ #endif<br>
+ <br>
++#if defined (linux)<br>
++#include &lt;sys/uio.h&gt;  /* Get readv/writev */<br>
++#endif<br>
++<br>
+ /*<br>
+  * Make sure _PRSockLen_t is 32-bit, because we will cast a PRUint32* or<br>
+  * PRInt32* pointer to a _PRSockLen_t* pointer.<br>
+@@ -2809,7 +2813,7 @@<br>
+ 	 * to be made executable because longjmp/signal seem<br>
+ 	 * to put machine instructions on the stack.<br>
+ 	 */<br>
+-#if defined(LINUX) &amp;&amp; defined(__alpha)<br>
++#if defined(linux) &amp;&amp; defined(__alpha__)<br>
+ 	prot |= PROT_EXEC;<br>
+ #endif<br>
+ 	rv = mmap((vaddr != 0) ? vaddr : lastaddr, size, prot,<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0307.html">Dana Canfield: "Re: HELP! Group of users ready to throw in the towel."</a>
+<li> <b>Previous message:</b> <a href="0305.html">JOHN PRICE: "RE: Help: 10base2 on UDB install"</a>
+<li> <b>In reply to:</b> <a href="0180.html">Brian E.W. Wood: "RE: KDE compiling problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

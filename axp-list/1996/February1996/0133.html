@@ -1,0 +1,97 @@
+<!-- received="Fri Feb 16 14:59:51 1996 " -->
+<!-- sent="Fri, 16 Feb 1996 14:59:51 -0500" -->
+<!-- name="Bob Manson" -->
+<!-- email="manson@magnus.acs.ohio-state.edu" -->
+<!-- subject="Re: midi player? &amp; more" -->
+<!-- id="199602161959.OAA26822@beauty.magnus.acs.ohio-state.edu" -->
+<!-- inreplyto="midi player? &amp; more" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: midi player? &amp; more</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: midi player? &amp; more</h2>
+
+<b>Bob Manson</b> (<a href="mailto:manson@magnus.acs.ohio-state.edu"><i>manson@magnus.acs.ohio-state.edu</i></a>)<br>
+<i>Fri, 16 Feb 1996 14:59:51 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#133">[ date ]</a><a href="index.html#133">[ thread ]</a><a href="subject.html#133">[ subject ]</a><a href="author.html#133">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0134.html">David Mosberger-Tang: "axp-diff-1.3.65.gz"</a>
+<li> <b>Previous message:</b> <a href="0132.html">Andy Riebs: "Re: Shared libs"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0120.html">David Mosberger-Tang: "Re: Re: midi player? &amp; more"</a>
+<li> <b>Maybe reply:</b> <a href="0120.html">David Mosberger-Tang: "Re: Re: midi player? &amp; more"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;Then I noticed that ioctl() was called with (sometimes) a pointer to a</i><br>
+<i>&gt;`struct termio' as 3rd argument, while (on Linux/Alpha/BLADE_0.3)</i><br>
+<i>&gt;the Vxx array indexes differed beetween termio.c_cc[] and termios.c_cc[]</i><br>
+<p>
+The reason for this is that they're different in the kernel. So far it<br>
+seems impossible to explain to folks that you can't reliably use both<br>
+termio and termios in the same .c file, nor can you pass termio<br>
+structs to termios calls and vice versa...No amount of #define fakery<br>
+or userlevel code is going to make the problem go away, it needs to be<br>
+fixed in the kernel. (Why it was decided to use the same macro names<br>
+for both termio and termios is beyond me...and why people mix termio<br>
+and termios code is an even greater mystery.)<br>
+<p>
+NB: I may have termio and termios swapped below, because I don't<br>
+remember now if the kernel's emulating OSF/1 termio or termios (and<br>
+I'm at work so I can't get at my machine.)<br>
+<p>
+The Linux/Alpha kernel currently is emulating the OSF/1 (er, Digital<br>
+Unix) termio calls, and also using the standard Linux termios calls.<br>
+The values for the VKILL, VERASE, etc. #defines are different in OSF/1<br>
+from the traditional Linux termios values.<br>
+<p>
+The standard Linux termio and termios #defines for the common VKILL,<br>
+VERASE, etc. defines happen to be the same, so it's possible to<br>
+include both termio.h and termios.h in the same file and have<br>
+everything work. But, this can't work with the way things currently<br>
+are set up in the Linux/Alpha kernel--if you include termio.h, you'll<br>
+get the termio #defines. If you then include termios.h, you'll get the<br>
+termios #defines, and since they're different from what termio wants,<br>
+termio calls will fail.<br>
+<p>
+The fix is to modify the kernel to swap the VKILL, VERASE, etc. array<br>
+entries around for the termios calls so they're the same as the OSF/1<br>
+termio values. The easiest fix would be to add a new set of ioctl<br>
+values for the "fixed" termios calls, so that existing programs would<br>
+continue to function while new programs will work "properly".<br>
+Otherwise, there will be some existing binaries that will break...<br>
+<p>
+An alternative fix is to intercept the calls in libc and fix things<br>
+there, but this fix would be a lot uglier.<br>
+							Bob<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0134.html">David Mosberger-Tang: "axp-diff-1.3.65.gz"</a>
+<li> <b>Previous message:</b> <a href="0132.html">Andy Riebs: "Re: Shared libs"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0120.html">David Mosberger-Tang: "Re: Re: midi player? &amp; more"</a>
+<li> <b>Maybe reply:</b> <a href="0120.html">David Mosberger-Tang: "Re: Re: midi player? &amp; more"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

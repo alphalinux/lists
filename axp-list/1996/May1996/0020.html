@@ -1,0 +1,229 @@
+<!-- received="Thu May  2 17:54:24 1996 " -->
+<!-- sent="Thu, 2 May 1996 17:54:24 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: ev4sched---here it is" -->
+<!-- id="9605021558.AA08556@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="ML-2.2.831027762.3978.torvalds@linux.cs.helsinki.fi" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ev4sched---here it is</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ev4sched---here it is</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Thu, 2 May 1996 17:54:24 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#20">[ date ]</a><a href="index.html#20">[ thread ]</a><a href="subject.html#20">[ subject ]</a><a href="author.html#20">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0021.html">Jim Paradis: "Re: ev4sched---here it is"</a>
+<li> <b>Previous message:</b> <a href="0019.html">David Mosberger-Tang: "Re: ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Reply:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; &gt;      gcc -O3        1556.99 secs</i><br>
+<i>&gt; &gt;      cc -O3          824.56 secs</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; this almost a factor of TWO:-(</i><br>
+<i>&gt; </i><br>
+<i>&gt; Have you tried to profile this? The difference might be partly in the</i><br>
+<i>&gt; libraries, so if the "cc" version is also using DEC libraries (likely), then it</i><br>
+<i>&gt; might be due to that.</i><br>
+<p>
+very unlikely since this program only reads a ~300k ASCII data file, <br>
+then does 10-30min linear matrix solving/optimization and finally<br>
+prints a ~100k report. for most of the time libraries aren't needed <br>
+at all as far as I can see.<br>
+<p>
+but anyhow, I tried to profile this program (always being curious ;-)<br>
+and got a lot of new problems:<br>
+<p>
+<p>
+- profiling only works with "-O0". using "-O1" or higher will give an endless<br>
+loop for the first subroutine called (when executing "return" the subroutine<br>
+is reentered immediately according to "stepi"s in gdb when compiling everything<br>
+with "-O1 -g -pg".  I've tried using "-p" too which gives the same problems<br>
+(endless loop and alignment traps for anythying but "-O0").<br>
+<p>
+<p>
+- when using anything higher as "-O0" I get two alignment traps at the start<br>
+of this program:<br>
+<p>
+	unaligned trap at 00000001200748a8: 00000001405ec02c 2d 14<br>
+	unaligned trap at 00000001200748b4: 00000001405ec034 2d 13<br>
+<p>
+from gdb x/i:<br>
+<p>
+	0x1200748a8 &lt;monstartup+496&gt;:           b5cc0000        stq     s5, 0(s3)<br>
+	0x1200748b4 &lt;monstartup+508&gt;:           b5ac0008        stq     s4, 8(s3)<br>
+<p>
+which is located in libgmon.a:<br>
+<p>
+0x29c &lt;monstartup+420&gt;:         c3e00055        br       0x3f4 &lt;monstartup+764&gt;<br>
+0x2a0 &lt;monstartup+424&gt;:         47ff0410        clr     a0<br>
+0x2a4 &lt;monstartup+428&gt;:         a53d80a0        ldq     s0, -32608(gp)<br>
+0x2a8 &lt;monstartup+432&gt;:         a77d8070        ldq     t12, -32656(gp)<br>
+0x2ac &lt;monstartup+436&gt;:         6b5b4000        jsr     ra, (t12), 0x2b0<br>
+0x2b0 &lt;monstartup+440&gt;:         27ba0001        ldah    gp, 65536(ra)<br>
+0x2b4 &lt;monstartup+444&gt;:         23bd8740        lda     gp, -30912(gp)<br>
+0x2b8 &lt;monstartup+448&gt;:         a42b0000        ldq     t0, 0(s2)<br>
+0x2bc &lt;monstartup+452&gt;:         b4090000        stq     v0, 0(s0)<br>
+0x2c0 &lt;monstartup+456&gt;:         40221401        addq    t0, #16, t0<br>
+0x2c4 &lt;monstartup+460&gt;:         4420d103        bic     t0, #6, t2<br>
+0x2c8 &lt;monstartup+464&gt;:         a4430000        ldq     t1, 0(t2)<br>
+0x2cc &lt;monstartup+468&gt;:         a4bd8020        ldq     t4, -32736(gp)<br>
+0x2d0 &lt;monstartup+472&gt;:         44203101        bic     t0, #1, t0<br>
+0x2d4 &lt;monstartup+476&gt;:         a49d8018        ldq     t3, -32744(gp)<br>
+0x2d8 &lt;monstartup+480&gt;:         48410242        mskwl   t1, t0, t1<br>
+0x2dc &lt;monstartup+484&gt;:         b4430000        stq     t1, 0(t2)<br>
+0x2e0 &lt;monstartup+488&gt;:         b5850000        stq     s3, 0(t4)<br>
+0x2e4 &lt;monstartup+492&gt;:         b1440000        stl     s1, 0(t3)<br>
+0x2e8 &lt;monstartup+496&gt;:         b5cc0000        stq     s5, 0(s3)<br>
+0x2ec &lt;monstartup+500&gt;:         b14c0010        stl     s1, 16(s3)<br>
+0x2f0 &lt;monstartup+504&gt;:         4143152a        subq    s1, #24, s1<br>
+0x2f4 &lt;monstartup+508&gt;:         b5ac0008        stq     s4, 8(s3)<br>
+      [ ... ]<br>
+0x3f4 &lt;monstartup+764&gt;:         45ef041e        or      fp, fp, sp<br>
+0x3f8 &lt;monstartup+768&gt;:         a75e0000        ldq     ra, 0(sp)<br>
+0x3fc &lt;monstartup+772&gt;:         a53e0008        ldq     s0, 8(sp)<br>
+0x400 &lt;monstartup+776&gt;:         a55e0010        ldq     s1, 16(sp)<br>
+0x404 &lt;monstartup+780&gt;:         a57e0018        ldq     s2, 24(sp)<br>
+0x408 &lt;monstartup+784&gt;:         a59e0020        ldq     s3, 32(sp)<br>
+0x40c &lt;monstartup+788&gt;:         a5be0028        ldq     s4, 40(sp)<br>
+0x410 &lt;monstartup+792&gt;:         a5de0030        ldq     s5, 48(sp)<br>
+0x414 &lt;monstartup+796&gt;:         a5fe0038        ldq     fp, 56(sp)<br>
+0x418 &lt;monstartup+800&gt;:         43cc141e        addq    sp, #96, sp<br>
+0x41c &lt;monstartup+804&gt;:         6bfa8001        ret     zero, (ra), 1<br>
+End of assembler dump.<br>
+<p>
+<p>
+the following program, when compiled with "cc -pg -O1 demo.c" or higher<br>
+won't output anything but loop (forever? didn't want to wait that long)<br>
+but "cc -pg -O0 demo.c" is fine:<br>
+<p>
+int sub() {<br>
+  return 1;<br>
+}<br>
+<p>
+main() {<br>
+  int i;<br>
+  i = sub();<br>
+  printf("%d\n",i);<br>
+}<br>
+<p>
+<p>
+<p>
+- gprof 2.6 from Red Hat doesn't honor HZ=1000, all timing values in seconds<br>
+are divided by 10 <br>
+<p>
+<p>
+anyway, here is the start of gprof output with "-O0" for a small data set<br>
+(15 sec runtime with profiling, ~5.2 cpu secs with gcc -O2, ~2.6 secs with cc -O2):<br>
+<p>
+  %   cumulative   self              self     total           <br>
+ time   seconds   seconds    calls  ms/call  ms/call  name    <br>
+ 62.28      0.91     0.91        1   906.26   960.37  sx3b_<br>
+ 19.93      1.20     0.29        1   290.04   291.29  sx3a_<br>
+  8.39      1.32     0.12      648     0.19     0.19  sxdx_<br>
+  3.42      1.37     0.05        2    24.90    26.57  sxop_<br>
+  1.74      1.39     0.03       23     1.10     1.11  sxpn_<br>
+  1.21      1.41     0.02        1    17.58  1271.81  MAIN__<br>
+  1.07      1.43     0.02      352     0.04     0.04  sxdu_<br>
+  0.54      1.43     0.01     1278     0.01     0.01  sxas_<br>
+  0.54      1.44     0.01                             __start<br>
+  0.47      1.45     0.01     6283     0.00     0.00  sxus_<br>
+  0.20      1.45     0.00      400     0.01     0.01  sxlp_<br>
+  0.13      1.45     0.00                             done<br>
+  0.07      1.46     0.00      434     0.00     0.00  sxps_<br>
+  0.00      1.46     0.00   100358     0.00     0.00  _IO_sputbackc<br>
+  0.00      1.46     0.00   100358     0.00     0.00  _IO_ungetc<br>
+  0.00      1.46     0.00    36324     0.00     0.00  Binit<br>
+  0.00      1.46     0.00    21844     0.00     0.00  sxpv_<br>
+  0.00      1.46     0.00    21840     0.00     0.00  sxsv_<br>
+  0.00      1.46     0.00    19982     0.00     0.00  _IO_default_xsputn<br>
+  0.00      1.46     0.00    14034     0.00     0.00  _IO_padn<br>
+  0.00      1.46     0.00     9540     0.00     0.00  sxlz_<br>
+  0.00      1.46     0.00     8358     0.00     0.00  _IO_setb<br>
+  0.00      1.46     0.00     8305     0.00     0.00  _IO_init<br>
+  0.00      1.46     0.00     8287     0.00     0.00  _IO_sprintf<br>
+  0.00      1.46     0.00     8287     0.00     0.00  _IO_str_init_static<br>
+  0.00      1.46     0.00     8287     0.00     0.00  _IO_vsprintf<br>
+            ^^^^<br>
+           14.6 secs!<br>
+<p>
+all sx* routines are fortran subroutines, _IO_sputbackc is the first <br>
+(f2c) library routine...<br>
+<p>
+<p>
+<i>&gt; Admittedly gcc is pretty bad at some things, and floating point is not the</i><br>
+<i>&gt; strongest point of gcc, so it _may_ be due to just compilers..</i><br>
+<p>
+of course this program was *not* compiled using "-mieee" which would cost<br>
+another factor 1.5-2.<br>
+<p>
+<p>
+I'll try some C (integer) code next time to see if this isn't that bad<br>
+for non floating point code...<br>
+<p>
+<p>
+<p>
+one more performance note I just got today are the "xstones" for the<br>
+XF86_S3 with a S3 Trio64V+ card I've tested in both a alpha XL266 <br>
+machine (21064/266 with 2MB cache) and my PC with Pentium OverDrive 83MHz<br>
+with 256k cache and 32bit data bus (486 board; ASUS SP3G):<br>
+<p>
+machine |  line   |  fill   |   blt   |  text   |    arc    |  cmplx  | xstones<br>
+--------+---------+---------+---------+---------+-----------+---------+--------<br>
+PODP83  |  680251 |  251101 |  184931 |  270446 |  10170423 |  375542 |  293210<br>
+XL266D  |  385344 |  239787 |  183127 |  281627 |   7627608 |  512581 |  276883<br>
+<p>
+note that the cpu intensive line- and arc-stones are much lower for the alpha<br>
+than for the i586  whereas I/O or graphics engine intensive tests are <br>
+about the same (fill, blt, test).<br>
+<p>
+<p>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0021.html">Jim Paradis: "Re: ev4sched---here it is"</a>
+<li> <b>Previous message:</b> <a href="0019.html">David Mosberger-Tang: "Re: ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Reply:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

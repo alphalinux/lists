@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Is this a gcc problem?</TITLE>
+<META NAME="Author" CONTENT="Doug Larrick (doug@ties.org)">
+<META NAME="Subject" CONTENT="Is this a gcc problem?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Is this a gcc problem?</H1>
+<HR>
+<P>
+<!-- received="Wed Nov 29 07:15:13 2000" -->
+<!-- isoreceived="20001129151513" -->
+<!-- sent="Tue, 28 Nov 2000 23:19:38 -0500 (EST)" -->
+<!-- isosent="20001129041938" -->
+<!-- name="Doug Larrick" -->
+<!-- email="doug@ties.org" -->
+<!-- subject="Is this a gcc problem?" -->
+<!-- id="XFMail.20001128231938.doug@ties.org" -->
+<!-- inreplyto="Pine.LNX.4.21.0011170002130.4676-100000@spawn.hockeyfiend.com" -->
+<STRONG>Subject: </STRONG>Is this a gcc problem?<BR>
+<STRONG>From: </STRONG>Doug Larrick (<EM>doug@ties.org</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Nov 28 2000 - 20:19:38 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#255">[ date ]</A>
+<A HREF="index.html#255">[ thread ]</A>
+<A HREF="subject.html#255">[ subject ]</A>
+<A HREF="author.html#255">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0256.html">Christopher C. Chimelis: "Re: Is this a gcc problem?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0254.html">Christopher C. Chimelis: "Going to Concord/Boston until Friday..."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0143.html">Christopher C. Chimelis: "Re: Serious problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0256.html">Christopher C. Chimelis: "Re: Is this a gcc problem?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0143.html">Doug Larrick: "Is this a gcc problem?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I have tracked down a problem I've been seeing with gtk apps for quite
+<BR>
+some time, where certain windows don't display properly... see
+<BR>
+<A HREF="http://jekyl.ddts.net/~doug/control-center-1.jpg">http://jekyl.ddts.net/~doug/control-center-1.jpg</A> for an example.  The
+<BR>
+problem is in the GtkHPaned widget, specifically in how it calculates
+<BR>
+a particular subwidget's size.  However, the problem appears to be one
+<BR>
+of code generation rather than a problem with the source.  Here's the
+<BR>
+relevant snippet, from gtk/gtkhpaned.c in libgtk1.2, near line 219
+<BR>
+(the #if'd out part is the original; the #else part is my replacement):
+<BR>
+<P>&nbsp;&nbsp;/* N.B. the way this computation was being done is causing gcc to
+<BR>
+&nbsp;&nbsp;&nbsp;emit bad code on Alpha??? */
+<BR>
+#if 0
+<BR>
+&nbsp;&nbsp;child2_allocation.x = paned-&gt;groove_rectangle.x + gutter_size / 2 +
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1;
+<BR>
+&nbsp;&nbsp;child2_allocation.width = MAX (1, (gint) allocation-&gt;width -
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child2_allocation.x - border_width);
+<BR>
+&nbsp;&nbsp;
+<BR>
+#else
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;gint child2_x = paned-&gt;groove_rectangle.x + gutter_size / 2 + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;child2_allocation.x = child2_x;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;child2_allocation.x as gint16: %d ; as gint: %d\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child2_allocation.x, child2_x);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;child2_allocation.width = MAX (1, (gint) allocation-&gt;width -
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child2_x - border_width);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+#endif
+<BR>
+<P>The interesting thing to note is that child2_allocation looks like
+<BR>
+this:
+<BR>
+&nbsp;&nbsp;struct GtkAllocation
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gint16 x;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gint16 y;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;guint16 width;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;guint16 height;
+<BR>
+&nbsp;&nbsp;&nbsp;};
+<BR>
+<P>This looks like a gcc bug (and a bad one) to me.  The two values
+<BR>
+printf'd out are nearly always different.
+<BR>
+<P>I am going to try to narrow this down to a good test case and submit a
+<BR>
+bug against gcc, but first I'm wondering if it rings a bell with
+<BR>
+anyone?
+<BR>
+<P>Thanks,
+<BR>
+-Doug
+<BR>
+<P><PRE>
+-- 
+Doug Larrick  doug@ties.org  doug.larrick@compaq.com  AIM: DougLarick
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0256.html">Christopher C. Chimelis: "Re: Is this a gcc problem?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0254.html">Christopher C. Chimelis: "Going to Concord/Boston until Friday..."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0143.html">Christopher C. Chimelis: "Re: Serious problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0256.html">Christopher C. Chimelis: "Re: Is this a gcc problem?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0143.html">Doug Larrick: "Is this a gcc problem?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Fri Dec 01 2000 - 08:00:12 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

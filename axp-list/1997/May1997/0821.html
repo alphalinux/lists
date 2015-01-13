@@ -1,0 +1,130 @@
+<!-- received="Wed May 28 13:54:55 1997 " -->
+<!-- sent="28 May 1997 13:48:12 -0400" -->
+<!-- name="Derek Atkins" -->
+<!-- email="warlord@mit.edu" -->
+<!-- subject="Re: syscalls in modules" -->
+<!-- id="199705281311.IAA18976@ns1.unicomp.net" -->
+<!-- inreplyto="Thu, 22 May 1997 15:46:49 -0500 (CDT)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: syscalls in modules</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: syscalls in modules</h2>
+
+<b>Derek Atkins</b> (<a href="mailto:warlord@mit.edu"><i>warlord@mit.edu</i></a>)<br>
+<i>28 May 1997 13:48:12 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#821">[ date ]</a><a href="index.html#821">[ thread ]</a><a href="subject.html#821">[ subject ]</a><a href="author.html#821">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0822.html">Michael Tibor: "Re: Them Damn Kernels!"</a>
+<li> <b>Previous message:</b> <a href="0820.html">Jeff Odom: "Re: lpd?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Richard,<br>
+<p>
+Thanks.  This patch did fix the problem with calling installed<br>
+syscalls.  However, there still seems to be a problem when tracing<br>
+syscalls installed from modules.<br>
+<p>
+If I load a module that installs a syscall and then I 'strace' a<br>
+program that calls that syscall, I get an oops if that syscall returns<br>
+an error.<br>
+<p>
+I suspect that the gp register isn't being restored properly elsewhere<br>
+in entry.S.  I just don't know where it _should_ be restored.  I<br>
+suspect that it is a problem with most of the jsr functions, but I was<br>
+hoping that someone more familiar with the code could give me an<br>
+"expert" opinion.  Places where I think it might be an issue (assuming<br>
+that jsr is the problem) are: strace (jsr $26,($27),syscall_trace) --<br>
+and later when it does jsr to the syscall (jsr $26,($27),do_entSys),<br>
+it loads gp with the (replaced) $26: (ldgp $29,0($26)).<br>
+<p>
+Other possible places where GP could be a problem include<br>
+strace_success where it jumps to syscall_trace or strace_error where<br>
+it also jumps to syscall_trace.  The handle_bottom_half code also<br>
+jumps into do_bottom_half and doesn't reload GP afterwards.<br>
+<p>
+Could you verify that these are real potential problems, if any of<br>
+them are?<br>
+<p>
+I can send you an oops if that would help.<br>
+<p>
+Again, this is with 2.0.27, but I suspect it is still a problem in<br>
+2.1.XX as well.  I'm willing to try a 2.1.X entry.S (provided it is<br>
+compatible with 2.0.27) if you think that will solve the problem.<br>
+<p>
+Thanks!<br>
+<p>
+-derek<br>
+<p>
+Richard Henderson &lt;<a href="mailto:richard@stommel.tamu.edu">richard@stommel.tamu.edu</a>&gt; writes:<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Bother.  I forgot to cc you on the reply I just made.  Basically</i><br>
+<i>&gt; Andreas was right, but the patch was wrong.  Try this:</i><br>
+<i>&gt; </i><br>
+<i>&gt; --- entry.S.orig        Thu May 22 15:31:23 1997</i><br>
+<i>&gt; +++ entry.S     Thu May 22 15:32:19 1997</i><br>
+<i>&gt; @@ -512,6 +512,7 @@</i><br>
+<i>&gt;         beq     $4,1f</i><br>
+<i>&gt;         ldq     $27,0($5)</i><br>
+<i>&gt;  1:     jsr     $26,($27),do_entSys</i><br>
+<i>&gt; +       ldgp    $29,0($26)</i><br>
+<i>&gt;         blt     $0,syscall_error        /* the call failed */</i><br>
+<i>&gt;         stq     $0,0($30)</i><br>
+<i>&gt;         stq     $31,72($30)             /* a3=0 =&gt; no error */</i><br>
+<i>&gt; </i><br>
+<i>&gt; And on a related point, you must use -fno-fp-regs, since the</i><br>
+<i>&gt; kernel does not save them on kernel entry and gcc has a habit</i><br>
+<i>&gt; of using them to avoid spilling int regs when it just needs </i><br>
+<i>&gt; to move data.  Which is ordinarily a nice win, but...</i><br>
+<i>&gt; </i><br>
+<i>&gt; And similarly, I don't know if you are doing a 2.1 version yet</i><br>
+<i>&gt; but there you must use -ffixed-8 as well, as we co-opt $8 as</i><br>
+<i>&gt; a global register variable.</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; r~</i><br>
+<p>
+<pre>
+-- 
+       Derek Atkins, SB '93 MIT EE, SM '95 MIT Media Laboratory
+       Member, MIT Student Information Processing Board  (SIPB)
+       URL: <a href="http://web.mit.edu/warlord/">http://web.mit.edu/warlord/</a>      PP-ASEL      N1NWH
+       <a href="mailto:warlord@MIT.EDU">warlord@MIT.EDU</a>                        PGP key available
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0822.html">Michael Tibor: "Re: Them Damn Kernels!"</a>
+<li> <b>Previous message:</b> <a href="0820.html">Jeff Odom: "Re: lpd?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

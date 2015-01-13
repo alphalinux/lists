@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Headless install on LX164</TITLE>
+<META NAME="Author" CONTENT="Adam C Powell IV (hazelsct@mit.edu)">
+<META NAME="Subject" CONTENT="Re: Headless install on LX164">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Headless install on LX164</H1>
+<HR>
+<P>
+<!-- received="Tue Dec 07 22:41:14 1999" -->
+<!-- isoreceived="19991208064114" -->
+<!-- sent="Tue, 07 Dec 1999 16:11:47 +0000" -->
+<!-- isosent="19991207161147" -->
+<!-- name="Adam C Powell IV" -->
+<!-- email="hazelsct@mit.edu" -->
+<!-- subject="Re: Headless install on LX164" -->
+<!-- id="384D31C3.25B08D01@mit.edu" -->
+<!-- inreplyto="19991207101030.A30135@wau.mis.ah.nl" -->
+<STRONG>Subject: </STRONG>Re: Headless install on LX164<BR>
+<STRONG>From: </STRONG>Adam C Powell IV (<EM>hazelsct@mit.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Dec 07 1999 - 08:11:47 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#60">[ date ]</A>
+<A HREF="index.html#60">[ thread ]</A>
+<A HREF="subject.html#60">[ subject ]</A>
+<A HREF="author.html#60">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0061.html">Jason Gunthorpe: "Re: Lully"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0059.html">Kumsup Lee: "EM86 on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0052.html">Paul Slootman: "Re: Headless install on LX164"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0116.html">Adam C Powell IV: "Re: Headless install on LX164"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0052.html">Adam C Powell IV: "Re: Headless install on LX164"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Paul Slootman wrote:
+<BR>
+<P><EM>&gt; On Mon 06 Dec 1999, Adam C Powell IV wrote:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt; edited that, commenting out consoles 2-6 and switching tty1 to ttyS0 in the two versions of
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt; Next problem: when I boot, it asks me for a root password!  Rebooting with the rescue floppy
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; That's because you're then on ttyS0, and that's not listed in
+</EM><BR>
+<EM>&gt; /etc/securetty (which defines the terminals on which a root login is
+</EM><BR>
+<EM>&gt; permitted). So add ttyS0 to that file.
+</EM><BR>
+<P>Excellent, I thought there was something like this which I was missing.
+<BR>
+<P><EM>&gt; &gt; So, next I try commenting out the login line, and uncommenting the getty line in
+</EM><BR>
+<EM>&gt; &gt; /etc/inittab.  Trouble is, getty needs a baud rate, and both 38400 (default) and 115200 give
+</EM><BR>
+<EM>&gt; &gt; me garbage.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; You probably need a baudrate of 9600 ?
+</EM><BR>
+<P>Bingo!  (Couldn't figure out how to determine/set this on my ancient Tek 4207 :-)
+<BR>
+<P>Thank you all, everything is working beautifully now!  Well, except the terminal errors due to
+<BR>
+Tek/VT220 incompatibility, but I'm managing.  I'll potatoize in the next couple of days, and see
+<BR>
+how that goes, but don't expect any problems.
+<BR>
+<P>So, what have we learned?
+<BR>
+<P>&nbsp;&nbsp;&nbsp;* Serial console uses different keystrokes to configure AlphaBIOS (at least on LX164), e.g.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TAB to select in menus (instead of cursor up/down), ctrl-B to enter setup (instead of F2),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ctrl-U to save the OS configuration (instead of F10, and it's not apparent when one needs to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do this- at least on my screen).
+<BR>
+&nbsp;&nbsp;&nbsp;* Serial console install requires a special ramdisk image with /dev/console linked to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/dev/ttyS0.  Greg Johnson made such an image and put it at
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://physics.clarku.edu/users/gjohnson/root1440.bin.serial">ftp://physics.clarku.edu/users/gjohnson/root1440.bin.serial</A>
+<BR>
+&nbsp;&nbsp;&nbsp;* After install but before rebooting, one must edit /etc/inittab changing tty1 to ttyS0,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;changing getty's baud rate to 9600, and commenting the lines which start getty on tty2-6.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Also, add ttyS0 to /etc/securetty so root can log in.
+<BR>
+&nbsp;&nbsp;&nbsp;* Curiously, after the initial root login, instead of merely uncommenting the tty1 line,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Debian replaced all of the tty lines!  So, I had to hard-reboot to the rescue floppy, fsck
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the badly-unmounted partitions, and re-edit /etc/inittab.  I suppose the alternative is just
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to start with a getty on ttyS0 instead of the root login thing, but I don't know what will
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;happen after the initial root login, it may just do the same thing.  The answer is probably
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;somewhere in the as-installed /root.
+<BR>
+&nbsp;&nbsp;&nbsp;* The default Slink kernel seems to come without tulip driver, either built-in or as a module,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;despite more-than-ample space on the drivers floppy.  (Or else, for whatever reason, I get
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the following messages on startup: &quot;eth0: UNKNOWN at 0x8800 (PCI bus 0, device 5), h/w
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address...\neth0: Cannot find correct chipset for SROM decoding!&quot;  It's worth noting that my
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch sees the tulip card as no-duplex under Northern (RedHat), and full duplex under
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Debian Slink and Potato, even with identical (Northern 2.2.12) kernel and tulip module!)
+<BR>
+<P>Thank you all for your help, I hope this message will be helpful to future serial consolers on
+<BR>
+Debian!
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Adam Powell                    <A HREF="http://lyre.mit.edu/~powell/">http://lyre.mit.edu/~powell/</A>
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Thomas B. King Assistant Professor of Materials Engineering
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;77 Massachusetts Ave. Rm. 4-117        Phone (617) 452-2086
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cambridge, MA 02139 USA                  Fax (617) 253-5418
+<BR>
+<P><P><P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0061.html">Jason Gunthorpe: "Re: Lully"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0059.html">Kumsup Lee: "EM86 on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0052.html">Paul Slootman: "Re: Headless install on LX164"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0116.html">Adam C Powell IV: "Re: Headless install on LX164"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0052.html">Adam C Powell IV: "Re: Headless install on LX164"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:12 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

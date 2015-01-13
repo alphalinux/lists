@@ -1,0 +1,149 @@
+<!-- received="Tue Dec 16 06:50:50 1997 " -->
+<!-- sent="Tue, 16 Dec 1997 15:39:15 +0000" -->
+<!-- name="David Alan Gilbert" -->
+<!-- email="dg@cogency.co.uk" -->
+<!-- subject="Re: Seasons Greetings from a new platform :-)" -->
+<!-- id="199712161342.IAA26043@clove.com" -->
+<!-- inreplyto="Seasons Greetings from a new platform :-)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Seasons Greetings from a new platform :-)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Seasons Greetings from a new platform :-)</h2>
+
+<b>David Alan Gilbert</b> (<a href="mailto:dg@cogency.co.uk"><i>dg@cogency.co.uk</i></a>)<br>
+<i>Tue, 16 Dec 1997 15:39:15 +0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#582">[ date ]</a><a href="index.html#582">[ thread ]</a><a href="subject.html#582">[ subject ]</a><a href="author.html#582">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0583.html">Stephen Wolff: "g77 binary"</a>
+<li> <b>Previous message:</b> <a href="0581.html">Harald Koenig: "RH 5.0 update blues"</a>
+<li> <b>Maybe in reply to:</b> <a href="0414.html">Jay.Estabrook@digital.com: "Seasons Greetings from a new platform :-)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0608.html">Richard Henderson: "Re: Recurring kernel paging request errors..."</a>
+<li> <b>Reply:</b> <a href="0608.html">Richard Henderson: "Re: Recurring kernel paging request errors..."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Przemek Klosowski wrote:<br>
+<p>
+<i>&gt; However, when there is a branch or a conditional operation,</i><br>
+<i>&gt; i.e. instruction N+1 executes differently based on the result of</i><br>
+<i>&gt; instruction N, this pipeline has to stop and wait for the result of</i><br>
+<i>&gt; N. Since on average there is a branch/conditional every 10 or so</i><br>
+<i>&gt; instructions, a simple pipeline might be stalled 10-20% of the time.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Speculative execution means that the CPU executes code for either</i><br>
+<i>&gt; outcome for the test, but stores the results in temporary hidden</i><br>
+<i>&gt; registers, keeping track of what data comes from such speculation.</i><br>
+<i>&gt; When the actual predicate becomes known, the CPU picks up the data</i><br>
+<i>&gt; calculated for the correct value of the predicate, and discards the</i><br>
+<i>&gt; alternative computation. </i><br>
+<p>
+No - you don't have to execute both possibilities to qualify for saying a <br>
+processor does speculative execution - and I doubt that the 21264 does<br>
+do both possibilities.<br>
+<p>
+All that speculative execution means is executing an instruction<br>
+when your not sure if its going to execute or not. So consider<br>
+a little loop:<br>
+<p>
+          set x 1000<br>
+  loop<br>
+          some-work<br>
+          decr x        &lt;- I mean x=x-1<br>
+          if x&gt;0 goback to loop<br>
+          something-else<br>
+<p>
+When we get to the 'if' we could stop there and<br>
+wait for the decrement to finish and then go back to the loop.<br>
+But thats slow.<br>
+<p>
+With speculative execution we make a guess; in this case 'hmm<br>
+a backward branch - thats probably a loop, lets guess thats done'.<br>
+So we make a note of the current state (not quite..) and start executing<br>
+some-work.  If the branch happened thats fine, we don't do anything else.<br>
+If the branch didn't happen then we restore the state from the note<br>
+we made and then carry on at something else. (The not quite is<br>
+the fact that we have to include the state of the not finished<br>
+stuff before the branch).<br>
+<p>
+Now this is fairly efficient - if we are good at guessing we rarely<br>
+throw any work away - although we do need that hardware to hold<br>
+the state just in case we are wrong.<br>
+<p>
+If we're desperate for more speed we go and execute both sides - so<br>
+we always execute some-work and something-else and then choose the<br>
+appropriate result.  But thats hopelessly unefficent - you waste<br>
+50% of your work. OK if your desperate for all out speed - but its<br>
+complex, and its a waste of 50% of your work. This is still a form<br>
+of speculative execution - but its a more aggressive one.<br>
+<p>
+So how does the superscalar help - well say the loop bodies were REALLY<br>
+simple; you could execute an instruction of one loop on one functional<br>
+unit and an instruction of the next loop on another functuional unit.<br>
+So we might be able to do the some-work on one functiuonal unit<br>
+while doing the decr of the previous loop on another functional<br>
+unit (probably while working out the branch at the same time).<br>
+<p>
+If the loop bodies are interdependent then you still have to wait<br>
+for results - so in the example above you couldn't run two decr's<br>
+in parallel because one needs the result of the other<br>
+<p>
+With superscalar you really need some speculative execution otherwise<br>
+you wait around for branches most of the time and never actually<br>
+have any instructions to feed your functional units with.<br>
+If your a good guesser then you can keep two (on a good day) of your<br>
+4 functional units busy. The art is in getting the compiler to generate<br>
+code which is organised so that it can keep as many functional<br>
+units on the run as possible.<br>
+<p>
+So are there any dhrystone figures for the 21264 yet? (and I thought<br>
+it was going to be clocked faster?).<br>
+<p>
+<p>
+Dave<br>
+<pre>
+-- 
+----------------------------------------------------------------------
+- David Alan Gilbert - WARNING! This is a beta release .signature    -
+- Work:    dg @ cogency.co.uk        -    0161-428-9444              -
+- Home:    gro.gilbert @ treblig.org -                               -
+----------------------------------------------------------------------
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0583.html">Stephen Wolff: "g77 binary"</a>
+<li> <b>Previous message:</b> <a href="0581.html">Harald Koenig: "RH 5.0 update blues"</a>
+<li> <b>Maybe in reply to:</b> <a href="0414.html">Jay.Estabrook@digital.com: "Seasons Greetings from a new platform :-)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0608.html">Richard Henderson: "Re: Recurring kernel paging request errors..."</a>
+<li> <b>Reply:</b> <a href="0608.html">Richard Henderson: "Re: Recurring kernel paging request errors..."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

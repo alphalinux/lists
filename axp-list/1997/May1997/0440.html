@@ -1,0 +1,134 @@
+<!-- received="Tue May 13 17:27:58 1997 " -->
+<!-- sent="Tue, 13 May 1997 15:23:54 -0600 (MDT)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Python on Alpha broken (fwd)" -->
+<!-- id="199705132123.PAA01180@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="9705121741.AA04047@cadosf.hlo.dec.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Python on Alpha broken (fwd)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Python on Alpha broken (fwd)</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Tue, 13 May 1997 15:23:54 -0600 (MDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#440">[ date ]</a><a href="index.html#440">[ thread ]</a><a href="subject.html#440">[ subject ]</a><a href="author.html#440">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0441.html">Tony Galan: "tga server"</a>
+<li> <b>Previous message:</b> <a href="0439.html">Tony Galan: "Milo Problems! HELP!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; There is a Grail fix for Linux/Alpha at:</i><br>
+<i>&gt; </i><br>
+<i>&gt; <a href="http://people.magnet.com/~amk/sigs/pipermail/1997q2.grail/feb508bf71c6.html">http://people.magnet.com/~amk/sigs/pipermail/1997q2.grail/feb508bf71c6.html</a></i><br>
+<i>&gt; </i><br>
+<p>
+I tried this patch.  As it is not very long, here it is in all its<br>
+glory (with pieces of the original message - the whole thing to<br>
+be found at the quoted URL; this bug affects DU as well):<br>
+<p>
+  Conrad Huang <a href="mailto:conrad@cgl.ucsf.edu">conrad@cgl.ucsf.edu</a><br>
+  Tue, 6 May 97 11:16:38 -0700<br>
+<p>
+  The bug is in the tcl file handle implementation (I think).<br>
+  ...<br>
+  On 32-bit systems, the size is 2.  On the Alpha, the size is 4 due to the<br>
+  64-bit ClientData and padding.  Tcl_GetFile initializes both fields of the<br>
+  structure but does not touch the padding memory, resulting in identical keys<br>
+  not matching occasionally.  Explicitly zeroing the key structure seems to fix<br>
+  the Grail hanging problem.  Context diffs are attached below.<br>
+<p>
+  Conrad<br>
+<p>
+  ===================================================================<br>
+RCS file: RCS/tclFHandle.c,v<br>
+retrieving revision 1.1<br>
+diff -c -r1.1 tclFHandle.c<br>
+*** 1.1 1997/05/06 17:43:01<br>
+--- tclFHandle.c        1997/05/06 17:44:17<br>
+***************<br>
+*** 76,81 ****<br>
+--- 76,82 ----<br>
+	Tcl_CreateExitHandler(FileExitProc, 0);<br>
+	initialized = 1;<br>
+      }<br>
++     memset((char *) &amp;key, 0, sizeof key);<br>
+      key.osHandle = osHandle;<br>
+      key.type = type;<br>
+      entryPtr = Tcl_CreateHashEntry(&amp;fileTable, (char *) &amp;key, &amp;new);<br>
+<p>
+_______________<br>
+<p>
+Yes, indeed, with this patch Grail does seem to work again (at least<br>
+the current version and only lightly tested, so all kind of surprises<br>
+are possible).  On the other hand glint does not really behave any better.<br>
+Frankly, the workaround in this patch sounds extremely dodgy, but I did<br>
+not analyzed what really happens.<br>
+<p>
+Problems with glint can be in Python, but they can be as well in tcl.<br>
+Tcl sources, even in .rpm format - hence with all Red Hat patches -<br>
+are full of "32/64" bugs with gcc **really** unhappy in files like<br>
+tclUnixChan.c tclUnixFile.c, tclUnixPipe.c (this is not all).  If you<br>
+think that this can be disregarded then note that tcl compiled on<br>
+Linux/alpha fails its own test suite.  This applies equally to stuff<br>
+from Red Hat (7.6pl0) and these sources updated to the current released<br>
+patchlevel of tcl (7.6pl2).  Here is a short summary of results.<br>
+Note that the patch quoted above was already applied.<br>
+<p>
+---- event-1.3 FAILED<br>
+---- event-2.1 FAILED<br>
+---- event-2.2 FAILED<br>
+---- event-4.1 FAILED<br>
+---- event-4.2 FAILED<br>
+expr.test [ bombs with Error 136 ]<br>
+==== fcmd-6.23 CopyRenameOneFile: TclpCopyDirectory failed<br>
+==== fcmd-6.27 CopyRenameOneFile: TclpCopyDirectory failed<br>
+==== fcmd-6.28 CopyRenameOneFile: TclpCopyDirectory failed<br>
+regexp.test [ bombs with Error 139 ]<br>
+---- scan-1.6 FAILED<br>
+set.test [ bombs with Error 139 ]<br>
+<p>
+In the situation like that this is a small miracle than anything<br>
+works at all (and ical, written in tcl/tk, seems to - at least<br>
+initially until you will hit one of those spots).<br>
+<p>
+   Michal<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0441.html">Tony Galan: "tga server"</a>
+<li> <b>Previous message:</b> <a href="0439.html">Tony Galan: "Milo Problems! HELP!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

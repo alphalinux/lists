@@ -1,0 +1,427 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: 2.2.7 Alpha Semaphore Bug</TITLE>
+<META NAME="Author" CONTENT="Kenneth Preslan (kpreslan@zarniwoop.com)">
+<META NAME="Subject" CONTENT="2.2.7 Alpha Semaphore Bug">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.2.7 Alpha Semaphore Bug</H1>
+<HR>
+<P>
+<!-- received="Fri May 07 17:42:33 1999" -->
+<!-- isoreceived="19990508004233" -->
+<!-- sent="Thu, 6 May 1999 14:21:06 -0500 (CDT)" -->
+<!-- isosent="19990506192106" -->
+<!-- name="Kenneth Preslan" -->
+<!-- email="kpreslan@zarniwoop.com" -->
+<!-- subject="2.2.7 Alpha Semaphore Bug" -->
+<!-- id="199905061921.OAA00360@tipsy.zarniwoop.com" -->
+<STRONG>Subject: </STRONG>2.2.7 Alpha Semaphore Bug<BR>
+<STRONG>From: </STRONG>Kenneth Preslan (<EM>kpreslan@zarniwoop.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu May 06 1999 - 12:21:06 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#4">[ date ]</A>
+<A HREF="index.html#4">[ thread ]</A>
+<A HREF="subject.html#4">[ subject ]</A>
+<A HREF="author.html#4">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">Ivan Kokshaysky: "Re: 2.2.7 Alpha Semaphore Bug"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">Thorsten Kranzkowski: "noname alpha PCI IRQ problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">Ivan Kokshaysky: "Re: 2.2.7 Alpha Semaphore Bug"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I'm having more problems with semaphores on a LX164 Alpha with 2.2.7.
+<BR>
+<P>I have one part of the kernel talking to a kernel thread using semaphores.
+<BR>
+Every time a process wants the thread to do work, it puts the work on a queue
+<BR>
+and does an up() that wakes up the thread.  If there are multiple pieces of
+<BR>
+work to do, up() may be called multiple times before the thread gets scheduled.
+<BR>
+<P>Eventually, the thread gets scheduled and starts to do work.  For each piece
+<BR>
+of work, the thread does a down() on the semaphore to see if there is more
+<BR>
+work or if the thread should sleep.
+<BR>
+<P>The problem is that the thread doesn't sleep when the counter of the semaphore
+<BR>
+reaches zero.  The counter of the semaphore goes negative and the thread 
+<BR>
+keeps going.  If the up() function was called on the semaphore 5 times, 
+<BR>
+the thread eventually goes to sleep when the counter reaches -5.
+<BR>
+<P>Here's my test case (a module) and its output:
+<BR>
+<P>#define __NO_VERSION__ 
+<BR>
+#include &lt;linux/module.h&gt;
+<BR>
+#include &lt;linux/version.h&gt;
+<BR>
+char kernel_version [] = UTS_RELEASE;
+<BR>
+<P>#include &lt;linux/locks.h&gt;
+<BR>
+#include &lt;linux/smp_lock.h&gt;
+<BR>
+#define __KERNEL_SYSCALLS__
+<BR>
+#include &lt;linux/unistd.h&gt;
+<BR>
+<P><P>struct mydata
+<BR>
+{
+<BR>
+&nbsp;&nbsp;struct semaphore comm_sema, work_sema;
+<BR>
+&nbsp;&nbsp;struct task_struct *thread;
+<BR>
+};
+<BR>
+<P><P><P>static int gfs_inoded(void *data)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;struct mydata *md = (struct mydata *)data;
+<BR>
+<P><P>&nbsp;&nbsp;printk(&quot;thread:  In the thread\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;/*  Set up the thread  */
+<BR>
+<P>&nbsp;&nbsp;lock_kernel();
+<BR>
+<P>&nbsp;&nbsp;exit_mm(current);
+<BR>
+<P>&nbsp;&nbsp;current-&gt;session = 1;
+<BR>
+&nbsp;&nbsp;current-&gt;pgrp = 1;
+<BR>
+<P>&nbsp;&nbsp;siginitsetinv(&amp;current-&gt;blocked, sigmask(SIGKILL)|sigmask(SIGINT)|sigmask(SIGTERM));
+<BR>
+&nbsp;&nbsp;current-&gt;fs-&gt;umask = 0;
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;sprintf(current-&gt;comm, &quot;gfs_inoded&quot;);
+<BR>
+<P>&nbsp;&nbsp;md-&gt;thread = current;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;unlock_kernel();
+<BR>
+<P><P>&nbsp;&nbsp;/*  Wake up the process who started us  */
+<BR>
+<P>&nbsp;&nbsp;up(&amp;md-&gt;comm_sema);
+<BR>
+<P><P>&nbsp;&nbsp;while (1)
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;thread:  before down_interruptible():  counter = %d\n&quot;, md-&gt;work_sema.count.counter);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;down_interruptible(&amp;md-&gt;work_sema);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;thread:  after down_interruptible():  counter = %d\n&quot;, md-&gt;work_sema.count.counter);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if (signal_pending(current))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;thread:  Thread received signal\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;thread:  Doing work...\n&quot;);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;md-&gt;thread = NULL;
+<BR>
+<P>&nbsp;&nbsp;up(&amp;md-&gt;comm_sema);
+<BR>
+<P>&nbsp;&nbsp;printk(&quot;thread:  Leaving the thread\n&quot;);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;return(0);
+<BR>
+}
+<BR>
+<P><P>int init_module(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;struct mydata md;
+<BR>
+&nbsp;&nbsp;int x;
+<BR>
+<P><P>&nbsp;&nbsp;printk(&quot;init:  Started init_module...\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;md.comm_sema = MUTEX_LOCKED;
+<BR>
+&nbsp;&nbsp;md.work_sema = MUTEX_LOCKED;
+<BR>
+<P><P>&nbsp;&nbsp;for (x = 0; x &lt; 5; x++)
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;init:  before up():  count = %d\n&quot;, md.work_sema.count.counter);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;up(&amp;md.work_sema);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;init:  after up():  count = %d\n&quot;, md.work_sema.count.counter);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>&nbsp;&nbsp;printk(&quot;init:  Starting thread...\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;if (kernel_thread(gfs_inoded, &amp;md, 0) &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return(-EIO);
+<BR>
+<P>&nbsp;&nbsp;printk(&quot;init:  Thread started.  Waiting for semaphore...\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;down(&amp;md.comm_sema);
+<BR>
+<P>&nbsp;&nbsp;printk(&quot;init:  The thread is up\n&quot;);
+<BR>
+<P><P>&nbsp;&nbsp;printk(&quot;init:  Sending signal to stop thread\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;send_sig(SIGKILL, md.thread, 1);
+<BR>
+<P>&nbsp;&nbsp;down(&amp;md.comm_sema);
+<BR>
+&nbsp;
+<BR>
+<P>&nbsp;&nbsp;printk(&quot;init:  exiting...\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;return(-EIO);
+<BR>
+}
+<BR>
+<P><P>Compiled on a i686 with &quot;cc -D__KERNEL__ -DMODULE -Wall -O2 -c test.c&quot;,
+<BR>
+it does the right thing:
+<BR>
+<P>init:  Started init_module...
+<BR>
+init:  before up():  count = 0
+<BR>
+init:  after up():  count = 1
+<BR>
+init:  before up():  count = 1
+<BR>
+init:  after up():  count = 2
+<BR>
+init:  before up():  count = 2
+<BR>
+init:  after up():  count = 3
+<BR>
+init:  before up():  count = 3
+<BR>
+init:  after up():  count = 4
+<BR>
+init:  before up():  count = 4
+<BR>
+init:  after up():  count = 5
+<BR>
+init:  Starting thread...
+<BR>
+thread:  In the thread
+<BR>
+thread:  before down_interruptible():  counter = 5
+<BR>
+thread:  after down_interruptible():  counter = 4
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 4
+<BR>
+thread:  after down_interruptible():  counter = 3
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 3
+<BR>
+thread:  after down_interruptible():  counter = 2
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 2
+<BR>
+thread:  after down_interruptible():  counter = 1
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 1
+<BR>
+thread:  after down_interruptible():  counter = 0
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 0
+<BR>
+init:  Thread started.  Waiting for semaphore...
+<BR>
+init:  The thread is up
+<BR>
+init:  Sending signal to stop thread
+<BR>
+thread:  after down_interruptible():  counter = 0
+<BR>
+thread:  Thread received signal
+<BR>
+thread:  Leaving the thread
+<BR>
+init:  exiting...
+<BR>
+<P>Compiled on a LX164 Alpha with &quot;cc -D__KERNEL__ -DMODULE -Wall -O2 -mno-fp-regs
+<BR>
+-ffixed-8 -Wa,-m21164a -DBWIO_ENABLED -mcpu=ev56 -c test.c&quot;, the counter on
+<BR>
+the semaphore goes negative.
+<BR>
+<P>init:  Started init_module...
+<BR>
+init:  before up():  count = 0
+<BR>
+init:  after up():  count = 1
+<BR>
+init:  before up():  count = 1
+<BR>
+init:  after up():  count = 2
+<BR>
+init:  before up():  count = 2
+<BR>
+init:  after up():  count = 3
+<BR>
+init:  before up():  count = 3
+<BR>
+init:  after up():  count = 4
+<BR>
+init:  before up():  count = 4
+<BR>
+init:  after up():  count = 5
+<BR>
+init:  Starting thread...
+<BR>
+init:  Thread started.  Waiting for semaphore...
+<BR>
+thread:  In the thread
+<BR>
+thread:  before down_interruptible():  counter = 5
+<BR>
+thread:  after down_interruptible():  counter = 4
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 4
+<BR>
+thread:  after down_interruptible():  counter = 3
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 3
+<BR>
+thread:  after down_interruptible():  counter = 2
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 2
+<BR>
+thread:  after down_interruptible():  counter = 1
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 1
+<BR>
+thread:  after down_interruptible():  counter = 0
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = 0
+<BR>
+thread:  after down_interruptible():  counter = -1
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = -1
+<BR>
+thread:  after down_interruptible():  counter = -2
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = -2
+<BR>
+thread:  after down_interruptible():  counter = -3
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = -3
+<BR>
+thread:  after down_interruptible():  counter = -4
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = -4
+<BR>
+thread:  after down_interruptible():  counter = -5
+<BR>
+thread:  Doing work...
+<BR>
+thread:  before down_interruptible():  counter = -5
+<BR>
+init:  The thread is up
+<BR>
+init:  Sending signal to stop thread
+<BR>
+thread:  after down_interruptible():  counter = -5
+<BR>
+thread:  Thread received signal
+<BR>
+thread:  Leaving the thread
+<BR>
+init:  exiting...
+<BR>
+<P><P>Thanks for your help,
+<BR>
+<P>Ken
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">Ivan Kokshaysky: "Re: 2.2.7 Alpha Semaphore Bug"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">Thorsten Kranzkowski: "noname alpha PCI IRQ problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">Ivan Kokshaysky: "Re: 2.2.7 Alpha Semaphore Bug"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:34 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

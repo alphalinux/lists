@@ -1,0 +1,135 @@
+<!-- received="Wed Oct 21 19:51:50 1998 " -->
+<!-- sent="Wed, 21 Oct 1998 18:45:48 -0400 (EDT)" -->
+<!-- name="Larry Snyder" -->
+<!-- email="larrys@lexis-nexis.com" -->
+<!-- subject="Re: Still having mouse problems" -->
+<!-- id="199810212245.SAA07007@ra.lexis-nexis.com" -->
+<!-- inreplyto="362E53C8.269401D9@home.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Still having mouse problems</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Still having mouse problems</h2>
+
+<b>Larry Snyder</b> (<a href="mailto:larrys@lexis-nexis.com"><i>larrys@lexis-nexis.com</i></a>)<br>
+<i>Wed, 21 Oct 1998 18:45:48 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1969">[ date ]</a><a href="index.html#1969">[ thread ]</a><a href="subject.html#1969">[ subject ]</a><a href="author.html#1969">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1970.html">Jos=?ISO-8859-1?Q?=e9_Pedro_Sousa_do_Amaral?=: "Re: RAM for AS200"</a>
+<li> <b>Previous message:</b> <a href="1968.html">Maurice Hilarius: "Re: Off topic...  but couldn't get any help..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Howdy all--<br>
+Speaking strictly from an Onsale AS200 perspective (I've built three)<br>
+and a couple of intel builds (since 0.99pl10  :-)...<br>
+<p>
+If the box has a ps2 port, the kernel will detect it and install the driver<br>
+whether there's a mouse plugged in or not.  The jumping around is very<br>
+definitely symptomatic of "right symlink, wrong protocol".<br>
+<p>
+The cursor sitting dead in the middle of the screen sounds like you have<br>
+a symlink pointing from /dev/mouse ---&gt; /dev/psaux, and you're using a<br>
+serial mouse.  The X-server will detect the presence or absence of a<br>
+mouse on a serial port because it's just talking to a serial driver in<br>
+the kernel with no value-added so-to-speak.  The psaux driver supports<br>
+a port that can be nothing but a mouse, so if X is pointed at it, it just<br>
+assumes the mouse is there and doesn't error out.<br>
+<p>
+The third scenario is X complaining about the mouse being busy.  This<br>
+is the gpm problem.  This can be fixed on-the-fly with gpm -k, then<br>
+tweaking your startups to not start gpm in the first place.<br>
+<p>
+If you're running SRM, watch when you first power up.  If SRM complains<br>
+about a mouse error, you're NOT running a ps/2 mouse.  If you have a<br>
+serial mouse, your symlink needs to point as /dev/mouse --&gt;/dev/cua0<br>
+(or /dev/cua1, depending on which hole your rodent is plugged into).<br>
+<p>
+Disclaimer:  Some of the 'why's' may be a bit inaccurate.  It's been a<br>
+while since I went through a lot of those heartaches.  The 'what's'<br>
+should be ok.  Corrections will be welcomed.<br>
+<p>
+Hope this helps!<br>
+-ls-<br>
+       <br>
+<p>
+<p>
+Stan/Miriam Fisher &lt;<a href="mailto:sfisher3@home.com">sfisher3@home.com</a>&gt; wrote:<br>
+<i>&gt; Cornelius Creedon wrote:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; usually this indicates you are using the wrong protocol.</i><br>
+<i>&gt; &gt; have a look at your XF86Config in the "Pointer" section.</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; IMHO you can more easily find out what type of mouse protocol you need to</i><br>
+<i>&gt; &gt; use by experimenting with gpm instead of X...</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; ;)</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; -cc</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; On Wed, 21 Oct 1998, Jason Strand wrote:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; &gt; OK, I'm still getting mouse errors when I run the command line startx.</i><br>
+<i>&gt; &gt; &gt;</i><br>
+<i>&gt; &gt; &gt; It gives me:</i><br>
+<i>&gt; &gt; &gt; Warning: /dev/mouse unable to get status of mouse fd (Innapropriate ioctl</i><br>
+<i>&gt; &gt; &gt; for device)</i><br>
+<i>&gt; &gt; &gt;</i><br>
+<i>&gt; &gt; &gt; I checked the symbolic link (thank you Jim Paradis) and it's correct.  The</i><br>
+<i>&gt; &gt; &gt; Kernel is compiled with PS/2 mouse selected, as someone said earlier that</i><br>
+<i>&gt; &gt; &gt; it was the correct setting for my mouse.  When Windows X opens up it all</i><br>
+<i>&gt; &gt; &gt; opens up fine, but the mouse doesn't work properly.  It jumps erratically</i><br>
+<i>&gt; &gt; &gt; and pretty much ends up in the top right corner of the display, where it</i><br>
+<i>&gt; &gt; &gt; responds very curiously to mouse movement.  Any ideas out there?</i><br>
+<i>&gt; &gt; &gt; Jason</i><br>
+<i>&gt; </i><br>
+<i>&gt; Please excuse if I'm repeating what has been covered recently but I am</i><br>
+<i>&gt; new to this list. I am having a similar problem. I read somewhere that</i><br>
+<i>&gt; some of the Logitech-Microsoft PS/2 mice configurations require some</i><br>
+<i>&gt; kind of a 'wake-up' signal before they become active. </i><br>
+<i>&gt; In my case, although the mouse seems configured properly in the kernel</i><br>
+<i>&gt; and loads as a 'PS/2 mouse' on start up, it does not move fropm the</i><br>
+<i>&gt; center of the screen in X-windows. I have tried the gpm -k argument, to</i><br>
+<i>&gt; no avail. </i><br>
+<i>&gt; Anybody have any suggestions?</i><br>
+<i>&gt; Stan Fisher</i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1970.html">Jos=?ISO-8859-1?Q?=e9_Pedro_Sousa_do_Amaral?=: "Re: RAM for AS200"</a>
+<li> <b>Previous message:</b> <a href="1968.html">Maurice Hilarius: "Re: Off topic...  but couldn't get any help..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

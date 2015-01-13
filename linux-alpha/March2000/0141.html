@@ -1,0 +1,1262 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: ext2fs bug : files are disapeared, unable</TITLE>
+<META NAME="Author" CONTENT="tytso@mit.edu (tytso@mit.edu)">
+<META NAME="Subject" CONTENT="Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 27 09:22:51 2000" -->
+<!-- isoreceived="20000327172251" -->
+<!-- sent="Sun, 26 Mar 2000 07:44:53 -0500" -->
+<!-- isosent="20000326124453" -->
+<!-- name="tytso@mit.edu" -->
+<!-- email="tytso@mit.edu" -->
+<!-- subject="Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc." -->
+<!-- id="200003261244.HAA00678@trampoline.thunk.org" -->
+<!-- inreplyto="00fc01bf9389$2c263f90$a53ce9c0@alphaprocessor.com" -->
+<STRONG>Subject: </STRONG>Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.<BR>
+<EM>tytso@mit.edu</EM><BR>
+<STRONG>Date: </STRONG>Sun Mar 26 2000 - 04:44:53 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#141">[ date ]</A>
+<A HREF="index.html#141">[ thread ]</A>
+<A HREF="subject.html#141">[ subject ]</A>
+<A HREF="author.html#141">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0142.html">Metod Kozelj: "NFS problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0140.html">David S. Miller: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.html">Soohoon Lee: "ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0130.html">tytso@mit.edu: "Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&nbsp;&nbsp;&nbsp;From: &quot;Soohoon Lee&quot; &lt;soohoon.lee@alpha-processor.com&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;Date: 	Tue, 21 Mar 2000 17:59:54 -0500
+<BR>
+<P>&nbsp;&nbsp;&nbsp;With small free memory and frequent file create/delete operations,
+<BR>
+&nbsp;&nbsp;&nbsp;ext2 shows many problems.  Sometimes files are disapeared, unable to
+<BR>
+&nbsp;&nbsp;&nbsp;delete, two files' contents are switched fsck finds inconsitencies in
+<BR>
+&nbsp;&nbsp;&nbsp;the properly unmounted filesystem etc.  I'm not sure if this patch
+<BR>
+&nbsp;&nbsp;&nbsp;fixes all the problems but I cannot see the problems any more.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;tested platform is UP2000, 1 CPU(EV67 750MHz), 256M, 2.2.14
+<BR>
+&nbsp;&nbsp;&nbsp;While one process is creating a file, it can be switched to do disk I/O like
+<BR>
+&nbsp;&nbsp;&nbsp;following
+<BR>
+&nbsp;&nbsp;&nbsp;stack trace.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;schedule+0x1b0  (AR:0xfffffc0005d0bd48)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;sleep_on+0x5c  (AR:0xfffffc0005d0bd68)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;wakeup_bdflush+0x50  (AR:0xfffffc0005d0bd98)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;refile_buffer+0x10c  (AR:0xfffffc0005d0bda8)    -&gt; mark_buffer_dirty()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ext2_add_entry+0x3ac  (AR:0xfffffc0005d0bdc8)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ext2_create+0xe4  (AR:0xfffffc0005d0be28)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;open_namei+0x1c4  (AR:0xfffffc0005d0be78)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;filp_open+0x80  (AR:0xfffffc0005d0beb8)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;sys_open+0x6c  (AR:0xfffffc0005d0bee8)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Exception frame:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;entSys+0xa8  (AR:0xfffffc0005d0bf18)
+<BR>
+<P>You're right, this is a problem.   ext2_add_entry assumed
+<BR>
+mark_buffer_dirty() couldn't block and it was wrong.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Supposing that ext2 is MP safe, my fix for this problem is removing
+<BR>
+&nbsp;&nbsp;&nbsp;mark_buffer_dirty() in ext2_add_entry(), simple.  Every caller of
+<BR>
+&nbsp;&nbsp;&nbsp;ext2_add_entry() calls mark_buffer_dirty(), So it's superflous.  Then
+<BR>
+&nbsp;&nbsp;&nbsp;the first process would not sleep until the directory entry is marked
+<BR>
+&nbsp;&nbsp;&nbsp;with allocated inode.
+<BR>
+<P>This apparently solves the problem for Linux 2.2, but I'd prefer a
+<BR>
+cleaner patch for Linux 2.3.   Enclosed find the patch, which I will be
+<BR>
+sending on to Linus.  I haven't had a chance to backport this patch
+<BR>
+to Linux 2.2 yet, but it shoudl be relatively simple.
+<BR>
+<P>What I've done in this patch is to move more of the processing into
+<BR>
+ext2_add_entry and ext2_remove_entry, which also has the advantage of
+<BR>
+tightening up the code and making it smaller.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ted
+<BR>
+<P>Patch generated: on Sun Mar 26 07:11:16 EST 2000 by tytso@trampoline.thunk.org
+<BR>
+against Linux version 2.3.99
+<BR>
+&nbsp;
+<BR>
+===================================================================
+<BR>
+RCS file: fs/ext2/RCS/namei.c,v
+<BR>
+retrieving revision 1.1
+<BR>
+diff -u -r1.1 fs/ext2/namei.c
+<BR>
+--- fs/ext2/namei.c	2000/03/25 00:37:16	1.1
+<BR>
++++ fs/ext2/namei.c	2000/03/26 07:42:58
+<BR>
+@@ -182,61 +182,71 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return NULL;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static inline void ext2_set_de_type(struct super_block *sb,
+<BR>
++				struct ext2_dir_entry_2 *de,
+<BR>
++				umode_t mode) {
+<BR>
++	if (!EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_FILETYPE))
+<BR>
++		return;
+<BR>
++	if (S_ISREG(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_REG_FILE;
+<BR>
++	else if (S_ISDIR(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_DIR;
+<BR>
++	else if (S_ISLNK(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_SYMLINK;
+<BR>
++	else if (S_ISSOCK(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_SOCK;
+<BR>
++	else if (S_ISFIFO(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_FIFO;
+<BR>
++	else if (S_ISCHR(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_CHRDEV;
+<BR>
++	else if (S_ISBLK(mode))
+<BR>
++		de-&gt;file_type = EXT2_FT_BLKDEV;
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;*	ext2_add_entry()
+<BR>
+&nbsp;&nbsp;*
+<BR>
+- * adds a file entry to the specified directory, using the same
+<BR>
+- * semantics as ext2_find_entry(). It returns NULL if it failed.
+<BR>
+- *
+<BR>
+- * NOTE!! The inode part of 'de' is left at 0 - which means you
+<BR>
+- * may not sleep between calling this and putting something into
+<BR>
+- * the entry, as someone else might have used it while you slept.
+<BR>
++ * adds a file entry to the specified directory.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-static struct buffer_head * ext2_add_entry (struct inode * dir,
+<BR>
+-					    const char * name, int namelen,
+<BR>
+-					    struct ext2_dir_entry_2 ** res_dir,
+<BR>
+-					    int *err)
+<BR>
++int ext2_add_entry (struct inode * dir, const char * name, int namelen,
+<BR>
++		    struct inode *inode)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long offset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned short rec_len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct buffer_head * bh;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct ext2_dir_entry_2 * de, * de1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct super_block * sb;
+<BR>
++	int	retval;
+<BR>
+&nbsp;
+<BR>
+-	*err = -EINVAL;
+<BR>
+-	*res_dir = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!dir || !dir-&gt;i_nlink)
+<BR>
+-		return NULL;
+<BR>
++		return -EINVAL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sb = dir-&gt;i_sb;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!namelen)
+<BR>
+-		return NULL;
+<BR>
++		return -EINVAL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Is this a busy deleted directory?  Can't create new files if so
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dir-&gt;i_size == 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-		*err = -ENOENT;
+<BR>
+-		return NULL;
+<BR>
++		return -ENOENT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	bh = ext2_bread (dir, 0, 0, err);
+<BR>
++	bh = ext2_bread (dir, 0, 0, &amp;retval);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!bh)
+<BR>
+-		return NULL;
+<BR>
++		return retval;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rec_len = EXT2_DIR_REC_LEN(namelen);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offset = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de = (struct ext2_dir_entry_2 *) bh-&gt;b_data;
+<BR>
+-	*err = -ENOSPC;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (1) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((char *)de &gt;= sb-&gt;s_blocksize + bh-&gt;b_data) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;brelse (bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bh = NULL;
+<BR>
+-			bh = ext2_bread (dir, offset &gt;&gt; EXT2_BLOCK_SIZE_BITS(sb), 1, err);
+<BR>
++			bh = ext2_bread (dir, offset &gt;&gt; EXT2_BLOCK_SIZE_BITS(sb), 1, &amp;retval);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!bh)
+<BR>
+-				return NULL;
+<BR>
++				return retval;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dir-&gt;i_size &lt;= offset) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dir-&gt;i_size == 0) {
+<BR>
+-					*err = -ENOENT;
+<BR>
+-					return NULL;
+<BR>
++					return -ENOENT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ext2_debug (&quot;creating next block\n&quot;);
+<BR>
+@@ -256,14 +266,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!ext2_check_dir_entry (&quot;ext2_add_entry&quot;, dir, de, bh,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offset)) {
+<BR>
+-			*err = -ENOENT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;brelse (bh);
+<BR>
+-			return NULL;
+<BR>
++			return -ENOENT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ext2_match (namelen, name, de)) {
+<BR>
+-				*err = -EEXIST;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;brelse (bh);
+<BR>
+-				return NULL;
+<BR>
++				return -EEXIST;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((le32_to_cpu(de-&gt;inode) == 0 &amp;&amp; le16_to_cpu(de-&gt;rec_len) &gt;= rec_len) ||
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(le16_to_cpu(de-&gt;rec_len) &gt;= EXT2_DIR_REC_LEN(de-&gt;name_len) + rec_len)) {
+<BR>
+@@ -276,7 +284,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de-&gt;rec_len = cpu_to_le16(EXT2_DIR_REC_LEN(de-&gt;name_len));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de = de1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-			de-&gt;inode = 0;
+<BR>
++			if (inode) {
+<BR>
++				de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
++				ext2_set_de_type(dir-&gt;i_sb, de, inode-&gt;i_mode);
+<BR>
++			} else
+<BR>
++				de-&gt;inode = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de-&gt;name_len = namelen;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de-&gt;file_type = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy (de-&gt;name, name, namelen);
+<BR>
+@@ -296,22 +308,26 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(dir);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;i_version = ++event;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_buffer_dirty(bh, 1);
+<BR>
+-			*res_dir = de;
+<BR>
+-			*err = 0;
+<BR>
+-			return bh;
+<BR>
++			if (IS_SYNC(dir)) {
+<BR>
++				ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
++				wait_on_buffer (bh);
+<BR>
++			}
+<BR>
++			brelse(bh);
+<BR>
++			return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offset += le16_to_cpu(de-&gt;rec_len);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de = (struct ext2_dir_entry_2 *) ((char *) de + le16_to_cpu(de-&gt;rec_len));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;brelse (bh);
+<BR>
+-	return NULL;
+<BR>
++	return -ENOSPC;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* ext2_delete_entry deletes a directory entry by merging it with the
+<BR>
+&nbsp;&nbsp;* previous entry
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-static int ext2_delete_entry (struct ext2_dir_entry_2 * dir,
+<BR>
++static int ext2_delete_entry (struct inode * dir,
+<BR>
++			      struct ext2_dir_entry_2 * de_del,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct buffer_head * bh)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct ext2_dir_entry_2 * de, * pde;
+<BR>
+@@ -324,13 +340,19 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!ext2_check_dir_entry (&quot;ext2_delete_entry&quot;, NULL, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de, bh, i))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EIO;
+<BR>
+-		if (de == dir)  {
+<BR>
++		if (de == de_del)  {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pde)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pde-&gt;rec_len =
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_to_le16(le16_to_cpu(pde-&gt;rec_len) +
+<BR>
+-						    le16_to_cpu(dir-&gt;rec_len));
+<BR>
++						    le16_to_cpu(de-&gt;rec_len));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+-				dir-&gt;inode = 0;
+<BR>
++				de-&gt;inode = 0;
+<BR>
++			dir-&gt;i_version = ++event;
+<BR>
++			mark_buffer_dirty(bh, 1);
+<BR>
++			if (IS_SYNC(dir)) {
+<BR>
++				ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
++				wait_on_buffer (bh);
+<BR>
++			}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i += le16_to_cpu(de-&gt;rec_len);
+<BR>
+@@ -340,27 +362,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -ENOENT;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void ext2_set_de_type(struct super_block *sb,
+<BR>
+-				struct ext2_dir_entry_2 *de,
+<BR>
+-				umode_t mode) {
+<BR>
+-	if (!EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_FILETYPE))
+<BR>
+-		return;
+<BR>
+-	if (S_ISREG(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_REG_FILE;
+<BR>
+-	else if (S_ISDIR(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_DIR;
+<BR>
+-	else if (S_ISLNK(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_SYMLINK;
+<BR>
+-	else if (S_ISSOCK(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_SOCK;
+<BR>
+-	else if (S_ISFIFO(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_FIFO;
+<BR>
+-	else if (S_ISCHR(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_CHRDEV;
+<BR>
+-	else if (S_ISBLK(mode))
+<BR>
+-		de-&gt;file_type = EXT2_FT_BLKDEV;
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* By the time this is called, we already have created
+<BR>
+&nbsp;&nbsp;* the directory cache entry for the new file, but it
+<BR>
+@@ -372,38 +373,28 @@
+<BR>
+&nbsp;static int ext2_create (struct inode * dir, struct dentry * dentry, int mode)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode * inode;
+<BR>
+-	struct buffer_head * bh;
+<BR>
+-	struct ext2_dir_entry_2 * de;
+<BR>
+-	int err = -EIO;
+<BR>
++	int err;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* N.B. Several error exits in ext2_new_inode don't set err.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode = ext2_new_inode (dir, mode, &amp;err);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!inode)
+<BR>
+-		return err;
+<BR>
++		return -EIO;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_op = &amp;ext2_file_inode_operations;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_fop = &amp;ext2_file_operations;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_mapping-&gt;a_ops = &amp;ext2_aops;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_mode = mode;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+-	bh = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, &amp;de, &amp;err);
+<BR>
+-	if (!bh) {
+<BR>
++	err = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, 
+<BR>
++			     inode);
+<BR>
++	if (err) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iput (inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return err;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+-	ext2_set_de_type(dir-&gt;i_sb, de, S_IFREG);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+-	brelse (bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d_instantiate(dentry, inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+@@ -411,56 +402,42 @@
+<BR>
+&nbsp;static int ext2_mknod (struct inode * dir, struct dentry *dentry, int mode, int rdev)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode * inode;
+<BR>
+-	struct buffer_head * bh;
+<BR>
+-	struct ext2_dir_entry_2 * de;
+<BR>
+-	int err = -EIO;
+<BR>
++	int err;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode = ext2_new_inode (dir, mode, &amp;err);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!inode)
+<BR>
+-		goto out;
+<BR>
++		return -EIO;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_uid = current-&gt;fsuid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_special_inode(inode, mode, rdev);
+<BR>
+-	bh = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, &amp;de, &amp;err);
+<BR>
+-	if (!bh)
+<BR>
++	err = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, 
+<BR>
++			     inode);
+<BR>
++	if (err)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto out_no_entry;
+<BR>
+-	de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	ext2_set_de_type(dir-&gt;i_sb, de, inode-&gt;i_mode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d_instantiate(dentry, inode);
+<BR>
+-	brelse(bh);
+<BR>
+-	err = 0;
+<BR>
+-out:
+<BR>
+-	return err;
+<BR>
++	return 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;out_no_entry:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iput(inode);
+<BR>
+-	goto out;
+<BR>
++	return err;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int ext2_mkdir(struct inode * dir, struct dentry * dentry, int mode)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode * inode;
+<BR>
+-	struct buffer_head * bh, * dir_block;
+<BR>
++	struct buffer_head * dir_block;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct ext2_dir_entry_2 * de;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int err;
+<BR>
+&nbsp;
+<BR>
+-	err = -EMLINK;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dir-&gt;i_nlink &gt;= EXT2_LINK_MAX)
+<BR>
+-		goto out;
+<BR>
++		return -EMLINK;
+<BR>
+&nbsp;
+<BR>
+-	err = -EIO;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode = ext2_new_inode (dir, S_IFDIR, &amp;err);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!inode)
+<BR>
+-		goto out;
+<BR>
++		return -EIO;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_op = &amp;ext2_dir_inode_operations;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_fop = &amp;ext2_dir_operations;
+<BR>
+@@ -471,7 +448,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink--; /* is this nlink == 0? */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iput (inode);
+<BR>
+-		return err;
+<BR>
++		return -EIO;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de = (struct ext2_dir_entry_2 *) dir_block-&gt;b_data;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+@@ -492,31 +469,21 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dir-&gt;i_mode &amp; S_ISGID)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_mode |= S_ISGID;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+-	bh = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, &amp;de, &amp;err);
+<BR>
+-	if (!bh)
+<BR>
++	err = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, 
+<BR>
++			     inode);
+<BR>
++	if (err)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto out_no_entry;
+<BR>
+-	de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+-	ext2_set_de_type(dir-&gt;i_sb, de, S_IFDIR);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;i_nlink++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;u.ext2_i.i_flags &amp;= ~EXT2_BTREE_FL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(dir);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d_instantiate(dentry, inode);
+<BR>
+-	brelse (bh);
+<BR>
+-	err = 0;
+<BR>
+-out:
+<BR>
+-	return err;
+<BR>
++	return 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;out_no_entry:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iput (inode);
+<BR>
+-	goto out;
+<BR>
++	return err;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+@@ -604,15 +571,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!empty_dir (inode))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto end_rmdir;
+<BR>
+&nbsp;
+<BR>
+-	retval = ext2_delete_entry (de, bh);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
++	retval = ext2_delete_entry(dir, de, bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (retval)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto end_rmdir;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (inode-&gt;i_nlink != 2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ext2_warning (inode-&gt;i_sb, &quot;ext2_rmdir&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;empty directory has nlink!=2 (%d)&quot;,
+<BR>
+@@ -657,15 +618,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_ino, inode-&gt;i_nlink);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	retval = ext2_delete_entry (de, bh);
+<BR>
++	retval = ext2_delete_entry(dir, de, bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (retval)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto end_unlink;
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;i_ctime = dir-&gt;i_mtime = CURRENT_TIME;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;u.ext2_i.i_flags &amp;= ~EXT2_BTREE_FL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(dir);
+<BR>
+@@ -683,18 +638,14 @@
+<BR>
+&nbsp;static int ext2_symlink (struct inode * dir, struct dentry *dentry, const char * symname)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode * inode;
+<BR>
+-	struct ext2_dir_entry_2 * de;
+<BR>
+-	struct buffer_head * bh = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int l, err;
+<BR>
+&nbsp;
+<BR>
+-	err = -ENAMETOOLONG;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l = strlen(symname)+1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (l &gt; dir-&gt;i_sb-&gt;s_blocksize)
+<BR>
+-		goto out;
+<BR>
++		return -ENAMETOOLONG;
+<BR>
+&nbsp;
+<BR>
+-	err = -EIO;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(inode = ext2_new_inode (dir, S_IFLNK, &amp;err)))
+<BR>
+-		goto out;
+<BR>
++		return -EIO;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_mode = S_IFLNK | S_IRWXUGO;
+<BR>
+&nbsp;
+<BR>
+@@ -711,36 +662,24 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;
+<BR>
+-	bh = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, &amp;de, &amp;err);
+<BR>
+-	if (!bh)
+<BR>
++	err = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, 
+<BR>
++			     inode);
+<BR>
++	if (err)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto out_no_entry;
+<BR>
+-	de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+-	ext2_set_de_type(dir-&gt;i_sb, de, S_IFLNK);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+-	brelse (bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d_instantiate(dentry, inode);
+<BR>
+-	err = 0;
+<BR>
+-out:
+<BR>
+-	return err;
+<BR>
++	return 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;out_no_entry:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iput (inode);
+<BR>
+-	goto out;
+<BR>
++	return err;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int ext2_link (struct dentry * old_dentry,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode * dir, struct dentry *dentry)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct inode *inode = old_dentry-&gt;d_inode;
+<BR>
+-	struct ext2_dir_entry_2 * de;
+<BR>
+-	struct buffer_head * bh;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int err;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (S_ISDIR(inode-&gt;i_mode))
+<BR>
+@@ -748,20 +687,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (inode-&gt;i_nlink &gt;= EXT2_LINK_MAX)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EMLINK;
+<BR>
+-
+<BR>
+-	bh = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, &amp;de, &amp;err);
+<BR>
+-	if (!bh)
+<BR>
++	
+<BR>
++	err = ext2_add_entry (dir, dentry-&gt;d_name.name, dentry-&gt;d_name.len, 
+<BR>
++			     inode);
+<BR>
++	if (err)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return err;
+<BR>
+&nbsp;
+<BR>
+-	de-&gt;inode = cpu_to_le32(inode-&gt;i_ino);
+<BR>
+-	ext2_set_de_type(dir-&gt;i_sb, de, inode-&gt;i_mode);
+<BR>
+-	dir-&gt;i_version = ++event;
+<BR>
+-	mark_buffer_dirty(bh, 1);
+<BR>
+-	if (IS_SYNC(dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;bh);
+<BR>
+-		wait_on_buffer (bh);
+<BR>
+-	}
+<BR>
+-	brelse (bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_nlink++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_ctime = CURRENT_TIME;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(inode);
+<BR>
+@@ -829,14 +760,26 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto end_rename;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!new_bh) {
+<BR>
+-		new_bh = ext2_add_entry (new_dir, new_dentry-&gt;d_name.name,
+<BR>
+-					new_dentry-&gt;d_name.len, &amp;new_de,
+<BR>
+-					&amp;retval);
+<BR>
+-		if (!new_bh)
+<BR>
++		retval = ext2_add_entry (new_dir, new_dentry-&gt;d_name.name,
+<BR>
++					 new_dentry-&gt;d_name.len,
+<BR>
++					 old_inode);
+<BR>
++		if (retval)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto end_rename;
+<BR>
++	} else {
+<BR>
++		new_de-&gt;inode = le32_to_cpu(old_inode-&gt;i_ino);
+<BR>
++		if (EXT2_HAS_INCOMPAT_FEATURE(new_dir-&gt;i_sb,
+<BR>
++					      EXT2_FEATURE_INCOMPAT_FILETYPE))
+<BR>
++			new_de-&gt;file_type = old_de-&gt;file_type;
+<BR>
++		new_dir-&gt;i_version = ++event;
+<BR>
++		mark_buffer_dirty(new_bh, 1);
+<BR>
++		if (IS_SYNC(new_dir)) {
+<BR>
++			ll_rw_block (WRITE, 1, &amp;new_bh);
+<BR>
++			wait_on_buffer (new_bh);
+<BR>
++		}
+<BR>
++		brelse(new_bh);
+<BR>
++		new_bh = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	new_dir-&gt;i_version = ++event;
+<BR>
+-
+<BR>
++	
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Like most other Unix systems, set the ctime for inodes on a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* rename.
+<BR>
+@@ -847,14 +790,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* ok, that's it
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	new_de-&gt;inode = le32_to_cpu(old_inode-&gt;i_ino);
+<BR>
+-	if (EXT2_HAS_INCOMPAT_FEATURE(new_dir-&gt;i_sb,
+<BR>
+-				      EXT2_FEATURE_INCOMPAT_FILETYPE))
+<BR>
+-		new_de-&gt;file_type = old_de-&gt;file_type;
+<BR>
+-	
+<BR>
+-	ext2_delete_entry (old_de, old_bh);
+<BR>
++	ext2_delete_entry(old_dir, old_de, old_bh);
+<BR>
+&nbsp;
+<BR>
+-	old_dir-&gt;i_version = ++event;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (new_inode) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new_inode-&gt;i_nlink--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new_inode-&gt;i_ctime = CURRENT_TIME;
+<BR>
+@@ -876,16 +813,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new_dir-&gt;u.ext2_i.i_flags &amp;= ~EXT2_BTREE_FL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(new_dir);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	}
+<BR>
+-	mark_buffer_dirty(old_bh,  1);
+<BR>
+-	if (IS_SYNC(old_dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;old_bh);
+<BR>
+-		wait_on_buffer (old_bh);
+<BR>
+-	}
+<BR>
+-	mark_buffer_dirty(new_bh, 1);
+<BR>
+-	if (IS_SYNC(new_dir)) {
+<BR>
+-		ll_rw_block (WRITE, 1, &amp;new_bh);
+<BR>
+-		wait_on_buffer (new_bh);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retval = 0;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0142.html">Metod Kozelj: "NFS problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0140.html">David S. Miller: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.html">Soohoon Lee: "ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0130.html">tytso@mit.edu: "Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

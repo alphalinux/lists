@@ -1,0 +1,585 @@
+<!-- received="Tue Jun  4 14:28:48 1996 " -->
+<!-- sent="Tue, 4 Jun 1996 14:28:48 -0500 (EDT)" -->
+<!-- name="Jim Paradis" -->
+<!-- email="paradis@amt.tay1.dec.com" -->
+<!-- subject="gcc patches for EV56 byte/word instructions" -->
+<!-- id="9606041828.AA28164@ives.amt.tay1.dec.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>gcc patches for EV56 byte/word instructions</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>gcc patches for EV56 byte/word instructions</h2>
+
+<b>Jim Paradis</b> (<a href="mailto:paradis@amt.tay1.dec.com"><i>paradis@amt.tay1.dec.com</i></a>)<br>
+<i>Tue, 4 Jun 1996 14:28:48 -0500 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#41">[ date ]</a><a href="index.html#41">[ thread ]</a><a href="subject.html#41">[ subject ]</a><a href="author.html#41">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0042.html">Richard Henderson: "ev56 comment response"</a>
+<li> <b>Previous message:</b> <a href="0040.html">Roman Gollent: "Re: First Alpha machine"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Well, for those who are interested here is my first foray into mucking<br>
+about in gcc machine descriptions.  If you specify the "-m21164a" flag<br>
+to gcc with these patches, it will generate the byte/word load/store<br>
+instructions.<br>
+<p>
+Actually, I cleaned up the machine-specific flag specification a bit and<br>
+added flags for all current CPUs (21064, 21066, 21164, 21164a).  Currently<br>
+only the "21164a" flag does anything.<br>
+<p>
+Note that i have not yet done gas support for these instructions, so at<br>
+the moment it won't do you much good.  But I'm putting it out here<br>
+anyway because I'm going on leave for six weeks and I figure I'll give<br>
+you all the goods now 8-)<br>
+<p>
+Have fun!<br>
+<p>
+diff -u --recursive gcc-2.7.1/config/alpha/alpha.c gcc-2.7.1-new/config/alpha/alpha.c<br>
+--- gcc-2.7.1/config/alpha/alpha.c	Tue Jun  4 14:12:42 1996<br>
++++ gcc-2.7.1-new/config/alpha/alpha.c	Mon Jun  3 16:28:22 1996<br>
+@@ -418,7 +418,15 @@<br>
+ 	return 1;<br>
+       /* ... fall through ... */<br>
+     case MEM:<br>
+-      return mode != HImode &amp;&amp; mode != QImode &amp;&amp; general_operand (op, mode);<br>
++      /* Machines with byte/word instructions support QImode and HImode<br>
++       * for input operands.  Others do not.<br>
++       */<br>
++      if(TARGET_HAS_BYTEWORD) {<br>
++	return general_operand(op, mode);<br>
++      }<br>
++      else {<br>
++          return mode != HImode &amp;&amp; mode != QImode &amp;&amp; general_operand (op, mode);<br>
++      }<br>
+ <br>
+     case CONST_DOUBLE:<br>
+       return GET_MODE_CLASS (mode) == MODE_FLOAT &amp;&amp; op == CONST0_RTX (mode);<br>
+diff -u --recursive gcc-2.7.1/config/alpha/alpha.h gcc-2.7.1-new/config/alpha/alpha.h<br>
+--- gcc-2.7.1/config/alpha/alpha.h	Tue Jun  4 14:12:43 1996<br>
++++ gcc-2.7.1-new/config/alpha/alpha.h	Mon Jun  3 14:59:39 1996<br>
+@@ -105,25 +105,39 @@<br>
+ extern enum alpha_fp_rounding_mode	alpha_fprm;<br>
+ extern enum alpha_fp_trap_mode		alpha_fptm;<br>
+ <br>
++/* Bit masks for target flags */<br>
++#define	MASK_FP		0x01<br>
++#define MASK_FPREGS	0x02<br>
++#define MASK_GAS 	0x04<br>
++#define MASK_IEEE	0x08<br>
++#define MASK_21064	0x100		/* EV4/EV45 */<br>
++#define MASK_21066	0x200		/* LCA4/LCA45 */<br>
++#define MASK_21164	0x400		/* EV5 */<br>
++#define MASK_21164A	0x800		/* EV56 */<br>
++<br>
+ /* This means that floating-point support exists in the target implementation<br>
+    of the Alpha architecture.  This is usually the default.  */<br>
+ <br>
+-#define TARGET_FP	(target_flags &amp; 1)<br>
++#define TARGET_FP	(target_flags &amp; MASK_FP)<br>
+ <br>
+ /* This means that floating-point registers are allowed to be used.  Note<br>
+    that Alpha implementations without FP operations are required to<br>
+    provide the FP registers.  */<br>
+ <br>
+-#define TARGET_FPREGS	(target_flags &amp; 2)<br>
++#define TARGET_FPREGS	(target_flags &amp; MASK_FPREGS)<br>
+ <br>
+ /* This means that gas is used to process the assembler file.  */<br>
+ <br>
+-#define MASK_GAS 4<br>
+ #define TARGET_GAS	(target_flags &amp; MASK_GAS)<br>
+ <br>
+ /* This means that we should mark procedures as IEEE conformant. */<br>
+ <br>
+-#define TARGET_IEEE_CONFORMANT	(target_flags &amp; 8)<br>
++#define TARGET_IEEE_CONFORMANT	(target_flags &amp; MASK_IEEE)<br>
++<br>
++/* This means we can generate byte/word instructions (available only<br>
++ * on 21164A and later)<br>
++ */<br>
++#define TARGET_HAS_BYTEWORD	(target_flags &amp; MASK_21164A)<br>
+ <br>
+ /* Macro to define tables used to set the flags.<br>
+    This is a list in braces of pairs in braces,<br>
+@@ -132,24 +146,28 @@<br>
+    An empty string NAME is used to identify the default VALUE.  */<br>
+ <br>
+ #define TARGET_SWITCHES			\<br>
+-  { {"no-soft-float", 1},		\<br>
+-    {"soft-float", -1},			\<br>
+-    {"fp-regs", 2},			\<br>
+-    {"no-fp-regs", -3},			\<br>
++  { {"no-soft-float", MASK_FP},		\<br>
++    {"soft-float", -MASK_FP},		\<br>
++    {"fp-regs", MASK_FPREGS},		\<br>
++    {"no-fp-regs", -(MASK_FP|MASK_FPREGS)},	\<br>
+     {"alpha-as", -MASK_GAS},		\<br>
+     {"gas", MASK_GAS},			\<br>
+-    {"ieee-conformant", 8},		\<br>
++    {"ieee-conformant", MASK_IEEE},	\<br>
++    {"21064", MASK_21064 },		\<br>
++    {"21066", MASK_21066 },		\<br>
++    {"21164", MASK_21164 },		\<br>
++    {"21164a", MASK_21164A },		\<br>
+       /* ignore high-level options: */	\<br>
+     {"ieee", 0},			\<br>
+     {"ieee-with-inexact", 0},		\<br>
+     {"", TARGET_DEFAULT | TARGET_CPU_DEFAULT} }<br>
+ <br>
+ #ifndef TARGET_DEFAULT<br>
+-#define TARGET_DEFAULT 3<br>
++#define TARGET_DEFAULT (MASK_FP|MASK_FPREGS)<br>
+ #endif<br>
+ <br>
+ #ifndef TARGET_CPU_DEFAULT<br>
+-#define TARGET_CPU_DEFAULT 0<br>
++#define TARGET_CPU_DEFAULT MASK_21064<br>
+ #endif<br>
+ <br>
+ /* This macro is similar to `TARGET_SWITCHES' but defines names of<br>
+diff -u --recursive gcc-2.7.1/config/alpha/alpha.md gcc-2.7.1-new/config/alpha/alpha.md<br>
+--- gcc-2.7.1/config/alpha/alpha.md	Tue Jun  4 14:12:43 1996<br>
++++ gcc-2.7.1-new/config/alpha/alpha.md	Mon Jun  3 16:51:11 1996<br>
+@@ -3348,8 +3348,9 @@<br>
+   ""<br>
+   "call_pal 0x86")<br>
+ <br>
+-;; Finally, we have the basic data motion insns.  The byte and word insns<br>
+-;; are done via define_expand.  Start with the floating-point insns, since<br>
++;; Finally, we have the basic data motion insns.  <br>
++;; The byte and word insns are done via define_expand for all CPUs<br>
++;; prior to 21164A (EV56).  Start with the floating-point insns, since<br>
+ ;; they are simpler.<br>
+ <br>
+ (define_insn ""<br>
+@@ -3404,9 +3405,48 @@<br>
+     operands[1] = force_reg (DFmode, operands[1]);<br>
+ }")<br>
+ <br>
++;; JRP - Question: Why isn't the r-&gt;m combination supported in the SI<br>
++;; case (only rJ-&gt;m)?  Alpha can certainly do it...  I *might* try this<br>
++;; and see what I get...<br>
++<br>
++<br>
++;; If we have a 21164A, then it's much preferable to use the byte/word<br>
++;; instructions rather than to use the multiple-instruction paths...<br>
++;; We'll only do a small number of cases here.  If need be, we'll fall<br>
++;; thru to the "old" patterns...<br>
++<br>
++(define_insn "movqi_direct"<br>
++  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,r,m")<br>
++	(match_operand:QI 1 "input_operand"        " r,J,I,m,rJ"))]<br>
++  "TARGET_HAS_BYTEWORD &amp;&amp; (register_operand (operands[0], QImode)<br>
++		      || reg_or_0_operand (operands[1], QImode))"<br>
++  "@<br>
++  bis %1,%1,%0<br>
++  bis $31,$31,%0<br>
++  bis $31,%1,%0<br>
++  ldbu %0,%1<br>
++  stbu %r1,%0"<br>
++  [(set_attr "type" "iaddlog,iaddlog,iaddlog,ld,st")]<br>
++)<br>
++<br>
++(define_insn "movhi_direct"<br>
++  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,r,r,m")<br>
++	(match_operand:HI 1 "input_operand"        " r,J,I,m,rJ"))]<br>
++  "TARGET_HAS_BYTEWORD &amp;&amp; (register_operand (operands[0], HImode)<br>
++		      || reg_or_0_operand (operands[1], HImode))"<br>
++  "@<br>
++  bis %1,%1,%0<br>
++  bis $31,$31,%0<br>
++  bis $31,%1,%0<br>
++  ldwu %0,%1<br>
++  stwu %r1,%0"<br>
++  [(set_attr "type" "iaddlog,iaddlog,iaddlog,ld,st")]<br>
++)<br>
++<br>
++<br>
+ (define_insn ""<br>
+-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,f,f,f,m")<br>
+-	(match_operand:SI 1 "input_operand" "r,J,I,K,L,m,rJ,f,J,m,fG"))]<br>
++  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m, f,f,f,m")<br>
++	(match_operand:SI 1 "input_operand"        " r,J,I,K,L,m,rJ,f,J,m,fG"))]<br>
+   "! WINDOWS_NT &amp;&amp; (register_operand (operands[0], SImode)<br>
+<i> 		    || reg_or_0_operand (operands[1], SImode))"</i><br>
+   "@<br>
+@@ -3773,82 +3813,90 @@<br>
+   if (GET_CODE (operands[0]) == MEM)<br>
+     operands[1] = force_reg (QImode, operands[1]);<br>
+ <br>
+-  /* Handle four memory cases, unaligned and aligned for either the input<br>
+-     or the output.  The only case where we can be called during reload is<br>
+-     for aligned loads; all other cases require temporaries.  */<br>
+-<br>
+-  if (GET_CODE (operands[1]) == MEM<br>
+-      || (GET_CODE (operands[1]) == SUBREG<br>
+-	  &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == MEM)<br>
+-      || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == REG<br>
+-	  &amp;&amp; REGNO (operands[1]) &gt;= FIRST_PSEUDO_REGISTER)<br>
+-      || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == SUBREG<br>
+-	  &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == REG<br>
+-	  &amp;&amp; REGNO (SUBREG_REG (operands[1])) &gt;= FIRST_PSEUDO_REGISTER))<br>
+-    {<br>
+-      if (aligned_memory_operand (operands[1], QImode))<br>
+-	{<br>
+-	  rtx aligned_mem, bitnum;<br>
+-	  rtx scratch = (reload_in_progress<br>
+-			 ? gen_rtx (REG, SImode, REGNO (operands[0]))<br>
+-			 : gen_reg_rtx (SImode));<br>
+-<br>
+-	  get_aligned_mem (operands[1], &amp;aligned_mem, &amp;bitnum);<br>
++  /* If we have byte instructions available, use them! */<br>
++  if(TARGET_HAS_BYTEWORD) {<br>
++	emit_insn(gen_movqi_direct(operands[0], operands[1]));<br>
++	DONE;<br>
++  }<br>
++  else {<br>
+ <br>
+-	  emit_insn (gen_aligned_loadqi (operands[0], aligned_mem, bitnum,<br>
+-					 scratch));<br>
+-	}<br>
+-      else<br>
++      /* Handle four memory cases, unaligned and aligned for either the input<br>
++	 or the output.  The only case where we can be called during reload is<br>
++	 for aligned loads; all other cases require temporaries.  */<br>
++<br>
++      if (GET_CODE (operands[1]) == MEM<br>
++	  || (GET_CODE (operands[1]) == SUBREG<br>
++	      &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == MEM)<br>
++	  || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == REG<br>
++	      &amp;&amp; REGNO (operands[1]) &gt;= FIRST_PSEUDO_REGISTER)<br>
++	  || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == SUBREG<br>
++	      &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == REG<br>
++	      &amp;&amp; REGNO (SUBREG_REG (operands[1])) &gt;= FIRST_PSEUDO_REGISTER))<br>
+ 	{<br>
+-	  /* Don't pass these as parameters since that makes the generated<br>
+-	     code depend on parameter evaluation order which will cause<br>
+-	     bootstrap failures.  */<br>
+-<br>
+-	  rtx temp1 = gen_reg_rtx (DImode);<br>
+-	  rtx temp2 = gen_reg_rtx (DImode);<br>
+-	  rtx seq = gen_unaligned_loadqi (operands[0],<br>
+-					  get_unaligned_address (operands[1]),<br>
+-					  temp1, temp2);<br>
++	  if (aligned_memory_operand (operands[1], QImode))<br>
++	    {<br>
++	      rtx aligned_mem, bitnum;<br>
++	      rtx scratch = (reload_in_progress<br>
++			     ? gen_rtx (REG, SImode, REGNO (operands[0]))<br>
++			     : gen_reg_rtx (SImode));<br>
++<br>
++	      get_aligned_mem (operands[1], &amp;aligned_mem, &amp;bitnum);<br>
++<br>
++	      emit_insn (gen_aligned_loadqi (operands[0], aligned_mem, bitnum,<br>
++					     scratch));<br>
++	    }<br>
++	  else<br>
++	    {<br>
++	      /* Don't pass these as parameters since that makes the generated<br>
++		 code depend on parameter evaluation order which will cause<br>
++		 bootstrap failures.  */<br>
++<br>
++	      rtx temp1 = gen_reg_rtx (DImode);<br>
++	      rtx temp2 = gen_reg_rtx (DImode);<br>
++	      rtx seq = gen_unaligned_loadqi (operands[0],<br>
++					      get_unaligned_address (operands[1]),<br>
++					      temp1, temp2);<br>
++<br>
++	      alpha_set_memflags (seq, operands[1]);<br>
++	      emit_insn (seq);<br>
++	    }<br>
+ <br>
+-	  alpha_set_memflags (seq, operands[1]);<br>
+-	  emit_insn (seq);<br>
++	  DONE;<br>
+ 	}<br>
+ <br>
+-      DONE;<br>
+-    }<br>
+-<br>
+-  else if (GET_CODE (operands[0]) == MEM<br>
+-	   || (GET_CODE (operands[0]) == SUBREG <br>
+-	       &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == MEM)<br>
+-	   || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == REG<br>
+-	       &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER)<br>
+-	   || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == SUBREG<br>
+-	       &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == REG<br>
+-	       &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER))<br>
+-    {<br>
+-      if (aligned_memory_operand (operands[0], QImode))<br>
++      else if (GET_CODE (operands[0]) == MEM<br>
++	       || (GET_CODE (operands[0]) == SUBREG <br>
++		   &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == MEM)<br>
++	       || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == REG<br>
++		   &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER)<br>
++	       || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == SUBREG<br>
++		   &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == REG<br>
++		   &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER))<br>
+ 	{<br>
+-	  rtx aligned_mem, bitnum;<br>
+-	  rtx temp1 = gen_reg_rtx (SImode);<br>
+-	  rtx temp2 = gen_reg_rtx (SImode);<br>
+-<br>
+-	  get_aligned_mem (operands[0], &amp;aligned_mem, &amp;bitnum);<br>
+-<br>
+-	  emit_insn (gen_aligned_store (aligned_mem, operands[1], bitnum,<br>
+-					temp1, temp2));<br>
++	  if (aligned_memory_operand (operands[0], QImode))<br>
++	    {<br>
++	      rtx aligned_mem, bitnum;<br>
++	      rtx temp1 = gen_reg_rtx (SImode);<br>
++	      rtx temp2 = gen_reg_rtx (SImode);<br>
++<br>
++	      get_aligned_mem (operands[0], &amp;aligned_mem, &amp;bitnum);<br>
++<br>
++	      emit_insn (gen_aligned_store (aligned_mem, operands[1], bitnum,<br>
++					    temp1, temp2));<br>
++	    }<br>
++	  else<br>
++	    {<br>
++	      rtx temp1 = gen_reg_rtx (DImode);<br>
++	      rtx temp2 = gen_reg_rtx (DImode);<br>
++	      rtx temp3 = gen_reg_rtx (DImode);<br>
++	      rtx seq = gen_unaligned_storeqi (get_unaligned_address (operands[0]),<br>
++					       operands[1], temp1, temp2, temp3);<br>
++<br>
++	      alpha_set_memflags (seq, operands[0]);<br>
++	      emit_insn (seq);<br>
++	    }<br>
++	  DONE;<br>
+ 	}<br>
+-      else<br>
+-	{<br>
+-	  rtx temp1 = gen_reg_rtx (DImode);<br>
+-	  rtx temp2 = gen_reg_rtx (DImode);<br>
+-	  rtx temp3 = gen_reg_rtx (DImode);<br>
+-	  rtx seq = gen_unaligned_storeqi (get_unaligned_address (operands[0]),<br>
+-					   operands[1], temp1, temp2, temp3);<br>
+-<br>
+-	  alpha_set_memflags (seq, operands[0]);<br>
+-	  emit_insn (seq);<br>
+-	}<br>
+-      DONE;<br>
+     }<br>
+ }")<br>
+ <br>
+@@ -3863,93 +3911,101 @@<br>
+   if (GET_CODE (operands[0]) == MEM)<br>
+     operands[1] = force_reg (HImode, operands[1]);<br>
+ <br>
+-  /* Handle four memory cases, unaligned and aligned for either the input<br>
+-     or the output.  The only case where we can be called during reload is<br>
+-     for aligned loads; all other cases require temporaries.  */<br>
+-<br>
+-  if (GET_CODE (operands[1]) == MEM<br>
+-      || (GET_CODE (operands[1]) == SUBREG<br>
+-	  &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == MEM)<br>
+-      || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == REG<br>
+-	  &amp;&amp; REGNO (operands[1]) &gt;= FIRST_PSEUDO_REGISTER)<br>
+-      || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == SUBREG<br>
+-	  &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == REG<br>
+-	  &amp;&amp; REGNO (SUBREG_REG (operands[1])) &gt;= FIRST_PSEUDO_REGISTER))<br>
+-    {<br>
+-      if (aligned_memory_operand (operands[1], HImode))<br>
+-	{<br>
+-	  rtx aligned_mem, bitnum;<br>
+-	  rtx scratch = (reload_in_progress<br>
+-			 ? gen_rtx (REG, SImode, REGNO (operands[0]))<br>
+-			 : gen_reg_rtx (SImode));<br>
+-<br>
+-	  get_aligned_mem (operands[1], &amp;aligned_mem, &amp;bitnum);<br>
++  /* If we have word instructions available, use them! */<br>
++  if(TARGET_HAS_BYTEWORD) {<br>
++	emit_insn(gen_movhi_direct(operands[0], operands[1]));<br>
++	DONE;<br>
++  }<br>
++  else {<br>
+ <br>
+-	  emit_insn (gen_aligned_loadhi (operands[0], aligned_mem, bitnum,<br>
+-					 scratch));<br>
+-	}<br>
+-      else<br>
++      /* Handle four memory cases, unaligned and aligned for either the input<br>
++	 or the output.  The only case where we can be called during reload is<br>
++	 for aligned loads; all other cases require temporaries.  */<br>
++<br>
++      if (GET_CODE (operands[1]) == MEM<br>
++	  || (GET_CODE (operands[1]) == SUBREG<br>
++	      &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == MEM)<br>
++	  || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == REG<br>
++	      &amp;&amp; REGNO (operands[1]) &gt;= FIRST_PSEUDO_REGISTER)<br>
++	  || (reload_in_progress &amp;&amp; GET_CODE (operands[1]) == SUBREG<br>
++	      &amp;&amp; GET_CODE (SUBREG_REG (operands[1])) == REG<br>
++	      &amp;&amp; REGNO (SUBREG_REG (operands[1])) &gt;= FIRST_PSEUDO_REGISTER))<br>
+ 	{<br>
+-	  rtx addr<br>
+-	    = force_reg (DImode,<br>
+-			 force_operand (get_unaligned_address (operands[1]),<br>
+-					NULL_RTX));<br>
+-	  rtx scratch1 = gen_reg_rtx (DImode);<br>
+-	  rtx scratch2 = gen_reg_rtx (DImode);<br>
+-	  rtx scratch3 = gen_reg_rtx (DImode);<br>
+-<br>
+-	  rtx seq = gen_unaligned_loadhi (operands[0], addr, scratch1,<br>
+-					  scratch2, scratch3);<br>
++	  if (aligned_memory_operand (operands[1], HImode))<br>
++	    {<br>
++	      rtx aligned_mem, bitnum;<br>
++	      rtx scratch = (reload_in_progress<br>
++			     ? gen_rtx (REG, SImode, REGNO (operands[0]))<br>
++			     : gen_reg_rtx (SImode));<br>
++<br>
++	      get_aligned_mem (operands[1], &amp;aligned_mem, &amp;bitnum);<br>
++<br>
++	      emit_insn (gen_aligned_loadhi (operands[0], aligned_mem, bitnum,<br>
++					     scratch));<br>
++	    }<br>
++	  else<br>
++	    {<br>
++	      rtx addr<br>
++		= force_reg (DImode,<br>
++			     force_operand (get_unaligned_address (operands[1]),<br>
++					    NULL_RTX));<br>
++	      rtx scratch1 = gen_reg_rtx (DImode);<br>
++	      rtx scratch2 = gen_reg_rtx (DImode);<br>
++	      rtx scratch3 = gen_reg_rtx (DImode);<br>
++<br>
++	      rtx seq = gen_unaligned_loadhi (operands[0], addr, scratch1,<br>
++					      scratch2, scratch3);<br>
++<br>
++	      alpha_set_memflags (seq, operands[1]);<br>
++	      emit_insn (seq);<br>
++	    }<br>
+ <br>
+-	  alpha_set_memflags (seq, operands[1]);<br>
+-	  emit_insn (seq);<br>
++	  DONE;<br>
+ 	}<br>
+ <br>
+-      DONE;<br>
+-    }<br>
+-<br>
+-  else if (GET_CODE (operands[0]) == MEM<br>
+-	   || (GET_CODE (operands[0]) == SUBREG <br>
+-	       &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == MEM)<br>
+-	   || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == REG<br>
+-	       &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER)<br>
+-	   || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == SUBREG<br>
+-	       &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == REG<br>
+-	       &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER))<br>
+-    {<br>
+-      if (aligned_memory_operand (operands[0], HImode))<br>
++      else if (GET_CODE (operands[0]) == MEM<br>
++	       || (GET_CODE (operands[0]) == SUBREG <br>
++		   &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == MEM)<br>
++	       || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == REG<br>
++		   &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER)<br>
++	       || (reload_in_progress &amp;&amp; GET_CODE (operands[0]) == SUBREG<br>
++		   &amp;&amp; GET_CODE (SUBREG_REG (operands[0])) == REG<br>
++		   &amp;&amp; REGNO (operands[0]) &gt;= FIRST_PSEUDO_REGISTER))<br>
+ 	{<br>
+-	  rtx aligned_mem, bitnum;<br>
+-	  rtx temp1 = gen_reg_rtx (SImode);<br>
+-	  rtx temp2 = gen_reg_rtx (SImode);<br>
++	  if (aligned_memory_operand (operands[0], HImode))<br>
++	    {<br>
++	      rtx aligned_mem, bitnum;<br>
++	      rtx temp1 = gen_reg_rtx (SImode);<br>
++	      rtx temp2 = gen_reg_rtx (SImode);<br>
++<br>
++	      get_aligned_mem (operands[0], &amp;aligned_mem, &amp;bitnum);<br>
++<br>
++	      emit_insn (gen_aligned_store (aligned_mem, operands[1], bitnum,<br>
++					    temp1, temp2));<br>
++	    }<br>
++	  else<br>
++	    {<br>
++	      rtx temp1 = gen_reg_rtx (DImode);<br>
++	      rtx temp2 = gen_reg_rtx (DImode);<br>
++	      rtx temp3 = gen_reg_rtx (DImode);<br>
++	      rtx temp4 = gen_reg_rtx (DImode);<br>
++	      rtx temp5 = gen_reg_rtx (DImode);<br>
++	      rtx temp6 = gen_reg_rtx (DImode);<br>
++	      rtx temp7 = gen_reg_rtx (DImode);<br>
++	      rtx temp8 = gen_reg_rtx (DImode);<br>
++	      rtx temp9 = gen_reg_rtx (DImode);<br>
++<br>
++	      rtx seq = gen_unaligned_storehi (get_unaligned_address (operands[0]),<br>
++					       operands[1], temp1, temp2,temp3,<br>
++					       temp4, temp5, temp6,temp7,<br>
++					       temp8, temp9);<br>
++<br>
++	      alpha_set_memflags (seq, operands[0]);<br>
++	      emit_insn (seq);<br>
++	    }<br>
+ <br>
+-	  get_aligned_mem (operands[0], &amp;aligned_mem, &amp;bitnum);<br>
+-<br>
+-	  emit_insn (gen_aligned_store (aligned_mem, operands[1], bitnum,<br>
+-					temp1, temp2));<br>
++	  DONE;<br>
+ 	}<br>
+-      else<br>
+-	{<br>
+-	  rtx temp1 = gen_reg_rtx (DImode);<br>
+-	  rtx temp2 = gen_reg_rtx (DImode);<br>
+-	  rtx temp3 = gen_reg_rtx (DImode);<br>
+-	  rtx temp4 = gen_reg_rtx (DImode);<br>
+-	  rtx temp5 = gen_reg_rtx (DImode);<br>
+-	  rtx temp6 = gen_reg_rtx (DImode);<br>
+-	  rtx temp7 = gen_reg_rtx (DImode);<br>
+-	  rtx temp8 = gen_reg_rtx (DImode);<br>
+-	  rtx temp9 = gen_reg_rtx (DImode);<br>
+-<br>
+-	  rtx seq = gen_unaligned_storehi (get_unaligned_address (operands[0]),<br>
+-					   operands[1], temp1, temp2,temp3,<br>
+-					   temp4, temp5, temp6,temp7,<br>
+-					   temp8, temp9);<br>
+-<br>
+-	  alpha_set_memflags (seq, operands[0]);<br>
+-	  emit_insn (seq);<br>
+-	}<br>
+-<br>
+-      DONE;<br>
+     }<br>
+ }")<br>
+ <br>
+<pre>
+-- 
+Jim Paradis (<a href="mailto:paradis@amt.tay1.dec.com">paradis@amt.tay1.dec.com</a>)        "It's not procrastination, 
+Digital Equipment Corporation		       it's my new Just-In-Time 
+(508)952-4047				       Workload Management System!"
+<a href="http://www.tiac.net/users/jrp/index.html">http://www.tiac.net/users/jrp/index.html</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0042.html">Richard Henderson: "ev56 comment response"</a>
+<li> <b>Previous message:</b> <a href="0040.html">Roman Gollent: "Re: First Alpha machine"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,164 @@
+<!-- received="Wed May  8 15:15:09 1996 " -->
+<!-- sent="Wed, 8 May 1996 15:15:09 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: gdb" -->
+<!-- id="m0uHFde-0001qDC@atheist.tamu.edu" -->
+<!-- inreplyto="gdb" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Wed, 8 May 1996 15:15:09 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#142">[ date ]</a><a href="index.html#142">[ thread ]</a><a href="subject.html#142">[ subject ]</a><a href="author.html#142">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0143.html">Michael Schwingen: "Jensen installation made easy"</a>
+<li> <b>Previous message:</b> <a href="0141.html">Florian Fuchs: "additional memory on Multia"</a>
+<li> <b>Maybe in reply to:</b> <a href="0091.html">Harald Koenig: "gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0149.html">Harald Koenig: "Re: gdb"</a>
+<li> <b>Reply:</b> <a href="0149.html">Harald Koenig: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+[My yall are talkative today -- this is about 5 messages cut up<br>
+and pasted back together, hopefully by topic.]<br>
+<p>
+Linus&gt; On Tue, 7 May 1996, Harald Koenig wrote:<br>
+Linus&gt; &gt; <br>
+Linus&gt; &gt; does anyone have a patch for gdb which would allow to display the<br>
+Linus&gt; &gt; sybmolic destination of a JSR like this<br>
+Linus&gt; &gt; <br>
+Linus&gt; &gt;           a77db248        ldq     t12, -19896(gp)<br>
+Linus&gt; &gt;           6b5b6c2a        jsr     ra, (t12), 0x12004c0e4<br>
+Linus&gt; &gt; <br>
+Linus&gt; &gt; and other accesses via (gp) for the disassebmle or x/i instruction<br>
+Linus&gt; &gt; for a running process ?<br>
+Linus&gt; <br>
+Linus&gt; Umm, while I agree that it might make it a lot easier to debug things<br>
+Linus&gt; on the alpha, I hope nobody writes a patch like that for gdb. The<br>
+Linus&gt; reason I hope that is that I hope that it will be unnecessary. The<br>
+Linus&gt; _correct_ way to handle it is to never generate those d*mn instructions<br>
+Linus&gt; in the first place. We need an optimizing linker that gets rid of them<br>
+Linus&gt; and makes it into a single "bsr" instruction instead. <br>
+<p>
+Well, it would have been usefull for other things as well like<br>
+<p>
+	ldq	t0,-1234(gp)<br>
+	stq	v0,0(t0)<br>
+<p>
+What symbol is being modified?  However, I looked at this yesterday<br>
+and I do not believe that it is possible for the disassembler to get<br>
+hold of enough context to be able to make this work.<br>
+<p>
+EricY&gt; 	This wouldn't be a hard optimization, and in fact it would make<br>
+EricY&gt; shared libraries a bit easier for those cases where you can safely call<br>
+EricY&gt; without going through a PLT (i.e. we are not using up a valuable .got<br>
+EricY&gt; slot for a pointer).  It would tend to be used for things like static<br>
+EricY&gt; functions that we would want to do this in shared libs.   For normal<br>
+EricY&gt; executables, it is more just a question of whether the branch is in <br>
+EricY&gt; range or not.<br>
+<p>
+Are you thinking of performing the optimization if (1) we're doing<br>
+a static executable or (2) dynamic executable and (2a) the symbol is in<br>
+the library or (2b) it is out of range?<br>
+<p>
+As Linus already mentioned, The static function call case is<br>
+already handled within gcc.<br>
+<p>
+DMT&gt; But if somebody starts to work on the linker optimizations proposed by<br>
+DMT&gt; Linus, do keep in mind that the calling convention requires $27 (pv) to<br>
+DMT&gt; point to the starting address of the called function.  It is possible to<br>
+DMT&gt; avoid having to load $27 but only if the global pointer register has the<br>
+DMT&gt; same value in the caller and the callee.  In that case, you'd have to skip<br>
+DMT&gt; the prologue code that establishes the gp (normally the first two<br>
+DMT&gt; instructions).<br>
+<p>
+The position (and existance) of the gp load can be verified by noticing<br>
+the position and existance of the appropriate fixups.<br>
+<p>
+Linus&gt; Yeah, bit me when I did the gcc optimization, which was why I eventually <br>
+Linus&gt; decided that we can't do it with gcc at all for the normal case.<br>
+<p>
+I am thinking that there is still room for the optimization in gcc.<br>
+In the form of a flag that forces a single gp and all code to fall<br>
+within a 23-bit window (8MB?).  <br>
+<p>
+How are modules handled in the kernel right now?  Surely each module<br>
+has to have its own gp?  Is it feasable to have all modules mapped <br>
+into the same 8MB window as the rest of the kernel, or do they need<br>
+to have their calls go through a the gp?<br>
+<p>
+EricY&gt; 	Actually, the .lita sections are generated by the assembler,<br>
+EricY&gt; so the optimization would basically mean that there are unused portions<br>
+EricY&gt; of the file.  The linker is just appending all of the .lita sections<br>
+EricY&gt; that the assembler generates without removing duplicates, and without<br>
+EricY&gt; compressing it.<br>
+EricY&gt; <br>
+EricY&gt; 	Frankly, I have doubts as to whether it is really wise<br>
+EricY&gt; to generate .lita at assembly time (it should be generated by the linker<br>
+EricY&gt; as required, instead), but I am not yet sure whether it is possible to<br>
+EricY&gt; defer creation of this section to the linker.<br>
+<p>
+:-) I was thinking of asking you if you thought adding a new<br>
+relocation type to preclude the need for the assembler to<br>
+generate the lita section was a good idea.  I was thinking that<br>
+something like that was going to be necessary to do the GOT<br>
+compression we'd been talking about.<br>
+<p>
+Linus&gt; There are some other optimizations that it would be interesting if gcc<br>
+Linus&gt; did: "known alignment byte and word fetch/store". There are cases where<br>
+Linus&gt; you know the alignment of a byte or short value (when the access is<br>
+Linus&gt; through a structure or union that has guaranteed alignment due to<br>
+Linus&gt; other larger members), but gcc creates code for the generic byte load<br>
+Linus&gt; case. For example: <br>
+<p>
+I've been thinking about this one too.  I'd also want to have gcc know how<br>
+to do something like<br>
+<p>
+    unsigned long __attribute__((align(2))) * foo;<br>
+<p>
+to say that foo points to a long aligned on a short boundary.  The<br>
+Architecture Manual points out that there are simpler ways to do <br>
+loads that are "partially" aligned.<br>
+<p>
+The implementation of this optimization will likely be a bit harder<br>
+than the previous though.<br>
+<p>
+<p>
+r~<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0143.html">Michael Schwingen: "Jensen installation made easy"</a>
+<li> <b>Previous message:</b> <a href="0141.html">Florian Fuchs: "additional memory on Multia"</a>
+<li> <b>Maybe in reply to:</b> <a href="0091.html">Harald Koenig: "gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0149.html">Harald Koenig: "Re: gdb"</a>
+<li> <b>Reply:</b> <a href="0149.html">Harald Koenig: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

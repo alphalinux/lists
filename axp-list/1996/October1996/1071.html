@@ -1,0 +1,157 @@
+<!-- received="Fri Oct 25 17:35:27 1996 " -->
+<!-- sent="Fri, 25 Oct 1996 22:16:49 +0000 (GMT)" -->
+<!-- name="Gerard Roudier" -->
+<!-- email="groudier@club-internet.fr" -->
+<!-- subject="Re: SCSI driver times out on UDB?" -->
+<!-- id="199610230948.JAA09718@linux.reo.dec.com" -->
+<!-- inreplyto="199610251330.XAA00320@cs.monash.edu.au" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SCSI driver times out on UDB?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SCSI driver times out on UDB?</h2>
+
+<b>Gerard Roudier</b> (<a href="mailto:groudier@club-internet.fr"><i>groudier@club-internet.fr</i></a>)<br>
+<i>Fri, 25 Oct 1996 22:16:49 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1071">[ date ]</a><a href="index.html#1071">[ thread ]</a><a href="subject.html#1071">[ subject ]</a><a href="author.html#1071">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1072.html">jestabro@amt.tay1.dec.com: "Re: Where do I get linload.exe?"</a>
+<li> <b>Previous message:</b> <a href="1070.html">David A Rusling: "Re: Stability"</a>
+<li> <b>In reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1134.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 25 Oct 1996, Bernd Bernie Meyer wrote:<br>
+<p>
+<i>&gt; Hi there,</i><br>
+<i>&gt; </i><br>
+<i>&gt; My UDB's disk drive has recently stopped working (it doesn't even spin</i><br>
+<i>&gt; up anymore). No problem, I thought, it was crap, anyway, I will just get</i><br>
+<i>&gt; some decent disk in there. Of course, no can do --- the power supply is</i><br>
+<i>&gt; too weak.</i><br>
+<i>&gt; </i><br>
+<i>&gt; So, my idea was to share the SCSI disk in my PC with the UDB. The setup</i><br>
+<i>&gt; would be something like</i><br>
+<i>&gt; </i><br>
+<i>&gt;  </i><br>
+<i>&gt;     _________________ ____________________</i><br>
+<i>&gt;     I                V                    I</i><br>
+<i>&gt;    NCR              NCR                 disk</i><br>
+<i>&gt;    UDB            Pentium                 </i><br>
+<p>
+That should work, at least on paper.<br>
+Do you really need such configuration?<br>
+ <br>
+<i>&gt; with termination on the UDB NCR and on the disk. The UDB's NCR is supposed</i><br>
+<i>&gt; to get SCSI id 5, the Pentium will grab 7, and the disk is at 0. Of course,</i><br>
+<i>&gt; the UDB and the Pentium will use seperate partitions on the disk, otherwise</i><br>
+<i>&gt; it would be sure to end in disaster.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Well, after unsuccessfully trying to convince the ARC console to leave alone</i><br>
+<i>&gt; SCSI ID 7, I switched to SRM (and boy, I like it :-), and SRM has no problems</i><br>
+<i>&gt; doing as it is told.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I managed to install a (minimal) RedHat 4.0 on the UDB's partition (while</i><br>
+<i>&gt; the Pentium was sitting at the CMOS setup screen, thus leaving alone the</i><br>
+<i>&gt; SCSI bus).</i><br>
+<i>&gt; </i><br>
+<i>&gt; I _can_ boot both and use both machines at the same time (the Pentium gets </i><br>
+<i>&gt; slightly annoyed at the SCSI bus being reset when the UDB boots, but </i><br>
+<i>&gt; nothing bad happens). BUT:</i><br>
+<i>&gt; </i><br>
+<i>&gt; Every now and again, the UDB will stop working with a message to the effect</i><br>
+<i>&gt; of (from memory) </i><br>
+<i>&gt; </i><br>
+<i>&gt; ncr53c8xx: aborting command due to timeout</i><br>
+<p>
+Aie! something went wrong ...<br>
+ <br>
+<i>&gt; and then a PID and some more info that doesn't seem to helpful. Unfortunately,</i><br>
+<i>&gt; not only will it not recover from such a timeout, but it also seems to kill</i><br>
+<i>&gt; the SCSI bus --- the Pentium can't access the disk anymore, either. BAD!</i><br>
+<p>
+In my opinion, drivers writers did not imagine such situation.<br>
+For example, the scsi reset will set devices in asynchronous mode, and <br>
+initiators that negotiated sync transfers will continue to use sync <br>
+transfers.<br>
+There are probably other unexpected bad things that may happen ...<br>
+ <br>
+<i>&gt; OK, I _do_ have an idea --- if I understand it correctly, the Pentium has</i><br>
+<i>&gt; higher priority on the bus than the UDB. So it might happen that the UDB</i><br>
+<i>&gt; wants to talk to the disk, and as the Pentium is using the bus at the</i><br>
+<i>&gt; time, won't get through. This is probably unanticipated by the driver</i><br>
+<i>&gt; writers, and might in extreme cases lead to a timeout. Does that sound</i><br>
+<i>&gt; reasonable?</i><br>
+<i>&gt;</i><br>
+<i>&gt; Now, my questions: </i><br>
+<i>&gt; </i><br>
+<i>&gt; a) Any idea where I could change the timeout period to some really high</i><br>
+<i>&gt;    value? And why does a timeout hang the SCSI bus?</i><br>
+<p>
+The SD timeout is 15 seconds. It is reasonable and large. If you get a <br>
+timeout, obviously it is a problem.<br>
+Increasing the timeout will not fix anything.<br>
+<p>
+<i>&gt; b) Is the suggested setup possible at all, using the cheap NCRs?</i><br>
+<p>
+In theory probably. But in my opinion, drives and drivers are not quite <br>
+ready for such things even if the scsi-2 specs do not preclude it.<br>
+<p>
+<i>&gt; c) I am using the 2.0.21 kernel with the BSD-53c8xx driver on the Pentium,</i><br>
+<i>&gt;    and the default RedHat 4.0 Noname kernel on the UDB. Any known </i><br>
+<i>&gt;    problems with the SCSI drivers in either (if so, I can recompile</i><br>
+<i>&gt;    kernels for both platforms without trouble).</i><br>
+<i>&gt; d) On a related note --- is there a way to make the SRM console autoboot</i><br>
+<i>&gt;    my MILO?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Any help appreciated --- that UDB is waiting to go into action again!</i><br>
+<p>
+I you really need such configuration, you should, in my opinion:<br>
+<p>
+- Only use untagged commands on both hosts.<br>
+- Only use asynchronous transfers on both hosts.<br>
+- A pilgrimage in Lourdes (FRANCE) (known for its miracles) may help too. :)<br>
+<p>
+<i>&gt; TIA</i><br>
+<i>&gt; </i><br>
+<i>&gt;     Bernie</i><br>
+<p>
+Gerard.<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1072.html">jestabro@amt.tay1.dec.com: "Re: Where do I get linload.exe?"</a>
+<li> <b>Previous message:</b> <a href="1070.html">David A Rusling: "Re: Stability"</a>
+<li> <b>In reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1134.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Trouble with LX164 serial console install</TITLE>
+<META NAME="Author" CONTENT="Adam C Powell IV (hazelsct@mit.edu)">
+<META NAME="Subject" CONTENT="Trouble with LX164 serial console install">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Trouble with LX164 serial console install</H1>
+<HR>
+<P>
+<!-- received="Thu May 11 00:15:29 2000" -->
+<!-- isoreceived="20000511071529" -->
+<!-- sent="Wed, 10 May 2000 20:06:48 -0400" -->
+<!-- isosent="20000511000648" -->
+<!-- name="Adam C Powell IV" -->
+<!-- email="hazelsct@mit.edu" -->
+<!-- subject="Trouble with LX164 serial console install" -->
+<!-- id="3919F998.E0C1152F@mit.edu" -->
+<STRONG>Subject: </STRONG>Trouble with LX164 serial console install<BR>
+<STRONG>From: </STRONG>Adam C Powell IV (<EM>hazelsct@mit.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 10 2000 - 17:06:48 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#75">[ date ]</A>
+<A HREF="index.html#75">[ thread ]</A>
+<A HREF="subject.html#75">[ subject ]</A>
+<A HREF="author.html#75">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0076.html">Christopher C. Chimelis: "Re: ld problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0074.html">David Huggins-Daines: "Re: ld problem"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Greetings,
+<BR>
+<P>Finally got around to testing the potato boot floppies with
+<BR>
+console=ttyS0.  I'm using the potato boot floppies 2.2.13 from 5/4.
+<BR>
+<P>First problem: the tulip and old_tulip modules don't install in modconf,
+<BR>
+says &quot;Device or resource busy&quot;.  On reboot, there was something about
+<BR>
+eth0, de4x5.c which seems to indicate tulip is built in to the kernel.
+<BR>
+So if this is built in, it should not also be a module, right?
+<BR>
+<P>Second: In dbootstrap, the &quot;Make Linux bootable from hard drive&quot; step
+<BR>
+looks for milo on the floppy in a file named eb164, instead of lx164.
+<BR>
+When it isn't found, there's no way to &quot;Cancel&quot; back to the dbootstrap
+<BR>
+main menu, it infinite loops between &quot;put in the floppy&quot; and &quot;can't find
+<BR>
+eb164&quot; dialogs.  (The workaround is easy, just &quot;cd /floppy; cp lx164
+<BR>
+eb164&quot; on a separate machine, reinsert and we're good, but there should
+<BR>
+be a way to break out of the dialogs, right?)
+<BR>
+<P>Third: Escaped to a shell for finishing touches needed for serial
+<BR>
+console.  /etc/securetty came with ttyS0, which is cool.  But when I
+<BR>
+tried to edit inittab using ae (vi doesn't fit on the boot floppies),
+<BR>
+there was a problem:
+<BR>
+<P>S-Lang Error: Unknown Error Code
+<BR>
+SLcurses_initscr: init failed
+<BR>
+<P>then the # prompt, but only ^C key does anything, and it looks like it
+<BR>
+LFs without CR, no other response to the keyboard.  So I had to hard
+<BR>
+reboot, without unmounting...
+<BR>
+<P>On the bright side: during the initial install, everything came up well
+<BR>
+on LX164 with serial console, using &quot;console=ttyS0&quot;.  In fact, my old
+<BR>
+Tex 4207 used as console couldn't handle the vt220 (?) commands in the
+<BR>
+Slink startup, so it filled the screen with errors; potato is 1000% more
+<BR>
+readable!
+<BR>
+<P>However, after rebooting (with no change to /etc/inittab), it reverts to
+<BR>
+vt220 (?), so the screen is filled with errors and I can't read
+<BR>
+anything, I'm guessing the questions and typing blind.  It seems
+<BR>
+&quot;configure the base system&quot; has detected that I'm on a serial console,
+<BR>
+and modified inittab accordingly to run:
+<BR>
+<P>&quot;dpkg-reconfigure debian-base &lt; /dev/ttyS0 &gt; /dev/ttyS0
+<BR>
+<P>Brilliant!  But if you're going to go to the trouble to make dbootstrap
+<BR>
+vt100-friendly, and inittab.real start up in a vt100-friendly way, well,
+<BR>
+could it be possible to perform this step in such a way too?.
+<BR>
+<P>Much worse though, escape is now somehow trapped by the serial driver,
+<BR>
+so when I force it to run vi (like, &quot;Edit apt sources by hand&quot;), I can't
+<BR>
+do anything.  ^C, ^Z, nothing works, I can't get out, I'm paralyzed, so
+<BR>
+I hard reboot.  But even though I set the root password and new user
+<BR>
+name last time around, the potato installer comes up anyway.  I can't
+<BR>
+edit anything, anywhere, I can't finish installing...
+<BR>
+<P>Akha!  I reboot with the rescue milo/floppy/root, execute a shell, and
+<BR>
+copy inittab.real to inittab; this has also been intelligently
+<BR>
+configured to start getty on /dev/ttyS0 with vt102, so it comes up very
+<BR>
+nicely on my machine.  Cool!
+<BR>
+<P>I run dpkg-reconfigure debian-base, and I'm installed.
+<BR>
+<P>These little problems are small, and perhaps specific to my particular
+<BR>
+system, and nothing compared to the great strides with which this has
+<BR>
+advanced beyond the Slink install.  I hope the problems can be fixed,
+<BR>
+but in the meantime, congratulations on a terrific installation system!
+<BR>
+<P>-Adam P.
+<BR>
+<P><P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0076.html">Christopher C. Chimelis: "Re: ld problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0074.html">David Huggins-Daines: "Re: ld problem"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:26 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

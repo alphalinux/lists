@@ -1,0 +1,265 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] ccc on SuSE?</TITLE>
+<META NAME="Author" CONTENT="Norbert Eicker (eicker@theorie.physik.uni-wuppertal.de)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] ccc on SuSE?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] ccc on SuSE?</H1>
+<HR>
+<P>
+<!-- received="Fri Oct 15 17:11:10 1999" -->
+<!-- isoreceived="19991016001110" -->
+<!-- sent="Thu, 14 Oct 1999 15:15:32 +0200" -->
+<!-- isosent="19991014131532" -->
+<!-- name="Norbert Eicker" -->
+<!-- email="eicker@theorie.physik.uni-wuppertal.de" -->
+<!-- subject="Re: [suse-axp] ccc on SuSE?" -->
+<!-- id="199910141315.PAA04311@wptl19.physik.uni-wuppertal.de" -->
+<!-- inreplyto="19991011085710.A30325@keksy.mchp.siemens.de" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] ccc on SuSE?<BR>
+<STRONG>From: </STRONG>Norbert Eicker (<EM>eicker@theorie.physik.uni-wuppertal.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Oct 14 1999 - 06:15:32 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#56">[ date ]</A>
+<A HREF="index.html#56">[ thread ]</A>
+<A HREF="subject.html#56">[ subject ]</A>
+<A HREF="author.html#56">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0057.html">Waite, Michael: "[suse-axp] Compaq Compilers on SuSE Linux"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0055.html">Lenz Grimmer: "Re: [suse-axp] JDK + AWT?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0044.html">Martin Kahlert: "Re: [suse-axp] ccc on SuSE?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0044.html">Norbert Eicker: "Re: [suse-axp] ccc on SuSE?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi list,
+<BR>
+<P>I think I made some advance in making ccc run on SuSE 6.1!
+<BR>
+<P>First of all you have to build a new libc (question to SuSE: what's
+<BR>
+the cause of libNoVersion not being in shlibs on alpha ?):
+<BR>
+<P>- Install libc.spm
+<BR>
+<P>- Apply the following patch to libc.spec (maybe you should also change
+<BR>
+&nbsp;&nbsp;'Release:'):
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+--- libc.spec.orig	Wed Jun  9 06:36:34 1999
+<BR>
++++ libc.spec	Wed Oct 13 15:00:00 1999
+<BR>
+@@ -25,7 +25,7 @@
+<BR>
+&nbsp;BuildRoot: /tmp/glibc_build
+<BR>
+&nbsp;Source: glibc-2.1.tar.gz
+<BR>
+&nbsp;Source1: glibc-crypt-2.1.tar.gz
+<BR>
+-Source2: <A HREF="http://www.suse.de/~kukuk/linux/glibc/glibc-nss-v1-2.0.2.tar.gz">http://www.suse.de/~kukuk/linux/glibc/glibc-nss-v1-2.0.2.tar.gz</A>
+<BR>
++Source2: glibc-nss-v1-2.0.2.tar.gz
+<BR>
+&nbsp;Source3: noversion.tar.gz
+<BR>
+&nbsp;Source4: manpages.tar.gz
+<BR>
+&nbsp;Patch: glibc-2.1.dif
+<BR>
+@@ -250,15 +250,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Zack Weinberg &lt;zack@rabi.phys.columbia.edu&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;%prep
+<BR>
+-%ifarch i386
+<BR>
+&nbsp;%setup -n glibc-2.1 -a 1 -a 2 -a 3 -a 4
+<BR>
+-%else
+<BR>
+-%setup -n glibc-2.1 -a 1 -a 2 -a 4
+<BR>
+-%endif
+<BR>
+&nbsp;%patch -P 0 -P 2
+<BR>
+-%ifarch i386
+<BR>
+&nbsp;%patch -P 1 -p1
+<BR>
+-%endif
+<BR>
+&nbsp;case `/usr/share/automake/config.guess` in
+<BR>
+&nbsp;&nbsp;*alpha*)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;system=alpha-unknown-linux
+<BR>
+@@ -331,9 +325,7 @@
+<BR>
+&nbsp;ln -s  ../../lib/libdb.so.2 $RPM_BUILD_ROOT/usr/lib/libdb1.so
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+&nbsp;esac
+<BR>
+-%ifarch i386
+<BR>
+&nbsp;rm -f /usr/lib/libNoVersion*
+<BR>
+-%endif
+<BR>
+&nbsp;find $RPM_BUILD_ROOT &gt; /filelist
+<BR>
+&nbsp;Check
+<BR>
+&nbsp;%clean
+<BR>
+@@ -464,10 +456,8 @@
+<BR>
+&nbsp;/usr/bin/tzselect
+<BR>
+&nbsp;/usr/sbin/rpcinfo
+<BR>
+&nbsp;/usr/sbin/utmpd
+<BR>
+-%ifarch i386
+<BR>
+&nbsp;/usr/sbin/nscd
+<BR>
+&nbsp;/lib/libNoVersion.so.1
+<BR>
+-%endif
+<BR>
+&nbsp;%files -n nssv1
+<BR>
+&nbsp;/lib/libnss_files.so.1*
+<BR>
+&nbsp;/lib/libnss_dns.so.1*
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P>- build the package using 'rpm -bb libc.spec'
+<BR>
+<P>You will get a new shlibs-package in /usr/src/packages/RPMS/alpha/ now
+<BR>
+containing '/lib/libNoVersion.so.1'. Just replace the one from SuSE
+<BR>
+with it.
+<BR>
+<P>I haven't tested it very hard but it works at least for the
+<BR>
+Compaq-Compiler (of course you can also log in... :-)).
+<BR>
+<P>If you don't want to set the link Martin suggested you can also apply
+<BR>
+the following patch to the configuration script (i.e.
+<BR>
+'/usr/lib/compaq/ccc-6.2/alpha-redhat-linux/bin/create-comp-config.sh'):
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+--- create-comp-config.sh.orig  Fri Sep 10 16:48:43 1999
+<BR>
++++ create-comp-config.sh       Wed Oct 13 13:26:05 1999
+<BR>
+@@ -23,14 +23,14 @@
+<BR>
+&nbsp;#
+<BR>
+&nbsp;CCC_VERSION=ccc-6.2
+<BR>
+&nbsp;CCC_ROOT=${CPQ_COMP_ROOT}/usr/lib/compaq/${CCC_VERSION}/alpha-redhat-linux
+<BR>
+-EGCS_ROOT=/usr/lib/gcc-lib/alpha-redhat-linux
+<BR>
++EGCS_ROOT=/usr/lib/gcc-lib/alpha-unknown-linux
+<BR>
+&nbsp;
+<BR>
+&nbsp;Make_compconfig_file()
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;# RELOCATE_LD=&quot;-tl -h$1 -B&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;RELOCATE_LD=&quot;&quot;
+<BR>
+-  SYS_INCDIR=&quot;-SysIncDir ${CCC_ROOT}/include -SysIncDir /usr/local/include -SysIncDir /usr/alpha-redhat-linux/include -SysIncDir $1/include&quot;
+<BR>
+-  SYS_LIBDIR=&quot;-L${CCC_ROOT}/lib -L/usr/local/lib -L/usr/alpha-redhat-linux/lib -L$1&quot;
+<BR>
++  SYS_INCDIR=&quot;-SysIncDir ${CCC_ROOT}/include -SysIncDir /usr/local/include -SysIncDir /usr/alpha-linux/include -SysIncDir $1/include&quot;
+<BR>
++  SYS_LIBDIR=&quot;-L${CCC_ROOT}/lib -L/usr/local/lib -L/usr/alpha-linux/lib -L$1&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;#
+<BR>
+&nbsp;&nbsp;&nbsp;# Create a backup of one that is already there and different
+<BR>
+&nbsp;&nbsp;&nbsp;COMPCONFIG=&quot;${RELOCATE_LD} $2 | ${SYS_INCDIR} ${SYS_LIBDIR}&quot;
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P>Then rerun this script.
+<BR>
+<P>Now you have to change the symlinks 'crtbegin.o' and 'crtend.o' in
+<BR>
+'/usr/lib/compaq/ccc-6.2/alpha-redhat-linux/bin/'. The following
+<BR>
+settings work fine for me:
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+lrwxrwxrwx   1 root     root           60 Oct 13 13:37 crtbegin.o -&gt; /usr/lib/gcc-lib/alpha-unknown-linux/egcs-2.91.66/crtbegin.o
+<BR>
+lrwxrwxrwx   1 root     root           58 Oct 13 13:37 crtend.o -&gt; /usr/lib/gcc-lib/alpha-unknown-linux/egcs-2.91.66/crtend.o
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P><P><P>Ciao,
+<BR>
+<P>Norbert
+<BR>
+<P><PRE>
+-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0057.html">Waite, Michael: "[suse-axp] Compaq Compilers on SuSE Linux"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0055.html">Lenz Grimmer: "Re: [suse-axp] JDK + AWT?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0044.html">Martin Kahlert: "Re: [suse-axp] ccc on SuSE?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0044.html">Norbert Eicker: "Re: [suse-axp] ccc on SuSE?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:59 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

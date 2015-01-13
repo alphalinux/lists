@@ -1,0 +1,625 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: weird error messages</TITLE>
+<META NAME="Author" CONTENT="Christopher C. Chimelis (chris@debian.org)">
+<META NAME="Subject" CONTENT="Re: weird error messages">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: weird error messages</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 09 23:23:25 2001" -->
+<!-- isoreceived="20010210072325" -->
+<!-- sent="Fri, 9 Feb 2001 11:30:50 -0500 (EST)" -->
+<!-- isosent="20010209163050" -->
+<!-- name="Christopher C. Chimelis" -->
+<!-- email="chris@debian.org" -->
+<!-- subject="Re: weird error messages" -->
+<!-- id="Pine.LNX.4.21.0102091129560.31873-100000@spawn.hockeyfiend.com" -->
+<!-- inreplyto="20010209173204.A9701@livarot.noc.fr.clara.net" -->
+<STRONG>Subject: </STRONG>Re: weird error messages<BR>
+<STRONG>From: </STRONG>Christopher C. Chimelis (<EM>chris@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Feb 09 2001 - 08:30:50 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#265">[ date ]</A>
+<A HREF="index.html#265">[ thread ]</A>
+<A HREF="subject.html#265">[ subject ]</A>
+<A HREF="author.html#265">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0266.html">Christopher C. Chimelis: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0264.html">Daniel Pettersson: "Re: weird error messages"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0267.html">Lerale Erwan: "Re: weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0272.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0267.html">Christopher C. Chimelis: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt; Same kind of problem with nmap :)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Feb  9 16:12:22 hot kernel: nmap(2999): unaligned trap at 00000001200106bc: 000000012008d8fe 28 2
+</EM><BR>
+<EM>&gt; Feb  9 16:14:31 hot kernel: nmap(3003): unaligned trap at 00000001200106bc: 000000012008d8fe 28 2
+</EM><BR>
+<EM>&gt; Feb  9 16:14:31 hot kernel: nmap(3003): unaligned trap at 00000001200106e0: 000000012008d8fe 28 2
+</EM><BR>
+<EM>&gt; Feb  9 16:14:31 hot kernel: nmap(3003): unaligned trap at 0000000120010940: 000000012008d90a 28 3
+</EM><BR>
+<P>Try this patch for nmap (below).  I wrote it awhile ago and really don't
+<BR>
+know if it'll fix the above problems, but it's possible that the regular
+<BR>
+maintainer dumped my patches in the past...
+<BR>
+<P>diff -ruN nmap-2.12/osscan.c nmap-patched/osscan.c
+<BR>
+--- nmap-2.12/osscan.c	Sun Apr  4 03:45:41 1999
+<BR>
++++ nmap-patched/osscan.c	Thu Jul  6 19:43:25 2000
+<BR>
+@@ -23,7 +23,7 @@
+<BR>
+&nbsp;int testsleft;
+<BR>
+&nbsp;int testno;
+<BR>
+&nbsp;int  timeout;
+<BR>
+-unsigned long sequence_base;
+<BR>
++unsigned int sequence_base;
+<BR>
+&nbsp;unsigned int openport;
+<BR>
+&nbsp;int bytes;
+<BR>
+&nbsp;unsigned int closedport;
+<BR>
+@@ -34,15 +34,15 @@
+<BR>
+&nbsp;char err0r[PCAP_ERRBUF_SIZE];
+<BR>
+&nbsp;char filter[512];
+<BR>
+&nbsp;double seq_inc_sum = 0;
+<BR>
+-unsigned long  seq_avg_inc = 0;
+<BR>
++unsigned int  seq_avg_inc = 0;
+<BR>
+&nbsp;struct udpprobeinfo *upi = NULL;
+<BR>
+-unsigned long seq_gcd = 1;
+<BR>
+-unsigned long seq_diffs[NUM_SEQ_SAMPLES];
+<BR>
++unsigned int seq_gcd = 1;
+<BR>
++unsigned int seq_diffs[NUM_SEQ_SAMPLES];
+<BR>
+&nbsp;int ossofttimeout, oshardtimeout;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Init our fingerprint tests to each be NULL */
+<BR>
+&nbsp;bzero(FPtests, sizeof(FPtests)); 
+<BR>
+-get_random_bytes(&amp;sequence_base, sizeof(unsigned long));
+<BR>
++get_random_bytes(&amp;sequence_base, sizeof(unsigned int));
+<BR>
+&nbsp;/* Init our raw socket */
+<BR>
+&nbsp;&nbsp;if ((rawsd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) &lt; 0 )
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pfatal(&quot;socket trobles in get_fingerprint&quot;);
+<BR>
+@@ -310,9 +310,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Some versions of libc seem to have broken pow ... so we
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;avoid it */
+<BR>
+&nbsp;#ifdef LINUX       
+<BR>
+-       si-&gt;index = (unsigned long) (0.5 + sqrt(seq_inc_sum));
+<BR>
++       si-&gt;index = (unsigned int) (0.5 + sqrt(seq_inc_sum));
+<BR>
+&nbsp;#else
+<BR>
+-       si-&gt;index = (unsigned long) (0.5 + pow(seq_inc_sum, 0.5));
+<BR>
++       si-&gt;index = (unsigned int) (0.5 + pow(seq_inc_sum, 0.5));
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*       printf(&quot;The sequence index is %d\n&quot;, si-&gt;index);*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (si-&gt;index &lt; 75) {
+<BR>
+@@ -348,7 +348,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(seq_AVs[0].value, &quot;TD&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[0].next = &amp;seq_AVs[1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[1].attribute= &quot;gcd&quot;;     
+<BR>
+-       sprintf(seq_AVs[1].value, &quot;%lX&quot;, seq_gcd);
+<BR>
++       sprintf(seq_AVs[1].value, &quot;%dX&quot;, seq_gcd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[1].next = &amp;seq_AVs[2];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[2].attribute=&quot;SI&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(seq_AVs[2].value, &quot;%X&quot;, si-&gt;index);
+<BR>
+@@ -357,7 +357,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(seq_AVs[0].value, &quot;RI&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[0].next = &amp;seq_AVs[1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[1].attribute= &quot;gcd&quot;;     
+<BR>
+-       sprintf(seq_AVs[1].value, &quot;%lX&quot;, seq_gcd);
+<BR>
++       sprintf(seq_AVs[1].value, &quot;%dX&quot;, seq_gcd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[1].next = &amp;seq_AVs[2];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seq_AVs[2].attribute=&quot;SI&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(seq_AVs[2].value, &quot;%X&quot;, si-&gt;index);
+<BR>
+@@ -407,7 +407,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+-struct AVal *fingerprint_iptcppacket(struct ip *ip, int mss, unsigned long syn) {
+<BR>
++struct AVal *fingerprint_iptcppacket(struct ip *ip, int mss, unsigned int syn) {
+<BR>
+&nbsp;&nbsp;&nbsp;struct AVal *AVs;
+<BR>
+&nbsp;&nbsp;&nbsp;int length;
+<BR>
+&nbsp;&nbsp;&nbsp;int opcode;
+<BR>
+@@ -581,8 +581,8 @@
+<BR>
+&nbsp;int AVal_match(struct AVal *reference, struct AVal *fprint) {
+<BR>
+&nbsp;&nbsp;&nbsp;struct AVal *current_ref;
+<BR>
+&nbsp;&nbsp;&nbsp;struct AVal *current_fp;
+<BR>
+-  unsigned long number;
+<BR>
+-  unsigned long val;
+<BR>
++  unsigned int number;
+<BR>
++  unsigned int val;
+<BR>
+&nbsp;&nbsp;&nbsp;char *p, *q;  /* OHHHH YEEEAAAAAHHHH!#!@#$!% */
+<BR>
+&nbsp;&nbsp;&nbsp;char valcpy[512];
+<BR>
+&nbsp;&nbsp;&nbsp;char *endptr;
+<BR>
+@@ -804,7 +804,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+-unsigned long get_gcd_n_ulong(int numvalues, unsigned long *values) {
+<BR>
++unsigned int get_gcd_n_ulong(int numvalues, unsigned int *values) {
+<BR>
+&nbsp;&nbsp;&nbsp;int gcd;
+<BR>
+&nbsp;&nbsp;&nbsp;int i;
+<BR>
+&nbsp;
+<BR>
+@@ -816,7 +816,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;return gcd;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-unsigned long euclid_gcd(unsigned long a, unsigned long b) {
+<BR>
++unsigned int euclid_gcd(unsigned int a, unsigned int b) {
+<BR>
+&nbsp;&nbsp;&nbsp;if (a &lt; b) return euclid_gcd(b,a);
+<BR>
+&nbsp;&nbsp;&nbsp;if (!b) return a;
+<BR>
+&nbsp;&nbsp;&nbsp;return euclid_gcd(b, a % b);
+<BR>
+diff -ruN nmap-2.12/osscan.h nmap-patched/osscan.h
+<BR>
+--- nmap-2.12/osscan.h	Sun Apr  4 00:32:49 1999
+<BR>
++++ nmap-patched/osscan.h	Thu Jul  6 19:30:34 2000
+<BR>
+@@ -15,13 +15,13 @@
+<BR>
+&nbsp;/**********************  PROTOTYPES  ***********************************/
+<BR>
+&nbsp;int os_scan(struct hoststruct *target);
+<BR>
+&nbsp;FingerPrint *get_fingerprint(struct hoststruct *target, struct seq_info *si);
+<BR>
+-struct AVal *fingerprint_iptcppacket(struct ip *ip, int mss, unsigned long syn);
+<BR>
++struct AVal *fingerprint_iptcppacket(struct ip *ip, int mss, unsigned int syn);
+<BR>
+&nbsp;struct AVal *fingerprint_portunreach(struct ip *ip, struct udpprobeinfo *upi);
+<BR>
+&nbsp;struct udpprobeinfo *send_closedudp_probe(int rawsd, struct in_addr *dest,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned short sport, unsigned short
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dport);
+<BR>
+-unsigned long get_gcd_n_ulong(int numvalues, unsigned long *values);
+<BR>
+-unsigned long euclid_gcd(unsigned long a, unsigned long b);
+<BR>
++unsigned int get_gcd_n_ulong(int numvalues, unsigned int *values);
+<BR>
++unsigned int euclid_gcd(unsigned int a, unsigned int b);
+<BR>
+&nbsp;char *fp2ascii(FingerPrint *FP);
+<BR>
+&nbsp;FingerPrint **parse_fingerprint_reference_file();
+<BR>
+&nbsp;FingerPrint **match_fingerprint(FingerPrint *FP, int *matches_found);
+<BR>
+diff -ruN nmap-2.12/tcpip.c nmap-patched/tcpip.c
+<BR>
+--- nmap-2.12/tcpip.c	Sun Mar 21 19:58:04 1999
+<BR>
++++ nmap-patched/tcpip.c	Thu Jul  6 19:43:01 2000
+<BR>
+@@ -46,7 +46,7 @@
+<BR>
+&nbsp;/* Standard swiped internet checksum routine */
+<BR>
+&nbsp;inline unsigned short in_cksum(unsigned short *ptr,int nbytes) {
+<BR>
+&nbsp;
+<BR>
+-register long           sum;            /* assumes long == 32 bits */
+<BR>
++register int           sum;            /* assumes long == 32 bits */
+<BR>
+&nbsp;u_short                 oddbyte;
+<BR>
+&nbsp;register u_short        answer;         /* assumes u_short == 16 bits */
+<BR>
+&nbsp;
+<BR>
+@@ -102,16 +102,16 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;int send_tcp_raw( int sd, struct in_addr *source, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct in_addr *victim, unsigned short sport, 
+<BR>
+-		  unsigned short dport, unsigned long seq,
+<BR>
+-		  unsigned long ack, unsigned char flags,
+<BR>
++		  unsigned short dport, unsigned int seq,
+<BR>
++		  unsigned int ack, unsigned char flags,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned short window, char *options, int optlen,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *data, unsigned short datalen) 
+<BR>
+&nbsp;{
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct pseudo_header { 
+<BR>
+&nbsp;&nbsp;&nbsp;/*for computing TCP checksum, see TCP/IP Illustrated p. 145 */
+<BR>
+-  unsigned long s_addy;
+<BR>
+-  unsigned long d_addr;
+<BR>
++  unsigned int s_addy;
+<BR>
++  unsigned int d_addr;
+<BR>
+&nbsp;&nbsp;&nbsp;char zer0;
+<BR>
+&nbsp;&nbsp;&nbsp;unsigned char protocol;
+<BR>
+&nbsp;&nbsp;&nbsp;unsigned short length;
+<BR>
+@@ -318,10 +318,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;ttl: %hu &quot;, ip-&gt;ip_ttl);
+<BR>
+&nbsp;
+<BR>
+-    if (tcp-&gt;th_flags &amp; (TH_SYN | TH_ACK)) printf(&quot;Seq: %lu\tAck: %lu\n&quot;, 
+<BR>
+-						  (unsigned long) ntohl(tcp-&gt;th_seq), (unsigned long) ntohl(tcp-&gt;th_ack));
+<BR>
+-    else if (tcp-&gt;th_flags &amp; TH_SYN) printf(&quot;Seq: %lu\n&quot;, (unsigned long) ntohl(tcp-&gt;th_seq));
+<BR>
+-    else if (tcp-&gt;th_flags &amp; TH_ACK) printf(&quot;Ack: %lu\n&quot;, (unsigned long) ntohl(tcp-&gt;th_ack));
+<BR>
++    if (tcp-&gt;th_flags &amp; (TH_SYN | TH_ACK)) printf(&quot;Seq: %du\tAck: %du\n&quot;, 
+<BR>
++						  (unsigned int) ntohl(tcp-&gt;th_seq), (unsigned int) ntohl(tcp-&gt;th_ack));
+<BR>
++    else if (tcp-&gt;th_flags &amp; TH_SYN) printf(&quot;Seq: %du\n&quot;, (unsigned int) ntohl(tcp-&gt;th_seq));
+<BR>
++    else if (tcp-&gt;th_flags &amp; TH_ACK) printf(&quot;Ack: %du\n&quot;, (unsigned int) ntohl(tcp-&gt;th_ack));
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;if (readdata &amp;&amp; i &lt; tot_len) {
+<BR>
+@@ -757,7 +757,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;in pcap_open_live()
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-char *readip_pcap(pcap_t *pd, unsigned int *len, long to_usec) {
+<BR>
++char *readip_pcap(pcap_t *pd, unsigned int *len, int to_usec) {
+<BR>
+&nbsp;static int offset = -1;
+<BR>
+&nbsp;static pcap_t *lastpcap = NULL;
+<BR>
+&nbsp;struct pcap_pkthdr head;
+<BR>
+@@ -828,7 +828,7 @@
+<BR>
+&nbsp;/* Like readip_pcap except we use our own timeout value.  This is needed
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;due to a &quot;bug&quot; in libpcap.  The Linux pcap_open_live takes a timeout
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;but DOES NOT EVEN LOOK AT IT! */
+<BR>
+-char *readip_pcap_timed(pcap_t *pd, unsigned int *len, unsigned long timeout /*seconds
+<BR>
++char *readip_pcap_timed(pcap_t *pd, unsigned int *len, unsigned int timeout /*seconds
+<BR>
+&nbsp;&nbsp;*/) {
+<BR>
+&nbsp;static int offset = -1;
+<BR>
+&nbsp;static pcap_t *lastpcap = NULL;
+<BR>
+@@ -936,12 +936,15 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal(&quot;getinterfaces: SIOCGIFCONF claims you have no network interfaces!\n&quot;);
+<BR>
+&nbsp;#if HAVE_SOCKADDR_SA_LEN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*    len = MAX(sizeof(struct sockaddr), ifr-&gt;ifr_addr.sa_len);*/
+<BR>
+-    len = ifr-&gt;ifr_addr.sa_len;
+<BR>
++    len = ifr-&gt;ifr_addr.sa_len + sizeof(ifr-&gt;ifr_name);
+<BR>
+&nbsp;#else
+<BR>
+-    len = sizeof(SA);
+<BR>
++    len = sizeof(struct ifreq);
+<BR>
++/*    len = sizeof(SA); */
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(; ifr &amp;&amp; *((char *)ifr) &amp;&amp; ((char *)ifr) &lt; buf + ifc.ifc_len; 
+<BR>
+-	((*(char **)&amp;ifr) +=  sizeof(ifr-&gt;ifr_name) + len )) {
+<BR>
++	((*(char **)&amp;ifr) +=  len )) {
+<BR>
++      if (!*((char *)ifr))
+<BR>
++	continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sin = (struct sockaddr_in *) &amp;ifr-&gt;ifr_addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memcpy(&amp;(mydevs[numinterfaces].addr), (char *) &amp;(sin-&gt;sin_addr), sizeof(struct in_addr));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* In case it is a stinkin' alias */
+<BR>
+@@ -956,7 +959,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;#if HAVE_SOCKADDR_SA_LEN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* len = MAX(sizeof(struct sockaddr), ifr-&gt;ifr_addr.sa_len);*/
+<BR>
+-      len = ifr-&gt;ifr_addr.sa_len;
+<BR>
++      len = ifr-&gt;ifr_addr.sa_len + sizeof(ifr-&gt;ifr_name);
+<BR>
+&nbsp;#endif 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mydevs[numinterfaces].name[0] = '\0';
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -982,8 +985,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;struct interface_info *mydevs;
+<BR>
+&nbsp;&nbsp;&nbsp;static struct myroute {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct interface_info *dev;
+<BR>
+-    unsigned long mask;
+<BR>
+-    unsigned long dest;
+<BR>
++    unsigned int mask;
+<BR>
++    unsigned int dest;
+<BR>
+&nbsp;&nbsp;&nbsp;} myroutes[128];
+<BR>
+&nbsp;&nbsp;&nbsp;int numinterfaces = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;char *p, *endptr;
+<BR>
+@@ -1021,7 +1024,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = strtok(NULL, &quot; \t\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;endptr = NULL;
+<BR>
+-	myroutes[numroutes].dest = strtol(p, &amp;endptr, 16);
+<BR>
++	myroutes[numroutes].dest = strtoul(p, &amp;endptr, 16);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!endptr || *endptr) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;error(&quot;Failed to determine Destination from /proc/net/route&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+@@ -1035,7 +1038,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;endptr = NULL;
+<BR>
+-	myroutes[numroutes].mask = strtol(p, &amp;endptr, 16);
+<BR>
++	myroutes[numroutes].mask = strtoul(p, &amp;endptr, 16);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!endptr || *endptr) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;error(&quot;Failed to determine mask from /proc/net/route&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+diff -ruN nmap-2.12/tcpip.h nmap-patched/tcpip.h
+<BR>
+--- nmap-2.12/tcpip.h	Sat Mar 20 22:09:00 1999
+<BR>
++++ nmap-patched/tcpip.h	Thu Jul  6 19:36:56 2000
+<BR>
+@@ -290,8 +290,8 @@
+<BR>
+&nbsp;unsigned short in_cksum(unsigned short *ptr,int nbytes);
+<BR>
+&nbsp;int send_tcp_raw( int sd, struct in_addr *source, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct in_addr *victim, unsigned short sport, 
+<BR>
+-		  unsigned short dport, unsigned long seq,
+<BR>
+-		  unsigned long ack, unsigned char flags,
+<BR>
++		  unsigned short dport, unsigned int seq,
+<BR>
++		  unsigned int ack, unsigned char flags,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned short window, char *options, int optlen,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *data, unsigned short datalen);
+<BR>
+&nbsp;int send_udp_raw( int sd, struct in_addr *source, 
+<BR>
+@@ -324,8 +324,8 @@
+<BR>
+&nbsp;unsigned short in_cksum(unsigned short *ptr,int nbytes);
+<BR>
+&nbsp;/* Hex dump */
+<BR>
+&nbsp;int get_link_offset(char *device);
+<BR>
+-char *readip_pcap(pcap_t *pd, unsigned int *len, long to_usec);
+<BR>
+-char *readip_pcap_timed(pcap_t *pd, unsigned int *len, unsigned long timeout /*seconds
+<BR>
++char *readip_pcap(pcap_t *pd, unsigned int *len, int to_usec);
+<BR>
++char *readip_pcap_timed(pcap_t *pd, unsigned int *len, unsigned int timeout /*seconds
+<BR>
+&nbsp;&nbsp;*/);
+<BR>
+&nbsp;#ifndef HAVE_INET_ATON
+<BR>
+&nbsp;int inet_aton(register const char *, struct in_addr *);
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0266.html">Christopher C. Chimelis: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0264.html">Daniel Pettersson: "Re: weird error messages"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0267.html">Lerale Erwan: "Re: weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0272.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0267.html">Christopher C. Chimelis: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:01 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

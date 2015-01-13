@@ -1,0 +1,398 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: DRI testing</H1> 
+	
+<!-- received="Mon Dec 04 10:36:22 2000" -->
+<!-- isoreceived="20001204183622" -->
+<!-- sent="Fri, 1 Dec 2000 10:06:50 -0500" -->
+<!-- isosent="20001201150650" -->
+<!-- name="Jay Estabrook" -->
+<!-- email="Jay.Estabrook@compaq.com" -->
+<!-- subject="Re: DRI testing" -->
+<!-- id="20001201100650.A3955@linux04.mro.cpqcorp.net" -->
+<!-- inreplyto="3A26F460.2090305@alphalinux.org" -->
+<STRONG>Subject: </STRONG>Re: DRI testing<BR>
+<STRONG>From: </STRONG>Jay Estabrook (<EM>Jay.Estabrook@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Dec  1 07:06:50 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#2">[ date ]</A>
+<A HREF="index.shtml#2">[ thread ]</A>
+<A HREF="subject.shtml#2">[ subject ]</A>
+<A HREF="author.shtml#2">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.shtml">Andrei A. Dergatchev: "Re: DRI testing"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.shtml">Robert Williams: "3ware raid controller doesn't work."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.shtml">Andrei A. Dergatchev: "Re: DRI testing"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, Nov 30, 2000 at 07:44:16PM -0500, Peter Petrakis wrote:
+<BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; I  think a few folks have installed DRI by now and I'm wondering
+</EM><BR>
+<EM>&gt; what you're getting for performance. I can run the gears demo
+</EM><BR>
+<EM>&gt; windowed at about 150 fps. Strange it seems 3 months ago it was
+</EM><BR>
+<EM>&gt; much faster. I also went and tried some GL games, one of them
+</EM><BR>
+<EM>&gt; tuxracer. It compiles fine. I start it, the screen get's lighter, and
+</EM><BR>
+<EM>&gt; then it segfaults. Has anyone else seen this sort of behavior with
+</EM><BR>
+<EM>&gt; other GL apps?
+</EM><BR>
+<P>Well, tuxracer has a few 32-bit-isms, solved by the attached patch.
+<BR>
+<P>As for some others, I think there's more 32-bit-isms lurking, as I
+<BR>
+had visual problems with ssytem and xracer, and no time to winkle
+<BR>
+them out.
+<BR>
+<P>But, glheretic seems to build and run fine... ;-}
+<BR>
+<P>As others have said, its *critical* to get the right libraries used.
+<BR>
+<P>I'm currently running 2.2.18-pre24 *unpatched*, with 4.0.1g patched
+<BR>
+slightly (find this also at the end), on EV6 with Voodoo3/Banshee
+<BR>
+with reasonable results.
+<BR>
+<P>Next task for us all is to start ferreting out the unaligned accesses
+<BR>
+that are killers...
+<BR>
+<P>--Jay++
+<BR>
+<P>-----------------------------------------------------------------------------
+<BR>
+Jay A Estabrook                            Alpha Engineering - LINUX Project
+<BR>
+Compaq Computer Corp. - MRO1-2/K20         (508) 467-2080
+<BR>
+200 Forest Street, Marlboro MA 01752       Jay.Estabrook@compaq.com
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P>--- configure.in.orig	Mon Nov 20 21:36:12 2000
+<BR>
++++ configure.in	Mon Nov 20 21:38:53 2000
+<BR>
+@@ -50,6 +50,7 @@
+<BR>
+&nbsp;case &quot;$host&quot; in
+<BR>
+&nbsp;i*86-*-*) TR_CFLAGS=&quot;$TR_CFLAGS -malign-loops=2 -malign-jumps=2 -malign-functions=2&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TR_CXXFLAGS=&quot;$TR_CXXFLAGS -malign-loops=2 -malign-jumps=2 -malign-functions=2&quot;;;
+<BR>
++alpha*-*-linux-*) TR_CFLAGS=&quot;$TR_CFLAGS -mieee&quot;;;
+<BR>
+&nbsp;esac
+<BR>
+&nbsp;
+<BR>
+&nbsp;AC_ARG_ENABLE(debug,     [  --enable-debug          Produce an executable with debugging symbols], [TR_CFLAGS=&quot;-g -Wall&quot;; TR_CXXFLAGS=&quot;-g -Wall&quot;])
+<BR>
+--- src/image.c.orig	Mon Nov 20 19:54:02 2000
+<BR>
++++ src/image.c	Mon Nov 20 19:55:59 2000
+<BR>
+@@ -46,15 +46,15 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FILE *file;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *tmp[5];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long rleEnd;
+<BR>
+-       unsigned long *rowStart;
+<BR>
+-       unsigned long *rowSize;
+<BR>
++       unsigned int *rowStart;
+<BR>
++       unsigned int *rowSize;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} Image;
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static Image *ImageOpen(char *fileName)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;Image *image;
+<BR>
+-  unsigned long *rowStart, *rowSize, ulTmp;
+<BR>
++  unsigned int *rowStart, *rowSize, ulTmp;
+<BR>
+&nbsp;&nbsp;&nbsp;int x, i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;image = (Image *)malloc(sizeof(Image));
+<BR>
+@@ -96,9 +96,9 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;if ((image-&gt;type &amp; 0xFF00) == 0x0100) /* RLE image */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-      x = image-&gt;sizeY * image-&gt;sizeZ * sizeof(long);
+<BR>
+-      image-&gt;rowStart = (unsigned long *)malloc(x);
+<BR>
+-      image-&gt;rowSize = (unsigned long *)malloc(x);
+<BR>
++      x = image-&gt;sizeY * image-&gt;sizeZ * sizeof(int);
+<BR>
++      image-&gt;rowStart = (unsigned int *)malloc(x);
+<BR>
++      image-&gt;rowSize = (unsigned int *)malloc(x);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (image-&gt;rowStart == NULL || image-&gt;rowSize == NULL) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;Out of memory!\n&quot;);
+<BR>
+@@ -110,7 +110,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fread(image-&gt;rowSize, 1, x, image-&gt;file);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (image-&gt;imagic == IMAGIC_SWAP) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	  x /= sizeof(long);
+<BR>
++	  x /= sizeof(int);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rowStart = image-&gt;rowStart;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rowSize = image-&gt;rowSize;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (x--) 
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P>diff -urN xc-401g/lib/GL/mesa/src/drv/tdfx/fxddspan.c patch-401g/lib/GL/mesa/src/drv/tdfx/fxddspan.c
+<BR>
+--- xc-401g/lib/GL/mesa/src/drv/tdfx/fxddspan.c	Mon Nov 27 14:38:19 2000
+<BR>
++++ patch-401g/lib/GL/mesa/src/drv/tdfx/fxddspan.c	Wed Nov 29 22:05:29 2000
+<BR>
+@@ -321,14 +321,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;? (fxMesa-&gt;screen_width) : (info.strideInBytes / 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const GLushort *data16 = (const GLushort *) info.lfbPtr
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (winY - y) * srcStride + (winX + x);
+<BR>
+-        const GLuint *data32 = (const GLuint *) data16;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GLuint i, j;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GLuint extraPixel = (n &amp; 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n -= extraPixel;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = j = 0; i &lt; n; i += 2, j++) {
+<BR>
+-            GLuint pixel = data32[j];
+<BR>
+-            GLuint pixel0 = pixel &amp; 0xffff;
+<BR>
+-            GLuint pixel1 = pixel &gt;&gt; 16;
+<BR>
++	    /* use data16[] to keep correct alignment */
+<BR>
++            GLuint pixel0 = data16[i];
+<BR>
++            GLuint pixel1 = data16[i+1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rgba[i][RCOMP] = FX_PixelToR(fxMesa, pixel0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rgba[i][GCOMP] = FX_PixelToG(fxMesa, pixel0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rgba[i][BCOMP] = FX_PixelToB(fxMesa, pixel0);
+<BR>
+@@ -1251,7 +1250,7 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FxU32 physicalStrideInBytes, bufferOffset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FxU32 strideInBytes = info-&gt;strideInBytes;
+<BR>
+-    FxU32 lfbPtr = (FxU32) (info-&gt;lfbPtr);
+<BR>
++    AnyPtr lfbPtr = (AnyPtr) (info-&gt;lfbPtr);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* These two come directly from the info structure.
+<BR>
+@@ -1278,7 +1277,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*             &lt; bufferOffset&amp;(info-&gt;strideInBytes-1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* the buffer begins in the forbidden zone.  We assert for this.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-    bufferOffset = lfbPtr - (FxU32) backBufferInfo-&gt;lfbPtr;
+<BR>
++    bufferOffset = lfbPtr - (AnyPtr) backBufferInfo-&gt;lfbPtr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;physicalStrideInBytes
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= (fxMesa-&gt;screen_width * elementSize + TILE_WIDTH_IN_BYTES - 1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp; ~(TILE_WIDTH_IN_BYTES - 1);
+<BR>
+@@ -1290,7 +1289,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* This is the address of the next physical line.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ReadParamsp-&gt;lfbWrapPtr
+<BR>
+-        = (void *) ((FxU32) backBufferInfo-&gt;lfbPtr
+<BR>
++        = (void *) ((AnyPtr) backBufferInfo-&gt;lfbPtr
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (bufferOffset &amp; ~(strideInBytes - 1))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (TILE_HEIGHT_IN_LINES) * strideInBytes);
+<BR>
+&nbsp;}
+<BR>
+diff -urN xc-401g/programs/Xserver/hw/xfree86/drivers/ati/r128.h patch-401g/programs/Xserver/hw/xfree86/drivers/ati/r128.h
+<BR>
+--- xc-401g/programs/Xserver/hw/xfree86/drivers/ati/r128.h	Wed Nov 29 14:49:48 2000
+<BR>
++++ patch-401g/programs/Xserver/hw/xfree86/drivers/ati/r128.h	Wed Nov 29 16:31:45 2000
+<BR>
+@@ -40,6 +40,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;xf86str.h&quot;
+<BR>
+&nbsp;
+<BR>
++#include &quot;xf86_OSproc.h&quot;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* PCI support */
+<BR>
+&nbsp;#include &quot;xf86Pci.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN xc-401g/programs/Xserver/hw/xfree86/drivers/ati/radeon.h patch-401g/programs/Xserver/hw/xfree86/drivers/ati/radeon.h
+<BR>
+--- xc-401g/programs/Xserver/hw/xfree86/drivers/ati/radeon.h	Wed Nov 29 14:49:48 2000
+<BR>
++++ patch-401g/programs/Xserver/hw/xfree86/drivers/ati/radeon.h	Wed Nov 29 16:33:27 2000
+<BR>
+@@ -40,6 +40,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;xf86str.h&quot;
+<BR>
+&nbsp;
+<BR>
++#include &quot;xf86_OSproc.h&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* PCI support */
+<BR>
+&nbsp;#include &quot;xf86Pci.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN xc-401g/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c patch-401g/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c
+<BR>
+--- xc-401g/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c	Wed Nov 29 14:49:48 2000
+<BR>
++++ patch-401g/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c	Wed Nov 29 15:06:42 2000
+<BR>
+@@ -69,8 +69,6 @@
+<BR>
+&nbsp;#  define isJensen (axpSystem == JENSEN)
+<BR>
+&nbsp;# endif
+<BR>
+&nbsp;
+<BR>
+-# define needSparse (_bus_base_sparse() != 0)
+<BR>
+-
+<BR>
+&nbsp;# define BUS_BASE _bus_base()
+<BR>
+&nbsp;
+<BR>
+&nbsp;#else 
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.shtml">Andrei A. Dergatchev: "Re: DRI testing"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.shtml">Robert Williams: "3ware raid controller doesn't work."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.shtml">Andrei A. Dergatchev: "Re: DRI testing"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Jan  2 07:48:31 2001 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

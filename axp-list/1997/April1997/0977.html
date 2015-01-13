@@ -1,0 +1,354 @@
+<!-- received="Wed Apr 23 13:29:59 1997 " -->
+<!-- sent="Wed, 23 Apr 1997 12:25:53 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@stommel.tamu.edu" -->
+<!-- subject="Re: PCMCIA compiling on UDB/RH4.1 (new kernel probs)" -->
+<!-- id="199704231725.MAA15629@stommel.tamu.edu" -->
+<!-- inreplyto="199704231520.KAA25100@dfw-ix14.ix.netcom.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: PCMCIA compiling on UDB/RH4.1 (new kernel probs)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: PCMCIA compiling on UDB/RH4.1 (new kernel probs)</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@stommel.tamu.edu"><i>richard@stommel.tamu.edu</i></a>)<br>
+<i>Wed, 23 Apr 1997 12:25:53 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#977">[ date ]</a><a href="index.html#977">[ thread ]</a><a href="subject.html#977">[ subject ]</a><a href="author.html#977">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0978.html">Paul J.Y. Lahaie: "Problems compiling with glibc-2.0.3 and kernel 2.1.35."</a>
+<li> <b>Previous message:</b> <a href="0976.html">Tim Waugh: "Re: glibc &amp; binutils rpms --&gt; strip errors"</a>
+<li> <b>In reply to:</b> <a href="0968.html">Thunderhawk Alpha: "PCMCIA compiling on UDB/RH4.1 (new kernel probs)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1037.html">Thunderhawk Alpha: "Re: PCMCIA compiling on UDB/RH4.1 (new kernel probs)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; (1)  Is this the same libc/glibc mismatch that plagued RH4.0?</i><br>
+<p>
+Yes.<br>
+<p>
+<i>&gt; (2) Has anybody re-compiled pcmcia to work with 2.0.30 yet?</i><br>
+<p>
+I produced a small set of patches (appended) that I gave to Erik<br>
+and the pcmcia maintainer that got pcmcia-2.9.2 to work with both<br>
+2.0.27 and 2.1.33 -- I would assume it still works with 2.0.30.<br>
+<p>
+Oh, if you are using my modutils, you must use at least version <br>
+2.1.34 wherein I work around a bug in the 2.7.0.2 gas.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+<p>
+diff -rup pcmcia-cs-2.9.2/cardmgr/y.tab.h pcmcia-cs-2.9.2-rth/cardmgr/y.tab.h<br>
+--- pcmcia-cs-2.9.2/cardmgr/y.tab.h	Fri Mar 21 03:04:38 1997<br>
++++ pcmcia-cs-2.9.2-rth/cardmgr/y.tab.h	Sat Apr 12 19:41:38 1997<br>
+@@ -26,7 +26,7 @@<br>
+ #define NUMBER 282<br>
+ typedef union {<br>
+     char *str;<br>
+-    int num;<br>
++    long num;<br>
+     struct device_info_t *device;<br>
+     struct card_info_t *card;<br>
+     struct mtd_ident_t *mtd;<br>
+diff -rup pcmcia-cs-2.9.2/cardmgr/yacc_config.c pcmcia-cs-2.9.2-rth/cardmgr/yacc_config.c<br>
+--- pcmcia-cs-2.9.2/cardmgr/yacc_config.c	Fri Mar 21 03:04:38 1997<br>
++++ pcmcia-cs-2.9.2-rth/cardmgr/yacc_config.c	Sat Apr 12 19:41:38 1997<br>
+@@ -37,7 +37,7 @@ static int add_module(device_info_t *car<br>
+ #line 35 "yacc_config.y"<br>
+ typedef union {<br>
+     char *str;<br>
+-    int num;<br>
++    long num;<br>
+     struct device_info_t *device;<br>
+     struct card_info_t *card;<br>
+     struct mtd_ident_t *mtd;<br>
+diff -rup pcmcia-cs-2.9.2/cardmgr/yacc_config.y pcmcia-cs-2.9.2-rth/cardmgr/yacc_config.y<br>
+--- pcmcia-cs-2.9.2/cardmgr/yacc_config.y	Fri Mar 21 02:25:11 1997<br>
++++ pcmcia-cs-2.9.2-rth/cardmgr/yacc_config.y	Sat Apr 12 19:36:25 1997<br>
+@@ -34,7 +34,7 @@ static int add_module(device_info_t *car<br>
+ <br>
+ %union {<br>
+     char *str;<br>
+-    int num;<br>
++    long num;<br>
+     struct device_info_t *device;<br>
+     struct card_info_t *card;<br>
+     struct mtd_ident_t *mtd;<br>
+diff -rup pcmcia-cs-2.9.2/include/pcmcia/k_compat.h pcmcia-cs-2.9.2-rth/include/pcmcia/k_compat.h<br>
+--- pcmcia-cs-2.9.2/include/pcmcia/k_compat.h	Wed Mar 12 14:23:34 1997<br>
++++ pcmcia-cs-2.9.2-rth/include/pcmcia/k_compat.h	Sat Apr 12 19:47:14 1997<br>
+@@ -78,6 +78,7 @@ char kernel_version[] = UTS_RELEASE;<br>
+ #if (LINUX_VERSION_CODE &gt; VERSION(2,1,16))<br>
+ #define AUTOCONF_INCLUDED<br>
+ #define EXPORT_SYMTAB<br>
++#define CONFIG_MODULES<br>
+ #endif<br>
+ #ifdef CONFIG_MODVERSIONS<br>
+ #define MODVERSIONS 1<br>
+@@ -127,7 +128,7 @@ char kernel_version[] = UTS_RELEASE;<br>
+ #endif<br>
+ <br>
+ #ifdef __alpha__<br>
+-#define get_user(x, ptr) __get_user(x, ptr)<br>
++#define get_user(x, ptr) ((x) = __get_user((ptr), sizeof(*(ptr))))<br>
+ #else<br>
+ #define get_user(x, ptr) \<br>
+ ((sizeof(*ptr) == 4) ? (x = get_fs_long(ptr)) : \<br>
+diff -rup pcmcia-cs-2.9.2/modules/Makefile pcmcia-cs-2.9.2-rth/modules/Makefile<br>
+--- pcmcia-cs-2.9.2/modules/Makefile	Tue Nov 26 02:21:58 1996<br>
++++ pcmcia-cs-2.9.2-rth/modules/Makefile	Sat Apr 12 19:40:25 1997<br>
+@@ -19,6 +19,11 @@ ifdef CONFIG_MODVERSIONS<br>
+ XFLAGS := $(XFLAGS) $(MFLAG)<br>
+ endif<br>
+ <br>
++ifdef CONFIG_ALPHA_LCA<br>
++CFLAGS += -ffixed-8<br>
++endif<br>
++<br>
++<br>
+ SRCS = \<br>
+ 	i82365.c tcic.c cs.c cistpl.c rsrc_mgr.c bulkmem.c ds.c \<br>
+ 	serial_cs.c pcmem_cs.c memory_cs.c ftl_cs.c \<br>
+diff -rup pcmcia-cs-2.9.2/modules/ds.c pcmcia-cs-2.9.2-rth/modules/ds.c<br>
+--- pcmcia-cs-2.9.2/modules/ds.c	Sun Mar 16 15:04:09 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/ds.c	Sat Apr 12 19:36:25 1997<br>
+@@ -59,7 +59,7 @@ static unsigned int ds_poll(struct file <br>
+ static int ds_ioctl(struct inode * inode, struct file * file,<br>
+ 		    u_int cmd, u_long arg);<br>
+ static int ds_open(struct inode * inode, struct file * file);<br>
+-static void ds_release(struct inode * inode, struct file * file);<br>
++static int ds_release(struct inode * inode, struct file * file);<br>
+ <br>
+ typedef struct driver_info_t {<br>
+     dev_info_t *dev_info;<br>
+@@ -548,7 +548,7 @@ static int ds_open(struct inode *inode, <br>
+ <br>
+ /*====================================================================*/<br>
+ <br>
+-static void ds_release(struct inode *inode, struct file *file)<br>
++static int ds_release(struct inode *inode, struct file *file)<br>
+ {<br>
+     socket_t i = MINOR(inode-&gt;i_rdev);<br>
+     socket_info_t *s;<br>
+@@ -559,11 +559,11 @@ static void ds_release(struct inode *ino<br>
+ 	printk(KERN_DEBUG "ds_release(socket %d)\n", i);<br>
+ #endif<br>
+     if ((i &gt;= sockets) || (sockets == 0))<br>
+-	return;<br>
++	return 0;<br>
+     s = &amp;socket_table[i];<br>
+     user = file-&gt;private_data;<br>
+     if (CHECK_USER(user))<br>
+-	return;<br>
++	return 0;<br>
+ <br>
+     /* Unlink user data structure */<br>
+     if ((file-&gt;f_flags &amp; O_ACCMODE) != O_RDONLY)<br>
+@@ -572,12 +572,13 @@ static void ds_release(struct inode *ino<br>
+     for (link = &amp;s-&gt;user; *link; link = &amp;(*link)-&gt;next)<br>
+ 	if (*link == user) break;<br>
+     if (link == NULL)<br>
+-	return;<br>
++	return 0;<br>
+     *link = user-&gt;next;<br>
+     user-&gt;user_magic = 0;<br>
+     kfree_s(user, sizeof(user_info_t));<br>
+     <br>
+     MOD_DEC_USE_COUNT;<br>
++    return 0;<br>
+ } /* ds_release */<br>
+ <br>
+ /*====================================================================*/<br>
+diff -rup pcmcia-cs-2.9.2/modules/ftl_cs.c pcmcia-cs-2.9.2-rth/modules/ftl_cs.c<br>
+--- pcmcia-cs-2.9.2/modules/ftl_cs.c	Sun Mar 16 15:08:45 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/ftl_cs.c	Sat Apr 12 19:36:25 1997<br>
+@@ -143,7 +143,7 @@ static int ftl_blocksizes[MINOR_NR(MAX_D<br>
+ static int ftl_ioctl(struct inode *inode, struct file *file,<br>
+ 		     u_int cmd, u_long arg);<br>
+ static int ftl_open(struct inode *inode, struct file *file);<br>
+-static void ftl_close(struct inode *inode, struct file *file);<br>
++static int ftl_close(struct inode *inode, struct file *file);<br>
+ <br>
+ static struct file_operations ftl_blk_fops = {<br>
+     NULL,		/* lseek */<br>
+@@ -1062,7 +1062,7 @@ static int ftl_open(struct inode *inode,<br>
+ <br>
+ /*====================================================================*/<br>
+ <br>
+-static void ftl_close(struct inode *inode, struct file *file)<br>
++static int ftl_close(struct inode *inode, struct file *file)<br>
+ {<br>
+     dev_link_t *link;<br>
+     int minor = MINOR(inode-&gt;i_rdev);<br>
+@@ -1122,6 +1122,7 @@ static void ftl_close(struct inode *inod<br>
+     }<br>
+     <br>
+     MOD_DEC_USE_COUNT;<br>
++    return 0;<br>
+ <br>
+ } /* ftl_close */<br>
+ <br>
+diff -rup pcmcia-cs-2.9.2/modules/i82365.c pcmcia-cs-2.9.2-rth/modules/i82365.c<br>
+--- pcmcia-cs-2.9.2/modules/i82365.c	Fri Mar 21 11:57:51 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/i82365.c	Sat Apr 12 19:36:25 1997<br>
+@@ -9,7 +9,7 @@<br>
+ #include &lt;pcmcia/config.h&gt;<br>
+ #include &lt;pcmcia/k_compat.h&gt;<br>
+ <br>
+-#include &lt;sys/types.h&gt;<br>
++#include &lt;linux/types.h&gt;<br>
+ #include &lt;linux/fcntl.h&gt;<br>
+ #include &lt;linux/string.h&gt;<br>
+ <br>
+diff -rup pcmcia-cs-2.9.2/modules/memory_cs.c pcmcia-cs-2.9.2-rth/modules/memory_cs.c<br>
+--- pcmcia-cs-2.9.2/modules/memory_cs.c	Sun Mar 16 15:10:55 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/memory_cs.c	Sat Apr 12 19:36:25 1997<br>
+@@ -108,8 +108,8 @@ static FS_SIZE_T memory_read(struct inod<br>
+ static FS_SIZE_T memory_write(struct inode *inode, struct file *file,<br>
+ 			      CONST char *buf, U_FS_SIZE_T count);<br>
+ static int memory_open(struct inode *inode, struct file *file);<br>
+-static void memory_close(struct inode *inode, struct file *file);<br>
+-static void memory_blk_close(struct inode *inode, struct file *file);<br>
++static int memory_close(struct inode *inode, struct file *file);<br>
++static int memory_blk_close(struct inode *inode, struct file *file);<br>
+ <br>
+ static struct file_operations memory_chr_fops = {<br>
+     NULL,		/* lseek */<br>
+@@ -485,7 +485,7 @@ static int memory_open(struct inode *ino<br>
+ <br>
+ /*====================================================================*/<br>
+ <br>
+-static void memory_close(struct inode *inode, struct file *file)<br>
++static int memory_close(struct inode *inode, struct file *file)<br>
+ {<br>
+     dev_link_t *link;<br>
+     int minor = MINOR(inode-&gt;i_rdev);<br>
+@@ -508,17 +508,18 @@ static void memory_close(struct inode *i<br>
+     }<br>
+ <br>
+     MOD_DEC_USE_COUNT;<br>
++    return 0;<br>
+ <br>
+ } /* memory_close */<br>
+ <br>
+-static void memory_blk_close(struct inode *inode, struct file *file)<br>
++static int memory_blk_close(struct inode *inode, struct file *file)<br>
+ {<br>
+     fsync_dev(inode-&gt;i_rdev);<br>
+ #if (LINUX_VERSION_CODE &gt;= VERSION(1,3,0))<br>
+     invalidate_inodes(inode-&gt;i_rdev);<br>
+ #endif<br>
+     invalidate_buffers(inode-&gt;i_rdev);<br>
+-    memory_close(inode, file);<br>
++    return memory_close(inode, file);<br>
+ }<br>
+ <br>
+ /*======================================================================<br>
+diff -rup pcmcia-cs-2.9.2/modules/pcmem_cs.c pcmcia-cs-2.9.2-rth/modules/pcmem_cs.c<br>
+--- pcmcia-cs-2.9.2/modules/pcmem_cs.c	Sun Mar 16 15:08:20 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/pcmem_cs.c	Sat Apr 12 19:36:25 1997<br>
+@@ -114,8 +114,8 @@ static FS_SIZE_T pcmem_read(struct inode<br>
+ static FS_SIZE_T pcmem_write(struct inode *inode, struct file *file,<br>
+ 			     CONST char *buf, U_FS_SIZE_T count);<br>
+ static int pcmem_open(struct inode *inode, struct file *file);<br>
+-static void pcmem_close(struct inode *inode, struct file *file);<br>
+-static void pcmem_blk_close(struct inode *inode, struct file *file);<br>
++static int pcmem_close(struct inode *inode, struct file *file);<br>
++static int pcmem_blk_close(struct inode *inode, struct file *file);<br>
+ <br>
+ static struct file_operations pcmem_chr_fops = {<br>
+     NULL,		/* lseek */<br>
+@@ -507,7 +507,7 @@ static int pcmem_open(struct inode *inod<br>
+ <br>
+ /*====================================================================*/<br>
+ <br>
+-static void pcmem_close(struct inode *inode, struct file *file)<br>
++static int pcmem_close(struct inode *inode, struct file *file)<br>
+ {<br>
+     dev_link_t *link;<br>
+ <br>
+@@ -517,20 +517,21 @@ static void pcmem_close(struct inode *in<br>
+ #endif<br>
+ <br>
+     link = dev_table[DEVICE_NR(inode-&gt;i_rdev)];<br>
+-    if (link == NULL) return;<br>
++    if (link == NULL) return 0;<br>
+ <br>
+     MOD_DEC_USE_COUNT;<br>
++    return 0;<br>
+ <br>
+ } /* pcmem_close */<br>
+ <br>
+-static void pcmem_blk_close(struct inode *inode, struct file *file)<br>
++static int pcmem_blk_close(struct inode *inode, struct file *file)<br>
+ {<br>
+     fsync_dev(inode-&gt;i_rdev);<br>
+ #if (LINUX_VERSION_CODE &gt;= VERSION(1,3,0))<br>
+     invalidate_inodes(inode-&gt;i_rdev);<br>
+ #endif<br>
+     invalidate_buffers(inode-&gt;i_rdev);<br>
+-    pcmem_close(inode, file);<br>
++    return pcmem_close(inode, file);<br>
+ }<br>
+ <br>
+ /*======================================================================<br>
+diff -rup pcmcia-cs-2.9.2/modules/tcic.c pcmcia-cs-2.9.2-rth/modules/tcic.c<br>
+--- pcmcia-cs-2.9.2/modules/tcic.c	Sun Mar 16 15:07:11 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/tcic.c	Sat Apr 12 19:36:25 1997<br>
+@@ -9,7 +9,7 @@<br>
+ #include &lt;pcmcia/config.h&gt;<br>
+ #include &lt;pcmcia/k_compat.h&gt;<br>
+ <br>
+-#include &lt;sys/types.h&gt;<br>
++#include &lt;linux/types.h&gt;<br>
+ #include &lt;linux/fcntl.h&gt;<br>
+ #include &lt;linux/string.h&gt;<br>
+ <br>
+diff -rup pcmcia-cs-2.9.2/modules/xircnw_cs.c pcmcia-cs-2.9.2-rth/modules/xircnw_cs.c<br>
+--- pcmcia-cs-2.9.2/modules/xircnw_cs.c	Sun Mar 16 15:05:53 1997<br>
++++ pcmcia-cs-2.9.2-rth/modules/xircnw_cs.c	Sat Apr 12 19:36:25 1997<br>
+@@ -1415,4 +1415,3 @@ set_multicast_list(struct device *dev, i<br>
+     wait_WOC(iobase);<br>
+ }<br>
+ #endif<br>
+-<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0978.html">Paul J.Y. Lahaie: "Problems compiling with glibc-2.0.3 and kernel 2.1.35."</a>
+<li> <b>Previous message:</b> <a href="0976.html">Tim Waugh: "Re: glibc &amp; binutils rpms --&gt; strip errors"</a>
+<li> <b>In reply to:</b> <a href="0968.html">Thunderhawk Alpha: "PCMCIA compiling on UDB/RH4.1 (new kernel probs)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1037.html">Thunderhawk Alpha: "Re: PCMCIA compiling on UDB/RH4.1 (new kernel probs)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

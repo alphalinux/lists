@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: ash bug, modconf on the boot-floppies</TITLE>
+<META NAME="Author" CONTENT="Goswin Brederlow (goswin.brederlow@student.uni-tuebingen.de)">
+<META NAME="Subject" CONTENT="ash bug, modconf on the boot-floppies">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>ash bug, modconf on the boot-floppies</H1>
+<HR>
+<P>
+<!-- received="Tue Aug 07 06:29:59 2001" -->
+<!-- isoreceived="20010807132959" -->
+<!-- sent="07 Aug 2001 05:08:03 +0200" -->
+<!-- isosent="20010807030803" -->
+<!-- name="Goswin Brederlow" -->
+<!-- email="goswin.brederlow@student.uni-tuebingen.de" -->
+<!-- subject="ash bug, modconf on the boot-floppies" -->
+<!-- id="87hevka7os.fsf@dual.debian.lt.de" -->
+<STRONG>Subject: </STRONG>ash bug, modconf on the boot-floppies<BR>
+<STRONG>From: </STRONG>Goswin Brederlow (<EM>goswin.brederlow@student.uni-tuebingen.de</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Aug 06 2001 - 20:08:03 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#43">[ date ]</A>
+<A HREF="index.html#43">[ thread ]</A>
+<A HREF="subject.html#43">[ subject ]</A>
+<A HREF="author.html#43">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Helge Kreutzmann: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">Mike Fedyk: "Re: glibc 2.2.3-9 on alpha/ppc"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I'm tracking down the modconf segfaults at the moment.
+<BR>
+I installed the drivers via floppy because someone said it then would
+<BR>
+work, but no.
+<BR>
+<P>I think its a bug in ash, heres a small sample that triggers it:
+<BR>
+<P>\h:\w\$ get() { echo; echo block; }
+<BR>
+\h:\w\$ for i in $(get); do echo $i; done
+<BR>
+Segmentation fault
+<BR>
+block
+<BR>
+\h:\w\$ 
+<BR>
+<P>Anything below is just how I found out, so if its ash fault you might skip it.
+<BR>
+<P>======================================================================
+<BR>
+<P>I chrooted into the ramdisk and started (just like the script does):
+<BR>
+/target/usr/sbin/modconf --exclude-section pcmcia --target /target --run-shell cdromsymlink --libdir /tmp/drivers --helpdir /target/usr/share/modconf --tty /dev/tty
+<BR>
+<P>The first segfault occurs around line 193 (i added some debug output,
+<BR>
+not indented lines, so I might be off target):
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+if [ &quot;$Source&quot; = &quot;floppy&quot; ]; then
+<BR>
+&nbsp;&nbsp;if [ -f $ModuleContentDir/modcont ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;. $ModuleContentDir/modcont
+<BR>
+&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;echo &quot;$msg_Cannot_open $ModuleContentDir/modcont&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;exit 1
+<BR>
+&nbsp;&nbsp;fi
+<BR>
+else
+<BR>
+&nbsp;&nbsp;dir_descrs=&quot;&quot;
+<BR>
+echo &gt;/dev/tty main -- Dir_Prefix = $Dir_Prefix
+<BR>
+get_modules_dirs $Dir_Prefix
+<BR>
+&nbsp;&nbsp;for i in $(get_modules_dirs $Dir_Prefix); do
+<BR>
+echo &gt;/dev/tty main -- i = $i   ####### SEGFAULT before this is executed
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if [ -d $Dir_Prefix/$i -a \
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P>I added some debug output to all functions, here it is:
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+modconf -- press return
+<BR>
+main -- press return
+<BR>
+parse_cmdline -- press return
+<BR>
+params -- press return
+<BR>
+util -- press return
+<BR>
+Whiptail -- press return
+<BR>
+source_eval -- press return
+<BR>
+check_dirs -- press return
+<BR>
+check_dirs -- done
+<BR>
+check_modules -- press return
+<BR>
+check_modules -- done
+<BR>
+check_modules_conf -- press return
+<BR>
+check_modules_conf -- done
+<BR>
+main -- Dir_Prefix = /target/lib/modules/2.4.7-ac4
+<BR>
+get_modules_dirs -- press return
+<BR>
+<P>block
+<BR>
+net
+<BR>
+ipv4
+<BR>
+scsi
+<BR>
+fs
+<BR>
+misc
+<BR>
+get_modules_dirs -- done
+<BR>
+get_modules_dirs -- press return
+<BR>
+get_modules_dirs -- done
+<BR>
+Segmentation fault
+<BR>
+first -- press return
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P>MfG
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Goswin
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Helge Kreutzmann: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">Mike Fedyk: "Re: glibc 2.2.3-9 on alpha/ppc"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Sep 06 2001 - 05:03:50 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Troubles installing Redhat 6.1</H1> 
+	
+<!-- received="Wed Feb 09 16:24:03 2000" -->
+<!-- isoreceived="20000210002403" -->
+<!-- sent="Wed, 9 Feb 2000 09:26:41 -0500 (EST)" -->
+<!-- isosent="20000209142641" -->
+<!-- name="Rich Payne" -->
+<!-- email="rdp@talisman.alphalinux.org" -->
+<!-- subject="Re: Troubles installing Redhat 6.1" -->
+<!-- id="Pine.LNX.4.10.10002090914210.3194-100000@talisman.mv.com" -->
+<!-- inreplyto="1B15C62CF9A0D311BD210008C7CF02E51563E8@tayexc04.tay.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Troubles installing Redhat 6.1<BR>
+<STRONG>From: </STRONG>Rich Payne (<EM>rdp@talisman.alphalinux.org</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Feb  9 06:26:41 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#155">[ date ]</A>
+<A HREF="index.shtml#155">[ thread ]</A>
+<A HREF="subject.shtml#155">[ subject ]</A>
+<A HREF="author.shtml#155">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0156.shtml">zank: "disklabels //  Re:Troubles installing Redhat 6.1"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0154.shtml">Quant-X UNIX and Linux Support: "Re: Troubles installing Redhat 6.1"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0151.shtml">Wingell, Joshua: "Troubles installing Redhat 6.1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0156.shtml">zank: "disklabels //  Re:Troubles installing Redhat 6.1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0151.shtml">Rich Payne: "Re: Troubles installing Redhat 6.1"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 9 Feb 2000, Wingell, Joshua wrote:
+<BR>
+<P><EM>&gt; So I made a floppy using the MILO image on the digital ftp site. I
+</EM><BR>
+<EM>&gt; booted that up through SRM. Then I could boot up the linux CDROM.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I figured I could use MILO to boot the CDROM and then use SRM to boot
+</EM><BR>
+<EM>&gt; the system.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Well, I got to the disk partitioning section on Disk Druid. I created a
+</EM><BR>
+<EM>&gt; / (900MB), a /boot (16MB), a swap file (256MB) and a /usr (the rest).
+</EM><BR>
+<EM>&gt; Then I remembered that someone at work told me something about needing 
+</EM><BR>
+<EM>&gt; cylinder 0 to be free for a boot record. Well, I couldn't see any 
+</EM><BR>
+<EM>&gt; options regarding this. And there was no way to control where the 
+</EM><BR>
+<EM>&gt; partitions went on the disc.  So I left the partitions as-is.
+</EM><BR>
+<P>You'll need to use fdisk to write out BSD disk labels. 
+<BR>
+<P>So, take your MILO floppy and destory it, burn it, break it into a million
+<BR>
+pieces, write over it, whichever you prefer. Then get the generic.img file
+<BR>
+from the 6.1 CD-ROM and use rawrite (under DOS/windows) or dd (under UNIX)
+<BR>
+to place that floppy image onto the floppy. Something like:
+<BR>
+<P>dd if=generic.img of=/dev/fd0 bs=1440k
+<BR>
+<P>Now, boot from SRM using this floppy,
+<BR>
+<P><EM>&gt;&gt; boot dva0 -fi vmlinux.gz -fl &quot;root=/dev/scd0 expert&quot;
+</EM><BR>
+<P>This should work, it will load the kernel from the floppy and then use the
+<BR>
+CD as the root filesystem for the install.
+<BR>
+<P>Now, when the install starts, on one of the screens (Sorry, can't remember
+<BR>
+which) you'll see a small box in the upper right that says &quot;Use Fdisk&quot; (or
+<BR>
+something like that). Check that box. Once in fdisk, use the 'b' command
+<BR>
+to
+<BR>
+change the disk to BSD disk labels. Then create your partitions manually
+<BR>
+with the ONE exception that the first partition (a) should start on
+<BR>
+cylinder one, not zero. You should also create a small (about 20Meg)
+<BR>
+partition to mount under /boot, otherwise aboot will have problems reading
+<BR>
+the disk.
+<BR>
+<P>Write the changes to the disk (w) and then (q) and go on with your
+<BR>
+install. Now the RedHat installer should automagically setup aboot for you
+<BR>
+on the harddisk. Once the install is complete get back to the SRM prompt,
+<BR>
+and just try to boot from your harddisk (dka0 ??)
+<BR>
+<EM>&gt;&gt; boot dka0 -fi 2/boot/vmlinuz-2.2.13-0.9 -fl &quot;root=/dev/sda1&quot;
+</EM><BR>
+<P>This assumes that /boot is paritition 2 and / is partition 1
+<BR>
+<P>This should work, now there is a slightly easier way, and that's if you
+<BR>
+create the BSD disk labels manually like above, save the changes, then
+<BR>
+restart the install. The RedHat installer is smart enough to look at the
+<BR>
+disk and if it continas BSD disklabels it will partiition that way. If you
+<BR>
+do this you can choose one of the Workstation/Server options and it will
+<BR>
+auto-partition, setup aboot and the /etc/aboot.conf file.
+<BR>
+<P>You may want to take a read through this to get a better understanding of
+<BR>
+how SRM/aboot work.
+<BR>
+<A HREF="http://www.alphalinux.org/faq/SRM.html">http://www.alphalinux.org/faq/SRM.html</A>
+<BR>
+<P>Good Luck,
+<BR>
+--rdp
+<BR>
+<P>Rich Payne
+<BR>
+rpayne@alphalinux.org			www.alphalinux.org
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0156.shtml">zank: "disklabels //  Re:Troubles installing Redhat 6.1"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0154.shtml">Quant-X UNIX and Linux Support: "Re: Troubles installing Redhat 6.1"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0151.shtml">Wingell, Joshua: "Troubles installing Redhat 6.1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0156.shtml">zank: "disklabels //  Re:Troubles installing Redhat 6.1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0151.shtml">Rich Payne: "Re: Troubles installing Redhat 6.1"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Mar  1 06:26:23 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

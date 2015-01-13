@@ -1,0 +1,112 @@
+<!-- received="Mon Sep 29 06:20:26 1997 " -->
+<!-- sent="Mon, 29 Sep 1997 09:18:46 -0500 (EST)" -->
+<!-- name="Sprag Johnson" -->
+<!-- email="bdwheele@indiana.edu" -->
+<!-- subject="OSF/1 Script loading problem...I think I know what's wrong, but don't know how to fix it!" -->
+<!-- id="199709291418.JAA19165@hamlet.ucs.indiana.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>OSF/1 Script loading problem...I think I know what's wrong, but don't know how to fix it!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>OSF/1 Script loading problem...I think I know what's wrong, but don't know how to fix it!</h2>
+
+<b>Sprag Johnson</b> (<a href="mailto:bdwheele@indiana.edu"><i>bdwheele@indiana.edu</i></a>)<br>
+<i>Mon, 29 Sep 1997 09:18:46 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#578">[ date ]</a><a href="index.html#578">[ thread ]</a><a href="subject.html#578">[ subject ]</a><a href="author.html#578">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0579.html">Jim Paradis: "Re: UDB too slow to run RealAudio player under em86 ?"</a>
+<li> <b>Previous message:</b> <a href="0577.html">Harvey J. Stein: "Profiling still broken?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi!<br>
+	I'd like to first mention that I'm not a kernel hacker, so I<br>
+could be completely off base here.<br>
+<p>
+Here's my problem:<br>
+	I'm wanting to run perl compiled for OSF/1 (because sybperl<br>
+isn't available for linux).  when I do:<br>
+	perl &lt;filename&gt;<br>
+		it works just fine.<br>
+when I do:<br>
+	perl &lt; &lt;filename&gt;<br>
+		it works just fine.<br>
+<p>
+When I have a #!/usr/local/bin/perl script, it fails with a segfault.<br>
+<p>
+I did some printk's in exec.c and I think that bprm-&gt;p is overwriting<br>
+the name of the interpriter.<br>
+<p>
+Here's my modified chunk of code:<br>
+                printk("bprm-&gt;p=%d\n",bprm-&gt;p);<br>
+                remove_arg_zero(bprm);<br>
+                printk("bprm-&gt;p=%d\n",bprm-&gt;p);<br>
+                bprm-&gt;p = copy_strings(1, dynloader, bprm-&gt;page,bprm-&gt;p, 2);<br>
+                printk("bprm-&gt;p=%d\n",bprm-&gt;p);<br>
+ <br>
+Here's the output I got when I tried to run my test perl script:<br>
+<p>
+bprm-&gt;p=261757<br>
+bprm-&gt;p=261777<br>
+bprm-&gt;p=261764<br>
+<p>
+Assuming that bprm-&gt;p is a pointer (no docs that I could find) that<br>
+points to the command line, when it gets here the pointer should be<br>
+pointing at "/usr/local/bin/perl ./test.pl"<br>
+<p>
+At the 2nd printk, the pointer looks like it is pointing to:<br>
+	"./test.pl"<br>
+In the case of sh_bang, it should still be pointing at<br>
+	"/usr/local/bin/perl ./test.pl"<br>
+<p>
+At the third printk, it looks like the pointer is pointing to:<br>
+	"/sbin/loader ./test.pl"<br>
+which should really be<br>
+	"/sbin/loader /usr/local/bin/perl ./test.pl"<br>
+<p>
+Correct?  Is this what's really happening?  Could some kind soul tell me<br>
+how to fix this?  Its not *critical* per se, but it is a misfeature.<br>
+<p>
+I'm running 2.0.30.  Is this fixed in the pre-31's?<br>
+<p>
+Thanks,<br>
+Brian Wheeler<br>
+<a href="mailto:bdwheele@indiana.edu">bdwheele@indiana.edu</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0579.html">Jim Paradis: "Re: UDB too slow to run RealAudio player under em86 ?"</a>
+<li> <b>Previous message:</b> <a href="0577.html">Harvey J. Stein: "Profiling still broken?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

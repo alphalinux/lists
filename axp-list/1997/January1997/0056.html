@@ -1,0 +1,98 @@
+<!-- received="Sat Jan  4 01:46:01 1997 " -->
+<!-- sent="Fri, 3 Jan 1997 21:32:07 +0100 (MET)" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="strange errors with strncpy ( redhat Vanderbilt )" -->
+<!-- id="199701032032.VAA01470@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>strange errors with strncpy ( redhat Vanderbilt )</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>strange errors with strncpy ( redhat Vanderbilt )</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 3 Jan 1997 21:32:07 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#56">[ date ]</a><a href="index.html#56">[ thread ]</a><a href="subject.html#56">[ subject ]</a><a href="author.html#56">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0057.html">Scott Call: "IBM 2 gig 2.5" IDE for UDB?"</a>
+<li> <b>Previous message:</b> <a href="0055.html">Ximenes: "Re: which parts of redhat/axp are free?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Just installed the wu-ftpd from the axp-devel-tree, and noticed that it's still<br>
+buggy ( the patch i posted some weeks ago haven't got in ;-( ). No Problem, i found<br>
+the patch in my private mail archive, recompiled and tested the daemon.<br>
+<p>
+Everything looked  fine at the first glance, but then i noticed that the message<br>
+that is displayed if an anonymouns user doesn't supply the recommended password<br>
+misses the hostname.<br>
+<p>
+230-The response '' is not valid<br>
+230-Next time please use your e-mail address as your password<br>
+230-        for example: joe@<br>
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^<br>
+<p>
+Looking at the source, i found the following fragment in file ftpd.c, function<br>
+dolog() :<br>
+<p>
+<i>&gt;     hp = gethostbyaddr((char *)&amp;sin-&gt;sin_addr, sizeof(struct in_addr), AF_INET);</i><br>
+<i>&gt;    ....</i><br>
+<i>&gt;         if (hp) {</i><br>
+<i>&gt;             nameserved = 1;</i><br>
+<i>&gt;             (void) strncpy(remotehost, hp-&gt;h_name, sizeof(remotehost));</i><br>
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<br>
+<p>
+inserting some syslog-directives i found that strncpy obviously fails here,<br>
+hp-&gt;h_name contains the correct name of the connected peer.<br>
+<p>
+remotehost is defined globally, so i<br>
+defined a local  char dummy[64] inside dolog(), first strncpy'd from hp-&gt;h_name<br>
+to dummy, and then strncpy'd from dummy to remotehost, and the code <br>
+worked -- somewhat strange isn't it ?<br>
+<p>
+Another test was to link ftpd with my own, c-coded strncpy, this also works.<br>
+<p>
+i tried to reproduce the error with some small test programs, but they all<br>
+worked fine.<br>
+<p>
+Could this be a compiler or (dynamic) linker bug ?<br>
+<p>
+Anyway, the daemon is running now, you'll find my old patch to ftpd as:<br>
+<a href="ftp://fabserver1.zarm.uni-bremen.de/pub/axp/ftpd.patch">ftp://fabserver1.zarm.uni-bremen.de/pub/axp/ftpd.patch</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0057.html">Scott Call: "IBM 2 gig 2.5" IDE for UDB?"</a>
+<li> <b>Previous message:</b> <a href="0055.html">Ximenes: "Re: which parts of redhat/axp are free?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

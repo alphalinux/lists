@@ -1,0 +1,840 @@
+<!-- received="Thu Feb 12 15:28:53 1998 " -->
+<!-- sent="Thu, 12 Feb 1998 11:25:49 -0800" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@dot.cygnus.com" -->
+<!-- subject="Re: [2.1.82] SERIOUS FLAWS in IEEE math handling on ALPHA." -->
+<!-- id="199802121355.IAA06415@harrison.blueskyprod.com" -->
+<!-- inreplyto="199802111859.TAA06269@sundiver.zdv.uni-mainz.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: [2.1.82] SERIOUS FLAWS in IEEE math handling on ALPHA.</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: [2.1.82] SERIOUS FLAWS in IEEE math handling on ALPHA.</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:rth@dot.cygnus.com"><i>rth@dot.cygnus.com</i></a>)<br>
+<i>Thu, 12 Feb 1998 11:25:49 -0800</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#97">[ date ]</a><a href="index.html#97">[ thread ]</a><a href="subject.html#97">[ subject ]</a><a href="author.html#97">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0098.html">Jeffrey N Woodford: "Re: Installing Linux on DEC Alpha"</a>
+<li> <b>Previous message:</b> <a href="0096.html">Christian Worley: "Update glibc ... Re: X crashes under RH5, when starting many simultaenous gv"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+--gBBFr7Ir9EOA20Yy<br>
+Content-Type: text/plain; charset=us-ascii<br>
+<p>
+Attached is a patch that cures the problems as reported by paranoia. <br>
+<p>
+Note that to fix the sqrt tests, I removed the optimized sqrt routine<br>
+from libc/sysdeps/alpha/w_sqrt.S, falling back on the libm-ieee764<br>
+version, and rebuilt libm.so.  At some point someone might want to <br>
+fix up the alpha-optimized sqrt to cope with denormals, but ...<br>
+<p>
+The patch is a bit bigger than necessary to just fix the problem, as<br>
+it also adds a kernel hacking option to build the emulator as a module,<br>
+which helps quite a lot when debugging it.<br>
+<p>
+<p>
+r~<br>
+<p>
+--gBBFr7Ir9EOA20Yy<br>
+Content-Type: text/plain; charset=us-ascii<br>
+Content-Disposition: attachment; filename=d-emu<br>
+<p>
+diff -ruNp 2.1.86/arch/alpha/Makefile 2.1.86-axp/arch/alpha/Makefile<br>
+--- 2.1.86/arch/alpha/Makefile	Thu Jan 15 21:52:46 1998<br>
++++ 2.1.86-axp/arch/alpha/Makefile	Thu Feb 12 05:27:21 1998<br>
+@@ -18,8 +18,12 @@ HEAD := arch/alpha/kernel/head.o<br>
+ SUBDIRS := $(SUBDIRS) arch/alpha/kernel arch/alpha/mm arch/alpha/lib \<br>
+ 	arch/alpha/math-emu<br>
+ CORE_FILES := arch/alpha/kernel/kernel.o arch/alpha/mm/mm.o $(CORE_FILES)<br>
+-LIBS := $(TOPDIR)/arch/alpha/math-emu/math-emu.a \<br>
+-	$(TOPDIR)/arch/alpha/lib/lib.a $(LIBS) $(TOPDIR)/arch/alpha/lib/lib.a<br>
++<br>
++ifeq ($(CONFIG_MATHEMU),y)<br>
++  CORE_FILES := $(CORE_FILES) arch/alpha/math-emu/math-emu.o<br>
++endif<br>
++<br>
++LIBS := arch/alpha/lib/lib.a $(LIBS) arch/alpha/lib/lib.a<br>
+ <br>
+ MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot<br>
+ <br>
+diff -ruNp 2.1.86/arch/alpha/config.in 2.1.86-axp/arch/alpha/config.in<br>
+--- 2.1.86/arch/alpha/config.in	Thu Feb 12 08:58:24 1998<br>
++++ 2.1.86-axp/arch/alpha/config.in	Thu Feb 12 05:02:04 1998<br>
+@@ -245,6 +245,12 @@ bool 'Kernel profiling support' CONFIG_P<br>
+ if [ "$CONFIG_PROFILE" = "y" ]; then<br>
+   int ' Profile shift count' CONFIG_PROFILE_SHIFT 2<br>
+ fi<br>
++if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then<br>
++  tristate 'Kernel FP software completion' CONFIG_MATHEMU<br>
++else<br>
++  define_bool CONFIG_MATHEMU y<br>
++fi<br>
++<br>
+ bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ<br>
+ endmenu<br>
+ <br>
+diff -ruNp 2.1.86/arch/alpha/defconfig 2.1.86-axp/arch/alpha/defconfig<br>
+--- 2.1.86/arch/alpha/defconfig	Thu Feb  5 14:39:40 1998<br>
++++ 2.1.86-axp/arch/alpha/defconfig	Thu Feb 12 05:02:28 1998<br>
+@@ -30,14 +30,19 @@ CONFIG_NATIVE=y<br>
+ # CONFIG_ALPHA_JENSEN is not set<br>
+ # CONFIG_ALPHA_NONAME is not set<br>
+ # CONFIG_ALPHA_MIKASA is not set<br>
++# CONFIG_ALPHA_NORITAKE is not set<br>
+ CONFIG_ALPHA_ALCOR=y<br>
++# CONFIG_ALPHA_MIATA is not set<br>
++# CONFIG_ALPHA_SABLE is not set<br>
++# CONFIG_ALPHA_BOOK1 is not set<br>
+ # CONFIG_ALPHA_P2K is not set<br>
+ CONFIG_PCI=y<br>
+-CONFIG_PCI_OLD_PROC=y<br>
+ CONFIG_ALPHA_EV5=y<br>
+ CONFIG_ALPHA_CIA=y<br>
+ CONFIG_ALPHA_SRM=y<br>
++CONFIG_ALPHA_EISA=y<br>
+ CONFIG_TGA_CONSOLE=y<br>
++CONFIG_PCI_OLD_PROC=y<br>
+ CONFIG_NET=y<br>
+ CONFIG_SYSVIPC=y<br>
+ CONFIG_SYSCTL=y<br>
+@@ -70,28 +75,35 @@ CONFIG_BLK_DEV_FD=y<br>
+ # CONFIG_BLK_DEV_MD is not set<br>
+ # CONFIG_BLK_DEV_RAM is not set<br>
+ # CONFIG_BLK_DEV_XD is not set<br>
+-# CONFIG_BLK_DEV_EZ is not set<br>
++CONFIG_PARIDE_PARPORT=y<br>
++# CONFIG_PARIDE is not set<br>
+ # CONFIG_BLK_DEV_HD is not set<br>
+ <br>
+ #<br>
+ # Networking options<br>
+ #<br>
++# CONFIG_PACKET is not set<br>
+ # CONFIG_NETLINK is not set<br>
+ # CONFIG_FIREWALL is not set<br>
+ # CONFIG_NET_ALIAS is not set<br>
++# CONFIG_FILTER is not set<br>
++CONFIG_UNIX=y<br>
+ CONFIG_INET=y<br>
+ # CONFIG_IP_MULTICAST is not set<br>
++# CONFIG_IP_ADVANCED_ROUTER is not set<br>
++# CONFIG_IP_PNP is not set<br>
+ # CONFIG_IP_ACCT is not set<br>
++# CONFIG_IP_MASQUERADE is not set<br>
+ # CONFIG_IP_ROUTER is not set<br>
+ # CONFIG_NET_IPIP is not set<br>
++# CONFIG_NET_IPGRE is not set<br>
++# CONFIG_IP_ALIAS is not set<br>
+ # CONFIG_SYN_COOKIES is not set<br>
+ <br>
+ #<br>
+ # (it is safe to leave these untouched)<br>
+ #<br>
+-# CONFIG_INET_PCTCP is not set<br>
+ # CONFIG_INET_RARP is not set<br>
+-CONFIG_PATH_MTU_DISCOVERY=y<br>
+ CONFIG_IP_NOSR=y<br>
+ CONFIG_SKB_LARGE=y<br>
+ <br>
+@@ -100,7 +112,6 @@ CONFIG_SKB_LARGE=y<br>
+ #<br>
+ # CONFIG_IPX is not set<br>
+ # CONFIG_ATALK is not set<br>
+-# CONFIG_AX25 is not set<br>
+ <br>
+ #<br>
+ # SCSI support<br>
+@@ -121,6 +132,7 @@ CONFIG_BLK_DEV_SR=y<br>
+ #<br>
+ # CONFIG_SCSI_MULTI_LUN is not set<br>
+ CONFIG_SCSI_CONSTANTS=y<br>
++# CONFIG_SCSI_LOGGING is not set<br>
+ <br>
+ #<br>
+ # SCSI low-level drivers<br>
+@@ -139,11 +151,15 @@ CONFIG_SCSI_CONSTANTS=y<br>
+ # CONFIG_SCSI_EATA_PIO is not set<br>
+ # CONFIG_SCSI_EATA is not set<br>
+ # CONFIG_SCSI_FUTURE_DOMAIN is not set<br>
++# CONFIG_SCSI_GDTH is not set<br>
+ # CONFIG_SCSI_GENERIC_NCR5380 is not set<br>
+ # CONFIG_SCSI_NCR53C406A is not set<br>
+ # CONFIG_SCSI_NCR53C7xx is not set<br>
+ # CONFIG_SCSI_NCR53C8XX is not set<br>
+ # CONFIG_SCSI_PAS16 is not set<br>
++# CONFIG_SCSI_PCI2000 is not set<br>
++# CONFIG_SCSI_PCI2220I is not set<br>
++# CONFIG_SCSI_PSI240I is not set<br>
+ # CONFIG_SCSI_QLOGIC_FAS is not set<br>
+ CONFIG_SCSI_QLOGIC_ISP=y<br>
+ # CONFIG_SCSI_SEAGATE is not set<br>
+@@ -177,13 +193,19 @@ CONFIG_DE4X5=y<br>
+ # CONFIG_FDDI is not set<br>
+ # CONFIG_DLCI is not set<br>
+ # CONFIG_PPP is not set<br>
+-# CONFIG_NET_RADIO is not set<br>
+ # CONFIG_SLIP is not set<br>
++# CONFIG_NET_RADIO is not set<br>
+ # CONFIG_TR is not set<br>
++# CONFIG_WAN_DRIVERS is not set<br>
+ # CONFIG_LAPBETHER is not set<br>
+ # CONFIG_X25_ASY is not set<br>
+ <br>
+ #<br>
++# Amateur Radio support<br>
++#<br>
++# CONFIG_HAMRADIO is not set<br>
++<br>
++#<br>
+ # ISDN subsystem<br>
+ #<br>
+ # CONFIG_ISDN is not set<br>
+@@ -192,6 +214,7 @@ CONFIG_DE4X5=y<br>
+ # CD-ROM drivers (not for SCSI or IDE/ATAPI drives)<br>
+ #<br>
+ # CONFIG_CD_NO_IDESCSI is not set<br>
++CONFIG_CDROM=y<br>
+ <br>
+ #<br>
+ # Filesystems<br>
+@@ -199,25 +222,29 @@ CONFIG_DE4X5=y<br>
+ # CONFIG_QUOTA is not set<br>
+ # CONFIG_MINIX_FS is not set<br>
+ CONFIG_EXT2_FS=y<br>
++CONFIG_ISO9660_FS=y<br>
++# CONFIG_JOLIET is not set<br>
+ # CONFIG_FAT_FS is not set<br>
+ # CONFIG_MSDOS_FS is not set<br>
+-# CONFIG_VFAT_FS is not set<br>
+ # CONFIG_UMSDOS_FS is not set<br>
++# CONFIG_VFAT_FS is not set<br>
+ CONFIG_PROC_FS=y<br>
+ CONFIG_NFS_FS=y<br>
+-# CONFIG_ROOT_NFS is not set<br>
+ # CONFIG_NFSD is not set<br>
+ CONFIG_SUNRPC=y<br>
+ CONFIG_LOCKD=y<br>
++# CONFIG_CODA_FS is not set<br>
+ # CONFIG_SMB_FS is not set<br>
+-CONFIG_ISO9660_FS=y<br>
+ # CONFIG_HPFS_FS is not set<br>
++# CONFIG_NTFS_FS is not set<br>
+ # CONFIG_SYSV_FS is not set<br>
+ # CONFIG_AFFS_FS is not set<br>
++# CONFIG_HFS_FS is not set<br>
+ # CONFIG_ROMFS_FS is not set<br>
+ # CONFIG_AUTOFS_FS is not set<br>
+ # CONFIG_UFS_FS is not set<br>
+ # CONFIG_MAC_PARTITION is not set<br>
++# CONFIG_NLS is not set<br>
+ <br>
+ #<br>
+ # Character devices<br>
+@@ -225,6 +252,7 @@ CONFIG_ISO9660_FS=y<br>
+ CONFIG_VT=y<br>
+ CONFIG_VT_CONSOLE=y<br>
+ CONFIG_SERIAL=y<br>
++# CONFIG_SERIAL_CONSOLE is not set<br>
+ # CONFIG_SERIAL_EXTENDED is not set<br>
+ # CONFIG_SERIAL_NONSTANDARD is not set<br>
+ CONFIG_MOUSE=y<br>
+@@ -236,12 +264,18 @@ CONFIG_PSMOUSE=y<br>
+ # CONFIG_PC110_PAD is not set<br>
+ # CONFIG_UMISC is not set<br>
+ # CONFIG_QIC02_TAPE is not set<br>
+-# CONFIG_FTAPE is not set<br>
+ # CONFIG_APM is not set<br>
+ # CONFIG_WATCHDOG is not set<br>
+ # CONFIG_RTC is not set<br>
++# CONFIG_VIDEO_DEV is not set<br>
+ # CONFIG_NVRAM is not set<br>
+ # CONFIG_JOYSTICK is not set<br>
++# CONFIG_MISC_RADIO is not set<br>
++<br>
++#<br>
++# Ftape, the floppy tape device driver<br>
++#<br>
++# CONFIG_FTAPE is not set<br>
+ <br>
+ #<br>
+ # Sound<br>
+@@ -252,4 +286,5 @@ CONFIG_PSMOUSE=y<br>
+ # Kernel hacking<br>
+ #<br>
+ # CONFIG_PROFILE is not set<br>
++CONFIG_MATHEMU=y<br>
+ # CONFIG_MAGIC_SYSRQ is not set<br>
+diff -ruNp 2.1.86/arch/alpha/kernel/Makefile 2.1.86-axp/arch/alpha/kernel/Makefile<br>
+--- 2.1.86/arch/alpha/kernel/Makefile	Thu Jan 15 21:52:46 1998<br>
++++ 2.1.86-axp/arch/alpha/kernel/Makefile	Thu Feb 12 03:07:54 1998<br>
+@@ -16,7 +16,7 @@ all: kernel.o head.o<br>
+ <br>
+ O_TARGET := kernel.o<br>
+ O_OBJS   := entry.o traps.o process.o osf_sys.o irq.o signal.o setup.o \<br>
+-	    bios32.o ptrace.o time.o<br>
++	    bios32.o ptrace.o time.o fpreg.o<br>
+ OX_OBJS  := alpha_ksyms.o<br>
+ <br>
+ <br>
+diff -ruNp 2.1.86/arch/alpha/kernel/alpha_ksyms.c 2.1.86-axp/arch/alpha/kernel/alpha_ksyms.c<br>
+--- 2.1.86/arch/alpha/kernel/alpha_ksyms.c	Thu Feb 12 08:58:24 1998<br>
++++ 2.1.86-axp/arch/alpha/kernel/alpha_ksyms.c	Thu Feb 12 03:33:59 1998<br>
+@@ -21,6 +21,7 @@<br>
+ #include &lt;asm/checksum.h&gt;<br>
+ #include &lt;linux/interrupt.h&gt;<br>
+ #include &lt;asm/softirq.h&gt;<br>
++#include &lt;asm/fpu.h&gt;<br>
+ <br>
+ #define __KERNEL_SYSCALLS__<br>
+ #include &lt;asm/unistd.h&gt;<br>
+@@ -88,6 +89,8 @@ EXPORT_SYMBOL(dump_fpu);<br>
+ EXPORT_SYMBOL(hwrpb);<br>
+ EXPORT_SYMBOL(wrusp);<br>
+ EXPORT_SYMBOL(start_thread);<br>
++EXPORT_SYMBOL(alpha_read_fp_reg);<br>
++EXPORT_SYMBOL(alpha_write_fp_reg);<br>
+ <br>
+ /* In-kernel system calls.  */<br>
+ EXPORT_SYMBOL(__kernel_thread);<br>
+@@ -109,6 +112,11 @@ EXPORT_SYMBOL(ip_fast_csum);<br>
+ EXPORT_SYMBOL(csum_partial_copy);<br>
+ EXPORT_SYMBOL(csum_partial_copy_from_user);<br>
+ EXPORT_SYMBOL(csum_ipv6_magic);<br>
++<br>
++#ifdef CONFIG_MATHEMU_MODULE<br>
++extern long (*alpha_fp_emul_imprecise)(struct pt_regs *, unsigned long);<br>
++EXPORT_SYMBOL(alpha_fp_emul_imprecise);<br>
++#endif<br>
+ <br>
+ /*<br>
+  * The following are specially called from the uaccess assembly stubs.<br>
+diff -ruNp 2.1.86/arch/alpha/kernel/fpreg.c 2.1.86-axp/arch/alpha/kernel/fpreg.c<br>
+--- 2.1.86/arch/alpha/kernel/fpreg.c	Wed Dec 31 16:00:00 1969<br>
++++ 2.1.86-axp/arch/alpha/kernel/fpreg.c	Thu Feb 12 03:07:38 1998<br>
+@@ -0,0 +1,104 @@<br>
++/*<br>
++ * kernel/fpreg.c<br>
++ *<br>
++ * (C) Copyright 1998 Linus Torvalds<br>
++ */<br>
++<br>
++unsigned long<br>
++alpha_read_fp_reg (unsigned long reg)<br>
++{<br>
++	unsigned long r;<br>
++<br>
++	switch (reg) {<br>
++	      case  0: asm ("stt  $f0,%0" : "m="(r)); break;<br>
++	      case  1: asm ("stt  $f1,%0" : "m="(r)); break;<br>
++	      case  2: asm ("stt  $f2,%0" : "m="(r)); break;<br>
++	      case  3: asm ("stt  $f3,%0" : "m="(r)); break;<br>
++	      case  4: asm ("stt  $f4,%0" : "m="(r)); break;<br>
++	      case  5: asm ("stt  $f5,%0" : "m="(r)); break;<br>
++	      case  6: asm ("stt  $f6,%0" : "m="(r)); break;<br>
++	      case  7: asm ("stt  $f7,%0" : "m="(r)); break;<br>
++	      case  8: asm ("stt  $f8,%0" : "m="(r)); break;<br>
++	      case  9: asm ("stt  $f9,%0" : "m="(r)); break;<br>
++	      case 10: asm ("stt $f10,%0" : "m="(r)); break;<br>
++	      case 11: asm ("stt $f11,%0" : "m="(r)); break;<br>
++	      case 12: asm ("stt $f12,%0" : "m="(r)); break;<br>
++	      case 13: asm ("stt $f13,%0" : "m="(r)); break;<br>
++	      case 14: asm ("stt $f14,%0" : "m="(r)); break;<br>
++	      case 15: asm ("stt $f15,%0" : "m="(r)); break;<br>
++	      case 16: asm ("stt $f16,%0" : "m="(r)); break;<br>
++	      case 17: asm ("stt $f17,%0" : "m="(r)); break;<br>
++	      case 18: asm ("stt $f18,%0" : "m="(r)); break;<br>
++	      case 19: asm ("stt $f19,%0" : "m="(r)); break;<br>
++	      case 20: asm ("stt $f20,%0" : "m="(r)); break;<br>
++	      case 21: asm ("stt $f21,%0" : "m="(r)); break;<br>
++	      case 22: asm ("stt $f22,%0" : "m="(r)); break;<br>
++	      case 23: asm ("stt $f23,%0" : "m="(r)); break;<br>
++	      case 24: asm ("stt $f24,%0" : "m="(r)); break;<br>
++	      case 25: asm ("stt $f25,%0" : "m="(r)); break;<br>
++	      case 26: asm ("stt $f26,%0" : "m="(r)); break;<br>
++	      case 27: asm ("stt $f27,%0" : "m="(r)); break;<br>
++	      case 28: asm ("stt $f28,%0" : "m="(r)); break;<br>
++	      case 29: asm ("stt $f29,%0" : "m="(r)); break;<br>
++	      case 30: asm ("stt $f30,%0" : "m="(r)); break;<br>
++	      case 31: asm ("stt $f31,%0" : "m="(r)); break;<br>
++	      default:<br>
++		break;<br>
++	}<br>
++	return r;<br>
++}<br>
++<br>
++#if 1<br>
++/*<br>
++ * This is IMHO the better way of implementing LDT().  But it<br>
++ * has the disadvantage that gcc 2.7.0 refuses to compile it<br>
++ * (invalid operand constraints), so instead, we use the uglier<br>
++ * macro below.<br>
++ */<br>
++# define LDT(reg,val)	\<br>
++  asm volatile ("ldt $f"#reg",%0" : : "m"(val));<br>
++#else<br>
++# define LDT(reg,val)	\<br>
++  asm volatile ("ldt $f"#reg",0(%0)" : : "r"(&amp;val));<br>
++#endif<br>
++<br>
++void<br>
++alpha_write_fp_reg (unsigned long reg, unsigned long val)<br>
++{<br>
++	switch (reg) {<br>
++	      case  0: LDT( 0, val); break;<br>
++	      case  1: LDT( 1, val); break;<br>
++	      case  2: LDT( 2, val); break;<br>
++	      case  3: LDT( 3, val); break;<br>
++	      case  4: LDT( 4, val); break;<br>
++	      case  5: LDT( 5, val); break;<br>
++	      case  6: LDT( 6, val); break;<br>
++	      case  7: LDT( 7, val); break;<br>
++	      case  8: LDT( 8, val); break;<br>
++	      case  9: LDT( 9, val); break;<br>
++	      case 10: LDT(10, val); break;<br>
++	      case 11: LDT(11, val); break;<br>
++	      case 12: LDT(12, val); break;<br>
++	      case 13: LDT(13, val); break;<br>
++	      case 14: LDT(14, val); break;<br>
++	      case 15: LDT(15, val); break;<br>
++	      case 16: LDT(16, val); break;<br>
++	      case 17: LDT(17, val); break;<br>
++	      case 18: LDT(18, val); break;<br>
++	      case 19: LDT(19, val); break;<br>
++	      case 20: LDT(20, val); break;<br>
++	      case 21: LDT(21, val); break;<br>
++	      case 22: LDT(22, val); break;<br>
++	      case 23: LDT(23, val); break;<br>
++	      case 24: LDT(24, val); break;<br>
++	      case 25: LDT(25, val); break;<br>
++	      case 26: LDT(26, val); break;<br>
++	      case 27: LDT(27, val); break;<br>
++	      case 28: LDT(28, val); break;<br>
++	      case 29: LDT(29, val); break;<br>
++	      case 30: LDT(30, val); break;<br>
++	      case 31: LDT(31, val); break;<br>
++	      default:<br>
++		break;<br>
++	}<br>
++}<br>
+diff -ruNp 2.1.86/arch/alpha/kernel/head.S 2.1.86-axp/arch/alpha/kernel/head.S<br>
+--- 2.1.86/arch/alpha/kernel/head.S	Thu Jan 15 21:52:46 1998<br>
++++ 2.1.86-axp/arch/alpha/kernel/head.S	Thu Feb 12 03:24:29 1998<br>
+@@ -121,37 +121,3 @@ cserve_dis:<br>
+ 	call_pal PAL_cserve<br>
+ 	ret	($26)<br>
+ 	.end	cserve_dis<br>
+-<br>
+-	#<br>
+-	# The following two functions don't need trapb/excb instructions<br>
+-	# around the mf_fpcr/mt_fpcr instructions because (a) the kernel<br>
+-	# never generates arithmetic faults and (b) call_pal instructions<br>
+-	# are implied trap barriers.<br>
+-	#<br>
+-	.align 3<br>
+-	.globl	rdfpcr<br>
+-	.ent	rdfpcr<br>
+-rdfpcr:<br>
+-	lda	$30,-0x10($30)<br>
+-	stt	$f0,0($30)<br>
+-	mf_fpcr	$f0<br>
+-	stt	$f0,8($30)<br>
+-	ldt	$f0,0($30)<br>
+-	ldq	$0,8($30)<br>
+-	lda	$30,0x10($30)<br>
+-	ret	($26)<br>
+-	.end	rdfpcr<br>
+-<br>
+-	.align 3<br>
+-	.globl	wrfpcr<br>
+-	.ent	wrfpcr<br>
+-wrfpcr:<br>
+-	lda	$30,-0x10($30)<br>
+-	stt	$f0,0($30)<br>
+-	stq	$16,8($30)<br>
+-	ldt	$f0,8($30)<br>
+-	mt_fpcr	$f0<br>
+-	ldt	$f0,0($30)<br>
+-	lda	$30,0x10($30)<br>
+-	ret	($26)<br>
+-	.end	wrfpcr<br>
+diff -ruNp 2.1.86/arch/alpha/kernel/traps.c 2.1.86-axp/arch/alpha/kernel/traps.c<br>
+--- 2.1.86/arch/alpha/kernel/traps.c	Thu Feb 12 08:58:24 1998<br>
++++ 2.1.86-axp/arch/alpha/kernel/traps.c	Thu Feb 12 04:59:19 1998<br>
+@@ -105,14 +105,24 @@ void die_if_kernel(char * str, struct pt<br>
+ 	do_exit(SIGSEGV);<br>
+ }<br>
+ <br>
++#ifndef CONFIG_MATHEMU<br>
++static long dummy_alpha_fp_emul_imprecise(struct pt_regs *r, unsigned long wm)<br>
++{<br>
++  return 0;<br>
++}<br>
++<br>
++long (*alpha_fp_emul_imprecise)(struct pt_regs *regs, unsigned long writemask)<br>
++  = dummy_alpha_fp_emul_imprecise;<br>
++#else<br>
++long alpha_fp_emul_imprecise(struct pt_regs *regs, unsigned long writemask);<br>
++#endif<br>
++<br>
+ asmlinkage void do_entArith(unsigned long summary, unsigned long write_mask,<br>
+ 			    unsigned long a2, unsigned long a3,<br>
+ 			    unsigned long a4, unsigned long a5,<br>
+ 			    struct pt_regs regs)<br>
+ {<br>
+ 	if ((summary &amp; 1)) {<br>
+-		extern long alpha_fp_emul_imprecise (struct pt_regs * regs,<br>
+-						     unsigned long write_mask);<br>
+ 		/*<br>
+ 		 * Software-completion summary bit is set, so try to<br>
+ 		 * emulate the instruction.<br>
+diff -ruNp 2.1.86/arch/alpha/math-emu/Makefile 2.1.86-axp/arch/alpha/math-emu/Makefile<br>
+--- 2.1.86/arch/alpha/math-emu/Makefile	Thu Dec 21 22:22:05 1995<br>
++++ 2.1.86-axp/arch/alpha/math-emu/Makefile	Thu Feb 12 05:28:31 1998<br>
+@@ -2,11 +2,11 @@<br>
+ # Makefile for math-emulator files...<br>
+ #<br>
+ <br>
+-OBJS  = fp-emul.o ieee-math.o<br>
++O_TARGET := math-emu.o<br>
++O_OBJS   := fp-emul.o ieee-math.o<br>
+ <br>
+-math-emu.a: $(OBJS)<br>
+-	$(AR) rcs $@ $(OBJS)<br>
+-<br>
+-dep:<br>
++ifeq ($(CONFIG_MATHEMU),m)<br>
++M_OBJS   := $(O_TARGET)<br>
++endif<br>
+ <br>
+ include $(TOPDIR)/Rules.make<br>
+diff -ruNp 2.1.86/arch/alpha/math-emu/fp-emul.c 2.1.86-axp/arch/alpha/math-emu/fp-emul.c<br>
+--- 2.1.86/arch/alpha/math-emu/fp-emul.c	Sat Jul 26 15:17:14 1997<br>
++++ 2.1.86-axp/arch/alpha/math-emu/fp-emul.c	Thu Feb 12 03:18:52 1998<br>
+@@ -1,5 +1,5 @@<br>
++#include &lt;linux/module.h&gt;<br>
+ #include &lt;linux/types.h&gt;<br>
+-<br>
+ #include &lt;linux/kernel.h&gt;<br>
+ #include &lt;linux/sched.h&gt;<br>
+ <br>
+@@ -52,111 +52,33 @@<br>
+ #define MISC_TRAPB	0x0000<br>
+ #define MISC_EXCB	0x0400<br>
+ <br>
+-<br>
+-extern unsigned long	rdfpcr (void);<br>
+-extern void		wrfpcr (unsigned long);<br>
++extern unsigned long alpha_read_fp_reg (unsigned long reg);<br>
++extern void alpha_write_fp_reg (unsigned long reg, unsigned long val);<br>
+ <br>
+ <br>
+-unsigned long<br>
+-alpha_read_fp_reg (unsigned long reg)<br>
+-{<br>
+-	unsigned long r;<br>
++#ifdef MODULE<br>
+ <br>
+-	switch (reg) {<br>
+-	      case  0: asm ("stt  $f0,%0" : "m="(r)); break;<br>
+-	      case  1: asm ("stt  $f1,%0" : "m="(r)); break;<br>
+-	      case  2: asm ("stt  $f2,%0" : "m="(r)); break;<br>
+-	      case  3: asm ("stt  $f3,%0" : "m="(r)); break;<br>
+-	      case  4: asm ("stt  $f4,%0" : "m="(r)); break;<br>
+-	      case  5: asm ("stt  $f5,%0" : "m="(r)); break;<br>
+-	      case  6: asm ("stt  $f6,%0" : "m="(r)); break;<br>
+-	      case  7: asm ("stt  $f7,%0" : "m="(r)); break;<br>
+-	      case  8: asm ("stt  $f8,%0" : "m="(r)); break;<br>
+-	      case  9: asm ("stt  $f9,%0" : "m="(r)); break;<br>
+-	      case 10: asm ("stt $f10,%0" : "m="(r)); break;<br>
+-	      case 11: asm ("stt $f11,%0" : "m="(r)); break;<br>
+-	      case 12: asm ("stt $f12,%0" : "m="(r)); break;<br>
+-	      case 13: asm ("stt $f13,%0" : "m="(r)); break;<br>
+-	      case 14: asm ("stt $f14,%0" : "m="(r)); break;<br>
+-	      case 15: asm ("stt $f15,%0" : "m="(r)); break;<br>
+-	      case 16: asm ("stt $f16,%0" : "m="(r)); break;<br>
+-	      case 17: asm ("stt $f17,%0" : "m="(r)); break;<br>
+-	      case 18: asm ("stt $f18,%0" : "m="(r)); break;<br>
+-	      case 19: asm ("stt $f19,%0" : "m="(r)); break;<br>
+-	      case 20: asm ("stt $f20,%0" : "m="(r)); break;<br>
+-	      case 21: asm ("stt $f21,%0" : "m="(r)); break;<br>
+-	      case 22: asm ("stt $f22,%0" : "m="(r)); break;<br>
+-	      case 23: asm ("stt $f23,%0" : "m="(r)); break;<br>
+-	      case 24: asm ("stt $f24,%0" : "m="(r)); break;<br>
+-	      case 25: asm ("stt $f25,%0" : "m="(r)); break;<br>
+-	      case 26: asm ("stt $f26,%0" : "m="(r)); break;<br>
+-	      case 27: asm ("stt $f27,%0" : "m="(r)); break;<br>
+-	      case 28: asm ("stt $f28,%0" : "m="(r)); break;<br>
+-	      case 29: asm ("stt $f29,%0" : "m="(r)); break;<br>
+-	      case 30: asm ("stt $f30,%0" : "m="(r)); break;<br>
+-	      case 31: asm ("stt $f31,%0" : "m="(r)); break;<br>
+-	      default:<br>
+-		break;<br>
+-	}<br>
+-	return r;<br>
+-}<br>
++MODULE_DESCRIPTION("FP Software completion module");<br>
+ <br>
++extern long (*alpha_fp_emul_imprecise)(struct pt_regs *, unsigned long);<br>
++static long (*save_emul)(struct pt_regs *, unsigned long);<br>
++long do_alpha_fp_emul_imprecise(struct pt_regs *, unsigned long);<br>
+ <br>
+-#if 0<br>
+-/*<br>
+- * This is IMHO the better way of implementing LDT().  But it<br>
+- * has the disadvantage that gcc 2.7.0 refuses to compile it<br>
+- * (invalid operand constraints), so instead, we use the uglier<br>
+- * macro below.<br>
+- */<br>
+-# define LDT(reg,val)	\<br>
+-  asm volatile ("ldt $f"#reg",%0" :: "m"(val));<br>
+-#else<br>
+-# define LDT(reg,val)	\<br>
+-  asm volatile ("ldt $f"#reg",0(%0)" :: "r"(&amp;val));<br>
+-#endif<br>
++int init_module(void)<br>
++{<br>
++	save_emul = alpha_fp_emul_imprecise;<br>
++	alpha_fp_emul_imprecise = do_alpha_fp_emul_imprecise;<br>
++	return 0;<br>
++}<br>
+ <br>
+-void<br>
+-alpha_write_fp_reg (unsigned long reg, unsigned long val)<br>
++void cleanup_module(void)<br>
+ {<br>
+-	switch (reg) {<br>
+-	      case  0: LDT( 0, val); break;<br>
+-	      case  1: LDT( 1, val); break;<br>
+-	      case  2: LDT( 2, val); break;<br>
+-	      case  3: LDT( 3, val); break;<br>
+-	      case  4: LDT( 4, val); break;<br>
+-	      case  5: LDT( 5, val); break;<br>
+-	      case  6: LDT( 6, val); break;<br>
+-	      case  7: LDT( 7, val); break;<br>
+-	      case  8: LDT( 8, val); break;<br>
+-	      case  9: LDT( 9, val); break;<br>
+-	      case 10: LDT(10, val); break;<br>
+-	      case 11: LDT(11, val); break;<br>
+-	      case 12: LDT(12, val); break;<br>
+-	      case 13: LDT(13, val); break;<br>
+-	      case 14: LDT(14, val); break;<br>
+-	      case 15: LDT(15, val); break;<br>
+-	      case 16: LDT(16, val); break;<br>
+-	      case 17: LDT(17, val); break;<br>
+-	      case 18: LDT(18, val); break;<br>
+-	      case 19: LDT(19, val); break;<br>
+-	      case 20: LDT(20, val); break;<br>
+-	      case 21: LDT(21, val); break;<br>
+-	      case 22: LDT(22, val); break;<br>
+-	      case 23: LDT(23, val); break;<br>
+-	      case 24: LDT(24, val); break;<br>
+-	      case 25: LDT(25, val); break;<br>
+-	      case 26: LDT(26, val); break;<br>
+-	      case 27: LDT(27, val); break;<br>
+-	      case 28: LDT(28, val); break;<br>
+-	      case 29: LDT(29, val); break;<br>
+-	      case 30: LDT(30, val); break;<br>
+-	      case 31: LDT(31, val); break;<br>
+-	      default:<br>
+-		break;<br>
+-	}<br>
++	alpha_fp_emul_imprecise = save_emul;<br>
+ }<br>
+ <br>
++#define alpha_fp_emul_imprecise  do_alpha_fp_emul_imprecise<br>
++<br>
++#endif /* MODULE */<br>
+ <br>
+ /*<br>
+  * Emulate the floating point instruction at address PC.  Returns 0 if<br>
+@@ -334,6 +256,8 @@ alpha_fp_emul_imprecise (struct pt_regs <br>
+ 	unsigned long trigger_pc = regs-&gt;pc - 4;<br>
+ 	unsigned long insn, opcode, rc;<br>
+ <br>
++	MOD_INC_USE_COUNT;<br>
++<br>
+ 	/*<br>
+ 	 * Turn off the bits corresponding to registers that are the<br>
+ 	 * target of instructions that set bits in the exception<br>
+@@ -354,12 +278,14 @@ alpha_fp_emul_imprecise (struct pt_regs <br>
+ 		      case OPC_PAL:<br>
+ 		      case OPC_JSR:<br>
+ 		      case 0x30 ... 0x3f:	/* branches */<br>
++			MOD_DEC_USE_COUNT;<br>
+ 			return 0;<br>
+ <br>
+ 		      case OPC_MISC:<br>
+ 			switch (insn &amp; 0xffff) {<br>
+ 			      case MISC_TRAPB:<br>
+ 			      case MISC_EXCB:<br>
++				MOD_DEC_USE_COUNT;<br>
+ 				return 0;<br>
+ <br>
+ 			      default:<br>
+@@ -386,11 +312,13 @@ alpha_fp_emul_imprecise (struct pt_regs <br>
+ 			{<br>
+ 			    /* re-execute insns in trap-shadow: */<br>
+ 			    regs-&gt;pc = trigger_pc + 4;<br>
++			    MOD_DEC_USE_COUNT;<br>
+ 			    return 1;<br>
+ 			}<br>
+ 			break;<br>
+ 		}<br>
+ 		trigger_pc -= 4;<br>
+ 	}<br>
++	MOD_DEC_USE_COUNT;<br>
+ 	return 0;<br>
+ }<br>
+diff -ruNp 2.1.86/arch/alpha/math-emu/ieee-math.c 2.1.86-axp/arch/alpha/math-emu/ieee-math.c<br>
+--- 2.1.86/arch/alpha/math-emu/ieee-math.c	Thu Apr 11 23:49:30 1996<br>
++++ 2.1.86-axp/arch/alpha/math-emu/ieee-math.c	Thu Feb 12 04:51:45 1998<br>
+@@ -137,9 +137,8 @@ sub128 (const unsigned long a[2], const <br>
+ static inline void<br>
+ mul64 (const unsigned long a, const unsigned long b, unsigned long c[2])<br>
+ {<br>
+-	asm ("mulq  %2,%3,%0\n\t"<br>
+-	     "umulh %2,%3,%1"<br>
+-	     : "r="(c[0]), "r="(c[1]) : "r"(a), "r"(b));<br>
++	c[0] = a * b;<br>
++	asm ("umulh %1,%2,%0" : "=r"(c[1]) : "r"(a), "r"(b));<br>
+ }<br>
+ <br>
+ <br>
+@@ -276,7 +275,7 @@ make_s_ieee (long f, EXTENDED *a, unsign<br>
+ {<br>
+ 	unsigned long res, sticky;<br>
+ <br>
+-	if (!a-&gt;f[0] &amp;&amp; !a-&gt;f[1]) {<br>
++	if (!a-&gt;e &amp;&amp; !a-&gt;f[0] &amp;&amp; !a-&gt;f[1]) {<br>
+ 		*b = (unsigned long) a-&gt;s &lt;&lt; 63;	/* return +/-0 */<br>
+ 		return 0;<br>
+ 	}<br>
+@@ -356,7 +355,7 @@ make_t_ieee (long f, EXTENDED *a, unsign<br>
+ {<br>
+ 	unsigned long res, sticky;<br>
+ <br>
+-	if (!a-&gt;f[0] &amp;&amp; !a-&gt;f[1]) {<br>
++	if (!a-&gt;e &amp;&amp; !a-&gt;f[0] &amp;&amp; !a-&gt;f[1]) {<br>
+ 		*b = (unsigned long) a-&gt;s &lt;&lt; 63;	/* return +/-0 */<br>
+ 		return 0;<br>
+ 	}<br>
+@@ -384,7 +383,7 @@ make_t_ieee (long f, EXTENDED *a, unsign<br>
+ 			a-&gt;e = -0x3ff;<br>
+ 		}<br>
+ 	}<br>
+-	if (a-&gt;e &gt; 0x3ff) {<br>
++	if (a-&gt;e &gt;= 0x3ff) {<br>
+ 		res = FPCR_OVF | FPCR_INE;<br>
+ 		if (f &amp; IEEE_TRAP_ENABLE_OVF) {<br>
+ 			a-&gt;e -= 0x600;	/* scale down result by 2^alpha */<br>
+@@ -1143,12 +1142,9 @@ ieee_MULS (int f, unsigned long a, unsig<br>
+ 		return 0;<br>
+ 	}<br>
+ 	op_c.s = op_a.s ^ op_b.s;<br>
+-	op_c.e = op_a.e + op_b.e;<br>
++	op_c.e = op_a.e + op_b.e - 55;<br>
+ 	mul64(op_a.f[0], op_b.f[0], op_c.f);<br>
+ <br>
+-	normalize(&amp;op_c);<br>
+-	op_c.e -= 55;		/* drop the 55 original bits. */<br>
+-<br>
+ 	return round_s_ieee(f, &amp;op_c, c);<br>
+ }<br>
+ <br>
+@@ -1200,11 +1196,8 @@ ieee_MULT (int f, unsigned long a, unsig<br>
+ 		return 0;<br>
+ 	}<br>
+ 	op_c.s = op_a.s ^ op_b.s;<br>
+-	op_c.e = op_a.e + op_b.e;<br>
++	op_c.e = op_a.e + op_b.e - 55;<br>
+ 	mul64(op_a.f[0], op_b.f[0], op_c.f);<br>
+-<br>
+-	normalize(&amp;op_c);<br>
+-	op_c.e -= 55;	/* drop the 55 original bits. */<br>
+ <br>
+ 	return round_t_ieee(f, &amp;op_c, c);<br>
+ }<br>
+diff -ruNp 2.1.86/include/asm-alpha/fpu.h 2.1.86-axp/include/asm-alpha/fpu.h<br>
+--- 2.1.86/include/asm-alpha/fpu.h	Thu Jan 15 21:53:04 1998<br>
++++ 2.1.86-axp/include/asm-alpha/fpu.h	Thu Feb 12 03:33:30 1998<br>
+@@ -81,7 +81,38 @@ ieee_swcr_to_fpcr(unsigned long sw)<br>
+ 	return fp;<br>
+ }<br>
+ <br>
+-extern unsigned long rdfpcr(void);<br>
+-extern void wrfpcr(unsigned long);<br>
++#ifdef __KERNEL__<br>
++<br>
++/* The following two functions don't need trapb/excb instructions<br>
++   around the mf_fpcr/mt_fpcr instructions because (a) the kernel<br>
++   never generates arithmetic faults and (b) call_pal instructions<br>
++   are implied trap barriers.  */<br>
++<br>
++static inline unsigned long rdfpcr(void)<br>
++{<br>
++	unsigned long tmp, ret;<br>
++	__asm__ ("stt $f0,%0\n\t"<br>
++		 "mf_fpcr $f0\n\t"<br>
++		 "stt $f0,%1\n\t"<br>
++		 "ldt $f0,%0"<br>
++		: "=m"(tmp), "=m"(ret));<br>
++	return ret;<br>
++}<br>
++<br>
++static inline void wrfpcr(unsigned long val)<br>
++{<br>
++	unsigned long tmp;<br>
++	__asm__ __volatile__ (<br>
++		"stt $f0,%0\n\t"<br>
++		"ldt $f0,%1\n\t"<br>
++		"mt_fpcr $f0\n\t"<br>
++		"ldt $f0,%0"<br>
++		: "=m"(tmp) : "m"(val));<br>
++}<br>
++<br>
++extern unsigned long alpha_read_fp_reg (unsigned long reg);<br>
++extern void alpha_write_fp_reg (unsigned long reg, unsigned long val);<br>
++<br>
++#endif /* __KERNEL__ */<br>
+ <br>
+ #endif /* __ASM_ALPHA_FPU_H */<br>
+<p>
+--gBBFr7Ir9EOA20Yy--<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0098.html">Jeffrey N Woodford: "Re: Installing Linux on DEC Alpha"</a>
+<li> <b>Previous message:</b> <a href="0096.html">Christian Worley: "Update glibc ... Re: X crashes under RH5, when starting many simultaenous gv"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

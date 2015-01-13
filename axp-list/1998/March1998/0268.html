@@ -1,0 +1,147 @@
+<!-- received="Fri Mar 13 13:38:25 1998 " -->
+<!-- sent="Wed, 11 Mar 1998 19:10:56 -0500 (EST)" -->
+<!-- name="Christopher Curtis" -->
+<!-- email="ccurtis@ee.fit.edu" -->
+<!-- subject="MySQL project..." -->
+<!-- id="9803111247.AA01067@fbi003.informatik.fh-hamburg.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>MySQL project...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>MySQL project...</h2>
+
+<b>Christopher Curtis</b> (<a href="mailto:ccurtis@ee.fit.edu"><i>ccurtis@ee.fit.edu</i></a>)<br>
+<i>Wed, 11 Mar 1998 19:10:56 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#268">[ date ]</a><a href="index.html#268">[ thread ]</a><a href="subject.html#268">[ subject ]</a><a href="author.html#268">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0269.html">Johan Bjorling: "RH5 installation problem!"</a>
+<li> <b>Previous message:</b> <a href="0267.html">khan@fbi003.informatik.fh-hamburg.de: "Re: XL300+PowerStorm"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Okay, since at least one other person is trying to get MySQL to compile, I<br>
+figured I'd post a log of how to fudge it ...<br>
+<p>
+First, in client/get_password.c, you must:<br>
+<p>
+#define alpha_linux_port<br>
+<p>
+I did this immediately before the #ifndef __WIN32__ line.<br>
+Furthermore, after "#include &lt;asm/ioctls.h&gt;" :<br>
+<p>
+#include &lt;asm/termiobits.h&gt;<br>
+<p>
+<p>
+Second, in include/my_pthread.h, you must:<br>
+<p>
+line 75:<br>
+#if !defined(HAVE_SIGWAIT) &amp;&amp; !defined(HAVE_mit_thread) &amp;&amp;<br>
+!defined(HAVE_rts_threads) &amp;&amp; !defined(sigwait) &amp;&amp;<br>
+!defined(alpha_linux_port)                                   &lt;-= add this<br>
+<p>
+and in the folllowing files:<br>
+  mysys/my_init.c<br>
+  mysys/mf_keycash.c<br>
+  mysys/my_lock.c<br>
+  mysys/mf_brkhant.c<br>
+  mysys/my_alarm.c<br>
+ [...] and I get sick of .c files [...]<br>
+  mysys/mysys_priv.h<br>
+  mysys/thr_alarm.c<br>
+<p>
+<p>
+#define alpha_linux_port<br>
+<p>
+The first 5 .c files probably don't need to be changed...<br>
+<p>
+<p>
+Third, in the file mysys/my_pthread.c around line 190<br>
+<p>
+Create something that looks like this:<br>
+<p>
+/*int sigwait(sigset_t *setp, int *sigp)*/<br>
+int sigwait __P ((__const sigset_t *__set, int *__sig))<br>
+{<br>
+	#define setp __set<br>
+	#define sigp __sig<br>
+<p>
+<p>
+<p>
+... And that's about as far as I've gotten.  I'm sure these hacks aren't<br>
+proper for the full source, but they make it further.  Alpha-Linux is<br>
+listed as a beta platform, but at least it's listed.  Once this gets set<br>
+by the configure script (sorry, I don't like messing with configure)<br>
+things should be okay.  One word of warning, though, it will not compile<br>
+clean.  I got a couple errors about TCP_NODELAY and such being redefined<br>
+(which doesn't really bother me as Samba says it can't set it anyway) but<br>
+those are probably trivial.  Overall, though, it is a _very_ clean<br>
+compile until is stops.<br>
+<p>
+Here's the final error message:<br>
+<p>
+gcc -O3 -g -O2 -DDBUG_OFF -rdynamic -o test_fn  test_fn.o -L. -lmysys<br>
+-L../dbug -ldbug -L../strings -lmystrings  -lnsl -lm   -ldl  -lpthread<br>
+/usr/lib/libpthread.a: could not read symbols: Archive has no index; run<br>
+ranlib to add one<br>
+collect2: ld returned 1 exit status<br>
+<p>
+... and ...<br>
+<p>
+# nm libpthread.a | more<br>
+nm: attr.so: File format not recognized<br>
+nm: cancel.so: File format not recognized<br>
+nm: condvar.so: File format not recognized<br>
+nm: join.so: File format not recognized<br>
+nm: manager.so: File format not recognized<br>
+nm: mutex.so: File format not recognized<br>
+[...etc...]<br>
+<p>
+So it looks like libpthread just ain't going to work here.  Unless someone<br>
+can get a working pthread library on RH 4.2, only the folks who have made<br>
+it to RH 5.0 (or equiv) will be able to compile MySQL.<br>
+<p>
+Shucks...<br>
+<p>
+<pre>
+--
+Christopher Curtis               - <a href="http://www.ee.fit.edu/users/ccurtis">http://www.ee.fit.edu/users/ccurtis</a>
+Florida Institute of Technology  - System Administrator, Programmer
+Melbourne, Florida  USA          - <a href="http://www.lp.org/">http://www.lp.org/</a>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0269.html">Johan Bjorling: "RH5 installation problem!"</a>
+<li> <b>Previous message:</b> <a href="0267.html">khan@fbi003.informatik.fh-hamburg.de: "Re: XL300+PowerStorm"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

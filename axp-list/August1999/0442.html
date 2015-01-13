@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: tbia() on DEC 3000 question</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: tbia() on DEC 3000 question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: tbia() on DEC 3000 question</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 19 02:18:59 1999" -->
+<!-- isoreceived="19990819091859" -->
+<!-- sent="Wed, 18 Aug 1999 16:49:32 -0700" -->
+<!-- isosent="19990818234932" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: tbia() on DEC 3000 question" -->
+<!-- id="19990818164932.C15520@twiddle.net" -->
+<!-- inreplyto="199908180936.FAA15756@neptune.phys.ufl.edu" -->
+<STRONG>Subject: </STRONG>Re: tbia() on DEC 3000 question<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Aug 18 1999 - 16:49:32 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#442">[ date ]</A>
+<A HREF="index.html#442">[ thread ]</A>
+<A HREF="subject.html#442">[ subject ]</A>
+<A HREF="author.html#442">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0443.html">hansel@hansel.moorhead.msus.edu: "RH 6.0 problems: X, nfs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0441.html">Richard Henderson: "Re: Unaligned traps et al"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0423.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0454.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0423.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Aug 18, 1999 at 05:36:45AM -0400, Craig P Prescott wrote:
+<BR>
+<EM>&gt; The empty pages being what we flushed in free_area_init()...
+</EM><BR>
+<P>No, free_area_init merely initializes the kernel's data structures
+<BR>
+for managing physical memory.
+<BR>
+<P><EM>&gt; This enabling of the KSEG superpage - I am not sure how this happens,
+</EM><BR>
+<EM>&gt; but it sounds like something I could check.
+</EM><BR>
+<P>It's something that the PALcode is supposed to do.  It's not 
+<BR>
+straightforward to check -- the kernel doesn't have direct 
+<BR>
+access to the register involved.
+<BR>
+<P>On EV4 it's SPE_2 (bit 5) in ABOX_CTL. 
+<BR>
+<P><EM>&gt;From the Avanti MILO PALcode I see that the value is saved in the
+</EM><BR>
+machine check logout -- it's quite possible that the value is dumped
+<BR>
+for the 3000 as well.  You'll have to find a description of the 
+<BR>
+mcheck logout area for the machine to find out what offset the value
+<BR>
+might live at.
+<BR>
+<P>Also, the CSERVE_K_RD_ABOX (0x03) function of PAL_cserve returns the
+<BR>
+value (in $0 of course) on Avanti, which also has a chance of working
+<BR>
+on the 3000.
+<BR>
+<P><EM>&gt; Is that the significance of paging_init()'s
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	clear_bit(PG_reserved, &amp;mem_map[pfn++].flags);
+</EM><BR>
+<P>No.  That marks as reserved all the memory that the console told 
+<BR>
+us not to touch, which includes the PALcode for the system.
+<BR>
+<P><EM>&gt; Ok.  removed the mapping - again, because we've flushed everything in
+</EM><BR>
+<EM>&gt; free_area_init()?
+</EM><BR>
+<P>No.  It all happens in paging_init.
+<BR>
+<P>We create a new, empty set of page tables:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Initialize the kernel's page tables.  Linux puts the vptb in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the last slot of the L1 page table.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(swapper_pg_dir, 0, PAGE_SIZE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pgd_val(swapper_pg_dir[1023]) =
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(newptbr &lt;&lt; 32) | pgprot_val(PAGE_KERNEL);
+<BR>
+<P>Then we take this new page table root  and install it in the
+<BR>
+not-yet-running idle task:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newptbr = ((unsigned long) swapper_pg_dir - PAGE_OFFSET) &gt;&gt; PAGE_SHIFT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_task.tss.ptbr = newptbr;
+<BR>
+<P>Then we switch contexts from whatever random thing the PALcode
+<BR>
+started us off with into the new idle task:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;original_pcb_ptr = load_PCB(&amp;init_task.tss);
+<BR>
+<P>Now we have a new empty set of page tables, but the tlb has
+<BR>
+yet to be flushed of its stale data, so we do that next:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tbia();
+<BR>
+<P><EM>&gt; I had sprinkled some srm_printk (is this ok to do??) calls around (I am
+</EM><BR>
+<EM>&gt; working from a serial console), and just prior to paging_init() 
+</EM><BR>
+<P>Yes.  You can't call srm_printk after that tbia above. 
+<BR>
+<P>In theory we should be able to relocate the srm callbacks and
+<BR>
+continue making such calls, but I never got srm_fixup working.
+<BR>
+I thought I was following all the rules outlined in the ARM, but ...
+<BR>
+<P><EM>&gt; memory_start is   0xfffffc00004657e8
+</EM><BR>
+<EM>&gt; memory_end   is   0xfffffc0008000000 (the 3000/500 has 128 Megs of RAM)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; and inside paging_init(), just after free_area_init(), 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; start_mem becomes 0xfffffc00005a67e8
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Are these starting values sensible?
+</EM><BR>
+<P>Yep.
+<BR>
+<P><EM>&gt; I'm sure I'm doing something silly...
+</EM><BR>
+<P>I don't think you are.  This _should_ just all work.  Since it
+<BR>
+doesn't, it seems clear that there's something different about
+<BR>
+the environment provided by the console code on the 3000, but
+<BR>
+I have no idea what it is.
+<BR>
+<P>How much documentation are you working with here?  Or are you
+<BR>
+just winging it?  I know NetBSD works on the 3000; you might
+<BR>
+compare our vm startup code with theirs.
+<BR>
+<P><P>r~
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0443.html">hansel@hansel.moorhead.msus.edu: "RH 6.0 problems: X, nfs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0441.html">Richard Henderson: "Re: Unaligned traps et al"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0423.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0454.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0423.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,351 @@
+<!-- received="Tue Feb 24 14:15:49 1998 " -->
+<!-- sent="Sun, 22 Feb 1998 20:10:51 +0100 (MET)" -->
+<!-- name="Hugo van der Kooij" -->
+<!-- email="hvdkooij@caiw.nl" -->
+<!-- subject="Update to run your 2.0.33 kernel on Red Hat Linux 5.0" -->
+<!-- id="199802241550.KAA00221@adder.cs.Virginia.EDU" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Update to run your 2.0.33 kernel on Red Hat Linux 5.0</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Update to run your 2.0.33 kernel on Red Hat Linux 5.0</h2>
+
+<b>Hugo van der Kooij</b> (<a href="mailto:hvdkooij@caiw.nl"><i>hvdkooij@caiw.nl</i></a>)<br>
+<i>Sun, 22 Feb 1998 20:10:51 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#286">[ date ]</a><a href="index.html#286">[ thread ]</a><a href="subject.html#286">[ subject ]</a><a href="author.html#286">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0287.html">Murray Stokely: "2.1.X MILO"</a>
+<li> <b>Previous message:</b> <a href="0285.html">Greg Lindahl: "Re: Install problems (RH 5.0) on 164lx machine"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0370.html">warp@alpha.kimitsu.com: "Re: Update to run your 2.0.33 kernel on Red Hat Linux 5.0"</a>
+<li> <b>Maybe reply:</b> <a href="0370.html">warp@alpha.kimitsu.com: "Re: Update to run your 2.0.33 kernel on Red Hat Linux 5.0"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+  This message is in MIME format.  The first part should be readable text,<br>
+  while the remaining parts are likely unreadable without MIME-aware tools.<br>
+  Send mail to <a href="mailto:mime@docserver.cac.washington.edu">mime@docserver.cac.washington.edu</a> for more info.<br>
+<p>
+---1463811839-1361659706-888174344=:16357<br>
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII<br>
+Content-ID: &lt;<a href="mailto:Pine.LNX.3.96.980222200606.16357H@hvdkooij.dyn.ml.org">Pine.LNX.3.96.980222200606.16357H@hvdkooij.dyn.ml.org</a>&gt;<br>
+<p>
+  Fixing Red Hat Linux 5.0 for the Alpha with a newer kernel<br>
+  Hugo van der Kooij &lt;<a href="mailto:hvdkooij@caiw.nl">hvdkooij@caiw.nl</a>&gt;<br>
+  Version 1.0; dated: Februari 21, 1998<br>
+<p>
+  In the process of trying to get C++ code compiling properly on a Red<br>
+  Hat Linux 5.0 Alpha system I had lots of problems.  Eventually I<br>
+  upgraded the system to a newer kernel and most problems were solved.<br>
+  This document will give you a quick tour on how to to fix this your-<br>
+  self.<br>
+  ______________________________________________________________________<br>
+<p>
+  1. Getting the proper kernel and fixes<br>
+<p>
+     1.1 Kernel<br>
+     1.2 Alpha patches<br>
+<p>
+  2. Rolling your own kernel<br>
+<p>
+     2.1 Move over the old one<br>
+     2.2 Install the new kernel<br>
+     2.3 Patching the kernel<br>
+     2.4 Cleaning up<br>
+<p>
+  3. Remarks<br>
+<p>
+  ______________________________________________________________________<br>
+<p>
+  1.  Getting the proper kernel and fixes<br>
+<p>
+  We need to get the newer kernel and the proper Alpha patches first.<br>
+<p>
+<p>
+  1.1.  Kernel<br>
+<p>
+  We get the kernel sources from ftp.kernel.org and I used:<br>
+  <a href="ftp://ftp.kernel.org/pub/linux/kernel/v2.0/linux-2.0.33.tar.bz2">ftp://ftp.kernel.org/pub/linux/kernel/v2.0/linux-2.0.33.tar.bz2</a><br>
+<p>
+  In case you don't have bzip2 you can use the larger gzip version:<br>
+  <a href="ftp://ftp.kernel.org/pub/linux/kernel/v2.0/linux-2.0.33.tar.gz">ftp://ftp.kernel.org/pub/linux/kernel/v2.0/linux-2.0.33.tar.gz</a><br>
+<p>
+<p>
+  1.2.  Alpha patches<br>
+<p>
+  We need a patch file from gatekeeper.dec.com for this kernel:<br>
+  <a href="ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/alpha-">ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/alpha-</a><br>
+  patches-2.0.32-0.1.gz<br>
+<p>
+  Do not be alarmed by the fact that it is suggested that the fix is for<br>
+  the 2.0.32 kernel only. None of the affected files were changed from<br>
+  2.0.32 to 2.0.33!<br>
+<p>
+  You may make a bookmark for the following URL as there is plenty of<br>
+  stuff there: <a href="ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/">ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/</a><br>
+<p>
+  We need some more patches still.<br>
+<p>
+  To fix the RLIMIT errors during compilation: alpha-RLIMIT-<br>
+  patch-2.0.33.gz<br>
+<p>
+  To fix a.out support for em86: alpha-em86-patch-2.0.33.gz<br>
+<p>
+  2.  Rolling your own kernel<br>
+<p>
+  2.1.  Move over the old one<br>
+<p>
+  We move over the old one by removing a symbolic link.<br>
+<p>
+       cd /usr/src/<br>
+       rm linux<br>
+<p>
+<p>
+  2.2.  Install the new kernel<br>
+<p>
+  We install the new kernel by unpacking the tar file<br>
+<p>
+  If you use the linux-2.0.33.tar.gz file you can do:<br>
+<p>
+       cd /usr/src<br>
+       tar -xvzf linux-2.0.33.tar.gz<br>
+<p>
+<p>
+  2.3.  Patching the kernel<br>
+<p>
+  Now we are going to apply that patches.<br>
+<p>
+  But before we do we have to make some extra links so the patches won't<br>
+  hurt us.<br>
+<p>
+       cd /usr/src<br>
+       ln -s linux old<br>
+       ln -s linux new<br>
+<p>
+  Now those are in place we can patch the lot.<br>
+<p>
+       cd /usr/src<br>
+       gzip -d &lt; alpha-patches-2.0.32-0.1.gz | patch -p0<br>
+       gzip -d &lt; alpha-RLIMIT-patches-2.0.33.gz | patch -p0<br>
+       gzip -d &lt; alpha-em86-patches-2.0.33.gz | patch -p0<br>
+<p>
+  And now we can remove those ackward links.<br>
+<p>
+  cd /usr/src<br>
+  rm old<br>
+  rm new<br>
+<p>
+<p>
+  2.4.  Cleaning up<br>
+<p>
+  To clean up the lot we will make it clean properly.<br>
+<p>
+       cd /usr/src/linux<br>
+       make distclean<br>
+<p>
+  And we store it under the proper kernel version with a decent link.<br>
+<p>
+       cd /usr/src<br>
+       mv linux linux-2.0.33<br>
+       ln -s linux-2.0.33 linux<br>
+<p>
+<p>
+  3.  Remarks<br>
+<p>
+  Just some remarks to finish it off:<br>
+<p>
+  o  Don't try to run make menuconfig or make xconfig as these are<br>
+     (partialy) broken. Always use make config to configure the kernel.<br>
+<p>
+  o  If you link /usr/src/linux to the old kernel (2.0.30) you will get<br>
+     an awfull lot of problems with compiling gcc c++ code!<br>
+<p>
+  o  Remember to optimize your kernel for the machine.<br>
+<p>
+  o  And don't forget that although this worked fine for me and<br>
+     apparantly for plenty of others it may not work for you.<br>
+<p>
+  o  I did test it quite extensively on a Digital Alpha XL 300 (Alpha-<br>
+     XLT) so other system may not work as well with this procedure.<br>
+<p>
+These patches were all tested here.<br>
+If someone has additional patches please let me know.<br>
+<p>
+Enjoy, Hugo.<br>
+<p>
+	+------------------------+------------------------------+<br>
+<i>	| Hugo van der Kooij     | <a href="mailto:Hugo.van.der.Kooij@caiw.nl">Hugo.van.der.Kooij@caiw.nl</a>   |</i><br>
+<i>	| Oranje Nassaustraat 16 | <a href="http://www.caiw.nl/~hvdkooij">http://www.caiw.nl/~hvdkooij</a> |</i><br>
+<i>	| 3155 VJ  Maasland      | (De man met de rode hoed)    |</i><br>
+	+------------------------+------------------------------+<br>
+    "Computers let you make more mistakes faster than any other invention in <br>
+      human history, with the possible exception of handguns and tequila."<br>
+		(Mitch Radcliffe)<br>
+<p>
+---1463811839-1361659706-888174344=:16357<br>
+Content-Type: APPLICATION/OCTET-STREAM; NAME="alpha-em86-patch-2.0.33.gz"<br>
+Content-Transfer-Encoding: BASE64<br>
+Content-ID: &lt;<a href="mailto:Pine.LNX.3.96.980222200544.16357C@hvdkooij.dyn.ml.org">Pine.LNX.3.96.980222200544.16357C@hvdkooij.dyn.ml.org</a>&gt;<br>
+Content-Description: <br>
+<p>
+H4sICG9d8DQCA2FscGhhLWVtODYtcGF0Y2gtMi4wLjMzAI3PQWuDQBAF4Pv+<br>
+igeBENmujtoQ9dBqmxxK0qSklvZQWERXXLAajBb772Oa0paSQ99hDsPw8UYI<br>
+AdO06jKzSl11vaWrtOwyZSX7N5GUuyKxErPuWrPAMXHRYV2/Az7IDegycF3Y<br>
+vj9lnHP8BxjyrDJs0hbwYDvBlAL6NGYsDCF8upiBD9NDGDKGkc4zlUPK5WK7<br>
+XqykZEyMho2uFB7j6HYp480DJtQT2Q6d8rQyGD9zNEm7plFVK652qtnXVVLq<br>
+9gNjRPP5Vt5HL9J1bu5iA9cA9TZ9awjwyvip/Hlk/EPYXwT13m/gb0Hj+Juq<br>
+Mp0zdgBK0QOyhAEAAA==<br>
+---1463811839-1361659706-888174344=:16357<br>
+Content-Type: APPLICATION/OCTET-STREAM; NAME="alpha-RLIMIT-patch-2.0.33.gz"<br>
+Content-Transfer-Encoding: BASE64<br>
+Content-ID: &lt;<a href="mailto:Pine.LNX.3.96.980222200544.16357D@hvdkooij.dyn.ml.org">Pine.LNX.3.96.980222200544.16357D@hvdkooij.dyn.ml.org</a>&gt;<br>
+Content-Description: <br>
+<p>
+H4sICJdT8DQCA2FscGhhLVJMSU1JVC1wYXRjaC0yLjAuMzMAjZNdi4JAGIWv<br>
+81e80F2umRK5eaW4CpIfoe7F7o1YjjRgGpXQ/vsdv4p4p2VlGORwzjPHkVeS<br>
+JJjP5brM5ZJWzU2m1b5sciJnl6OUladDJp/JpW7OezI/TPy6AofsQFmBquhL<br>
+TWcvynr9LoiiCP/Ix02fV1VQNF1la93nDQMkRXtbgcj2pQKGIYAA05wUtCKQ<br>
+phs7CmwvjTzXTwO2uUk8URbMI8ozMPOc5FDUZ9jXx1N2pTta0uuPDjNZEKe0<br>
+qBgGoi6VWttPpg3chwbPZ9yNpMppgSBO7H7bCNOpGDSa+agPMzERqRUxaLDy<br>
+OXFiWhsE6lRMGs18lBVG+ONakXNJvZXPieIYYZiGKb2RDwlCx/VwnV7GqLud<br>
+TzNxI5NTyPyjzzYKLVynVTltBjMf5du+F3J+2qBj3CPAAY5j8YwbVeDP0AP1<br>
+atjcwHEDN/maLG5a8fx43YjSom1wD6XCLxM2WChSBAAA<br>
+---1463811839-1361659706-888174344=:16357<br>
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="RHL5kernel.sgml"<br>
+Content-Transfer-Encoding: BASE64<br>
+Content-ID: &lt;<a href="mailto:Pine.LNX.3.96.980222200544.16357E@hvdkooij.dyn.ml.org">Pine.LNX.3.96.980222200544.16357E@hvdkooij.dyn.ml.org</a>&gt;<br>
+Content-Description: <br>
+<p>
+PCFkb2N0eXBlIGxpbnV4ZG9jIHN5c3RlbT4NCjxhcnRpY2xlPg0KDQo8dGl0<br>
+bGU+Rml4aW5nIFJlZCBIYXQgTGludXggNS4wIGZvciB0aGUgQWxwaGEgd2l0<br>
+aCBhIG5ld2VyIGtlcm5lbA0KDQo8YXV0aG9yPkh1Z28gdmFuIGRlciBLb29p<br>
+ag0KJmx0OzxodG1sdXJsIHVybD0ibWFpbHRvOmh2ZGtvb2lqQGNhaXcubmwi<br>
+IG5hbWU9Imh2ZGtvb2lqQGNhaXcubmwiPiZndDsNCg0KPGRhdGU+VmVyc2lv<br>
+biAxLjA7IGRhdGVkOiBGZWJydWFyaSAyMSwgMTk5OA0KDQo8YWJzdHJhY3Q+<br>
+DQpJbiB0aGUgcHJvY2VzcyBvZiB0cnlpbmcgdG8gZ2V0IEMrKyBjb2RlIGNv<br>
+bXBpbGluZyBwcm9wZXJseSBvbiBhIFJlZCBIYXQgTGludXggNS4wIEFscGhh<br>
+IHN5c3RlbSBJIGhhZCBsb3RzIG9mIHByb2JsZW1zLg0KRXZlbnR1YWxseSBJ<br>
+IHVwZ3JhZGVkIHRoZSBzeXN0ZW0gdG8gYSBuZXdlciBrZXJuZWwgYW5kIG1v<br>
+c3QgcHJvYmxlbXMgd2VyZSBzb2x2ZWQuDQpUaGlzIGRvY3VtZW50IHdpbGwg<br>
+Z2l2ZSB5b3UgYSBxdWljayB0b3VyIG9uIGhvdyB0byB0byBmaXggdGhpcyB5<br>
+b3Vyc2VsZi4NCjwvYWJzdHJhY3Q+DQoNCjx0b2M+DQoNCjxzZWN0PkdldHRp<br>
+bmcgdGhlIHByb3BlciBrZXJuZWwgYW5kIGZpeGVzDQoNCjxwPg0KV2UgbmVl<br>
+ZCB0byBnZXQgdGhlIG5ld2VyIGtlcm5lbCBhbmQgdGhlIHByb3BlciBBbHBo<br>
+YSBwYXRjaGVzIGZpcnN0Lg0KDQo8c2VjdDE+S2VybmVsDQoNCjxwPg0KV2Ug<br>
+Z2V0IHRoZSBrZXJuZWwgc291cmNlcyBmcm9tIGZ0cC5rZXJuZWwub3JnIGFu<br>
+ZCBJIHVzZWQ6DQo8aHRtbHVybCB1cmw9ImZ0cDovL2Z0cC5rZXJuZWwub3Jn<br>
+L3B1Yi9saW51eC9rZXJuZWwvdjIuMC9saW51eC0yLjAuMzMudGFyLmJ6MiIN<br>
+Cm5hbWU9ImZ0cDovL2Z0cC5rZXJuZWwub3JnL3B1Yi9saW51eC9rZXJuZWwv<br>
+djIuMC9saW51eC0yLjAuMzMudGFyLmJ6MiI+DQoNCkluIGNhc2UgeW91IGRv<br>
+bid0IGhhdmUgYnppcDIgeW91IGNhbiB1c2UgdGhlIGxhcmdlciBnemlwIHZl<br>
+cnNpb246DQo8aHRtbHVybCB1cmw9ImZ0cDovL2Z0cC5rZXJuZWwub3JnL3B1<br>
+Yi9saW51eC9rZXJuZWwvdjIuMC9saW51eC0yLjAuMzMudGFyLmd6Ig0KbmFt<br>
+ZT0iZnRwOi8vZnRwLmtlcm5lbC5vcmcvcHViL2xpbnV4L2tlcm5lbC92Mi4w<br>
+L2xpbnV4LTIuMC4zMy50YXIuZ3oiPg0KDQo8c2VjdDE+QWxwaGEgcGF0Y2hl<br>
+cw0KDQo8cD4NCldlIG5lZWQgYSBwYXRjaCBmaWxlIGZyb20gZ2F0ZWtlZXBl<br>
+ci5kZWMuY29tIGZvciB0aGlzIGtlcm5lbDoNCjxodG1sdXJsIHVybD0iZnRw<br>
+Oi8vZ2F0ZWtlZXBlci5kZWMuY29tL3B1Yi9ERUMvTGludXgtQWxwaGEvS2Vy<br>
+bmVscy9hbHBoYS1wYXRjaGVzLTIuMC4zMi0wLjEuZ3oiDQpuYW1lPSJmdHA6<br>
+Ly9nYXRla2VlcGVyLmRlYy5jb20vcHViL0RFQy9MaW51eC1BbHBoYS9LZXJu<br>
+ZWxzL2FscGhhLXBhdGNoZXMtMi4wLjMyLTAuMS5neiI+DQoNCkRvIG5vdCBi<br>
+ZSBhbGFybWVkIGJ5IHRoZSBmYWN0IHRoYXQgaXQgaXMgc3VnZ2VzdGVkIHRo<br>
+YXQgdGhlIGZpeCBpcyBmb3IgdGhlIDIuMC4zMiBrZXJuZWwgb25seS4gTm9u<br>
+ZSBvZiB0aGUgYWZmZWN0ZWQgZmlsZXMgd2VyZSBjaGFuZ2VkIGZyb20gMi4w<br>
+LjMyIHRvIDIuMC4zMyENCg0KWW91IG1heSBtYWtlIGEgYm9va21hcmsgZm9y<br>
+IHRoZSBmb2xsb3dpbmcgVVJMIGFzIHRoZXJlIGlzIHBsZW50eSBvZiBzdHVm<br>
+ZiB0aGVyZToNCjxodG1sdXJsIHVybD0iZnRwOi8vZ2F0ZWtlZXBlci5kZWMu<br>
+Y29tL3B1Yi9ERUMvTGludXgtQWxwaGEvIg0KbmFtZT0iZnRwOi8vZ2F0ZWtl<br>
+ZXBlci5kZWMuY29tL3B1Yi9ERUMvTGludXgtQWxwaGEvIj4NCg0KV2UgbmVl<br>
+ZCBzb21lIG1vcmUgcGF0Y2hlcyBzdGlsbC4NCg0KVG8gZml4IHRoZSBSTElN<br>
+SVQgZXJyb3JzIGR1cmluZyBjb21waWxhdGlvbjoNCjxodG1sdXJsIHVybD0i<br>
+YWxwaGEtUkxJTUlULXBhdGNoLTIuMC4zMy5neiIgbmFtZT0iYWxwaGEtUkxJ<br>
+TUlULXBhdGNoLTIuMC4zMy5neiI+DQoNClRvIGZpeCBhLm91dCBzdXBwb3J0<br>
+IGZvciBlbTg2Og0KPGh0bWx1cmwgdXJsPSJhbHBoYS1lbTg2LXBhdGNoLTIu<br>
+MC4zMy5neiIgbmFtZT0iYWxwaGEtZW04Ni1wYXRjaC0yLjAuMzMuZ3oiPg0K<br>
+DQoNCjxzZWN0PlJvbGxpbmcgeW91ciBvd24ga2VybmVsDQoNCjxzZWN0MT5N<br>
+b3ZlIG92ZXIgdGhlIG9sZCBvbmUNCg0KPHA+DQpXZSBtb3ZlIG92ZXIgdGhl<br>
+IG9sZCBvbmUgYnkgcmVtb3ZpbmcgYSBzeW1ib2xpYyBsaW5rLg0KDQo8dHNj<br>
+cmVlbj48dmVyYj4NCmNkIC91c3Ivc3JjLw0Kcm0gbGludXgNCjwvdmVyYj48<br>
+L3RzY3JlZW4+DQoNCjxzZWN0MT5JbnN0YWxsIHRoZSBuZXcga2VybmVsDQoN<br>
+CjxwPg0KV2UgaW5zdGFsbCB0aGUgbmV3IGtlcm5lbCBieSB1bnBhY2tpbmcg<br>
+dGhlIHRhciBmaWxlDQoNCklmIHlvdSB1c2UgdGhlIDx0dD5saW51eC0yLjAu<br>
+MzMudGFyLmd6PC90dD4gZmlsZSB5b3UgY2FuIGRvOg0KDQo8dHNjcmVlbj48<br>
+dmVyYj4NCmNkIC91c3Ivc3JjDQp0YXIgLXh2emYgbGludXgtMi4wLjMzLnRh<br>
+ci5neg0KPC92ZXJiPjwvdHNjcmVlbj4NCg0KDQo8c2VjdDE+UGF0Y2hpbmcg<br>
+dGhlIGtlcm5lbA0KDQo8cD4NCk5vdyB3ZSBhcmUgZ29pbmcgdG8gYXBwbHkg<br>
+dGhhdCBwYXRjaGVzLg0KDQpCdXQgYmVmb3JlIHdlIGRvIHdlIGhhdmUgdG8g<br>
+bWFrZSBzb21lIGV4dHJhIGxpbmtzIHNvIHRoZSBwYXRjaGVzIHdvbid0IGh1<br>
+cnQgdXMuDQoNCjx0c2NyZWVuPjx2ZXJiPg0KY2QgL3Vzci9zcmMNCmxuIC1z<br>
+IGxpbnV4IG9sZA0KbG4gLXMgbGludXggbmV3DQo8L3ZlcmI+PC90c2NyZWVu<br>
+Pg0KDQpOb3cgdGhvc2UgYXJlIGluIHBsYWNlIHdlIGNhbiBwYXRjaCB0aGUg<br>
+bG90Lg0KDQo8dHNjcmVlbj48dmVyYj4NCmNkIC91c3Ivc3JjDQpnemlwIC1k<br>
+IDwgYWxwaGEtcGF0Y2hlcy0yLjAuMzItMC4xLmd6IHwgcGF0Y2ggLXAwDQpn<br>
+emlwIC1kIDwgYWxwaGEtUkxJTUlULXBhdGNoZXMtMi4wLjMzLmd6IHwgcGF0<br>
+Y2ggLXAwDQpnemlwIC1kIDwgYWxwaGEtZW04Ni1wYXRjaGVzLTIuMC4zMy5n<br>
+eiB8IHBhdGNoIC1wMA0KPC92ZXJiPjwvdHNjcmVlbj4NCg0KQW5kIG5vdyB3<br>
+ZSBjYW4gcmVtb3ZlIHRob3NlIGFja3dhcmQgbGlua3MuDQoNCjx0c2NyZWVu<br>
+Pjx2ZXJiPg0KY2QgL3Vzci9zcmMNCnJtIG9sZA0Kcm0gbmV3DQo8L3ZlcmI+<br>
+PC90c2NyZWVuPg0KDQo8c2VjdDE+Q2xlYW5pbmcgdXANCg0KPHA+DQpUbyBj<br>
+bGVhbiB1cCB0aGUgbG90IHdlIHdpbGwgbWFrZSBpdCBjbGVhbiBwcm9wZXJs<br>
+eS4NCg0KPHRzY3JlZW4+PHZlcmI+DQpjZCAvdXNyL3NyYy9saW51eA0KbWFr<br>
+ZSBkaXN0Y2xlYW4NCjwvdmVyYj48L3RzY3JlZW4+DQoNCkFuZCB3ZSBzdG9y<br>
+ZSBpdCB1bmRlciB0aGUgcHJvcGVyIGtlcm5lbCB2ZXJzaW9uIHdpdGggYSBk<br>
+ZWNlbnQgbGluay4NCg0KPHRzY3JlZW4+PHZlcmI+DQpjZCAvdXNyL3NyYw0K<br>
+bXYgbGludXggbGludXgtMi4wLjMzDQpsbiAtcyBsaW51eC0yLjAuMzMgbGlu<br>
+dXgNCjwvdmVyYj48L3RzY3JlZW4+DQoNCjxzZWN0PlJlbWFya3MNCg0KPHA+<br>
+DQpKdXN0IHNvbWUgcmVtYXJrcyB0byBmaW5pc2ggaXQgb2ZmOg0KDQo8aXRl<br>
+bWl6ZT4NCjxpdGVtPkRvbid0IHRyeSB0byBydW4gPHR0Pm1ha2UgbWVudWNv<br>
+bmZpZzwvdHQ+IG9yIDx0dD5tYWtlIHhjb25maWc8L3R0PiBhcyB0aGVzZSBh<br>
+cmUgKHBhcnRpYWx5KSBicm9rZW4uIEFsd2F5cyB1c2UgPHR0Pm1ha2UgY29u<br>
+ZmlnPC90dD4gdG8gY29uZmlndXJlIHRoZSBrZXJuZWwuDQo8aXRlbT5JZiB5<br>
+b3UgbGluayA8dHQ+L3Vzci9zcmMvbGludXg8L3R0PiB0byB0aGUgb2xkIGtl<br>
+cm5lbCAoMi4wLjMwKSB5b3Ugd2lsbCBnZXQgYW4gYXdmdWxsIGxvdCBvZiBw<br>
+cm9ibGVtcyB3aXRoIGNvbXBpbGluZyBnY2MgYysrIGNvZGUhDQo8aXRlbT5S<br>
+ZW1lbWJlciB0byBvcHRpbWl6ZSB5b3VyIGtlcm5lbCBmb3IgdGhlIG1hY2hp<br>
+bmUuDQo8aXRlbT4gQW5kIGRvbid0IGZvcmdldCB0aGF0IGFsdGhvdWdoIHRo<br>
+aXMgd29ya2VkIGZpbmUgZm9yIG1lIGFuZCBhcHBhcmFudGx5IGZvciBwbGVu<br>
+dHkgb2Ygb3RoZXJzIGl0IG1heSBub3Qgd29yayBmb3IgeW91Lg0KPGl0ZW0+<br>
+SSBkaWQgdGVzdCBpdCBxdWl0ZSBleHRlbnNpdmVseSBvbiBhIERpZ2l0YWwg<br>
+QWxwaGEgWEwgMzAwIChBbHBoYS1YTFQpIHNvIG90aGVyIHN5c3RlbSBtYXkg<br>
+bm90IHdvcmsgYXMgd2VsbCB3aXRoIHRoaXMgcHJvY2VkdXJlLg0KPC9pdGVt<br>
+aXplPg0KDQpFbmpveSwNCkh1Z28uDQoNCjwvYXJ0aWNsZT4NCg==<br>
+---1463811839-1361659706-888174344=:16357--<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0287.html">Murray Stokely: "2.1.X MILO"</a>
+<li> <b>Previous message:</b> <a href="0285.html">Greg Lindahl: "Re: Install problems (RH 5.0) on 164lx machine"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0370.html">warp@alpha.kimitsu.com: "Re: Update to run your 2.0.33 kernel on Red Hat Linux 5.0"</a>
+<li> <b>Maybe reply:</b> <a href="0370.html">warp@alpha.kimitsu.com: "Re: Update to run your 2.0.33 kernel on Red Hat Linux 5.0"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

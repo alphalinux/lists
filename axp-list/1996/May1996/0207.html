@@ -1,0 +1,183 @@
+<!-- received="Mon May 13 17:38:20 1996 " -->
+<!-- sent="Mon, 13 May 1996 17:38:20 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="fdisk alignment fixes for alpha" -->
+<!-- id="9605131630.AA21553@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>fdisk alignment fixes for alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>fdisk alignment fixes for alpha</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Mon, 13 May 1996 17:38:20 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#207">[ date ]</a><a href="index.html#207">[ thread ]</a><a href="subject.html#207">[ subject ]</a><a href="author.html#207">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<li> <b>Previous message:</b> <a href="0206.html">Harald Koenig: "sys_lseek() broken for alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+the patches below fix (all?) those ugly unaligned access messages<br>
+for Linux/AXP.<br>
+<p>
+Harald<br>
+-------------------------------------------------------------------------------<br>
+--- util-linux-2.5/disk-utils/fdisk.c.ORIG	Mon May 13 17:27:08 1996<br>
++++ util-linux-2.5/disk-utils/fdisk.c	Mon May 13 17:25:16 1996<br>
+@@ -83,6 +83,7 @@<br>
+ #define ALTERNATE_DEVICE "/dev/sda"<br>
+ #define LINE_LENGTH	80<br>
+ #define MAXIMUM_PARTS	60<br>
++#define PART_ALIGNMENT   2<br>
+ #define PART_TABLE_FLAG	0xaa55<br>
+ #define table_check(b)	((unsigned short *)((b) + 0x1fe))<br>
+ #define offset(b, n)	((struct partition *)((b) + 0x1be + \<br>
+@@ -115,9 +116,9 @@<br>
+ 	*line_ptr,			/* interactive input */<br>
+ 	line_buffer[LINE_LENGTH],<br>
+ 	changed[MAXIMUM_PARTS],		/* marks changed buffers */<br>
+-	buffer[SECTOR_SIZE],	/* first four partitions */<br>
++	buffer[SECTOR_SIZE+PART_ALIGNMENT],	/* first four partitions */<br>
+ 	*buffers[MAXIMUM_PARTS]		/* pointers to buffers */<br>
+-		= {buffer, buffer, buffer, buffer};<br>
++		= {buffer+PART_ALIGNMENT, buffer+PART_ALIGNMENT, buffer+PART_ALIGNMENT, buffer+PART_ALIGNMENT};<br>
+ <br>
+ int	fd,				/* the disk */<br>
+ 	ext_index,			/* the prime extended partition */<br>
+@@ -136,8 +137,8 @@<br>
+ 	offsets[MAXIMUM_PARTS] = {0, 0, 0, 0};<br>
+ <br>
+ struct	partition *part_table[MAXIMUM_PARTS]	/* partitions */<br>
+-		= {offset(buffer, 0), offset(buffer, 1),<br>
+-		offset(buffer, 2), offset(buffer, 3)},<br>
++		= {offset(buffer+PART_ALIGNMENT, 0), offset(buffer+PART_ALIGNMENT, 1),<br>
++		offset(buffer+PART_ALIGNMENT, 2), offset(buffer+PART_ALIGNMENT, 3)},<br>
+ 	*ext_pointers[MAXIMUM_PARTS]		/* link pointers */<br>
+ 		= {NULL, NULL, NULL, NULL};<br>
+ <br>
+@@ -414,7 +415,7 @@<br>
+ 		if (ext2_llseek(fd, (ext2_loff_t)offsets[partitions]<br>
+ 			       * SECTOR_SIZE, SEEK_SET) &lt; 0)<br>
+ 			fatal(unable_to_seek);<br>
+-		if (!(buffers[partitions] = (char *) malloc(SECTOR_SIZE)))<br>
++		if (!(buffers[partitions] = (char *) malloc(SECTOR_SIZE+PART_ALIGNMENT)))<br>
+ 			fatal(out_of_memory);<br>
+ 		buffers[partitions] += PART_ALIGNMENT;<br>
+ 		if (SECTOR_SIZE != read(fd, buffers[partitions], SECTOR_SIZE))<br>
+@@ -463,10 +464,10 @@<br>
+ 	    else<br>
+ 		printf("You will not be able to write the partition table.\n");<br>
+ 	}<br>
+-	if (SECTOR_SIZE != read(fd, buffer, SECTOR_SIZE))<br>
++	if (SECTOR_SIZE != read(fd, buffer+PART_ALIGNMENT, SECTOR_SIZE))<br>
+ 		fatal(unable_to_read);<br>
+ <br>
+-	if (*(unsigned short *)  (0x1fe + buffer) != 0xAA55) {<br>
++	if (*(unsigned short *)  (0x1fe + buffer+PART_ALIGNMENT) != 0xAA55) {<br>
+ 	    return 0;<br>
+ 	}<br>
+ #ifdef HDIO_REQ<br>
+@@ -684,14 +685,14 @@<br>
+ 	if (i &lt; 4) {<br>
+ 		if (p-&gt;sys_ind == EXTENDED &amp;&amp; i == ext_index) {<br>
+ 			while (partitions &gt; 4)<br>
+-				free(buffers[--partitions]);<br>
++				free(buffers[--partitions]-PART_ALIGNMENT);<br>
+ 			ext_pointers[ext_index] = NULL;<br>
+ 			extended_offset = 0;<br>
+ 		}<br>
+ 		clear_partition(p);<br>
+ 	}<br>
+ 	else if (!q-&gt;sys_ind &amp;&amp; i &gt; 4) {<br>
+-		free(buffers[--partitions]);<br>
++		free(buffers[--partitions]-PART_ALIGNMENT);<br>
+ 		clear_partition(ext_pointers[--i]);<br>
+ 	}<br>
+ 	else if (i &gt; 3) {<br>
+@@ -718,7 +719,7 @@<br>
+ 		}<br>
+ 		if (partitions &gt; 5) {<br>
+ 			partitions--;<br>
+-			free(buffers[i]);<br>
++			free(buffers[i]-PART_ALIGNMENT);<br>
+ 			while (i &lt; partitions) {<br>
+ 				changed[i] = changed[i + 1];<br>
+ 				buffers[i] = buffers[i + 1];<br>
+@@ -1104,7 +1105,7 @@<br>
+ 	if (start &gt; limit) {<br>
+ 		printf("No free sectors available\n");<br>
+ 		if (n &gt; 4) {<br>
+-			free(buffers[n]);<br>
++			free(buffers[n]-PART_ALIGNMENT);<br>
+ 			partitions--;<br>
+ 		}<br>
+ 		return;<br>
+@@ -1129,7 +1130,7 @@<br>
+ 		ext_index = n;<br>
+ 		offsets[4] = extended_offset = start;<br>
+ 		ext_pointers[n] = p;<br>
+-		if (!(buffers[4] = calloc(1, SECTOR_SIZE)))<br>
++		if (!(buffers[4] = calloc(1, SECTOR_SIZE+PART_ALIGNMENT)))<br>
+ 			fatal(out_of_memory);<br>
+ 		buffers[4] += PART_ALIGNMENT;<br>
+ 		part_table[4] = offset(buffers[4], 0);<br>
+@@ -1153,7 +1154,7 @@<br>
+ void add_logical(void)<br>
+ {<br>
+ 	if (partitions &gt; 5 || part_table[4]-&gt;sys_ind) {<br>
+-		if (!(buffers[partitions] = calloc(1, SECTOR_SIZE)))<br>
++		if (!(buffers[partitions] = calloc(1, SECTOR_SIZE+PART_ALIGNMENT)))<br>
+ 			fatal(out_of_memory);<br>
+ 		buffers[partitions] += PART_ALIGNMENT;<br>
+ 		part_table[partitions] = offset(buffers[partitions], 0);<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<li> <b>Previous message:</b> <a href="0206.html">Harald Koenig: "sys_lseek() broken for alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0208.html">Andries.Brouwer@cwi.nl: "Re: fdisk alignment fixes for alpha"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Unaligned traps et al</TITLE>
+<META NAME="Author" CONTENT="Christian Groessler (cpg@aladdin.de)">
+<META NAME="Subject" CONTENT="Re: Unaligned traps et al">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Unaligned traps et al</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 19 10:19:07 1999" -->
+<!-- isoreceived="19990819171907" -->
+<!-- sent="Thu, 19 Aug 1999 10:52:55 +0100" -->
+<!-- isosent="19990819095255" -->
+<!-- name="Christian Groessler" -->
+<!-- email="cpg@aladdin.de" -->
+<!-- subject="Re: Unaligned traps et al" -->
+<!-- id="412567D2.0037281A.00@saturn.aladdin.de" -->
+<!-- inreplyto="Unaligned traps et al" -->
+<STRONG>Subject: </STRONG>Re: Unaligned traps et al<BR>
+<STRONG>From: </STRONG>Christian Groessler (<EM>cpg@aladdin.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 19 1999 - 02:52:55 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#446">[ date ]</A>
+<A HREF="index.html#446">[ thread ]</A>
+<A HREF="subject.html#446">[ subject ]</A>
+<A HREF="author.html#446">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0447.html">Dr. David Gilbert: "Big filesystems (for big discs...)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0445.html">Dr. David Gilbert: "Re: RH 6.0 problems: X, nfs"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0426.html">Sean Hunter: "Unaligned traps et al"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0449.html">Sean Hunter: "Re: Unaligned traps et al"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0426.html">Christian Groessler: "Re: Unaligned traps et al"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P><P>On 8/18/99 10:23:49 PM Sean Hunter wrote:
+<BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;The trouble is, you need to use setsysinfo to get your program to do
+</EM><BR>
+<EM>&gt;this, which is fine for stuff you're writing, but a pain for other
+</EM><BR>
+<EM>&gt;programs.  What I propose is to set up a sysctl so that it will
+</EM><BR>
+<EM>&gt;automatically set this behaviour as desired.  This means that normally
+</EM><BR>
+<EM>&gt;you just leave this as is, bit if you feel like doing a spot o'
+</EM><BR>
+<EM>&gt;debugging you can echo &quot;some_magic&quot; &gt;&gt; /proc/sys/kernel/uac_control,
+</EM><BR>
+<EM>&gt;and all newly-started process will automatically have the correct
+</EM><BR>
+<EM>&gt;behaviour set in the tss, and will SIGBUS and coredump on encountering
+</EM><BR>
+<EM>&gt;the unaligned trap.  Similarly, if you attempting to show a prototype
+</EM><BR>
+<EM>&gt;port to your boss, and don't what to be embarrassed by the unaligned
+</EM><BR>
+<EM>&gt;traps you haven't fixed yet, you echo some magic to the same place to
+</EM><BR>
+<EM>&gt;turn the messages off.
+</EM><BR>
+<P>The following program creates a subshell and all programs
+<BR>
+started from therein will SIGBUS on unaligned accesses.
+<BR>
+<P>----------------------
+<BR>
+/* 28-May-98, chris */
+<BR>
+<P><P>#ifndef __linux__
+<BR>
+#include &lt;sys/sysinfo.h&gt;
+<BR>
+#else
+<BR>
+#include &lt;asm/sysinfo.h&gt;
+<BR>
+#include &lt;asm/unistd.h&gt;
+<BR>
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P>void trap_unaligned(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+}
+<BR>
+<P>int main(int ac)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;trap_unaligned();
+<BR>
+&nbsp;&nbsp;printf(&quot;creating subshell with SIGBUS setting!\n&quot;);
+<BR>
+&nbsp;&nbsp;execl(&quot;/bin/bash&quot;,&quot;/bin/bash&quot;,(char *)0);
+<BR>
+&nbsp;&nbsp;return(0); /* not reached */
+<BR>
+}
+<BR>
+----------------------
+<BR>
+<P>regards,
+<BR>
+chris
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0447.html">Dr. David Gilbert: "Big filesystems (for big discs...)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0445.html">Dr. David Gilbert: "Re: RH 6.0 problems: X, nfs"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0426.html">Sean Hunter: "Unaligned traps et al"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0449.html">Sean Hunter: "Re: Unaligned traps et al"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0426.html">Christian Groessler: "Re: Unaligned traps et al"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

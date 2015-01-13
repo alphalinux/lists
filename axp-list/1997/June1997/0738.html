@@ -1,0 +1,127 @@
+<!-- received="Tue Jun 24 12:38:51 1997 " -->
+<!-- sent="Tue, 24 Jun 1997 11:55:00 +0500" -->
+<!-- name="jestabro@amt.tay1.dec.com" -->
+<!-- email="jestabro@amt.tay1.dec.com" -->
+<!-- subject="Re: 4D40 &amp; 433a" -->
+<!-- id="199706241555.LAA01023@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="Pine.LNX.3.95q.970624170416.330C-100000@linray.ts.ray.fi" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 4D40 &amp; 433a</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 4D40 &amp; 433a</h2>
+
+<a href="mailto:jestabro@amt.tay1.dec.com"><i>jestabro@amt.tay1.dec.com</i></a><br>
+<i>Tue, 24 Jun 1997 11:55:00 +0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#738">[ date ]</a><a href="index.html#738">[ thread ]</a><a href="subject.html#738">[ subject ]</a><a href="author.html#738">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0739.html">John Banghart: "DEC PBXGB-AA Graphics Card"</a>
+<li> <b>Previous message:</b> <a href="0737.html">Alvin Starr: "Whoops messages"</a>
+<li> <b>In reply to:</b> <a href="0732.html">Iso-H: "Re: 4D40 &amp; 433a"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt; Iso-H said:</i><br>
+<i>&gt; &gt; &gt;   MILO works just Ok, but when "real" kernel boots up console won't print</i><br>
+<i>&gt; &gt; &gt;   anything (except blinking cursor) anymore! So what is this what kernel</i><br>
+<i>&gt; &gt; &gt;   can't do but MILO can? </i><br>
+<p>
+This confuses me, too, but here's my theory on what's happening:<br>
+<p>
+1. assume that the 4D40 does NOT identify itself as a DISPLAY device<br>
+   correctly, WRT its class and the following code from bios32.c:<br>
+<p>
+        if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_NOT_DEFINED ||<br>
+            dev-&gt;class &gt;&gt; 8 == PCI_CLASS_NOT_DEFINED_VGA ||<br>
+            dev-&gt;class &gt;&gt; 8 == PCI_CLASS_STORAGE_IDE ||<br>
+            dev-&gt;class &gt;&gt; 8 == PCI_CLASS_DISPLAY_VGA ||<br>
+            dev-&gt;class &gt;&gt; 8 == PCI_CLASS_DISPLAY_XGA)<br>
+        {<br>
+                /*<br>
+                 * All of these (may) have I/O scattered all around<br>
+                 * and may not use i/o-base address registers at all.<br>
+                 * So we just have to always enable I/O to these<br>
+                 * devices.<br>
+                 */<br>
+                cmd |= PCI_COMMAND_IO;<br>
+        }<br>
+<p>
+   So, this code will NOT enable IO space registers for the card, and the VGA<br>
+   registers will not respond, <br>
+<p>
+2. MILO code inits the PCI bus devices first, and then calls BIOS emulation<br>
+   to init any VGA on the bus. Since the PCI bus init code is shared with the<br>
+   kernel, we assume it disables the 4D40 for IO space. However, the BIOS<br>
+   emulator code scans the PCI bus as well, and *may* detect the VGA on the<br>
+   card, and do the *right* thing by enabling IO space accesses. Thus during<br>
+   MILO operation the VGA works correctly.<br>
+<p>
+<p>
+<i>&gt;  I have also 433a with Accel2000 and there everything </i><br>
+<i>&gt;  (except LAN) works fine when I use exactly same MILO </i><br>
+<i>&gt;  and kernel. Only drawback with Accel2000 is that there</i><br>
+<i>&gt;  is no X-server available for it :~(</i><br>
+<p>
+Now, same MILO and kernel, my theory above suggests that the Accel2000 DOES<br>
+identify it self successfully to the above code, thus enabling IO space<br>
+accesses, and everybody is happy...<br>
+<p>
+Now one way to further investigate: the 4D40 prolly has a jumper on it that<br>
+can be used to enable/disable the VGA; if poossible, stick another VGA in<br>
+that box after diabling the VGA on the 4D40, boot up, and see how the 4D40<br>
+device identifies itself (ie cat /proc/pci should give an indication).<br>
+<p>
+Good luck, and let me know what you find out...<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools - LINUX Project<br>
+Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202<br>
+151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0739.html">John Banghart: "DEC PBXGB-AA Graphics Card"</a>
+<li> <b>Previous message:</b> <a href="0737.html">Alvin Starr: "Whoops messages"</a>
+<li> <b>In reply to:</b> <a href="0732.html">Iso-H: "Re: 4D40 &amp; 433a"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

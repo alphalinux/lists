@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Compiler/linker oddness?</H1> 
+	
+<!-- received="Thu Mar 02 16:31:29 2000" -->
+<!-- isoreceived="20000303003129" -->
+<!-- sent="Thu, 2 Mar 2000 11:58:09 -0400 (AST)" -->
+<!-- isosent="20000302155809" -->
+<!-- name="pchapman@fury.bio.dfo.ca" -->
+<!-- email="pchapman@fury.bio.dfo.ca" -->
+<!-- subject="Compiler/linker oddness?" -->
+<!-- id="200003021558.LAA18287@fury.bio.dfo.ca" -->
+<STRONG>Subject: </STRONG>Compiler/linker oddness?<BR>
+<EM>pchapman@fury.bio.dfo.ca</EM><BR>
+<STRONG>Date: </STRONG>Thu Mar  2 07:58:09 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#37">[ date ]</A>
+<A HREF="index.shtml#37">[ thread ]</A>
+<A HREF="subject.shtml#37">[ subject ]</A>
+<A HREF="author.shtml#37">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0038.shtml">Zahner, Howard: "X Configuration?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0036.shtml">William Miller Jr.: "Re: Red Hat install problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0109.shtml">pchapman@fury.bio.dfo.ca: "Re: Compiler/linker oddness?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I'm building a big-and-ugly piece of software and have come across an
+<BR>
+odd problem.  Here's the story:
+<BR>
+<P>I finally got the thing to compile yesterday, and it cored immediately
+<BR>
+on execution.  No surprises there; I wasn't expecting it to work
+<BR>
+properly first time around.  I aimed ladebug at it, and discovered to my
+<BR>
+surprise that it's coring in XtVaAppInitialize(), which is the first
+<BR>
+line of the program that really does anything:
+<BR>
+<P>--------
+<BR>
+<P>main(int argc, char *argv[])
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;Arg args[20];
+<BR>
+&nbsp;&nbsp;&nbsp;Display *display;
+<BR>
+&nbsp;&nbsp;&nbsp;int      i,j, screen_num, rside, status;
+<BR>
+&nbsp;&nbsp;&nbsp;unsigned int scr_width, scr_height;
+<BR>
+&nbsp;&nbsp;&nbsp;Dimension h1,h2,h3;
+<BR>
+&nbsp;&nbsp;&nbsp;XtIntervalId Id;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;Widget wForm, wMenuBar;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;printf(&quot;Starting xscan..\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;fflush(stdout);
+<BR>
+/*------------- Special SGI : permet de mettre RECL en byte ----*/
+<BR>
+<P>#ifdef _OldRecl   
+<BR>
+&nbsp;&nbsp;&nbsp;f77vms_flag_[OLD_RL] = 1;
+<BR>
+#endif
+<BR>
+<P>/*------------- Special SGI : permet de mettre RECL en byte ----*/
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;StrCurrentProcessing=(char *)malloc(200*sizeof(char));
+<BR>
+&nbsp;&nbsp;&nbsp;if (StrCurrentProcessing == NULL )
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Erreur Allocation de StrCurrentProcessing\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;gZoomSelect=False;
+<BR>
+&nbsp;&nbsp;&nbsp;gwOldRadio=NULL;
+<BR>
+<P>/*------------------------- create the top widget ----------------------*/
+<BR>
+<P>&nbsp;&nbsp;&nbsp;gwTop = XtVaAppInitialize (&amp;app_context, &quot;xscan.rc&quot;,  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NULL , (Cardinal)0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;argc, (String *)argv, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(String *)fallback_resources, NULL);   
+<BR>
+<P><P>(etc)
+<BR>
+--------
+<BR>
+<P>Cutting and pasting this into a new file (and adding the globals that
+<BR>
+aren't declared in this snippet) results in something that compiles and
+<BR>
+runs without error.  Ladebug shows all of the arguments to
+<BR>
+XtVaAppInitialize to be sensible.  Changing optimization and
+<BR>
+compiler (gcc &lt;--&gt; ccc) doesn't make any difference to either.
+<BR>
+<P>I can only assume that I've found a linker or loader bug.  The program
+<BR>
+is quite big (binary is ~3 megs), and is a combination of Fortran 90
+<BR>
+and C.  I've been using the Compaq fortran compiler for the fortran and
+<BR>
+switching between gcc and ccc for the C.  It dies long before it gets
+<BR>
+to any fortran, though.  The build process also creates some libraries
+<BR>
+along the way (using ar cq), which are then linked into the final
+<BR>
+program.
+<BR>
+<P>I'm running Red Hat 6.1 on a 164UX system, egcs-2.91.66 and the latest
+<BR>
+compilers from Compaq.  Has anyone seen any behaviour like this before?
+<BR>
+Any help would be greatly appreciated!
+<BR>
+<P>Thanks,
+<BR>
+-Paul Chapman
+<BR>
+pchapman@fury.bio.dfo.ca
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0038.shtml">Zahner, Howard: "X Configuration?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0036.shtml">William Miller Jr.: "Re: Red Hat install problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0109.shtml">pchapman@fury.bio.dfo.ca: "Re: Compiler/linker oddness?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:14:59 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

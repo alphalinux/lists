@@ -1,0 +1,133 @@
+<!-- received="Wed Jul  1 04:04:33 1998 " -->
+<!-- sent="Wed, 1 Jul 1998 15:50:02 +0900 (JST)" -->
+<!-- name="Tom Holroyd" -->
+<!-- email="tomh@taz.ccs.fau.edu" -->
+<!-- subject="Re: samba, smbmount, smbfs &amp; 2.0.34" -->
+<!-- id="199807010635.HAA01747@killala.koala.ie" -->
+<!-- inreplyto="samba, smbmount, smbfs &amp; 2.0.34" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: samba, smbmount, smbfs &amp; 2.0.34</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: samba, smbmount, smbfs &amp; 2.0.34</h2>
+
+<b>Tom Holroyd</b> (<a href="mailto:tomh@taz.ccs.fau.edu"><i>tomh@taz.ccs.fau.edu</i></a>)<br>
+<i>Wed, 1 Jul 1998 15:50:02 +0900 (JST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#514">[ date ]</a><a href="index.html#514">[ thread ]</a><a href="subject.html#514">[ subject ]</a><a href="author.html#514">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0515.html">Wes Bauske: "High Precision Math (REAL *16)"</a>
+<li> <b>Previous message:</b> <a href="0513.html">Simon Kenyon: "Re: Bleeding Edge Kernels?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+My apologies if this appears twice; I cc'd this to axp-list yesterday and<br>
+it didn't show up (that I know of). <br>
+<p>
+I'm running Linux 2.0.34, patched from RedHat 5.0.<br>
+<p>
+If you have compiled smbfs support into your kernel (I did mine as a<br>
+module), you'll find that you can't mount smb shares because the smbmount<br>
+program is missing (from RedHat's distribution).<br>
+<p>
+If you look for smbmount in the Samba distribution, you'll find that it<br>
+won't compile unless you have kernel 2.1.70 or better, and if you read<br>
+the Makefile, you'll be directed to smbfs-2.0.2 on<br>
+	<a href="ftp://ftp.gwdg.de/pub/linux/misc/smbfs">ftp://ftp.gwdg.de/pub/linux/misc/smbfs</a><br>
+and you'll discover that this doesn't compile either.  It turns out that<br>
+it's just a bunch of #include file inconsistencies.  I suspect that's the<br>
+only problem with the Samba distribution as well.  You can get smbmount to<br>
+compile if you replace the #includes at the top with these: <br>
+<p>
+------------------------------<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;string.h&gt;<br>
+#include &lt;pwd.h&gt;<br>
+#include &lt;grp.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;ctype.h&gt;<br>
+#include &lt;mntent.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+#include &lt;netdb.h&gt;<br>
+<p>
+#include &lt;sys/stat.h&gt;<br>
+#include &lt;sys/types.h&gt;<br>
+#include &lt;sys/param.h&gt;<br>
+#include &lt;sys/errno.h&gt;<br>
+#include &lt;sys/mount.h&gt;<br>
+#include &lt;sys/socket.h&gt;<br>
+<p>
+#include &lt;linux/smb.h&gt;<br>
+#include &lt;linux/smb_mount.h&gt;<br>
+<p>
+#include &lt;asm/byteorder.h&gt;<br>
+------------------------------<br>
+<p>
+You'll also need <br>
+<p>
+------------------------------<br>
+#define        SMB_IOC_GETMOUNTUID             _IOR('u', 1, uid_t)<br>
+------------------------------<br>
+<p>
+to get smbumount to compile, and there's a bug in smbfs in this kernel<br>
+related to the uid returned by the GETMOUNTUID ioctl call: it returns<br>
+a short instead of an int, leaving a half-word of garbage.  So stick<br>
+	mount_uid &amp;= 0xFFFF;<br>
+after the ioctl.<br>
+<p>
+That'll do it.  The smbfs module could use some better error checking<br>
+though.  When I give an invalid password I get a /var/log/messages entry<br>
+that reads<br>
+kernel: smb_dont_catch_keepalive: server-&gt;data_ready == NULL<br>
+<p>
+Duh.<br>
+<p>
+Hey, I have Win95 shares mounted on my Alpha.  Cool.  I backed up my<br>
+laptop's hard disk to the MO disk on my Alpha using "cp -a"..<br>
+<p>
+I love this stuff.<br>
+<p>
+Dr. Tom Holroyd<br>
+Behavior Control Lab, Human Informatics Dept.            The basis of<br>
+National Institute of Bioscience and Human-Technology    stability is<br>
+1-1 Higashi, Tsukuba-shi, Ibaraki 305, Japan             instability.<br>
+The 9th Amendment of the U.S. Constitution:<br>
+"The enumeration in the Constitution, of certain rights, shall not be<br>
+construed to deny or disparage others retained by the people."<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0515.html">Wes Bauske: "High Precision Math (REAL *16)"</a>
+<li> <b>Previous message:</b> <a href="0513.html">Simon Kenyon: "Re: Bleeding Edge Kernels?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

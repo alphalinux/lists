@@ -1,0 +1,211 @@
+<!-- received="Fri May 23 11:30:00 1997 " -->
+<!-- sent="Thu, 22 May 1997 17:57:17 +0200 (CEST)" -->
+<!-- name="Andreas Johansson" -->
+<!-- email="ajo@wopr.campus.luth.se" -->
+<!-- subject="Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)" -->
+<!-- id="199705221959.TAA15764@whale.st.usm.edu" -->
+<!-- inreplyto="sjm67wcwiji.fsf@incommunicado.ihtfp.org" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</h2>
+
+<b>Andreas Johansson</b> (<a href="mailto:ajo@wopr.campus.luth.se"><i>ajo@wopr.campus.luth.se</i></a>)<br>
+<i>Thu, 22 May 1997 17:57:17 +0200 (CEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#711">[ date ]</a><a href="index.html#711">[ thread ]</a><a href="subject.html#711">[ subject ]</a><a href="author.html#711">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0712.html">Tim Waugh: "Re: NFS writes"</a>
+<li> <b>Previous message:</b> <a href="0710.html">John Banghart: "4.1 on AS200"</a>
+<li> <b>In reply to:</b> <a href="0665.html">Derek Atkins: "LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0706.html">Derek Atkins: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<li> <b>Reply:</b> <a href="0706.html">Derek Atkins: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On 21 May 1997, Derek Atkins wrote:<br>
+<p>
+<i>&gt; I'm not on this list, so please send any replies directly to me.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Hi.  I'm still trying to port Linux-AFS to Linux/alpha.  My most</i><br>
+<i>&gt; recent problem is that the kernel segfaults my process when I try to</i><br>
+<i>&gt; execute an installed syscall.  I have some example code below which</i><br>
+<i>&gt; shows the problem.  Does anyone have any ideas about how to fix this?</i><br>
+<i>&gt; Is there some magic alpha voodoo which I'm missing?  FWIW, this code</i><br>
+<i>&gt; works on Linux/x86 and Linux/sparc.</i><br>
+<p>
+To me it seems like a bug in Linux/alpha, see below.<br>
+<p>
+<i>&gt; I'm running RedHat 4.1 with the stock redhat 2.0.27 kernel, glibc</i><br>
+<i>&gt; 0.961212, gcc 2.7.2.1, and insmod-bfd 0.2 with the debug patches.  I</i><br>
+<i>&gt; can't find the System.map for this kernel, so tracking this crash is a</i><br>
+<i>&gt; little difficult for me.  It _looks_ like the crash is happening in</i><br>
+<i>&gt; entSys() or ret_from_syscall() in arch/alpha/kernel/entry.S, but I'm</i><br>
+<i>&gt; not sure.  The crash I get is:</i><br>
+<p>
+I can confirm that the crash is in ret_from_syscall(). Here is my oops:<br>
+<p>
+May 22 17:10:24 wopr kernel: In afs_syscall<br>
+May 22 17:10:24 wopr kernel: Unable to handle kernel paging request at<br>
+virtual address 0000000000000000<br>
+May 22 17:10:24 wopr kernel: afsd(13711): Oops 0<br>
+May 22 17:10:24 wopr kernel: pc = [&lt;fffffc0000310ae4&gt;] ps = 0000<br>
+May 22 17:10:24 wopr kernel: rp = [&lt;fffffc0000310ac8&gt;] ra =<br>
+[&lt;0000000000000000&gt;]<br>
+May 22 17:10:24 wopr kernel: r0 = 0000000000000000  r1 = 0000000000000000<br>
+May 22 17:10:24 wopr kernel: r2 = fffffc000346d810  r3 = 0000000000000000<br>
+May 22 17:10:24 wopr kernel: r4 = 0000000000000000  r5 = fffffc0000413000<br>
+May 22 17:10:24 wopr kernel: r6 = fffffc000042be00  r7 = fffffc0000412ff8<br>
+May 22 17:10:24 wopr kernel: r8 = fffffc00037fb018  r9 = 0000000000000001<br>
+May 22 17:10:24 wopr kernel: r10= 000000011ffffb80  r11= 000000011ffffb90<br>
+May 22 17:10:24 wopr kernel: r12= 000000012018a608  r13= 00000001201a88e8<br>
+May 22 17:10:24 wopr kernel: r14= 000000012016e288  r15= 000000011ffffb58<br>
+May 22 17:10:24 wopr kernel: r16= 0000000000000000  r17= fffffc01c0007f20<br>
+May 22 17:10:24 wopr kernel: r18= fffffc00033dded8  r19= 0000000000000000<br>
+May 22 17:10:24 wopr kernel: r20= 0000000000000000  r21= 0000000000000000<br>
+May 22 17:10:24 wopr kernel: r22= 0000000000000000  r23= 000001555580625c<br>
+May 22 17:10:24 wopr kernel: r24= fffffc0000310a20  r25= 0000000000002000<br>
+May 22 17:10:24 wopr kernel: r27= fffffc000031ada0  r28= 0000000000000000<br>
+May 22 17:10:24 wopr kernel: gp = fffffe000008e208  sp = fffffc00033ddf18<br>
+May 22 17:10:24 wopr kernel: Code: 474014d3  f4200006  a47d95a0 &lt;a4630000&gt;<br>
+a49d8e50  a4840000  44640002  f440005e  a41e00b8 <br>
+<p>
+<p>
+Here is a little output from gdb (note that I am using linux 2.1.36):<br>
+<p>
+(gdb) disassemble 0xfffffc0000310ae4<br>
+Dump of assembler code for function ret_from_sys_call:<br>
+0xfffffc0000310ad8 &lt;ret_from_sys_call&gt;:<br>
+        474014d3  cmovne     ra,0,a3<br>
+0xfffffc0000310adc &lt;ret_from_sys_call+4&gt;:<br>
+        f4200006  bne        t0,0xfffffc0000310af8 &lt;ret_from_handle_bh&gt;<br>
+0xfffffc0000310ae0 &lt;ret_from_sys_call+8&gt;:<br>
+        a47d95a0  ldq        t2,-27232(gp)	&lt;= t2 is loaded here<br>
+0xfffffc0000310ae4 &lt;ret_from_sys_call+12&gt;:<br>
+        a4630000  ldq        t2,0(t2)		&lt;= PC is here<br>
+0xfffffc0000310ae8 &lt;ret_from_sys_call+16&gt;:<br>
+        a49d8e50  ldq        t3,-29104(gp)<br>
+0xfffffc0000310aec &lt;ret_from_sys_call+20&gt;:<br>
+        a4840000  ldq        t3,0(t3)<br>
+0xfffffc0000310af0 &lt;ret_from_sys_call+24&gt;:<br>
+        44640002  and        t2,t3,t1<br>
+0xfffffc0000310af4 &lt;ret_from_sys_call+28&gt;:<br>
+        f440005e  bne        t1,0xfffffc0000310c70 &lt;handle_bottom_half&gt;<br>
+End of assembler dump.<br>
+<p>
+So it seems gp is f*cked up (not loaded in ret_from_sys_call()). I remember<br>
+a similar problem with the nfs module some time ago (concerning <br>
+kernel_thread()). I even have the patch for that problem left:<br>
+<p>
+-------------------------------------------------------------------------<br>
+--- linux/arch/alpha/kernel/entry.S.orig	Fri Feb  7 12:47:02 1997<br>
++++ linux/arch/alpha/kernel/entry.S	Fri Feb  7 12:51:14 1997<br>
+@@ -228,11 +228,12 @@ kernel_clone:<br>
+ .ent	__kernel_thread<br>
+ __kernel_thread:<br>
+ 	.frame $30, 4*8, $26<br>
++	ldgp $29,0($27)<br>
+ 	subq $30,4*8,$30<br>
+ 	stq $10,16($30)<br>
+ 	stq $9,8($30)<br>
+ 	stq $26,0($30)<br>
+-	.prologue 0<br>
++	.prologue 1<br>
+ 	bis $17,$17,$9		/* save fn */<br>
+ 	bis $18,$18,$10		/* save arg */<br>
+ 	bsr $26,kernel_clone<br>
+@@ -244,8 +245,6 @@ __kernel_thread:<br>
+ 	ret $31,($26),1<br>
+ /* this is in child: look out as we don't have any stack here.. */<br>
+ 1:	bis $9,$9,$27		/* get fn */<br>
+-	br $29,2f<br>
+-2:	ldgp $29,0($29)<br>
+ 	bis $10,$10,$16		/* get arg */<br>
+ 	ldq $8,current_set<br>
+ 	jsr $26,($27)<br>
+-----------------------------------------------------------------------<br>
+<p>
+My guess as to fixing your problem is this small patch:<br>
+<p>
+-----------------------------------------------------------------------<br>
+--- arch/alpha/kernel/entry.S.orig	Thu May 22 17:38:29 1997<br>
++++ arch/alpha/kernel/entry.S	Thu May 22 17:41:24 1997<br>
+@@ -521,6 +521,7 @@<br>
+ 	cmovne	$26,0,$19		/* $19 = 0 =&gt; non-restartable */<br>
++	ldgp    $29,0($27)<br>
+ 	/* check bottom half interrupts */<br>
+ 	bne	$1,ret_from_handle_bh<br>
+ 	ldq	$3,bh_active<br>
+ 	ldq	$4,bh_mask<br>
+ 	and	$3,$4,$2<br>
+-----------------------------------------------------------------------<br>
+<p>
+I have no idea if ret_from_sys_call looks the same in 2.0.27, but if not,<br>
+just try to add<br>
+	ldgp	$29,0($27)<br>
+in the beginning of the function.<br>
+<p>
+I am only guessing here, I am not pretending to be an expert on kernel<br>
+issues. Try this patch on your own risk, I haven't even tried it myself :)<br>
+If you are having great difficulcy compiling your own kernel I could be<br>
+persuaded to try the patch myself.<br>
+<p>
+<i>&gt; I include the code that causes this crash below.  Again, this code</i><br>
+<i>&gt; works fine on Linux/x86 and Linux/sparc.  I compiled the two files</i><br>
+<i>&gt; using the following commands:</i><br>
+<i>&gt; </i><br>
+<i>&gt; afs.c		cc -g -c -DMODULE -DKERNEL -D__KERNEL__ afs.c</i><br>
+<p>
+I think you should add the -mno-fp-regs compile flag. This is used on all<br>
+modules in the kernel, and I have had modules malfunctioning without it.<br>
+This does not solve your problem though.<br>
+<p>
+/Andreas<br>
+<pre>
+--
+<p>
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+: E-mail: <a href="mailto:ajo@wopr.campus.luth.se">ajo@wopr.campus.luth.se</a>                                       :
+: S-mail: Andreas Johansson, Karhusvagen 5  6:618, 977 54 Lulea, SWEDEN :
+:     Have you had your dose of 261.62 BogoMIPS today? - Run Alpha!     :
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0712.html">Tim Waugh: "Re: NFS writes"</a>
+<li> <b>Previous message:</b> <a href="0710.html">John Banghart: "4.1 on AS200"</a>
+<li> <b>In reply to:</b> <a href="0665.html">Derek Atkins: "LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0706.html">Derek Atkins: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<li> <b>Reply:</b> <a href="0706.html">Derek Atkins: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

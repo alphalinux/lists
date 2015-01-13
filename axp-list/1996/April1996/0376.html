@@ -1,0 +1,153 @@
+<!-- received="Tue Apr 30 08:19:15 1996 " -->
+<!-- sent="Tue, 30 Apr 1996 08:19:15 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: ev4sched---here it is" -->
+<!-- id="9604300613.AA05569@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="199604241515.IAA11204@koala.azstarnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ev4sched---here it is</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ev4sched---here it is</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Tue, 30 Apr 1996 08:19:15 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#376">[ date ]</a><a href="index.html#376">[ thread ]</a><a href="subject.html#376">[ subject ]</a><a href="author.html#376">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0377.html">Franco Tassone: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<li> <b>Previous message:</b> <a href="0375.html">Harald Koenig: "Re: Linux-1.3.95 - strace for alpha"</a>
+<li> <b>In reply to:</b> <a href="0331.html">David Mosberger-Tang: "ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0378.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Reply:</b> <a href="0378.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; OK, there seems to be considerable interest in the EV4 scheduler.  It</i><br>
+<i>&gt; was posted to the net (if memory serves) a few years ago.  It's</i><br>
+<i>&gt; probably still somewhere on one of DEC's ftp site.</i><br>
+<i>&gt; </i><br>
+<i>&gt; In any case, I put up a tar file on azstarnet:</i><br>
+<i>&gt; </i><br>
+<i>&gt;  <a href="ftp://ftp.azstarnet.com/pub/linux/axp/misc/axpsrc-ev4sched-0.0.tar.gz">ftp://ftp.azstarnet.com/pub/linux/axp/misc/axpsrc-ev4sched-0.0.tar.gz</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; If somebody wanted to improve it, the first thing to do would be to</i><br>
+<i>&gt; add support for multiple basic blocks.</i><br>
+<p>
+below is a vrey primitive patch which just passes bigger blocks in<br>
+chunks of 512 words.<br>
+<p>
+might be a dump question (I've no real ideas about the problems of writing<br>
+a compiler or good code generator):<br>
+<p>
+wouldn't it be easy (or ar least doable) to include this scheduler into the<br>
+GCC and get a considerable improvement in performace ?<br>
+this can be done either in the code generator stage of gcc (from C to ASM)<br>
+or in the assembler itself.  or what about a postprocessing program which<br>
+just rewrites binaries ?<br>
+<p>
+since this scheduler is available for quite some time and this hasn't been<br>
+done already I assume there is a major problem in this easy thinging aproach.<br>
+but which one ?<br>
+<p>
+<p>
+Harald<br>
+<p>
+-------------------------------------------------------------------------------<br>
+diff -u ORIG/ev4sched.c ./ev4sched.c<br>
+--- ORIG/ev4sched.c	Wed Apr 24 17:04:04 1996<br>
++++ ./ev4sched.c	Fri Apr 26 20:42:03 1996<br>
+@@ -121,7 +121,12 @@<br>
+ 			    argv[0], argv[i]);<br>
+ 		    goto cleanup;<br>
+ 		}<br>
+-		schedule_bb_ev4(insts, shdr.s_size/4, offset, reorder);<br>
++		{<br>
++		  int i;<br>
++		  for(i=0; i&lt;shdr.s_size/4; i+= 512) {<br>
++		    schedule_bb_ev4(insts+i, i+512&lt;shdr.s_size/4 ? 512 : shdr.s_size/4-i, offset, reorder);<br>
++		  }<br>
++		}<br>
+ 	    }<br>
+ 	    fseek(infp, next_section, SEEK_SET);<br>
+ 	}<br>
+diff -u ORIG/instr-sched.c ./instr-sched.c<br>
+--- ORIG/instr-sched.c	Sun Jul 16 07:02:25 1995<br>
++++ ./instr-sched.c	Fri Apr 26 20:32:12 1996<br>
+@@ -1782,7 +1782,7 @@<br>
+ static unsigned find_node_to_dual_issue (unsigned cycle, unsigned last_node, boolean reorder);<br>
+ static void     add_arc (unsigned node1, unsigned node2, unsigned latency);<br>
+ static void     mark_ending_nodes ();<br>
+-static int      sort_node_value (void *ent1, void *ent2);<br>
++static int      sort_node_value (const void *ent1, const void *ent2);<br>
+ static void     compute_aftercycles ();<br>
+ static void     addres (boolean def, unsigned resource, enum resource_class class);<br>
+ static void     resource_constraints (unsigned resource);<br>
+@@ -1844,7 +1844,10 @@<br>
+   /*<br>
+   ** Clip the number of nodes to the maximum the scheduler can handle.<br>
+   */<br>
+-  assert (number &lt;= MAX_NODES);<br>
++  if (!(number &lt;= MAX_NODES)) {<br>
++    printf("number=%d MAX_NODES=%d,  ",number,MAX_NODES);<br>
++    assert (number &lt;= MAX_NODES);<br>
++  }<br>
+   number_of_nodes = number;<br>
+   /*<br>
+   **	Copy instructions to buffer and work from that<br>
+@@ -2139,7 +2142,7 @@<br>
+ **	Function used as callback routine by the library routine qsort<br>
+ **	to create a sort the array of node_value structures.<br>
+ */<br>
+-static int sort_node_value (void *ent1, void *ent2)<br>
++static int sort_node_value (const void *ent1, const void *ent2)<br>
+ {<br>
+   struct node_value_s *sort1, *sort2;<br>
+ <br>
+[46;1H[K<br>
+<p>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0377.html">Franco Tassone: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<li> <b>Previous message:</b> <a href="0375.html">Harald Koenig: "Re: Linux-1.3.95 - strace for alpha"</a>
+<li> <b>In reply to:</b> <a href="0331.html">David Mosberger-Tang: "ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0378.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Reply:</b> <a href="0378.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

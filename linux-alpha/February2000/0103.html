@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.42 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="Re: 2.3.42 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.42 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Thu Feb 10 00:19:22 2000" -->
+<!-- isoreceived="20000210081922" -->
+<!-- sent="Sat, 5 Feb 2000 15:37:57 -0800" -->
+<!-- isosent="20000205233757" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="Re: 2.3.42 alpha updates" -->
+<!-- id="20000205153757.A21078@cygnus.com" -->
+<!-- inreplyto="389C9D91.D85032CB@colorfullife.com" -->
+<STRONG>Subject: </STRONG>Re: 2.3.42 alpha updates<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@cygnus.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Feb 05 2000 - 15:37:57 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#103">[ date ]</A>
+<A HREF="index.html#103">[ thread ]</A>
+<A HREF="subject.html#103">[ subject ]</A>
+<A HREF="author.html#103">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0104.html">Oliver Hensel: "Segfaults and sig 11 with 2.3.42+axp-patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0100.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0102.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sat, Feb 05, 2000 at 11:00:49PM +0100, Manfred Spraul wrote:
+<BR>
+<EM>&gt; * Alpha doesn't use mm-&gt;cpu_vm_mask.
+</EM><BR>
+<P>No, but there's no reason we couldn't.
+<BR>
+<P><EM>&gt; * the tlb could contain entries from multiple processes,
+</EM><BR>
+<EM>&gt; selected by the ASN.
+</EM><BR>
+<P>Yes.
+<BR>
+<P><EM>&gt; * the actual page table pointer is changed during switch_to(), not
+</EM><BR>
+<EM>&gt; during switch_mm(). Is that an atomic operation, or could IPI's arrive
+</EM><BR>
+<EM>&gt; between the page table pointer/ASN change and the &quot;current&quot; change?
+</EM><BR>
+<P>Yes, it's atomic.  It's the reason we still have activate_mm,
+<BR>
+because we couldn't separate the two operations.
+<BR>
+<P><EM>&gt; But I don't understand what happens in the following scenario:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; CPU0:		CPU1:
+</EM><BR>
+<EM>&gt; thread mmA	page stealer(kswapd)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; thread switch to mmB
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 		changes a page from mmA
+</EM><BR>
+<EM>&gt; 		flush_tlb_page(mmA,...)
+</EM><BR>
+<EM>&gt; IPI!
+</EM><BR>
+<EM>&gt; * notices that mmA is not loaded, no flush
+</EM><BR>
+<EM>&gt; * mmA stored in .delayed_flush
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; thread switch back to mmA
+</EM><BR>
+<EM>&gt; * prepare_to_switch() clears .delayed_flush
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; switch_mm(): ASN not yet wrapped, tlb reactivated.
+</EM><BR>
+<EM>&gt; !! data access without tlb flush!!
+</EM><BR>
+<P>This doesn't happen because CPU1 did flush_tlb_other, either
+<BR>
+by noticing that mmA wasn't running on cpu1, or by noticing
+<BR>
+that mmA had more than one user.
+<BR>
+<P>But this leads to a different failing scenario:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPU0:				CPU1:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch_mm(A,mmA)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this implies A-&gt;thread.asn
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and mmA-&gt;context are valid.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_other(A)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this implies mmA-&gt;context is 0.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch_to(A)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Now A-&gt;thread.asn is out of
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync with mmA-&gt;context.
+<BR>
+<P>This will require some thought to avoid scrogging schedule entirely.
+<BR>
+<P><P>r~
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0104.html">Oliver Hensel: "Segfaults and sig 11 with 2.3.42+axp-patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0100.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0102.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

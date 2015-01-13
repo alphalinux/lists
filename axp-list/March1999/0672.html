@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: &gt; 1GB on alpha.  Patch to 1TB?</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: &gt; 1GB on alpha.  Patch to 1TB?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: &gt; 1GB on alpha.  Patch to 1TB?</H1>
+<HR>
+<P>
+<!-- received="Sat Mar 13 18:47:25 1999 PST" -->
+<!-- sent="Sat, 13 Mar 1999 10:45:38 -0800" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: &gt; 1GB on alpha.  Patch to 1TB?" -->
+<!-- id="19990313104538.A11584@twiddle.net" -->
+<!-- inreplyto="Pine.LNX.4.04.9903102339180.1086-100000@draal.physics.wisc.edu" -->
+<STRONG>Richard Henderson</STRONG> (<A HREF="mailto:rth@twiddle.net?subject=Re:%20&gt;%201GB%20on%20alpha.%20%20Patch%20to%201TB?"><EM>rth@twiddle.net</EM></A>)<BR>
+<EM>Sat, 13 Mar 1999 10:45:38 -0800</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#672">[ date ]</A>
+<A HREF="index.html#672">[ thread ]</A>
+<A HREF="subject.html#672">[ subject ]</A>
+<A HREF="author.html#672">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0673.html">Matthew Jacob: "Re: &gt; 1GB on alpha.  Patch to 1TB?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0671.html">Todd Fleisher: "multia PCI slot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0673.html">Matthew Jacob: "Re: &gt; 1GB on alpha.  Patch to 1TB?"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Mar 10, 1999 at 11:57:38PM -0600, Bob McElrath wrote:
+<BR>
+<EM>&gt; It seems simple to me to modify these two files to support up to 1TB memory
+</EM><BR>
+<EM>&gt; on the alpha, as opposed to the hard-coded limit of 1GB now.  It appears the
+</EM><BR>
+<EM>&gt; 21172 will only decode 40 bits of address, not 64, but that's 1TB...
+</EM><BR>
+<P>With 32-bit PCI devices, it is difficult to get past 2GB RAM.  More
+<BR>
+than that requires either bounce buffers or that PCI windows be 
+<BR>
+adjusted at runtime to cope with the various outstanding DMA requests.
+<BR>
+Which would be cool, but i think fairly tricky to modify all the 
+<BR>
+drivers to get right.
+<BR>
+<P>However, there's no reason we can't support 2GB instead of 1.
+<BR>
+<P><P>r~
+<BR>
+<P><P>
+diff -rup 2.2.3/arch/alpha/kernel/core_cia.c 2.2.3-axp/arch/alpha/kernel/core_cia.c
+<BR>
+--- 2.2.3/arch/alpha/kernel/core_cia.c	Sun Sep  6 10:34:33 1998
+<BR>
++++ 2.2.3-axp/arch/alpha/kernel/core_cia.c	Sat Mar 13 10:09:24 1999
+<BR>
+@@ -535,8 +535,6 @@ cia_init_arch(unsigned long *mem_start, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the PCI-&gt;physical memory translation windows.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* For now, windows 1,2 and 3 are disabled.  In the future,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* we may want to use them to do scatter/gather DMA. 
+<BR>
+-		 *
+<BR>
+-		 * Window 0 goes at 1 GB and is 1 GB large.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)CIA_IOC_PCI_W0_BASE = 1U | (CIA_DMA_WIN_BASE_DEFAULT &amp; 0xfff00000U);
+<BR>
+diff -rup 2.2.3/arch/alpha/kernel/core_pyxis.c 2.2.3-axp/arch/alpha/kernel/core_pyxis.c
+<BR>
+--- 2.2.3/arch/alpha/kernel/core_pyxis.c	Mon Oct 12 11:40:12 1998
+<BR>
++++ 2.2.3-axp/arch/alpha/kernel/core_pyxis.c	Sat Mar 13 10:09:35 1999
+<BR>
+@@ -427,8 +427,6 @@ pyxis_native_window_setup(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the PCI-&gt;physical memory translation windows.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* For now, windows 1,2 and 3 are disabled.  In the future, we may
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* want to use them to do scatter/gather DMA. 
+<BR>
+-	 *
+<BR>
+-	 * Window 0 goes at 1 GB and is 1 GB large.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)PYXIS_W0_BASE = 1U | (PYXIS_DMA_WIN_BASE_DEFAULT &amp; 0xfff00000U);
+<BR>
+diff -rup 2.2.3/include/asm-alpha/core_cia.h 2.2.3-axp/include/asm-alpha/core_cia.h
+<BR>
+--- 2.2.3/include/asm-alpha/core_cia.h	Wed Jan 13 10:42:49 1999
+<BR>
++++ 2.2.3-axp/include/asm-alpha/core_cia.h	Sat Mar 13 10:20:59 1999
+<BR>
+@@ -77,14 +77,14 @@
+<BR>
+&nbsp;#define CIA_MEM_R2_MASK 0x07ffffff  /* SPARSE Mem region 2 mask is 27 bits */
+<BR>
+&nbsp;#define CIA_MEM_R3_MASK 0x03ffffff  /* SPARSE Mem region 3 mask is 26 bits */
+<BR>
+&nbsp;
+<BR>
+-#define CIA_DMA_WIN_BASE_DEFAULT	(1024*1024*1024)
+<BR>
+-#define CIA_DMA_WIN_SIZE_DEFAULT	(1024*1024*1024)
+<BR>
++#define CIA_DMA_WIN_BASE_DEFAULT	(2UL*1024*1024*1024)
+<BR>
++#define CIA_DMA_WIN_SIZE_DEFAULT	(2UL*1024*1024*1024)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SRM_SETUP)
+<BR>
+&nbsp;#define CIA_DMA_WIN_BASE		alpha_mv.dma_win_base
+<BR>
+&nbsp;#define CIA_DMA_WIN_SIZE		alpha_mv.dma_win_size
+<BR>
+&nbsp;#else
+<BR>
+-#define CIA_DMA_WIN_BASE		CIA_DMA_WIN_SIZE_DEFAULT
+<BR>
++#define CIA_DMA_WIN_BASE		CIA_DMA_WIN_BASE_DEFAULT
+<BR>
+&nbsp;#define CIA_DMA_WIN_SIZE		CIA_DMA_WIN_SIZE_DEFAULT
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+diff -rup 2.2.3/include/asm-alpha/core_pyxis.h 2.2.3-axp/include/asm-alpha/core_pyxis.h
+<BR>
+--- 2.2.3/include/asm-alpha/core_pyxis.h	Sun Dec 27 15:21:50 1998
+<BR>
++++ 2.2.3-axp/include/asm-alpha/core_pyxis.h	Sat Mar 13 10:20:42 1999
+<BR>
+@@ -74,8 +74,8 @@
+<BR>
+&nbsp;#define PYXIS_MEM_R2_MASK 0x07ffffff  /* SPARSE Mem region 2 mask is 27 bits */
+<BR>
+&nbsp;#define PYXIS_MEM_R3_MASK 0x03ffffff  /* SPARSE Mem region 3 mask is 26 bits */
+<BR>
+&nbsp;
+<BR>
+-#define PYXIS_DMA_WIN_BASE_DEFAULT	(1024*1024*1024)
+<BR>
+-#define PYXIS_DMA_WIN_SIZE_DEFAULT	(1024*1024*1024)
+<BR>
++#define PYXIS_DMA_WIN_BASE_DEFAULT	(2UL*1024*1024*1024)
+<BR>
++#define PYXIS_DMA_WIN_SIZE_DEFAULT	(2UL*1024*1024*1024)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SRM_SETUP)
+<BR>
+&nbsp;#define PYXIS_DMA_WIN_BASE		alpha_mv.dma_win_base
+<BR>
+diff -rup 2.2.3/include/asm-alpha/semaphore-helper.h 2.2.3-axp/include/asm-alpha/semaphore-helper.h
+<BR>
+--- 2.2.3/include/asm-alpha/semaphore-helper.h	Sat Mar 13 10:43:40 1999
+<BR>
++++ 2.2.3-axp/include/asm-alpha/semaphore-helper.h	Sat Mar 13 10:22:20 1999
+<BR>
+@@ -90,9 +90,9 @@ waking_non_zero_interruptible(struct sem
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:	ldq_l	%1,%4\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	lda	%0,0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	addq	%1,1,%2\n&quot;
+<BR>
+-		&quot;	ldah	%3,0x8000(%1)\n&quot;
+<BR>
++		&quot;	ldah	%3,-32768(%1)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	cmovne	%5,%6,%0\n&quot;
+<BR>
+-		&quot;	ldah	%3,0x8000(%3)\n&quot;
+<BR>
++		&quot;	ldah	%3,-32768(%3)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	cmovge	%1,1,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	cmovne	%5,%2,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	cmovge	%2,%3,%1\n&quot;
+<BR>
+diff -rup 2.2.3/include/asm-alpha/semaphore.h 2.2.3-axp/include/asm-alpha/semaphore.h
+<BR>
+--- 2.2.3/include/asm-alpha/semaphore.h	Sat Mar 13 10:43:40 1999
+<BR>
++++ 2.2.3-axp/include/asm-alpha/semaphore.h	Sat Mar 13 10:21:46 1999
+<BR>
+@@ -141,8 +141,8 @@ extern inline int down_trylock(struct se
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	subq	%1,1,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	blt	%2,2f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	blt	%1,2f\n&quot;
+<BR>
+-		&quot;	ldah	%1,0x8000(%1)\n&quot;
+<BR>
+-		&quot;	ldah	%1,0x8000(%1)\n&quot;
+<BR>
++		&quot;	ldah	%1,-32768(%1)\n&quot;
+<BR>
++		&quot;	ldah	%1,-32768(%1)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	lda	%0,1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	stq_c	%1,%3\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	%1,3f\n&quot;
+<BR>
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20%20Patch%20to%201TB?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20%20Patch%20to%201TB?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0673.html">Matthew Jacob: "Re: &gt; 1GB on alpha.  Patch to 1TB?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0671.html">Todd Fleisher: "multia PCI slot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0673.html">Matthew Jacob: "Re: &gt; 1GB on alpha.  Patch to 1TB?"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sat Mar 13 1999 - 11:00:24 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: non-executable stack on alpha (was Re: Securi</TITLE>
+<META NAME="Author" CONTENT="Ivan Kokshaysky (ink@jurassic.park.msu.ru)">
+<META NAME="Subject" CONTENT="non-executable stack on alpha (was Re: Security in general ..)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>non-executable stack on alpha (was Re: Security in general ..)</H1>
+<HR>
+<P>
+<!-- received="Thu Apr 20 20:34:10 2000" -->
+<!-- isoreceived="20000421033410" -->
+<!-- sent="Thu, 20 Apr 2000 20:37:53 +0400" -->
+<!-- isosent="20000420163753" -->
+<!-- name="Ivan Kokshaysky" -->
+<!-- email="ink@jurassic.park.msu.ru" -->
+<!-- subject="non-executable stack on alpha (was Re: Security in general ..)" -->
+<!-- id="20000420203753.A571@jurassic.park.msu.ru" -->
+<!-- inreplyto="20000418094253.B30759@alcove.wittsend.com" -->
+<STRONG>Subject: </STRONG>non-executable stack on alpha (was Re: Security in general ..)<BR>
+<STRONG>From: </STRONG>Ivan Kokshaysky (<EM>ink@jurassic.park.msu.ru</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 20 2000 - 09:37:53 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#6">[ date ]</A>
+<A HREF="index.html#6">[ thread ]</A>
+<A HREF="subject.html#6">[ subject ]</A>
+<A HREF="author.html#6">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.html">Thorsten Kranzkowski: "Re: unaligned access sin sys_swapon()"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, Apr 18, 2000 at 09:42:53AM -0400, Michael H. Warfield wrote:
+<BR>
+<EM>&gt; 	Smash the stack so the function returns back into the system()
+</EM><BR>
+<EM>&gt; function with the parameter pointing at that string and it's game over.
+</EM><BR>
+<EM>&gt; The attacker now can have as many shells on your system that he wants
+</EM><BR>
+<EM>&gt; and you didn't execute a single byte of code on the stack.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+I don't see how this could be exploited on alpha where function takes
+<BR>
+its first 6 arguments from registers not from stack.
+<BR>
+So I became curious and tried to run with the non-executable stack
+<BR>
+(trivially for architectures with the _real_ page protection). So far
+<BR>
+I have the only application which breaks - DU Netscape :-/
+<BR>
+The patch I run at the moment is kinda quick hack and breaks other
+<BR>
+platforms but could be easily cleaned up.
+<BR>
+Maybe it worth making &quot;non-executable stack&quot; a config option for alpha?
+<BR>
+<P>Ivan.
+<BR>
+<P>--- 2.3.99-pre6-2/fs/exec.c	Sat Apr  8 00:38:00 2000
+<BR>
++++ linux/fs/exec.c	Thu Apr 20 14:25:27 2000
+<BR>
+@@ -267,7 +267,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_page_to_ram(page);
+<BR>
+-	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, PAGE_COPY))));
+<BR>
++	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, PAGE_COPY_NOEX))));
+<BR>
+&nbsp;/* no need for flush_tlb */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -292,7 +292,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_mm = current-&gt;mm;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_start = PAGE_MASK &amp; (unsigned long) bprm-&gt;p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_end = STACK_TOP;
+<BR>
+-		mpnt-&gt;vm_page_prot = PAGE_COPY;
+<BR>
++		mpnt-&gt;vm_page_prot = PAGE_COPY_NOEX;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_flags = VM_STACK_FLAGS;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_ops = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpnt-&gt;vm_pgoff = 0;
+<BR>
+--- 2.3.99-pre6-2/include/linux/mm.h	Thu Apr 13 12:46:10 2000
+<BR>
++++ linux/include/linux/mm.h	Thu Apr 20 14:28:33 2000
+<BR>
+@@ -89,7 +89,7 @@
+<BR>
+&nbsp;#define VM_SEQ_READ	0x00008000	/* App will access data sequentially */
+<BR>
+&nbsp;#define VM_RAND_READ	0x00010000	/* App will not benefit from clustered reads */
+<BR>
+&nbsp;
+<BR>
+-#define VM_STACK_FLAGS	0x00000177
+<BR>
++#define VM_STACK_FLAGS	0x00000133
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define VM_READHINTMASK			(VM_SEQ_READ | VM_RAND_READ)
+<BR>
+&nbsp;#define VM_ClearReadHint(v)		(v)-&gt;vm_flags &amp;= ~VM_READHINTMASK
+<BR>
+--- 2.3.99-pre6-2/include/asm-alpha/pgtable.h	Thu Apr 13 12:46:10 2000
+<BR>
++++ linux/include/asm-alpha/pgtable.h	Thu Apr 20 14:22:17 2000
+<BR>
+@@ -92,6 +92,7 @@
+<BR>
+&nbsp;#define PAGE_NONE	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE)
+<BR>
+&nbsp;#define PAGE_SHARED	__pgprot(_PAGE_VALID | __ACCESS_BITS)
+<BR>
+&nbsp;#define PAGE_COPY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
+<BR>
++#define PAGE_COPY_NOEX	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW | _PAGE_FOE)
+<BR>
+&nbsp;#define PAGE_READONLY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
+<BR>
+&nbsp;#define PAGE_KERNEL	__pgprot(_PAGE_VALID | _PAGE_ASM | _PAGE_KRE | _PAGE_KWE)
+<BR>
+&nbsp;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.html">Thorsten Kranzkowski: "Re: unaligned access sin sys_swapon()"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

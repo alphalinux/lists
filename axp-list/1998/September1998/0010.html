@@ -1,0 +1,130 @@
+<!-- received="Fri Sep 11 14:06:56 1998 " -->
+<!-- sent="Wed, 09 Sep 1998 12:43:43 METDST" -->
+<!-- name="furio ercolessi" -->
+<!-- email="furio@spin.it" -->
+<!-- subject="Re: Unstable Ruffian" -->
+<!-- id="199809091043.MAA04214@mail.spin.it" -->
+<!-- inreplyto="35E446F1.FA44FB5D@paralleldata.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Unstable Ruffian</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Unstable Ruffian</h2>
+
+<b>furio ercolessi</b> (<a href="mailto:furio@spin.it"><i>furio@spin.it</i></a>)<br>
+<i>Wed, 09 Sep 1998 12:43:43 METDST</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#10">[ date ]</a><a href="index.html#10">[ thread ]</a><a href="subject.html#10">[ subject ]</a><a href="author.html#10">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0011.html">Quant-X Alpha Linux Support: "Re: More SX164 strangeness..."</a>
+<li> <b>Previous message:</b> <a href="0009.html">Paul Tomblin: "Re: ttyS0 versus cua0"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0114.html">Heinz Ulrich Stille: "Re: Unstable Ruffian"</a>
+<li> <b>Reply:</b> <a href="0114.html">Heinz Ulrich Stille: "Re: Unstable Ruffian"</a>
+<li> <b>Reply:</b> <a href="0123.html">furio ercolessi: "Re: Unstable Ruffian"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi all,<br>
+<p>
+I resume this thread of about two weeks ago, as I finally<br>
+discovered something useful to track the problem.  Summary:<br>
+PC164UX (aka Ruffian), with 256MB RAM and 256MB swap,<br>
+exhibits occasional kernel errors on applications, of the type<br>
+	kernel: Unable to handle kernel paging request at virtual address <br>
+		0000000000cff2ae<br>
+	kernel: rateup(6053): Oops 0<br>
+and sometimes even<br>
+	kernel: swapper(0): Oops 0<br>
+	kernel: Aiee, killing interrupt handler<br>
+thus making the system unusable.   s/w is RH 5.1 with kernel 2.0.35.<br>
+This occurs on three different machines, so it cannot be a faulty h/w part.<br>
+As suggested, I tried pristine kernel source+AXP patches instead of <br>
+RH sources, compiling with egcs 1.0.3a and gcc 2.7.2.3, etc.,<br>
+but eventually the best suggestion was the one by Wes Bauske:<br>
+<p>
+<i>&gt; Your error sounds like an old one I had a year ago.</i><br>
+<i>&gt; Try setting MEMSIZE in milo to a number 2-4 MB smaller</i><br>
+<i>&gt; than your real memory size before booting the kernel.</i><br>
+<p>
+I had to reduce MEMORY_SIZE by much more than that. After <br>
+several attempts I found that<br>
+with &gt;=32MB less (MEMORY_SIZE&lt;=224MB) the system is stable.<br>
+with &lt;=16MB less (MEMORY_SIZE&gt;=240MB) the system is still unstable.<br>
+So it has something to do with the utilization of high memory.<br>
+<p>
+If somebody wants to try to see the bug, the fortran program below<br>
+does wonders in triggering it.  It simply allocates a 300MB array<br>
+(I run it on 256MB RAM+256MB swap) and writes in random locations,<br>
+inducing intense paging activity.  The paging error typically<br>
+shows up within a few minutes of running this thing.<br>
+<p>
+Now, I have of course no clue about the reason for this behavior,<br>
+but at least I found a way to put these beasts into production.<br>
+Or at least I hope so.  Crossing fingers ...<br>
+<p>
+furio ercolessi<br>
+Spin - Trieste (Italy)<br>
+<p>
+=========================================================================<br>
+<p>
+        program hog<br>
+        implicit integer (a-z)<br>
+        parameter (megs=300)<br>
+        parameter (size=megs*1024*1024/4)<br>
+        integer maiale(size)<br>
+        common/porcile/ maiale<br>
+        print*,megs,'MB hog'<br>
+        print*,'initializing...'<br>
+        do i=1,size<br>
+                maiale(i) = i<br>
+        enddo<br>
+ 9      continue<br>
+        print*,'going...'<br>
+        do i=1,size<br>
+                call srand(i)<br>
+                k=int(rand()*size) + 1<br>
+                maiale(k) = maiale(k) - 1<br>
+                if ( maiale(k) .eq. k ) goto 1<br>
+        enddo<br>
+        goto 9<br>
+ 1      continue<br>
+        print*,'ending ',k<br>
+        end<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0011.html">Quant-X Alpha Linux Support: "Re: More SX164 strangeness..."</a>
+<li> <b>Previous message:</b> <a href="0009.html">Paul Tomblin: "Re: ttyS0 versus cua0"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0114.html">Heinz Ulrich Stille: "Re: Unstable Ruffian"</a>
+<li> <b>Reply:</b> <a href="0114.html">Heinz Ulrich Stille: "Re: Unstable Ruffian"</a>
+<li> <b>Reply:</b> <a href="0123.html">furio ercolessi: "Re: Unstable Ruffian"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

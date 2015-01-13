@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Making xntpd work on alpha</TITLE>
+<META NAME="Author" CONTENT="y0000218@rzsrv2.rz.tu-bs.de (y0000218@rzsrv2.rz.tu-bs.de)">
+<META NAME="Subject" CONTENT="Making xntpd work on alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Making xntpd work on alpha</H1>
+<HR>
+<P>
+<!-- received="Tue Apr 13 09:39:43 1999 PDT" -->
+<!-- sent="Mon, 12 Apr 1999 21:51:19 GMT" -->
+<!-- name="y0000218@rzsrv2.rz.tu-bs.de" -->
+<!-- email="y0000218@rzsrv2.rz.tu-bs.de" -->
+<!-- subject="Making xntpd work on alpha" -->
+<!-- id="199904122151.VAA19681@p014.ts.rz.tu-bs.de" -->
+<!-- inreplyto="" -->
+<A HREF="mailto:y0000218@rzsrv2.rz.tu-bs.de?subject=Re:%20Making%20xntpd%20work%20on%20alpha"><EM>y0000218@rzsrv2.rz.tu-bs.de</EM></A><BR>
+<EM>Mon, 12 Apr 1999 21:51:19 GMT</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#318">[ date ]</A>
+<A HREF="index.html#318">[ thread ]</A>
+<A HREF="subject.html#318">[ subject ]</A>
+<A HREF="author.html#318">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0317.html">Jaap Hogenberg: "Re: Crashing hard on mkfs"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Unchecked, but some people seem to still have problems
+<BR>
+with xntpd and maybe this helps them.
+<BR>
+<P>Olaf
+<BR>
+<P>[ This is a repost of the following article:                               ]
+<BR>
+[ From: Wieger Opmeer &lt;<A HREF="mailto:wieger@Wit389401.student.utwente.nl?subject=Re:%20Making%20xntpd%20work%20on%20alpha">wieger@Wit389401.student.utwente.nl</A>&gt;                ]
+<BR>
+[ Subject: Making xntpd work on alpha                                      ]
+<BR>
+[ Newsgroups: local.kernel                                                 ]
+<BR>
+[ Message-ID: &lt;bc0d80cff6ef@ppp393.ts.rz.tu-bs.de&gt;                         ]
+<BR>
+<P><P>Hi,
+<BR>
+<P>The following little patch makes xntpd work on my alpha with a 2.2.5
+<BR>
+kernel. It fixes the old_adjtimex system call that glibc-2.0 uses to
+<BR>
+always return correct values in struct timex, like it does in 2.0 kernels
+<BR>
+and in the new adjtimex system call in kernel/time.c
+<BR>
+This causes xntpd to get te right values for tick and hz, after wich it
+<BR>
+performs a lot better.
+<BR>
+<P>--- arch/alpha/kernel/osf_sys.c.org	Mon Mar 29 17:29:02 1999
+<BR>
++++ arch/alpha/kernel/osf_sys.c	Thu Apr  1 13:41:36 1999
+<BR>
+@@ -1408,8 +1408,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetof(struct timex32, time)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFAULT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+-	if ((ret = do_adjtimex(&amp;txc)))
+<BR>
+-	  return ret;
+<BR>
++	ret = do_adjtimex(&amp;txc);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* copy back to timex32 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (copy_to_user(txc_p, &amp;txc, offsetof(struct timex32, time)) ||
+<BR>
+@@ -1418,5 +1417,5 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(put_tv32(&amp;txc_p-&gt;time, &amp;txc.time)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFAULT;
+<BR>
+&nbsp;
+<BR>
+-	return 0;
+<BR>
++	return ret;
+<BR>
+&nbsp;}
+<BR>
+<P><P>~~  Wieger
+<BR>
+<P><P>-
+<BR>
+To unsubscribe from this list: send the line &quot;unsubscribe linux-kernel&quot; in
+<BR>
+the body of a message to <A HREF="mailto:majordomo@vger.rutgers.edu?subject=Re:%20Making%20xntpd%20work%20on%20alpha">majordomo@vger.rutgers.edu</A>
+<BR>
+Please read the FAQ at <A HREF="http://www.tux.org/lkml/">http://www.tux.org/lkml/</A>
+<BR>
+<P><P><PRE>
+-- 
+&quot;The number of Unix installations       Olaf Schnapauff,
+has grown to 10, with more expected.&quot;   <A HREF="mailto:O.Schnapauff@tu-bs.de?subject=Re:%20Making%20xntpd%20work%20on%20alpha">O.Schnapauff@tu-bs.de</A>  
+- The Unix Programmer's Manual,1972     <A HREF="http://www.tu-bs.de/~c0033014/">http://www.tu-bs.de/~c0033014/</A>
+       See Web page and keyservers  for pgp public key
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Making%20xntpd%20work%20on%20alpha">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Making%20xntpd%20work%20on%20alpha">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0317.html">Jaap Hogenberg: "Re: Crashing hard on mkfs"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Apr 13 1999 - 03:00:08 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

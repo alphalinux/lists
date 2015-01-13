@@ -1,0 +1,160 @@
+<!-- received="Mon Mar  2 13:05:35 1998 " -->
+<!-- sent="Mon, 2 Mar 1998 11:58:40 -0500 (EST)" -->
+<!-- name="Christopher Curtis" -->
+<!-- email="ccurtis@ee.fit.edu" -->
+<!-- subject="A bit more on UDB PCMCIA" -->
+<!-- id="199803021652.RAA00950@alpha.mdy.univie.ac.at" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>A bit more on UDB PCMCIA</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>A bit more on UDB PCMCIA</h2>
+
+<b>Christopher Curtis</b> (<a href="mailto:ccurtis@ee.fit.edu"><i>ccurtis@ee.fit.edu</i></a>)<br>
+<i>Mon, 2 Mar 1998 11:58:40 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#35">[ date ]</a><a href="index.html#35">[ thread ]</a><a href="subject.html#35">[ subject ]</a><a href="author.html#35">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0036.html">Greg Lindahl: "Re: Sig11 errors on a new lx164"</a>
+<li> <b>Previous message:</b> <a href="0034.html">Eric Barkie: "Quake 2 Engine"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0037.html">Buddy Cook: "Re: A bit more on UDB PCMCIA"</a>
+<li> <b>Maybe reply:</b> <a href="0037.html">Buddy Cook: "Re: A bit more on UDB PCMCIA"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+The system:<br>
+  DEC Alpha, UDB/Multia<br>
+  RedHat 4.2<br>
+  Kernel 2.0.32 + Alpha Patches-2.0.32-1<br>
+<p>
+PCMCIA utilities 3.0.0 from hyper.??.edu<br>
+<p>
+Symptoms:<br>
+  depmod -a reports "TYPE /lib/modules/2.0.32/pcmcia"<br>
+   ?? What the h*ll does that mean ??<br>
+<p>
+I've recompiled the utilites and installed them in<br>
+/lib/modules/2.0.32/pcmcia/lib/modules/2.0.32/pcmcia  (whoops.  heh-heh.)<br>
+<p>
+# cd (that directory)<br>
+# depmod -a .<br>
+Segmentation fault (core dumped)<br>
+<p>
+Peculiar.<br>
+<p>
+# gdb `which depmod` core<br>
+(gdb) where<br>
+#0: ...<br>
+(gdb) info threads<br>
+* 1 process 1140 0x1555582ccd0 in __curbrk ()<br>
+(gdb) quit<br>
+<p>
+Hmm.  Okay, no biggie.  We don't NEED to depmod stuff...<br>
+<p>
+# insmod serial_cs.o<br>
+Unable to reoslve dependency ... (there were two of them, plus:)<br>
+Unable to resolve dependency CardServices<br>
+<p>
+# for FILE in *.o ; do<br>
+<i>&gt; echo $FILE:</i><br>
+<i>&gt; strings $FILE | grep CardServices</i><br>
+<i>&gt; done</i><br>
+<p>
+I see it is in pcmcia_core.o - woohoo!<br>
+<p>
+# insmod pcmcia_core.o<br>
+#<br>
+<p>
+Success?<br>
+<p>
+# lsmod<br>
+Module         Pages    Used by<br>
+pcmcia_core        6            0<br>
+ip_masq_vdolive    1            0<br>
+...<br>
+<p>
+# insmod serial_cs.o<br>
+serial_cs.o: get_kernel_syms: Invalid request code<br>
+<p>
+Hmm.  Let's unload the core module, then.<br>
+<p>
+# rmmod pcmcia_core.o<br>
+rmmod: module pcmcia_core.o not loaded<br>
+<p>
+Really?<br>
+<p>
+# lsmod<br>
+Module         Pages    Used by<br>
+pcmcia_core        6            0<br>
+ip_masq_vdolive    1            0<br>
+...<br>
+<p>
+# rmmod pcmcia_core<br>
+Segmentation fault<br>
+<p>
+Not even a core dump.  Okay, let's try individual dependencies:<br>
+<p>
+# depmod pcmcia_core.o<br>
+modprobe: get_kernel_syms: Invalid request code<br>
+pcmcia_core.o: unresolved symbol(s):<br>
+pcmcia_core.o:<br>
+<p>
+(Same for serial_cs.o)<br>
+<p>
+This is about as far as I'm getting.  I now have a module stuck in memory<br>
+that I cannot remove, and that I cannot add to.  Worse yet:<br>
+<p>
+# cd<br>
+[ /root]<br>
+# insmod minix<br>
+/lib/modules/2.0.32/fs/minix.o: get_kernel_syms: Invalid request code<br>
+<p>
+Doh!<br>
+<p>
+Advice, pointers, cookbooks?<br>
+<p>
+tia,<br>
+<pre>
+--
+Christopher Curtis               - <a href="http://www.ee.fit.edu/users/ccurtis">http://www.ee.fit.edu/users/ccurtis</a>
+Florida Institute of Technology  - System Administrator, Programmer
+Melbourne, Florida  USA          - <a href="http://www.lp.org/">http://www.lp.org/</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0036.html">Greg Lindahl: "Re: Sig11 errors on a new lx164"</a>
+<li> <b>Previous message:</b> <a href="0034.html">Eric Barkie: "Quake 2 Engine"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0037.html">Buddy Cook: "Re: A bit more on UDB PCMCIA"</a>
+<li> <b>Maybe reply:</b> <a href="0037.html">Buddy Cook: "Re: A bit more on UDB PCMCIA"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

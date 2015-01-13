@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: gnoRPM Floating point exception</H1> 
+	
+<!-- received="Thu Feb 24 16:30:43 2000" -->
+<!-- isoreceived="20000225003043" -->
+<!-- sent="Thu, 24 Feb 2000 09:28:26 -0700 (MST)" -->
+<!-- isosent="20000224162826" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: gnoRPM Floating point exception" -->
+<!-- id="200002241628.JAA07453@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Pine.SUN.4.20.0002240202001.8119-100000@eskimo.com" -->
+<STRONG>Subject: </STRONG>Re: gnoRPM Floating point exception<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 24 08:28:26 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#495">[ date ]</A>
+<A HREF="index.shtml#495">[ thread ]</A>
+<A HREF="subject.shtml#495">[ subject ]</A>
+<A HREF="author.shtml#495">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0496.shtml">Rich Payne: "Re: Multia and PCMCIA cards"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0494.shtml">Bruce Newland: "Re: Multia and PCMCIA cards"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0486.shtml">Vince LaMonica: "gnoRPM Floating point exception"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0501.shtml">Elliot Lee: "Re: gnoRPM Floating point exception"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0486.shtml">Michal Jaegermann: "Re: gnoRPM Floating point exception"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Vince LaMonica wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ... is gnorpm for Alpha broken? I get a
+</EM><BR>
+<EM>&gt; floating point exception just as it starts to install an rpm file. 
+</EM><BR>
+<P>Yes, indeed, but at the first look this seems to be coming from
+<BR>
+a library.  Here is a relevant piece of a 'strace' output
+<BR>
+('10754' happens to be pid of 'gnorpm' in this run).
+<BR>
+<P>..................
+<BR>
+10754 lstat(&quot;.&quot;, {st_mode=S_IFDIR|0755, st_size=2048, ...}) = 0
+<BR>
+10754 lstat(&quot;/&quot;, {st_mode=S_IFDIR|0755, st_size=1024, ...}) = 0
+<BR>
+10754 lstat(&quot;..&quot;, {st_mode=S_IFDIR|0755, st_size=1024, ...}) = 0
+<BR>
+10754 stat(&quot;..&quot;, {st_mode=S_IFDIR|0755, st_size=1024, ...}) = 0
+<BR>
+10754 open(&quot;..&quot;, O_RDONLY|O_NONBLOCK)   = 16
+<BR>
+10754 fcntl(16, F_SETFD, FD_CLOEXEC)    = 0
+<BR>
+10754 brk(0x1202b4000)                  = 0x1202b4000
+<BR>
+10754 lseek(16, 0, SEEK_CUR)            = 0
+<BR>
+10754 getdents(16, /* 43 entries */, 7944) = 1264
+<BR>
+10754 lstat(&quot;../root&quot;, {st_mode=S_IFDIR|0755, st_size=2048, ...}) = 0
+<BR>
+10754 close(16)                         = 0
+<BR>
+10754 chdir(&quot;/&quot;)                        = 0
+<BR>
+10754 chroot(&quot;&quot;)                        = -1 ENOENT (No such file or directory)
+<BR>
+10754 gettimeofday({951407531, 723809}, NULL) = 0
+<BR>
+10754 --- SIGFPE (Floating point exception) ---
+<BR>
+..................
+<BR>
+<P>I do not know that for sure, and I do not know yet if this relevant in
+<BR>
+this particular case, but I strongly suspect that various exceptions
+<BR>
+you are seeing with Gnome tools are due to a bug in Gtk+ library.
+<BR>
+This was identified by Ivan Kokshaysky and, for what it is worth,
+<BR>
+here is his fix:
+<BR>
+<P>--- gtk+-1.2.6/gtk/gtkpaned.c.orig	Mon Aug 23 23:40:33 1999
+<BR>
++++ gtk+-1.2.6/gtk/gtkpaned.c	Tue Jan 11 19:41:07 2000
+<BR>
+@@ -575,8 +575,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paned-&gt;child1_size = allocation - child2_req;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else if (!paned-&gt;child1_resize &amp;&amp; paned-&gt;child2_resize)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paned-&gt;child1_size = child1_req;
+<BR>
+-      else
+<BR>
++      else if (child1_req)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paned-&gt;child1_size = allocation * ((gdouble)child1_req / (child1_req + child2_req));
+<BR>
++      else paned-&gt;child1_size = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+<P>As you can see it does not have much to do with Alpha with this
+<BR>
+difference that x86 processor may paper over such bug.
+<BR>
+<P>Once again - this is not tested, not known if solves anything in gnorpm
+<BR>
+particular case and use at your discretion.  But if anybody has more
+<BR>
+information/experience with these problems I am all ears.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Does anyone know of another graphical rpm that is Alpha-compliant? I'm
+</EM><BR>
+<EM>&gt; normally a 'gzip/tar' kinda person, but I like the fact that w/ rpm, you
+</EM><BR>
+<EM>&gt; get a nice db to check on to see what packages/versions you have
+</EM><BR>
+<EM>&gt; installed.
+</EM><BR>
+<P>For the later you do not need a pointy-clicky interface.  'rpm' works
+<BR>
+just fine from a command line and this is what does the real work.
+<BR>
+&quot;Show what is installed&quot; part of gnorpm seems to be ok - package
+<BR>
+specific information inclusive.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0496.shtml">Rich Payne: "Re: Multia and PCMCIA cards"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0494.shtml">Bruce Newland: "Re: Multia and PCMCIA cards"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0486.shtml">Vince LaMonica: "gnoRPM Floating point exception"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0501.shtml">Elliot Lee: "Re: gnoRPM Floating point exception"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0486.shtml">Michal Jaegermann: "Re: gnoRPM Floating point exception"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Mar  1 06:26:24 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

@@ -1,0 +1,261 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: getting troubles compiling kernel 2.4.0t</TITLE>
+<META NAME="Author" CONTENT="Christopher C. Chimelis (chris@debian.org)">
+<META NAME="Subject" CONTENT="Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2</H1>
+<HR>
+<P>
+<!-- received="Thu Jul 13 15:24:28 2000" -->
+<!-- isoreceived="20000713222428" -->
+<!-- sent="Thu, 13 Jul 2000 11:11:22 -0400 (EDT)" -->
+<!-- isosent="20000713151122" -->
+<!-- name="Christopher C. Chimelis" -->
+<!-- email="chris@debian.org" -->
+<!-- subject="Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2" -->
+<!-- id="Pine.LNX.4.21.0007131109350.16416-100000@spawn.hockeyfiend.com" -->
+<!-- inreplyto="Pine.LNX.3.96.1000713110419.9089A-100000@nietzsche" -->
+<STRONG>Subject: </STRONG>Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2<BR>
+<STRONG>From: </STRONG>Christopher C. Chimelis (<EM>chris@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 13 2000 - 08:11:22 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#73">[ date ]</A>
+<A HREF="index.html#73">[ thread ]</A>
+<A HREF="subject.html#73">[ subject ]</A>
+<A HREF="author.html#73">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0074.html">Anton Ivanov: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0072.html">Christopher C. Chimelis: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0074.html">Anton Ivanov: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0065.html">Christopher C. Chimelis: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 13 Jul 2000, Stefano Curtarolo wrote:
+<BR>
+<P><EM>&gt; Ok, I am waiting  !!
+</EM><BR>
+<P>Ok...here it is.  Again, the i386-centric folk decided not to change
+<BR>
+things for all archs...what else is new, right? :-)
+<BR>
+<P>At any rate, this should be it.  I haven't compiled it yet, but it should
+<BR>
+be ok now.  I have NO idea if this will actually work, but if it does on
+<BR>
+i386, then it should here too :-)  This is the complete diff, btw, so it
+<BR>
+supercedes the other one that I sent.
+<BR>
+<P>C
+<BR>
+<P>diff -ruN linux-2.4.0-test3/arch/alpha/kernel/time.c linux-patched/arch/alpha/kernel/time.c
+<BR>
+--- linux-2.4.0-test3/arch/alpha/kernel/time.c	Mon Apr 24 16:39:34 2000
+<BR>
++++ linux-patched/arch/alpha/kernel/time.c	Thu Jul 13 11:00:46 2000
+<BR>
+@@ -45,7 +45,7 @@
+<BR>
+&nbsp;#include &quot;irq_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern rwlock_t xtime_lock;
+<BR>
+-extern volatile unsigned long lost_ticks;	/* kernel/sched.c */
+<BR>
++extern unsigned long wall_jiffies;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int set_rtc_mmss(unsigned long);
+<BR>
+&nbsp;
+<BR>
+@@ -312,7 +312,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sec = xtime.tv_sec;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;usec = xtime.tv_usec;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;partial_tick = state.partial_tick;
+<BR>
+-	lost = lost_ticks;
+<BR>
++	lost = jiffies - wall_jiffies;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_unlock_irqrestore(&amp;xtime_lock, flags);
+<BR>
+&nbsp;
+<BR>
+@@ -363,12 +363,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time.  Without this, a full-tick error is possible.  */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef CONFIG_SMP
+<BR>
+-	delta_usec = lost_ticks * (1000000 / HZ);
+<BR>
++	delta_usec = (jiffies - wall_jiffies) * (1000000 / HZ);
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_usec = rpcc() - state.last_time;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_usec = (delta_usec * state.scaled_ticks_per_cycle 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ state.partial_tick
+<BR>
+-		      + (lost_ticks &lt;&lt; FIX_SHIFT)) * 15625;
+<BR>
++		      + ((jiffies - wall_jiffies) &lt;&lt; FIX_SHIFT)) * 15625;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_usec = ((delta_usec / ((1UL &lt;&lt; (FIX_SHIFT-6-1)) * HZ)) + 1) / 2;
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+diff -ruN linux-2.4.0-test3/drivers/block/md.c linux-patched/drivers/block/md.c
+<BR>
+--- linux-2.4.0-test3/drivers/block/md.c	Fri Jul  7 18:53:58 2000
+<BR>
++++ linux-patched/drivers/block/md.c	Thu Jul 13 10:26:50 2000
+<BR>
+@@ -2908,7 +2908,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* many dirty RAID5 blocks.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;policy = SCHED_OTHER;
+<BR>
+-	current-&gt;priority = 40;
+<BR>
++	current-&gt;nice = 40;
+<BR>
+&nbsp;//	md_unlock_kernel();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;up(thread-&gt;sem);
+<BR>
+@@ -3336,7 +3336,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Resync has low priority.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	current-&gt;priority = 1;
+<BR>
++	current-&gt;nice = 1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is_mddev_idle(mddev); /* this also initializes IO event counters */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (m = 0; m &lt; SYNC_MARKS; m++) {
+<BR>
+@@ -3412,7 +3412,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;currspeed = (j-mddev-&gt;resync_mark_cnt)/((jiffies-mddev-&gt;resync_mark)/HZ +1) +1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (currspeed &gt; sysctl_speed_limit_min) {
+<BR>
+-			current-&gt;priority = 1;
+<BR>
++			current-&gt;nice = 1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((currspeed &gt; sysctl_speed_limit_max) ||
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!is_mddev_idle(mddev)) {
+<BR>
+@@ -3422,7 +3422,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto repeat;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else
+<BR>
+-			current-&gt;priority = 40;
+<BR>
++			current-&gt;nice = 40;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fsync_dev(read_disk);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_INFO &quot;md: md%d: sync done.\n&quot;,mdidx(mddev));
+<BR>
+diff -ruN linux-2.4.0-test3/kernel/timer.c linux-patched/kernel/timer.c
+<BR>
+--- linux-2.4.0-test3/kernel/timer.c	Mon Jul 10 17:35:19 2000
+<BR>
++++ linux-patched/kernel/timer.c	Thu Jul 13 10:26:50 2000
+<BR>
+@@ -577,7 +577,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p-&gt;counter = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p-&gt;need_resched = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-		if (p-&gt;priority &lt; DEF_PRIORITY)
+<BR>
++		if (p-&gt;nice &lt; DEF_COUNTER)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kstat.cpu_nice += user_tick;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kstat.cpu_user += user_tick;
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0074.html">Anton Ivanov: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0072.html">Christopher C. Chimelis: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0074.html">Anton Ivanov: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0065.html">Christopher C. Chimelis: "Re: getting troubles compiling kernel 2.4.0test3 with debian 2.2"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:14 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

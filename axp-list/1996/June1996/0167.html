@@ -1,0 +1,234 @@
+<!-- received="Sat Jun 15 18:11:42 1996 " -->
+<!-- sent="Sat, 15 Jun 1996 18:11:42 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="swap problem: not freeing pages ?!" -->
+<!-- id="199606151616.SAA19955@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>swap problem: not freeing pages ?!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>swap problem: not freeing pages ?!</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sat, 15 Jun 1996 18:11:42 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#167">[ date ]</a><a href="index.html#167">[ thread ]</a><a href="subject.html#167">[ subject ]</a><a href="author.html#167">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0168.html">Erik Troan: "Re: Craftwork Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0166.html">Harald Koenig: "bug in procps-0.99a for Linux/AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+running Linux-2.0.0 on ALPHA I found a problem with swapping which<br>
+also shows up (but not that severe?) for i386 (also 2.0.0):<br>
+<p>
+trying to allocate as much memory (real ram) as possible and using it<br>
+by writing to every page over and over again I found that a lot of memory<br>
+doesn't get swapped out and thus is not available for a process needing<br>
+more memory:-(  <br>
+for this test I'm using the "eatmem" program below e.g. like "eatmem 48000 loop".    <br>
+numerical examples about the impact for alpha and i386:<br>
+<p>
+<p>
+ALPHA:  48MB memory, 45840k available according to "free"<br>
+<p>
+I'm not able to get more than ~34.5MB memory without running into <br>
+continous swapping.  summing up all the "RSS" fields in "ps axm" output<br>
+I only get ~36.5MB  (note that procps-0.99a gives wrong memory sizes due to <br>
+8k page AXP size for alpha vs. 4k pages for i386; I'm using a fixed "ps"!<br>
+patch below).<br>
+<p>
+after killing the memory trashing process and running "swapoff -a ; swapon -a"<br>
+and summing up the RSS for "ps axm" (not counting the "eatmem" process in<br>
+both cases for comparision now) the sum is ~10MB larger!  <br>
+this is just about the amount of memory which can't be used by the "eatmem"<br>
+process when trying to use as much memory as possible.<br>
+<p>
+<p>
+i386:  32MB memory,  30720k available according to "free"<br>
+<p>
+I'm not able to get more than 25MB memory without running into <br>
+continous swapping.  summing up all the "RSS" fields in "ps axm" output<br>
+I only get 26MB.<br>
+<p>
+after killing the memory trashing process and running "swapoff -a ; swapon -a"<br>
+and summing up the RSS for "ps axm" the sum is 2MB larger.<br>
+this difference is not as big as for AXP but it's still nasty.<br>
+why can't I get hands on more than 25MB memory (with 30MB available)<br>
+when only one process is running and needing (much) more memory ?<br>
+<p>
+<p>
+<p>
+any ideas what's wrong?  or where am I missing the 10MB for Linux/AXP<br>
+with no other process trying to get CPU time and thus no process trying<br>
+to compete for memory ?<br>
+<p>
+<p>
+Harald<br>
+<p>
+-------------------------------------------------------------------------------<br>
+/*<br>
+ * eatmem.c  --  allocate a junk of memory and make it dirty<br>
+ * Copyright Harald Koenig &lt;<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>&gt; 1994<br>
+ *<br>
+ * Permission is hereby granted to copy, modify and redistribute this code<br>
+ * in terms of the GNU Library General Public License, Version 2 or later,<br>
+ * at your option.<br>
+ *<br>
+ * to compile use<br>
+ *         cc -O2 -Wall -fomit-frame-pointer -s -o eatmem eatmem.c<br>
+ */<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;signal.h&gt;<br>
+#include &lt;malloc.h&gt;<br>
+<p>
+void main(int argc, char *argv[])<br>
+{<br>
+  int i;<br>
+  char *b=NULL,*pb;<br>
+  int n=(-1);<br>
+  int err=0, exit_flag=0, loop_flag=0;<br>
+<p>
+  if (argc &gt;= 2) {<br>
+     n = atoi(argv[1]);<br>
+     if (argc == 3) {<br>
+	if      (!strcmp(argv[2],"pause")) exit_flag = 0;<br>
+	else if (!strcmp(argv[2],"exit" )) exit_flag = 1;<br>
+	else if (!strcmp(argv[2],"loop" )) loop_flag = 1;<br>
+	else err=1;<br>
+     }<br>
+     else if (argc &gt; 3) err=1;<br>
+  }<br>
+  if (n&lt;=0 || err) {<br>
+     fprintf(stderr,"usage: eatmem  size_in_kb  [ pause | exit | loop ]\n");<br>
+     exit(1);<br>
+  }<br>
+  <br>
+  b = malloc(n*1024);<br>
+  if (b == NULL) {<br>
+     fprintf(stderr,"malloc failed.\n");<br>
+     exit(1);<br>
+  }<br>
+<p>
+  do {<br>
+    pb = b;<br>
+    for (i=0; i&lt;n; i++) {<br>
+      (*pb)++;<br>
+      pb += 1024;<br>
+    }<br>
+  } while (loop_flag);<br>
+<p>
+  write(1,"\007",1);<br>
+  if (!exit_flag) <br>
+     kill(0,SIGSTOP);<br>
+  exit(0);<br>
+}<br>
+-------------------------------------------------------------------------------<br>
+--- ps.c.ORIG	Sat Jun 15 15:23:14 1996<br>
++++ ps.c	Sat Jun 15 15:50:05 1996<br>
+@@ -104,7 +104,7 @@<br>
+     CL_sort     = 1,<br>
+     CL_forest,<br>
+     CL_Sum,<br>
+-    CL_pg_shift = 2;      /* default: show k instead of pages */<br>
++    CL_pg_shift = (PAGE_SHIFT-10);      /* default: show k instead of pages */<br>
+ <br>
+ /* Globals */<br>
+ <br>
+@@ -384,7 +384,7 @@<br>
+ 	sprintf(wchanb, "%-9.9s", wchan(p-&gt;wchan));<br>
+     sprintf(s, "%3x %5d %5d %5d %3d %2d %5d %5d %-10.10s %s %3s ",<br>
+ 	    p-&gt;flags, p-&gt;uid, p-&gt;pid, p-&gt;ppid, p-&gt;priority, p-&gt;nice,<br>
+-	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss * 4, wchanb, status2(p), p-&gt;ttyc);<br>
++	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; (PAGE_SHIFT-10), wchanb, status2(p), p-&gt;ttyc);<br>
+ }<br>
+ <br>
+ void show_jobs(char *s, proc_t *p) {<br>
+@@ -410,10 +410,10 @@<br>
+ 	(1000 * total_time) / (HZ * seconds) :<br>
+ 	0;<br>
+     if (pcpu &gt; 999) pcpu = 999;<br>
+-    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; 12);<br>
++    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; PAGE_SHIFT);<br>
+     sprintf(s, "%5d %2u.%u %2d.%d %5d %5d %2s %s%.6s ",<br>
+ 	    p-&gt;pid,  pcpu / 10, pcpu % 10,  pmem / 10, pmem % 10,<br>
+-	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; 2, p-&gt;ttyc, status2(p),<br>
++	    p-&gt;vsize &gt;&gt; 10, p-&gt;rss &lt;&lt; (PAGE_SHIFT-10), p-&gt;ttyc, status2(p),<br>
+ 	    ctime(&amp;start) + (GL_time_now - start &gt; 3600*24 ? 4 : 10));<br>
+ }<br>
+ <br>
+@@ -433,12 +433,12 @@<br>
+ 		 p-&gt;maj_flt + (CL_Sum ? p-&gt;cmaj_flt : 0),<br>
+ 		 (p-&gt;end_code - p-&gt;start_code) &gt;&gt; 10,  /* XXX fixme! */<br>
+ 		 (p-&gt;vsize - p-&gt;end_code + p-&gt;start_code) &gt;&gt; 10, /* XXX */<br>
+-		 p-&gt;rss &lt;&lt; 2);<br>
++		 p-&gt;rss &lt;&lt; (PAGE_SHIFT-10));<br>
+     if(p-&gt;rss_rlim == RLIM_INFINITY)<br>
+ 	s += sprintf(s, "   xx ");<br>
+     else<br>
+ 	s += sprintf(s, "%5d ", p-&gt;rss_rlim &gt;&gt; 10);<br>
+-    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; 12);<br>
++    pmem = p-&gt;rss * 1000 / (GL_main_mem &gt;&gt; PAGE_SHIFT);<br>
+     sprintf(s, "%2d.%d ", pmem / 10, pmem % 10);<br>
+ }<br>
+ <br>
+--- top.c.ORIG	Sat Jun 15 17:07:50 1996<br>
++++ top.c	Sat Jun 15 15:41:47 1996<br>
+@@ -489,7 +490,7 @@<br>
+ 		pmem = best-&gt;rss * 1000 / (main_mem &gt;&gt; 12);<br>
+ 		printf("\n%5d %-8s %3d %3d %4d %4d %4d %s %2d.%d %2d.%d", <br>
+ 		       best-&gt;pid, best-&gt;user, best-&gt;priority, best-&gt;nice,<br>
+-		       best-&gt;vsize &gt;&gt; 10, best-&gt;rss * 4,<br>
++		       best-&gt;vsize &gt;&gt; 10, best-&gt;rss &lt;&lt; (PAGE_SHIFT-10),<br>
+ 		       best-&gt;statm.share &lt;&lt; 2, stat, pcpu / 10, pcpu % 10,<br>
+ 		       pmem / 10, pmem % 10);<br>
+ <br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0168.html">Erik Troan: "Re: Craftwork Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0166.html">Harald Koenig: "bug in procps-0.99a for Linux/AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

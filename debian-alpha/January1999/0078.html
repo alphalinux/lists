@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: glibc and egcs....</TITLE>
+<META NAME="Author" CONTENT="Loic Prylli (Loic.Prylli@ens-lyon.fr)">
+<META NAME="Subject" CONTENT="Re: glibc and egcs....">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: glibc and egcs....</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 28 20:18:33 1999 PST" -->
+<!-- sent="Thu, 28 Jan 1999 21:17:03 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="Re: glibc and egcs...." -->
+<!-- id="14000.37848.175970.914434@porto" -->
+<!-- inreplyto="s2vlnio85xn.fsf@mermaid.ucc.gu.uwa.edu.au" -->
+<STRONG>Loic Prylli</STRONG> (<A HREF="mailto:Loic.Prylli@ens-lyon.fr?subject=Re:%20glibc%20and%20egcs...."><EM>Loic.Prylli@ens-lyon.fr</EM></A>)<BR>
+<EM>Thu, 28 Jan 1999 21:17:03 +0100 (MET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#78">[ date ]</A>
+<A HREF="index.html#78">[ thread ]</A>
+<A HREF="subject.html#78">[ subject ]</A>
+<A HREF="author.html#78">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0079.html">Paul Slootman: "Re: Installing Linux for Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0077.html">Paul Slootman: "Re: PLEASE READ: egcs issues"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0076.html">Bart Warmerdam: "Re: PLEASE READ: egcs issues"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0080.html">Christopher C Chimelis: "Re: glibc and egcs...."</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Mikolaj J. Habryn writes:
+<BR>
+<EM> &gt;   If I remember rightly (although this was in the context of weak
+</EM><BR>
+<EM> &gt; aliases, which may or may not be the same thing), a weak symbol, in
+</EM><BR>
+<EM> &gt; the absence of a definition, resolves to zero. So, you can do things
+</EM><BR>
+<EM> &gt; like:
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt;   extern void * (*weak_function)();
+</EM><BR>
+<EM> &gt;   if(weak_function) weak_function(foo);
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt;   and, provided that weak_function is indeed a weak alias, it is
+</EM><BR>
+<EM> &gt; guaranteed to link and not try to call an unresolved symbol. Consider
+</EM><BR>
+<EM> &gt; s/weak_function/__register_frame_info/g?
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt;   At least, I *think* that's how it works - feel free to correct me :)
+</EM><BR>
+<P>Ok, I am the stupid one, weak and undefined weak have indeed
+<BR>
+some differences.
+<BR>
+<P>But anyway, I am not sure their semantics is appropriate in our case.
+<BR>
+because the resolution of weak undefined symbols  occur mostly at
+<BR>
+compile-time only. Try the following example, if the weak symbol did
+<BR>
+not exist at compile time, it will never be bind at run-time, and if
+<BR>
+it does exists at compile-time, it be equivalent to an undefined one,
+<BR>
+and eventually will generate a link error at run-time.
+<BR>
+<P>main.c:
+<BR>
+&nbsp;&nbsp;#pragma weak foo
+<BR>
+&nbsp;&nbsp;void foo();
+<BR>
+&nbsp;&nbsp;int main()
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;printf(&quot;0x%x\n&quot;,foo);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+%cc -c main.c
+<BR>
+%objdump --syms a.out | grep foo
+<BR>
+0000000000000000  w      *UND*  0000000000000000 foo
+<BR>
+%echo '/* nothing */' &gt; foo.c
+<BR>
+%cc -shared foo.c -o foo.so
+<BR>
+%cc -s main.o foo.so
+<BR>
+%objdump --dynamic-syms a.out | grep foo
+<BR>
+%a.out
+<BR>
+0x0
+<BR>
+%echo  'void foo () { /* it is real */ }' &gt; foo.c
+<BR>
+%cc -shared foo.c -o foo.so
+<BR>
+%ldd a.out
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;foo.so =&gt; foo.so (0x0000015555556000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x000001555565c000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/lib/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0x0000000000000000)
+<BR>
+%a.out
+<BR>
+0x0
+<BR>
+<P>If the symbol is found at compile-time, the program will abort if it
+<BR>
+is not found at run-time:
+<BR>
+/* continuing after the sequence above */
+<BR>
+%cc -s main.o foo.so
+<BR>
+%objdump --dynamic-syms a.out | grep foo
+<BR>
+0000000000000000      DF *UND*  0000000000000024 foo
+<BR>
+/* not the weak qualifier has disapearred !!! */
+<BR>
+%echo '/* nothing */' &gt; foo.c
+<BR>
+%cc -shared foo.c -o foo.so
+<BR>
+% a.out
+<BR>
+a.out: error in loading shared libraries
+<BR>
+<EM>: undefined symbol: foo
+</EM><BR>
+<P><P>Before my previous mail, I only tested the last situation where weak
+<BR>
+behaves like plain undefined. Sorry for my mistake.
+<BR>
+<P>So weak symbol does not fill our need for flexibility for the end-user 
+<BR>
+(at run-time). Also they have yet another behaviour when used inside a 
+<BR>
+shared lib, maybe this can be seen as a linker bug. 
+<BR>
+<P><P>Loic
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20glibc%20and%20egcs....">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20glibc%20and%20egcs....">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0079.html">Paul Slootman: "Re: Installing Linux for Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0077.html">Paul Slootman: "Re: PLEASE READ: egcs issues"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0076.html">Bart Warmerdam: "Re: PLEASE READ: egcs issues"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0080.html">Christopher C Chimelis: "Re: glibc and egcs...."</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 28 1999 - 13:00:42 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

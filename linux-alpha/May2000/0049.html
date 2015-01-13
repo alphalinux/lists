@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: pthread problem with asynchronous signals</TITLE>
+<META NAME="Author" CONTENT="Robert M. Hyatt (hyatt@cis.uab.edu)">
+<META NAME="Subject" CONTENT="Re: pthread problem with asynchronous signals">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: pthread problem with asynchronous signals</H1>
+<HR>
+<P>
+<!-- received="Thu May 25 06:51:01 2000" -->
+<!-- isoreceived="20000525135101" -->
+<!-- sent="Wed, 24 May 2000 07:59:01 -0500 (CDT)" -->
+<!-- isosent="20000524125901" -->
+<!-- name="Robert M. Hyatt" -->
+<!-- email="hyatt@cis.uab.edu" -->
+<!-- subject="Re: pthread problem with asynchronous signals" -->
+<!-- id="Pine.LNX.4.10.10005240757260.1265-100000@crafty.cis.uab.edu" -->
+<!-- inreplyto="20000523210018.A12896@miata.llnl.gov" -->
+<STRONG>Subject: </STRONG>Re: pthread problem with asynchronous signals<BR>
+<STRONG>From: </STRONG>Robert M. Hyatt (<EM>hyatt@cis.uab.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 24 2000 - 05:59:01 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#49">[ date ]</A>
+<A HREF="index.html#49">[ thread ]</A>
+<A HREF="subject.html#49">[ subject ]</A>
+<A HREF="author.html#49">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0050.html">Metod Kozelj: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0048.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0047.html">Brian Pomerantz: "Re: pthread problem with asynchronous signals"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0048.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0047.html">Robert M. Hyatt: "Re: pthread problem with asynchronous signals"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Signals and threads just don't mix.  Signals terminate many system
+<BR>
+calls with EINTR (for example).  Multiple threads can receive the
+<BR>
+signal, including every thread _but_ the one you really want to see
+<BR>
+the thing.
+<BR>
+<P>I've been doing threads for a long time, dating back to Cray's first
+<BR>
+version of Unicos.  I found that signals are simply something to be
+<BR>
+completely avoided if threads are being used.
+<BR>
+<P>Robert Hyatt                    Computer and Information Sciences
+<BR>
+hyatt@cis.uab.edu               University of Alabama at Birmingham
+<BR>
+(205) 934-2213                  115A Campbell Hall, UAB Station 
+<BR>
+(205) 934-5473 FAX              Birmingham, AL 35294-1170
+<BR>
+<P>On Tue, 23 May 2000, Brian Pomerantz wrote:
+<BR>
+<P><EM>&gt; On Tue, May 23, 2000 at 11:50:51PM -0400, Brent Verner wrote:
+</EM><BR>
+<EM>&gt; &gt; on Tue, May 23, 2000 at 05:54:26PM -0700, Reto Baettig typed aloud:
+</EM><BR>
+<EM>&gt; &gt; | 
+</EM><BR>
+<EM>&gt; &gt; | Description:
+</EM><BR>
+<EM>&gt; &gt; | ------------
+</EM><BR>
+<EM>&gt; &gt; | See attached example.
+</EM><BR>
+<EM>&gt; &gt; | The threads are waiting for a condition. When I press CTRL-C, sometimes
+</EM><BR>
+<EM>&gt; &gt; | the 
+</EM><BR>
+<EM>&gt; &gt; | threads waiting for the condition &quot;wake up&quot;. This happens almost
+</EM><BR>
+<EM>&gt; &gt; | everytime on 
+</EM><BR>
+<EM>&gt; &gt; | Alpha SMP and happens sometime on Alpha UP. I could not try Intel SMP
+</EM><BR>
+<EM>&gt; &gt; | yet. Intel UP seems to work fine (but one never knows ;-)
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; (feeling silly for replying so hastily...)
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; ah, I understand (now, after running the test code). I'm seeing that _all_
+</EM><BR>
+<EM>&gt; &gt; threads are running the sighandler, instead of one This smells like a bug 
+</EM><BR>
+<EM>&gt; &gt; to me after verifying that the code runs as expected when compiled under 
+</EM><BR>
+<EM>&gt; &gt; freebsd. 
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; Is this a known 'issue' with linuxthreads?
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; That isn't the only &quot;strange&quot; behavior.  Not only does the signal
+</EM><BR>
+<EM>&gt; handler run on all threads, but sometimes (most of the time on the
+</EM><BR>
+<EM>&gt; ES40's we've tested this with) the pthread_cond_wait() call in the
+</EM><BR>
+<EM>&gt; foo() function mysteriously falls through as if there were a
+</EM><BR>
+<EM>&gt; pthread_cond_broadcast() called in the signal handler.  This certainly
+</EM><BR>
+<EM>&gt; must be a bug.  I did try masking off the SIGINT signal before
+</EM><BR>
+<EM>&gt; entering the for(;;) loop and that seems to fix the
+</EM><BR>
+<EM>&gt; pthread_cond_wait() from falling through.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; BAPper
+</EM><BR>
+<EM>&gt; -
+</EM><BR>
+<EM>&gt; Linux SMP list: FIRST see FAQ at <A HREF="http://www.irisa.fr/prive/dmentre/smp-howto/">http://www.irisa.fr/prive/dmentre/smp-howto/</A>
+</EM><BR>
+<EM>&gt; To Unsubscribe: send &quot;unsubscribe linux-smp&quot; to majordomo@vger.rutgers.edu
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0050.html">Metod Kozelj: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0048.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0047.html">Brian Pomerantz: "Re: pthread problem with asynchronous signals"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0048.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0047.html">Robert M. Hyatt: "Re: pthread problem with asynchronous signals"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

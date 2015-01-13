@@ -1,0 +1,186 @@
+<!-- received="Thu Oct  1 14:11:51 1998 " -->
+<!-- sent="Thu, 1 Oct 1998 09:46:53 -0700" -->
+<!-- name="John Salmon" -->
+<!-- email="johns@fishnet.caltech.edu" -->
+<!-- subject="sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???" -->
+<!-- id="199810011646.JAA12919@fishnet.caltech.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???</h2>
+
+<b>John Salmon</b> (<a href="mailto:johns@fishnet.caltech.edu"><i>johns@fishnet.caltech.edu</i></a>)<br>
+<i>Thu, 1 Oct 1998 09:46:53 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1096">[ date ]</a><a href="index.html#1096">[ thread ]</a><a href="subject.html#1096">[ subject ]</a><a href="author.html#1096">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1097.html">Alex Ponnath: "RE: Still no install - RH51/AS200/Conner drives"</a>
+<li> <b>Previous message:</b> <a href="1095.html">Maurice Hilarius: "Re: All These New Alpha Sites(tm)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1098.html">Greg Lindahl: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1098.html">Greg Lindahl: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1101.html">Jochen Kuepper: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1131.html">Jochen Kuepper: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1370.html">Stefan Schroepfer: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I am encountering some very strange performance numbers with sqrt in <br>
+the glibc math library on the alpha.<br>
+<p>
+Executive summary: sqrt from the glibc-2.0.6-9.alpha.rpm appears to be<br>
+over 10 times faster than sqrt in glibc-2.0.7-19.alpha.rpm.<br>
+<p>
+Details:<br>
+I have two machines on which I can run tests.  Both are 533Mhz EV56<br>
+systems.  The primary hardware difference is that one is an LX164 and<br>
+the other is an SX164.  I don't think that's relevant to the problem,<br>
+but 'full disclosure' is always a good idea.  /proc/cpuinfo is<br>
+attached at the end of this note.<br>
+<p>
+Machine 1 (LX164) has RH5.1 and glibc-2.0.7-19 installed from the updates<br>
+rpm.<br>
+<p>
+Machine 2 (SX164) has RH5.0 and glibc-2.0.6-9 installed from an rpm (source<br>
+unknown, possibly from updates, but it no longer exists at ftp.redhat.com).<br>
+<p>
+A very simple code that times a loop of 1million calls to sqrt is attached.<br>
+I compiled it with -static on both platforms and then ran the resulting<br>
+executable on both platforms.  On both platforms, the glib-2.0.6-9 code<br>
+runs nearly eleven times faster.  For example:<br>
+<p>
+[johns@paranal junk]$ sqrtloop.static.06<br>
+1000000 sqrts in 0.1952 sec, 5.12295e+06 per sec<br>
+[johns@paranal junk]$ sqrtloop.static.07<br>
+1000000 sqrts in 2.13549 sec, 468277 per sec<br>
+[johns@paranal junk]$ <br>
+<p>
+Compiling without -static gives consistent results. I..e., the machine<br>
+with the 2.0.6 dynamic library is faster by about a factor of 10,<br>
+regardless of where the compilation was performed).<br>
+<p>
+So the question is: <br>
+<p>
+Why is the 2.0.7 sqrt so much slower than the 2.0.6??<br>
+<p>
+I thought I'd take a look at glibc-2.0.6-9.src.rpm to try to find out.<br>
+I can't find it anywhere! (HotBot, ftp.redhat.com).  Does anybody have<br>
+an archived copy?<br>
+<p>
+Thanks for your help,<br>
+John Salmon<br>
+<p>
+Appendix 1:  C source code to sqrtloop.c<br>
+[johns@paranal junk]$ cat sqrtloop.c<br>
+---------------------------<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;math.h&gt;<br>
+#include &lt;time.h&gt;<br>
+<p>
+#define NTIMES 1000000<br>
+<p>
+int main(int argc, char **argv){<br>
+  int i = NTIMES;<br>
+  double x = 0.7;<br>
+  clock_t tstart, tend;<br>
+  double seconds;<br>
+  <br>
+  tstart = clock();<br>
+  while(--i){<br>
+    x = sqrt(x) + 0.5;<br>
+  }<br>
+  tend = clock();<br>
+<p>
+  seconds = ((double)(tend-tstart))/CLOCKS_PER_SEC;<br>
+  printf("%d sqrts in %g sec, %g per sec\n", <br>
+         NTIMES, seconds, NTIMES/seconds);<br>
+<p>
+  return 0;<br>
+}<br>
+-----------------------------<br>
+<p>
+Appendix 2:  /proc/cpuinfo details<br>
+<p>
+Machine 1 (glibc-2.0.7-19.rpm)<br>
+[johns@paranal junk]$ cat /proc/cpuinfo<br>
+cpu                     : Alpha<br>
+cpu model               : EV56<br>
+cpu variation           : 0<br>
+cpu revision            : 0<br>
+cpu serial number       : Linux_is_Great!<br>
+system type             : EB164<br>
+system variation        : LX164<br>
+system revision         : 0<br>
+system serial number    : MILO-0000<br>
+cycle frequency [Hz]    : 0<br>
+timer frequency [Hz]    : 1024.00<br>
+page size [bytes]       : 8192<br>
+phys. address bits      : 40<br>
+max. addr. space #      : 127<br>
+BogoMIPS                : 530.57<br>
+kernel unaligned acc    : 0 (pc=0,va=0)<br>
+user unaligned acc      : 134 (pc=155556b77a0,va=11ffff8c8)<br>
+platform string         : N/A<br>
+<p>
+Machine 2 (glibc-2.0.6-9.rpm):<br>
+[johns@avalon2 libm]$ cat /proc/cpuinfo<br>
+cpu                     : Alpha<br>
+cpu model               : EV56<br>
+cpu variation           : 0<br>
+cpu revision            : 0<br>
+cpu serial number       : Linux_is_Great!<br>
+system type             : EB164<br>
+system variation        : SX164<br>
+system revision         : 0<br>
+system serial number    : MILO-0000<br>
+cycle frequency [Hz]    : 0<br>
+timer frequency [Hz]    : 1024.00<br>
+page size [bytes]       : 8192<br>
+phys. address bits      : 40<br>
+max. addr. space #      : 127<br>
+BogoMIPS                : 528.48<br>
+kernel unaligned acc    : 0 (pc=0,va=0)<br>
+user unaligned acc      : 220 (pc=155556dc6b0,va=11ffffc40)<br>
+platform string         : N/A<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1097.html">Alex Ponnath: "RE: Still no install - RH51/AS200/Conner drives"</a>
+<li> <b>Previous message:</b> <a href="1095.html">Maurice Hilarius: "Re: All These New Alpha Sites(tm)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1098.html">Greg Lindahl: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1098.html">Greg Lindahl: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1101.html">Jochen Kuepper: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1131.html">Jochen Kuepper: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<li> <b>Maybe reply:</b> <a href="1370.html">Stefan Schroepfer: "Re: sqrt 10x slower in 2.0.7-19 than 2.0.6-9 ???"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

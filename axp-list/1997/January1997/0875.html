@@ -1,0 +1,93 @@
+<!-- received="Mon Jan 27 18:38:08 1997 " -->
+<!-- sent="Mon, 27 Jan 1997 17:35:57 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: compiler efficency" -->
+<!-- id="199701272335.RAA26615@atheist.tamu.edu" -->
+<!-- inreplyto="199701272037.VAA20864@servix.us.es" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiler efficency</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiler efficency</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Mon, 27 Jan 1997 17:35:57 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#875">[ date ]</a><a href="index.html#875">[ thread ]</a><a href="subject.html#875">[ subject ]</a><a href="author.html#875">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0876.html">Patrick Kessen: "Enlightenment, I'm allmost there"</a>
+<li> <b>Previous message:</b> <a href="0874.html">Stephen C. Tweedie: "Re: Red Hat 4.0 Install on UDB"</a>
+<li> <b>In reply to:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0893.html">Claus Denk: "Re: compiler efficency"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; (output of f2c): </i><br>
+<i>&gt; for (i = 2; i &lt;= i__1; ++i) {</i><br>
+<i>&gt;         gam += 1. / (doublereal) i;</i><br>
+<i>&gt; }</i><br>
+<p>
+The cast is likely the problem.  If you rewrite the loop like so:<br>
+<p>
+	long i, i__1;<br>
+	double i__d, gam;<br>
+	for (i__d = i = 2; i &lt;= i__1; ++i, ++i__d) {<br>
+		gam += 1. / i__d;<br>
+	}<br>
+<p>
+things go much faster.  This is because in order to cast from <br>
+integer to double, we must save the register to memory, load into<br>
+an fp register, then do a cvtqt instruction.  You can save all<br>
+that by keeping a parallel loop counter as a double.<br>
+<p>
+Testing this hypothesis on an ev45/275, I get a 1.4 times speedup.<br>
+<p>
+Now, because of the nature of FP, it is not legal for GCC to <br>
+to automatically do this conversion unless it can bound i__1<br>
+below 2**56 or something.  But I bet it doesn't do anything<br>
+under any circumstances, nor is it likely to in the future.<br>
+<p>
+I don't know what context this appeared in in the original<br>
+Fortran source, but your best bet is to fix f2c to shadow the<br>
+loop variable itself.<br>
+<p>
+<p>
+r~<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0876.html">Patrick Kessen: "Enlightenment, I'm allmost there"</a>
+<li> <b>Previous message:</b> <a href="0874.html">Stephen C. Tweedie: "Re: Red Hat 4.0 Install on UDB"</a>
+<li> <b>In reply to:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0893.html">Claus Denk: "Re: compiler efficency"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

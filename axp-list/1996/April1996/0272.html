@@ -1,0 +1,158 @@
+<!-- received="Thu Apr 18 12:08:52 1996 " -->
+<!-- sent="Thu, 18 Apr 96 12:08:52 -0400" -->
+<!-- name="Jay Estabrook - Alpha Migration Tools - LINUX Project" -->
+<!-- email="jestabro@brillig.amt.tay1.dec.com" -->
+<!-- subject="Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266" -->
+<!-- id="9604181608.AA13169@brillig.amt.tay1.dec.com" -->
+<!-- inreplyto="9604160955.ZM25493@dns.rgn.it" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266</h2>
+
+<b>Jay Estabrook - Alpha Migration Tools - LINUX Project</b> (<a href="mailto:jestabro@brillig.amt.tay1.dec.com"><i>jestabro@brillig.amt.tay1.dec.com</i></a>)<br>
+<i>Thu, 18 Apr 96 12:08:52 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#272">[ date ]</a><a href="index.html#272">[ thread ]</a><a href="subject.html#272">[ subject ]</a><a href="author.html#272">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0273.html">Harald Koenig: "bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<li> <b>Previous message:</b> <a href="0271.html">Jay Estabrook - Alpha Migration Tools - LINUX Project: "Re: AlphaStation info"</a>
+<li> <b>In reply to:</b> <a href="0224.html">Franco Tassone: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Hi Jay,</i><br>
+<i>&gt; </i><br>
+<i>&gt; I resolved part of my problems re-initialing the Hard Disk.</i><br>
+<i>&gt; Infact there were extended partitions upon it (&lt;sda1&gt; &lt;sda2&gt;...).</i><br>
+<i>&gt; Now I've re-partitioned the HD on a pc board, and I've followed the</i><br>
+<i>&gt; install_subset procedure for 'B' and 'N' series.</i><br>
+<i>&gt; Now there's something else ...</i><br>
+<i>&gt; I've created three partitions on my HD</i><br>
+<i>&gt; </i><br>
+<i>&gt; sda1 FAT partition for MILO  (8 Mb)</i><br>
+<i>&gt; sda2 EXT2 partition Linux Native (3 Gb)</i><br>
+<i>&gt; sda3 SWAP partition Linux (2 Mb)</i><br>
+<p>
+You may want a bit more than 2 Mb for swap, say about as much as the physical<br>
+memory you have...<br>
+<p>
+<p>
+<i>&gt; I' ve edited the boot selection for Linux/Alpha so that the ARC console loads</i><br>
+<i>&gt; MILO from sda1 partition.</i><br>
+<i>&gt; Milo is loaded, but at this point something strange happens:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 1) Video resolution changes from text mode to an unexpected graphic video mode</i><br>
+<i>&gt;    and the system hangs for some minutes</i><br>
+<p>
+<i>&gt;From below, I see that your graphics card is a MATROX; is this the Millenium?</i><br>
+Note that there's no XFree86 server for that card, and I know of no commercial<br>
+port of one (yet) by X-Inside or Metro-Link.<br>
+<p>
+The long delay is really MILO's BIOS emulation running the BIOS ROM code on<br>
+the MATROX card; if this is extensive, it does take a number of seconds, but<br>
+shouldn't be more than 5-10 or so.<br>
+<p>
+<p>
+<i>&gt; 2) After waiting so for few minutes, milo starts, but no boot is executed,</i><br>
+<i>&gt;    instead it shows the milo prompt.</i><br>
+<p>
+Unless you instruct MILO to boot via the ARC boot selection parameters (ie<br>
+set OSLOADOPTIONS to "boot sda2:vmlinux.gz" or whatever you need), MILO will<br>
+simply wait for you to tell it what to do via the keyboard. MILO treats any<br>
+string in OSLOADOPTIONS as an executable command, so you could use it to<br>
+set memory size as well, although you shouldn't need to.<br>
+<p>
+<p>
+<i>&gt; 3) If I issue the print command, no variables are printed.</i><br>
+<p>
+Probably means that none are/were set; unless you set them *and* MILO can<br>
+save them in NVRAM, this will always occur.<br>
+<p>
+<p>
+<i>&gt; 4) Milo says that memory is 32 Mb, but my system has 64 Mb.</i><br>
+<p>
+Hmmm; do you have *both* the latest MILO *and* linload.exe as found on<br>
+gatekeeper.dec.com:pub/DEC/Linux-Alpha/Miniloader??? MILO depends on<br>
+linload.exe to pass memory size from the ARC console environment...<br>
+<p>
+ <br>
+<i>&gt; If I give manually the boot string 'boot sda2:vmlinux.gz root=/dev/sda2',Linux</i><br>
+<i>&gt; seems booting, recognizes all the devices and disk partitions, and at least it</i><br>
+<i>&gt; shows the following messages:</i><br>
+<i>&gt; </i><br>
+<i>&gt; ...</i><br>
+<i>&gt; Partition check</i><br>
+<i>&gt; sda: sda1 sda2 sda3</i><br>
+<i>&gt; VFS: Mounted root (ext2 filesystem) readonly.</i><br>
+<i>&gt; </i><br>
+<i>&gt; The system now seems locked, no login, no prompt.</i><br>
+<p>
+Uh, oh, this sounds like "init" is having problems, or that "init" *is*<br>
+the problem, as those are the next messages to come out, I think.<br>
+<p>
+Try this: get ahold of the "ramdisk.img" file from the ftp.redhat.com AXP<br>
+directories, put it on a floopy using "dd", and then tell MILO:<br>
+<p>
+	boot sda2:vmlinux.gz load_ramdisk=1 root=/dev/fd0<br>
+<p>
+This will load the kernel off the harddisk, then load the RAMdisk from the<br>
+floppy; the RAMdisk image has known working "init" and such, and you should<br>
+at least get some additional messages beyond where it stops now...<br>
+<p>
+Let me know what happens...<br>
+<p>
+<i>&gt; Now some informations:</i><br>
+<i>&gt; </i><br>
+<i>&gt; My system is a true XL 266, Revision of ISA BRIDGE=88,</i><br>
+<i>&gt; Processor 21064A, Clock 266 Mhz, cache 2 Mb</i><br>
+<i>&gt; Memory 64Mb</i><br>
+<i>&gt; Graphic Card Matrox VGA+/VBE rev 1.5</i><br>
+<i>&gt; HD SCSI/2 4 Gb</i><br>
+<i>&gt; CDROM 4x 600Mb</i><br>
+<i>&gt; DAT 4.8Gb</i><br>
+<p>
+Nice, quick box... :-)<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools<br>
+Mailstop: TAY1-2                        (DTN) 227-4202<br>
+Digital Equipment Corp.                 (external) (508) 952-4202<br>
+151 Taylor Street                       enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0273.html">Harald Koenig: "bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<li> <b>Previous message:</b> <a href="0271.html">Jay Estabrook - Alpha Migration Tools - LINUX Project: "Re: AlphaStation info"</a>
+<li> <b>In reply to:</b> <a href="0224.html">Franco Tassone: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

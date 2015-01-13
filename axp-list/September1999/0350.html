@@ -1,0 +1,254 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: How I got a Tekram DC-390-F SCSI card to work</TITLE>
+<META NAME="Author" CONTENT="Gary A. Allen (gallen@ironbark.arc.nasa.gov)">
+<META NAME="Subject" CONTENT="How I got a Tekram DC-390-F SCSI card to work">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>How I got a Tekram DC-390-F SCSI card to work</H1>
+<HR>
+<P>
+<!-- received="Sat Sep 18 00:20:52 1999" -->
+<!-- isoreceived="19990918072052" -->
+<!-- sent="Fri, 17 Sep 1999 18:42:52 -0700" -->
+<!-- isosent="19990918014252" -->
+<!-- name="Gary A. Allen" -->
+<!-- email="gallen@ironbark.arc.nasa.gov" -->
+<!-- subject="How I got a Tekram DC-390-F SCSI card to work" -->
+<!-- id="199909180142.SAA02540@ironbark.arc.nasa.gov" -->
+<STRONG>Subject: </STRONG>How I got a Tekram DC-390-F SCSI card to work<BR>
+<STRONG>From: </STRONG>Gary A. Allen (<EM>gallen@ironbark.arc.nasa.gov</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Sep 17 1999 - 18:42:52 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#350">[ date ]</A>
+<A HREF="index.html#350">[ thread ]</A>
+<A HREF="subject.html#350">[ subject ]</A>
+<A HREF="author.html#350">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0351.html">hayward@slothmud.org: "RHL 6.0 Install/Multia/Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0349.html">Christopher C Chimelis: "Re: SCSI Card Recomendations"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I've derived considerable benefit from this newsgroup and long wanted to
+<BR>
+provide some sort of &quot;payback&quot;.  Now finally, I think(?) I have some
+<BR>
+information that many Alpha/Linux users out there might find interesting. 
+<BR>
+What I'm going to describe is how I &quot;successfully&quot; installed Linux onto an
+<BR>
+Alpha that uses a Tekram DC-390F SCSI card.
+<BR>
+<P>---------------------------------------------------------------
+<BR>
+<P>This is the machine that I worked on:
+<BR>
+<P>Linux version 2.2.5-16  from RedHat Version 6.0
+<BR>
+Motherboard AlphaPC 164LX with a Samsung 600 Mhz. Alpha CPU.
+<BR>
+1/2 Gbyte of RAM (Viking components part number D3272DC01)
+<BR>
+Diamond Fire GL 1000 (TVP4020 Permedia 2) graphics card
+<BR>
+<P>After I got the machine up and running Dmesg produced the following data:
+<BR>
+<P>gcc version egcs-2.91.66 19990314/Linux (egcs-1.1.2 release)
+<BR>
+Booting on EB164 variation LX164 using machine vector LX164
+<BR>
+Calibrating delay loop... 595.59 BogoMIPS
+<BR>
+Memory: 514840k available
+<BR>
+Alpha PCI BIOS32 revision 0.04
+<BR>
+SMC FDC37C93X Ultra I/O Controller found @ 0x370
+<BR>
+hda: CD-ROM 45X, ATAPI CDROM drive [generic EIDE CDROM]
+<BR>
+Uniform CDROM driver Revision: 2.54
+<BR>
+ncr53c876-0: rev=0x26, base=0xa801000, io_port=0x8800, irq=19
+<BR>
+ncr53c876-0: NCR clock is 40037KHz, 40218KHz
+<BR>
+ncr53c876-0: Tekram format NVRAM, ID 7, Fast-20, Parity Checking
+<BR>
+<P>[My machine has two SCSI disk drives (always a good idea!)]
+<BR>
+<P>Vendor: QUANTUM   Model: FIREBALL SE3.2S   Rev: PJ0A
+<BR>
+Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+<P>Vendor: QUANTUM   Model: ATLAS IV 9 WLS    Rev: 0808
+<BR>
+Type:   Direct-Access                      ANSI SCSI revision: 03
+<BR>
+<P>3c59x.c:v0.99L 5/28/99 
+<BR>
+eth0: 3Com 3c905B Cyclone 100baseTx at 0x8000,  00:50:da:18:66:a6, IRQ 16
+<BR>
+<P>----------------
+<BR>
+Main conclusions
+<BR>
+----------------
+<BR>
+<P>Good news: The Tekram DC-390F is a very cheap, widely available ultrawide
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SCSI card that works reliably once the system is booted.
+<BR>
+<P>Bad news:  Getting an Alpha/Linux to boot from the hard disk (without
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;using a floppy) with a Tekram DC-390F is very difficult (it's
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;classed as Tier-3 by Redhat for good reason).
+<BR>
+<P>Really bad news:  The documentation provided by Redhat in support of installing
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the Tekram is almost useless.  Much of the on-line data
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is obsolete and useless.  Your main valid source of
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;information is this newsgroup.
+<BR>
+<P>----------------------------------------------------------------------------
+<BR>
+What I discovered and ended up doing to get my machine booted from a floppy.
+<BR>
+----------------------------------------------------------------------------
+<BR>
+<P>You can NOT boot a Tekram DC-390F using the vanilla Alpha-BIOS that comes
+<BR>
+shipped with the AlphaPC 164LX motherboard.  The Alpha-BIOS will see the
+<BR>
+SCSI card but NOT the hard drives.  The Alpha-BIOS software is broken
+<BR>
+because when it fails to see the hard drives, it provides a false
+<BR>
+advisory that the SCSI cables are incorrectly configured and then 
+<BR>
+provides NO recourse for loading Milo by floppy.  Milo is usually your
+<BR>
+friend but in this scenario Milo is not an option.  I observed this
+<BR>
+situation with the latest version of Alpha-BIOS so your only option
+<BR>
+is to use SRM.
+<BR>
+<P>Download the latest SRM from the net or use the version that came on
+<BR>
+floppy with the motherboard.  Use the utility provided by Alpha-BIOS to
+<BR>
+flash the SRM image from the floppy onto the flash PROM on the motherboard.
+<BR>
+I didn't like doing this because I feared trashing the motherboard (they're
+<BR>
+expensive).  However this activity is relatively safe.  The BIOS
+<BR>
+codes (both SRM and Alpha-BIOS) provide various escape options should you
+<BR>
+make a mess of things.  Also there is a fail-safe boot option on the 164LX
+<BR>
+motherboard that can be activated by resetting a jumper (never had to do
+<BR>
+that, fortunately).
+<BR>
+<P>You need to use Red Hat Version 6.0 or download it's equivalent version
+<BR>
+from the net.  Lower version numbers probably won't work because they
+<BR>
+won't have the Tekram DC-390F driver in the generic kernel.  Get the
+<BR>
+&quot;generic.img&quot; and &quot;ramdisk.img&quot; files onto separate floppies using the Dd
+<BR>
+commands from a live Linux box.  The images can be found on Disk #1 of the
+<BR>
+CD-ROMs that came shipped with Red Hat Version 6.0.
+<BR>
+<P>Put the &quot;generic.img&quot; floppy in the drive first and from the SRM console
+<BR>
+(you'll see a &gt;&gt;&gt; prompt) type:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boot dva0 -file vmlinux.gz
+<BR>
+<P><P>The usual boot stuff happens and then it'll ask for the ramdisk.  You then
+<BR>
+put in the ramdisk and hit &quot;enter&quot;.  From then on it's a straight installation
+<BR>
+until you reach the &quot;moment of truth&quot; when you try to boot the newly installed
+<BR>
+operating system. Needless to say it won't boot because the SRM is in the way.
+<BR>
+<P>Now comes the creative part:
+<BR>
+<P>Make sure when you're doing the installation procedure that you know
+<BR>
+the SCSI partition name where you installed the root &quot;/&quot; directory.
+<BR>
+I strongly advise NOT using Disk Druid which is slightly evil.  Use Fdisk
+<BR>
+instead.  Assume the root directory is &quot;/dev/sda1&quot;.  After pressing the
+<BR>
+Reset button, you see the &quot;&gt;&gt;&gt;&quot; SRM prompt.  Insert the &quot;generic.img&quot;
+<BR>
+floppy and type the following:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boot dva0 -file vmlinux.gz -flags &quot;root=/dev/sda1&quot;
+<BR>
+<P>Your system should now boot the newly created operating system.  The
+<BR>
+kernel image on the floppy will be your live kernel.
+<BR>
+<P>If people express interest, I'll describe how I convinced my machine to
+<BR>
+boot directly from the hard disk without using a floppy.
+<BR>
+<P>Random commment:  The Permedia graphics card Linux kernel driver that
+<BR>
+came shipped with Red Hat Version 6.0 is broken and useless.  If you
+<BR>
+build a kernel with that driver then the resultant kernel will crash on
+<BR>
+bootup leaving the console showing multicolored bit noise.  You can
+<BR>
+use the Permedia graphics card provided you do NOT install the broken
+<BR>
+kernel driver.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Gary Allen
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0351.html">hayward@slothmud.org: "RHL 6.0 Install/Multia/Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0349.html">Christopher C Chimelis: "Re: SCSI Card Recomendations"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Oct 04 1999 - 12:44:53 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

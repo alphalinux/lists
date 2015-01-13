@@ -1,0 +1,170 @@
+<!-- received="Sat Aug  8 19:36:16 1998 " -->
+<!-- sent="Sat, 8 Aug 1998 15:29:39 -0700" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@dot.cygnus.com" -->
+<!-- subject="Re: BUG: probs with resolving functions in shared library" -->
+<!-- id="" -->
+<!-- inreplyto="199808051616.MAA23543@tuxedo" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: BUG: probs with resolving functions in shared library</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: BUG: probs with resolving functions in shared library</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:rth@dot.cygnus.com"><i>rth@dot.cygnus.com</i></a>)<br>
+<i>Sat, 8 Aug 1998 15:29:39 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#404">[ date ]</a><a href="index.html#404">[ thread ]</a><a href="subject.html#404">[ subject ]</a><a href="author.html#404">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0405.html">dca2: "DEC Alpha 21064 works..thanks"</a>
+<li> <b>Previous message:</b> <a href="0403.html">Andrew Isaacson: "patch: configurable logging of unaligned accesses"</a>
+<li> <b>In reply to:</b> <a href="0238.html">Eric Ding: "BUG: probs with resolving functions in shared library"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0454.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Reply:</b> <a href="0454.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, Aug 05, 1998 at 12:16:57PM -0400, Eric Ding wrote:<br>
+<i>&gt; While #2 is an acceptable workaround in my test case, it indicates to me</i><br>
+<i>&gt; that there's a significant linker (?) bug that I can't work around in the</i><br>
+<i>&gt; case of the software I'm actually porting (Applixware).  Any thoughts?</i><br>
+<i>&gt; Am I doing something wrong?</i><br>
+<p>
+No, you are doing nothing wrong.  This is a bug in binutils.<br>
+Here is a patch.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+	* elf64-alpha.c (alpha_elf_dynamic_symbol_p): Undef weak symbols<br>
+	are always dynamic.<br>
+	(elf64_alpha_calc_dynrel_sizes): Allow enough room for RELATIVE<br>
+	.got relocs in -Bsymbolic shared objects.<br>
+<p>
+<p>
+Index: elf64-alpha.c<br>
+===================================================================<br>
+RCS file: /cvs/cvsfiles/devo/bfd/elf64-alpha.c,v<br>
+retrieving revision 1.33<br>
+diff -u -p -r1.33 elf64-alpha.c<br>
+--- elf64-alpha.c	1998/07/21 01:54:28	1.33<br>
++++ elf64-alpha.c	1998/08/08 22:13:39<br>
+@@ -229,7 +229,8 @@ struct alpha_elf_link_hash_table<br>
+   (((info)-&gt;shared &amp;&amp; !(info)-&gt;symbolic &amp;&amp; (h)-&gt;dynindx != -1)		\<br>
+<i>    || (((h)-&gt;elf_link_hash_flags					\</i><br>
+ 	&amp; (ELF_LINK_HASH_DEF_DYNAMIC | ELF_LINK_HASH_REF_REGULAR))	\<br>
+-       == (ELF_LINK_HASH_DEF_DYNAMIC | ELF_LINK_HASH_REF_REGULAR)))<br>
++       == (ELF_LINK_HASH_DEF_DYNAMIC | ELF_LINK_HASH_REF_REGULAR))	\<br>
++   || (h)-&gt;root.type == bfd_link_hash_undefweak)<br>
+ <br>
+ /* Create an entry in a Alpha ELF linker hash table.  */<br>
+ <br>
+@@ -3137,39 +3138,31 @@ elf64_alpha_calc_dynrel_sizes (h, info)<br>
+ <br>
+   /* If the symbol is dynamic, we'll need all the relocations in their<br>
+      natural form.  If it has been forced local, we'll need the same <br>
+-     number of RELATIVE relocations.  */<br>
+-  if (alpha_elf_dynamic_symbol_p (&amp;h-&gt;root, info)<br>
+-      || (info-&gt;shared &amp;&amp; h-&gt;root.dynindx == -1))<br>
+-    {<br>
+-      struct alpha_elf_reloc_entry *relent;<br>
+-<br>
+-      for (relent = h-&gt;reloc_entries; relent; relent = relent-&gt;next)<br>
+-	{<br>
+-	  relent-&gt;srel-&gt;_raw_size +=<br>
+-	    sizeof (Elf64_External_Rela) * relent-&gt;count;<br>
+-	}<br>
++     number of RELATIVE relocations. <br>
++     Except, don't add a .got reloc if we're not using a .plt entry.  */<br>
+ <br>
+-      /* Only add a .rela.got entry if we're not using a .plt entry.  */<br>
+-      if (h-&gt;root.plt.offset == MINUS_ONE)<br>
++  if ((alpha_elf_dynamic_symbol_p (&amp;h-&gt;root, info)<br>
++       || info-&gt;shared)<br>
++      &amp;&amp; h-&gt;root.plt.offset == MINUS_ONE)<br>
++    {<br>
++      bfd *dynobj = elf_hash_table(info)-&gt;dynobj;<br>
++      struct alpha_elf_got_entry *gotent;<br>
++      bfd_size_type count = 0;<br>
++      asection *srel;<br>
++<br>
++      for (gotent = h-&gt;got_entries; gotent ; gotent = gotent-&gt;next)<br>
++	count++;<br>
++      if (count &gt; 0)<br>
+ 	{<br>
+-	  bfd *dynobj = elf_hash_table(info)-&gt;dynobj;<br>
+-	  struct alpha_elf_got_entry *gotent;<br>
+-	  bfd_size_type count = 0;<br>
+-	  asection *srel;<br>
+-<br>
+-	  for (gotent = h-&gt;got_entries; gotent ; gotent = gotent-&gt;next)<br>
+-	    count++;<br>
+-	  if (count &gt; 0)<br>
+-	    {<br>
+-	      srel = bfd_get_section_by_name (dynobj, ".rela.got");<br>
+-	      BFD_ASSERT (srel != NULL);<br>
+-	      srel-&gt;_raw_size += sizeof (Elf64_External_Rela) * count;<br>
+-	    }<br>
++	  srel = bfd_get_section_by_name (dynobj, ".rela.got");<br>
++	  BFD_ASSERT (srel != NULL);<br>
++	  srel-&gt;_raw_size += sizeof (Elf64_External_Rela) * count;<br>
+ 	}<br>
+     }<br>
+-  /* Otherwise, shared objects require RELATIVE relocs for all REFQUAD<br>
++<br>
++  /* Shared objects require at least RELATIVE relocs for all REFQUAD<br>
+      and REFLONG relocations.  */<br>
+-  else if (info-&gt;shared)<br>
++  if (info-&gt;shared)<br>
+     {<br>
+       struct alpha_elf_reloc_entry *relent;<br>
+ <br>
+@@ -3610,7 +3603,8 @@ elf64_alpha_relocate_section (output_bfd<br>
+ 		    /* If the symbol has been forced local, output a<br>
+ 		       RELATIVE reloc, otherwise it will be handled in<br>
+ 		       finish_dynamic_symbol.  */<br>
+-		    if (info-&gt;shared &amp;&amp; h-&gt;root.dynindx == -1)<br>
++		    if (info-&gt;shared<br>
++			&amp;&amp; !alpha_elf_dynamic_symbol_p (&amp;h-&gt;root, info))<br>
+ 		      {<br>
+ 			Elf_Internal_Rela outrel;<br>
+ <br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0405.html">dca2: "DEC Alpha 21064 works..thanks"</a>
+<li> <b>Previous message:</b> <a href="0403.html">Andrew Isaacson: "patch: configurable logging of unaligned accesses"</a>
+<li> <b>In reply to:</b> <a href="0238.html">Eric Ding: "BUG: probs with resolving functions in shared library"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0454.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Reply:</b> <a href="0454.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

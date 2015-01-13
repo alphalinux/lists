@@ -1,0 +1,179 @@
+<!-- received="Tue Nov 12 16:00:10 1996 " -->
+<!-- sent="Tue, 12 Nov 1996 15:57:25 -0500 (EST)" -->
+<!-- name="David Singley" -->
+<!-- email="dsingley@dsingley.campus.vt.edu" -->
+<!-- subject="ip_masq, /etc/sysconfig/network-scripts/ hints PLEASE" -->
+<!-- id="199611122044.NAA21757@bamboo.verinet.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>ip_masq, /etc/sysconfig/network-scripts/ hints PLEASE</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>ip_masq, /etc/sysconfig/network-scripts/ hints PLEASE</h2>
+
+<b>David Singley</b> (<a href="mailto:dsingley@dsingley.campus.vt.edu"><i>dsingley@dsingley.campus.vt.edu</i></a>)<br>
+<i>Tue, 12 Nov 1996 15:57:25 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#586">[ date ]</a><a href="index.html#586">[ thread ]</a><a href="subject.html#586">[ subject ]</a><a href="author.html#586">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0587.html">Michael Champigny: "Disabling UDB speaker???"</a>
+<li> <b>Previous message:</b> <a href="0585.html">Mike Loseke: "Re: Redhat 4.0 install pronlem on UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I would appreciate any and all comments, suggestions, and even<br>
+instructions regarding setting up an UDB with an added network card to "be<br>
+happy" with both interfaces and then run ip_masq.<br>
+<p>
+I am running a 2.0.18 kernel compiled with the required ip_masq features<br>
+and RH 4.0. I have not yet tried to configure the masquarading<br>
+with ip_fwadm(?) because I can`t acheive any network conectivity with both<br>
+cards activated. (In order to get the machine online, I remove<br>
+/etc/rc.d/rc3.d/S10network and run a script I wrote.<br>
+<p>
+This is how it works (sort of):<br>
+1) no network configuration through rc.d/init.d<br>
+2) the following shell script:<br>
+<p>
+-------------------------------------<br>
+#!/bin/sh<br>
+ <br>
+ifconfig lo up<br>
+ifconfig eth1 198.82.89.218 up<br>
+ <br>
+route add localhost<br>
+route add -net 198.82.89.0 eth1<br>
+route add default gw 198.82.89.1 eth1<br>
+ <br>
+ifconfig<br>
+route<br>
+---------------------------------------<br>
+<p>
+This will set up one interface (the onboad one and strangely the kernel <br>
+names it eth1) with my designated ip address.<br>
+<p>
+<p>
+What doen't work (but should?):<br>
+1)/etc/rc.d/rc3.d/S10network linked to /etc/rc.d/init.d/network<br>
+2)the original /etc/sysconfig/network-scripts/ifup-eth0<br>
+	(with my designated ip address)<br>
+<p>
+-------------------------------<br>
+#!/bin/sh<br>
+ <br>
+#&gt;&gt;&gt;Device type: ethernet<br>
+ <br>
+#&gt;&gt;&gt;Variable declarations:<br>
+DEVICE=eth0<br>
+IPADDR=198.82.89.218<br>
+NETMASK=255.255.255.0<br>
+NETWORK=198.82.89.0<br>
+BROADCAST=198.82.89.255<br>
+GATEWAY=198.82.89.1<br>
+ONBOOT=yes<br>
+#&gt;&gt;&gt;End variable declarations<br>
+-------------------------------<br>
+<p>
+3) an added ifup-eth1<br>
+	(with the intended gateway private network IP address)<br>
+<p>
+-------------------------------<br>
+#!/bin/sh<br>
+ <br>
+#&gt;&gt;&gt;Device type: ethernet<br>
+ <br>
+#&gt;&gt;&gt;Variable declarations:<br>
+DEVICE=eth1<br>
+IPADDR=192.168.0.1<br>
+NETMASK=255.255.255.0<br>
+NETWORK=192.168.0.0<br>
+BROADCAST=192.168.0.255<br>
+GATEWAY=192.168.0.1<br>
+ONBOOT=yes<br>
+#&gt;&gt;&gt;End variable declarations<br>
+----------------------------<br>
+<p>
+Booting this way, the kernel seems to have a hard time deciding what kind<br>
+of ethernet media I have connected (I've tried every combination on both<br>
+the onboad and added adapter), after hanging for a while it tilmes out and<br>
+finishes booting.<br>
+<p>
+ifconfig reports:<br>
+<p>
+-----------------------------<br>
+lo        Link encap:Local Loopback  <br>
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.0.0.0<br>
+          UP BROADCAST LOOPBACK RUNNING  MTU:7168  Metric:1<br>
+          RX packets:343 errors:0 dropped:0 overruns:0<br>
+          TX packets:343 errors:0 dropped:0 overruns:0<br>
+ <br>
+eth0      Link encap:10Mbps Ethernet  HWaddr 08:00:2B:E2:C3:B4<br>
+          inet addr:198.82.89.218  Bcast:198.82.89.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:15022 errors:3713564 dropped:0 overruns:0<br>
+          TX packets:18 errors:0 dropped:0 overruns:0<br>
+          Interrupt:10 Base address:0xb400 <br>
+ <br>
+eth1      Link encap:10Mbps Ethernet  HWaddr 00:40:05:2D:A2:B7<br>
+          inet addr:192.168.0.1  Bcast:192.168.0.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:2512 errors:306349 dropped:0 overruns:0<br>
+          TX packets:165 errors:0 dropped:0 overruns:0<br>
+          Interrupt:15 Base address:0xb000 <br>
+----------------------------<br>
+<p>
+and route reports:<br>
+<p>
+----------------------------<br>
+Kernel IP routing table<br>
+Destination	Gateway		Genmask		Flags Metric Ref Use Iface<br>
+198.82.89.0	0.0.0.0         255.255.255.0   U     0      0     4 eth0<br>
+192.168.0.0     0.0.0.0         255.255.255.0   U     0      0     1 eth1<br>
+127.0.0.0       0.0.0.0         255.0.0.0       U     0      0     3 lo<br>
+0.0.0.0         0.0.0.0         0.0.0.0         U     0      0     9 eth1<br>
+0.0.0.0         198.82.89.1     0.0.0.0         UG    0      0     3 eth0<br>
+0.0.0.0         192.168.0.1     0.0.0.0         UG    1      0     0 eth1<br>
+-----------------------<br>
+<p>
+These look ok to me but I'm not sure. Any ideas?<br>
+<p>
+Thank's for your time,<br>
+-David Singley<br>
+<a href="mailto:dsingley@vt.edu">dsingley@vt.edu</a><br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0587.html">Michael Champigny: "Disabling UDB speaker???"</a>
+<li> <b>Previous message:</b> <a href="0585.html">Mike Loseke: "Re: Redhat 4.0 install pronlem on UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

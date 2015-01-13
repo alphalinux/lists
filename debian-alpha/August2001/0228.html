@@ -1,0 +1,205 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: The impossibility of software raid1</TITLE>
+<META NAME="Author" CONTENT="Craig Small (csmall@eye-net.com.au )">
+<META NAME="Subject" CONTENT="Re: The impossibility of software raid1">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: The impossibility of software raid1</H1>
+<HR>
+<P>
+<!-- received="Wed Aug 29 07:01:05 2001" -->
+<!-- isoreceived="20010829140105" -->
+<!-- sent="Wed, 29 Aug 2001 09:27:42 +1000" -->
+<!-- isosent="20010828232742" -->
+<!-- name="Craig Small" -->
+<!-- email="csmall@eye-net.com.au " -->
+<!-- subject="Re: The impossibility of software raid1" -->
+<!-- id="20010829092742.D4588@eye-net.com.au" -->
+<!-- inreplyto="20010828185808.A19049@gondor.apana.org.au" -->
+<STRONG>Subject: </STRONG>Re: The impossibility of software raid1<BR>
+<STRONG>From: </STRONG>Craig Small (<EM>csmall@eye-net.com.au </EM>)<BR>
+<STRONG>Date: </STRONG>Tue Aug 28 2001 - 16:27:42 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#228">[ date ]</A>
+<A HREF="index.html#228">[ thread ]</A>
+<A HREF="subject.html#228">[ subject ]</A>
+<A HREF="author.html#228">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0229.html">Helge Kreutzmann: "Re: searching for xine testers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0227.html">Gunnar Wolf: "Re: DBD for Postgres for Alpha (Sid) recompiled"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0223.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0241.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0223.html">Craig Small: "Re: The impossibility of software raid1"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, Aug 28, 2001 at 06:58:08PM +1000, Herbert Xu wrote:
+<BR>
+<EM>&gt; On Tue, Aug 28, 2001 at 02:40:08PM +1000, Craig Small wrote:
+</EM><BR>
+<EM>&gt; &gt; On Sat, Aug 25, 2001 at 11:27:13AM +1000, Craig Small wrote:
+</EM><BR>
+<EM>&gt; &gt; &gt; Compiling 2.4.9 and with gcc 3.0 gives me a nice reiserfs partition that
+</EM><BR>
+<EM>&gt; &gt; &gt; works, that's the good news.
+</EM><BR>
+<EM>&gt; &gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; So... then I put the partition back to ext2
+</EM><BR>
+<EM>&gt; &gt; Now mutt dies, and cp
+</EM><BR>
+<EM>&gt; &gt; Aug 28 14:25:26 fozzie kernel: Unable to handle kernel paging request at virtual address ffff6c02404e09ac
+</EM><BR>
+<EM>&gt; &gt; Aug 28 14:25:26 fozzie kernel: cp(7124): Oops 0
+</EM><BR>
+<EM>&gt; &gt; Aug 28 14:25:26 fozzie kernel: pc = [raid1_read_balance+360/576]  ra = [raid1_make_request+956/1200]  ps = 0000
+</EM><BR>
+<EM>&gt; &gt; Aug 28 14:25:26 fozzie kernel: v0 = fffffc000f93680c  t0 = 0000000000000008  t1 =
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If that's with gcc 3.0, please post the disassembly of the relevant file
+</EM><BR>
+<EM>&gt; and the complete oops message.
+</EM><BR>
+OK, it was comilied with gcc 3.0
+<BR>
+I'm going to write all this up and stick it on a web page so that others
+<BR>
+know what to do here, the documentation in the kernel source is out of
+<BR>
+date.
+<BR>
+<P>My inexperienced guess is it tried to load a value from ffff6c02404e09ac
+<BR>
+and died.
+<BR>
+<P>I'm looking at the pc field
+<BR>
+System.map says:
+<BR>
+fffffc00004b2970 t raid1_read_balance
+<BR>
+<P>I'm assuming I add 360 to this, or 0x168. Which is 4b2ad8.  Can you tell
+<BR>
+me what 360/576 means?  I've only ever got real addresses here before.
+<BR>
+<P>fffffc00004b2a8c:       00 00 e0 2f     unop
+<BR>
+fffffc00004b2a90:       21 01 96 43     subl    at,t8,t0
+<BR>
+fffffc00004b2a94:       43 06 18 43     s8addq  t10,t10,t2
+<BR>
+fffffc00004b2a98:       22 05 e1 43     negq    t0,t1
+<BR>
+fffffc00004b2a9c:       00 04 f7 47     mov     t9,v0
+<BR>
+fffffc00004b2aa0:       c2 08 21 44     cmovge  t0,t0,t1
+<BR>
+fffffc00004b2aa4:       43 14 60 40     s4addq  t2,0,t2
+<BR>
+fffffc00004b2aa8:       10 00 10 23     lda     t10,16(a0)
+<BR>
+fffffc00004b2aac:       17 04 f9 47     mov     t11,t9
+<BR>
+fffffc00004b2ab0:       16 00 5f 40     addl    t1,zero,t8
+<BR>
+fffffc00004b2ab4:       00 00 e0 2f     unop
+<BR>
+fffffc00004b2ab8:       1f 04 ff 47     nop
+<BR>
+fffffc00004b2abc:       00 00 e0 2f     unop
+<BR>
+fffffc00004b2ac0:       1f 00 e0 ec     ble     t6,0xfffffc00004b2b40
+<BR>
+fffffc00004b2ac4:       dc ff c6 20     lda     t5,-36(t5)
+<BR>
+fffffc00004b2ac8:       27 31 e0 40     subl    t6,0x1,t6
+<BR>
+fffffc00004b2acc:       00 00 e0 2f     unop
+<BR>
+fffffc00004b2ad0:       02 04 06 43     addq    t10,t5,t1
+<BR>
+fffffc00004b2ad4:       05 04 06 40     addq    v0,t5,t4
+<BR>
+fffffc00004b2ad8:       00 00 22 a0     ldl     t0,0(t1)
+<BR>
+fffffc00004b2adc:       08 00 20 e4     beq     t0,0xfffffc00004b2b00
+<BR>
+fffffc00004b2ae0:       e0 03 30 a0     ldl     t0,992(a0)
+<BR>
+<P>Here is one of the oops messages.
+<BR>
+<P>Aug 28 14:25:26 fozzie kernel: Unable to handle kernel paging request at virtual address ffff6c02404e09ac
+<BR>
+Aug 28 14:25:26 fozzie kernel: cp(7124): Oops 0
+<BR>
+Aug 28 14:25:26 fozzie kernel: pc = [raid1_read_balance+360/576]  ra = [raid1_make_request+956/1200]  ps = 0000
+<BR>
+Aug 28 14:25:26 fozzie kernel: v0 = fffffc000f93680c  t0 = 0000000000000008  t1 = ffff6c02404e09ac
+<BR>
+Aug 28 14:25:26 fozzie kernel: t2 = ffff700230baa1b0  t3 = 0000000000000000  t4 = ffff6c02404e09a8
+<BR>
+Aug 28 14:25:26 fozzie kernel: t5 = ffff700230baa19c  t6 = 0000000000000001  t7 = fffffc0001f94000
+<BR>
+Aug 28 14:25:26 fozzie kernel: s0 = fffffc000684fe60  s1 = 0000000000000000  s2 = fffffc000f936800
+<BR>
+Aug 28 14:25:26 fozzie kernel: s3 = fffffc000684fe60  s4 = fffffc000e154cc0  s5 = fffffc000684fe60
+<BR>
+Aug 28 14:25:26 fozzie kernel: s6 = 0000000000001000
+<BR>
+Aug 28 14:25:26 fozzie kernel: a0 = fffffc000f936800  a1 = fffffc000684fe60  a2 = 0000000000000000
+<BR>
+Aug 28 14:25:26 fozzie kernel: a3 = fffffc0001f97c50  a4 = fffffc0001f97c38  a5 = 0000000000000008
+<BR>
+Aug 28 14:25:26 fozzie kernel: t8 = 0000000000000008  t9 = fffffc000f936808  t10= fffffc000f936810
+<BR>
+Aug 28 14:25:26 fozzie kernel: t11= fffffc000f936808  pv = fffffc000055a800  at = 00000000012ce278
+<BR>
+Aug 28 14:25:26 fozzie kernel: gp = fffffc0000624608  sp = fffffc0001f97bf8
+<BR>
+Aug 28 14:25:26 fozzie kernel: Trace:fffffc00004b5a24 fffffc0000431f44 fffffc0000432084 fffffc0000351c28 fffffc000034ffa0 fffffc000037f750 fffffc000034ffa0 fffffc0000345d74 fffffc0000345cb0 fffffc000037f110 fffffc0000339a84 fffffc000033a054 fffffc000033a3a8 fffffc000033a2b0 fffffc000034d32c fffffc0000310b20 
+<BR>
+Aug 28 14:25:26 fozzie kernel: Code: ece0001f  20c6ffdc  40e03127  2fe00000  43060402  40060405 &lt;a0220000&gt; e4200008 
+<BR>
+<P><P><P><P><PRE>
+-- 
+Craig Small VK2XLZ  GnuPG:1C1B D893 1418 2AF4 45EE  95CB C76C E5AC 12CA DFA5
+Eye-Net Consulting <A HREF="http://www.eye-net.com.au/">http://www.eye-net.com.au/</A>        &lt;csmall@eye-net.com.au&gt;
+MIEEE &lt;csmall@ieee.org&gt;                 Debian developer &lt;csmall@debian.org&gt;
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0229.html">Helge Kreutzmann: "Re: searching for xine testers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0227.html">Gunnar Wolf: "Re: DBD for Postgres for Alpha (Sid) recompiled"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0223.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0241.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0223.html">Craig Small: "Re: The impossibility of software raid1"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Sep 06 2001 - 05:03:50 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

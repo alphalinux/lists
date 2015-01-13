@@ -1,0 +1,123 @@
+<!-- received="Tue Nov 11 11:18:38 1997 " -->
+<!-- sent="Tue, 11 Nov 1997 22:17:45 +0200 (EET)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@tele.fi" -->
+<!-- subject="Re: DEC PWS433a and 2.1.61VGER don't match..." -->
+<!-- id="19971111201751Z231602-217+4@mea.tmt.tele.fi" -->
+<!-- inreplyto="199711111914.LAA26094@dm.cobaltmicro.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: DEC PWS433a and 2.1.61VGER don't match...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: DEC PWS433a and 2.1.61VGER don't match...</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@tele.fi"><i>matti.aarnio@tele.fi</i></a>)<br>
+<i>Tue, 11 Nov 1997 22:17:45 +0200 (EET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#192">[ date ]</a><a href="index.html#192">[ thread ]</a><a href="subject.html#192">[ subject ]</a><a href="author.html#192">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0193.html">Maurice W. Hilarius: "RE: AlphaBIOS and milo"</a>
+<li> <b>Previous message:</b> <a href="0191.html">Jay.Estabrook@digital.com: "Re: AlphaBIOS and milo"</a>
+<li> <b>In reply to:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0197.html">Richard Henderson: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<li> <b>Reply:</b> <a href="0197.html">Richard Henderson: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Date:	Tue, 11 Nov 1997 11:14:57 -0800</i><br>
+<i>&gt; From:	"David S. Miller" &lt;<a href="mailto:davem@dm.cobaltmicro.com">davem@dm.cobaltmicro.com</a>&gt;</i><br>
+<i>&gt;    Date: 	Mon, 10 Nov 1997 21:45:35 +0200 (EET)</i><br>
+<i>&gt;    From: Matti Aarnio &lt;<a href="mailto:matti.aarnio@tele.fi">matti.aarnio@tele.fi</a>&gt;</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	   I have been wondering, why my test kernels of VGER series</i><br>
+<i>&gt; 	   have rather consistently failed to boot with AIC7XXX SCSI </i><br>
+<i>&gt; 	   controller, and today I finally found a small difference</i><br>
+<i>&gt; 	   between working arch/alpha/kernel/pyxis.c, and failing one</i><br>
+<i>&gt; 	   (on VGER series):</i><br>
+<i>&gt; </i><br>
+<i>&gt;    #define vuip  volatile unsigned int *</i><br>
+<i>&gt; </i><br>
+<i>&gt;    Ok:   *((vuip)SOME_ADDRESS) = ...</i><br>
+<i>&gt;    Fail: *(viup)SOME_ADDRESS = ...</i><br>
+<i>&gt; </i><br>
+<i>&gt; This smells of a GCC bug, but it is very strange.  What does CPP</i><br>
+<i>&gt; pre-processed output of these two cases look like btw?</i><br>
+<p>
+	Bug in Alpha targetted gcc 2.7.2.3 ?   What else would be new ?<br>
+	(No, I can't point my finger at anything definitive, just that<br>
+	 sometimes my programs don't work at Alpha with GCC compilation.<br>
+	 Those failing modules are huge, and fail only with -O ... )<br>
+<p>
+	Most of what appears in the source with  (vuip) cast  are macroes,<br>
+	and it may well be that a macro-expansion surprise has bitten<br>
+	in here...  Hmm..  No, can't say it definitely, but most of<br>
+	include/asm-alpha/pyxis.h  defined values are within parens.<br>
+	Perhaps the pcibios_*() routines were only ones failing ?<br>
+	Those cast  unsigned long  coded addresses to pointers, and<br>
+	try to store/extract data thru cast pointers.<br>
+<p>
+<i>&gt; 	   Does any portable way exist for doing this type</i><br>
+<i>&gt; 	   of architecture specific linkages on modules, or should we just</i><br>
+<i>&gt; 	   yield, and add things like this on  net/ipv6/Makefile:</i><br>
+<i>&gt; </i><br>
+<i>&gt;    ifeq ($(ARCH),alpha)</i><br>
+<i>&gt;    IPV6_OBJS += ../../arch/alpha/lib/csum_ipv6_magic.o</i><br>
+<i>&gt;    endif</i><br>
+<i>&gt; </i><br>
+<i>&gt; No this is horrible.  Can we find some other way to deal with this?</i><br>
+<i>&gt; I really think maybe that csum_ipv6_magic code should be in the other</i><br>
+<i>&gt; checksum.c code, #ifdef'd out when IPv6 is not compiled in.  Would</i><br>
+<i>&gt; this work?</i><br>
+<p>
+	Nope, IPv4 and IPv6 codes should not be mixed to such<br>
+	an extent that we can not have IPv6 without IPv4.<br>
+	(Or am I just weirdo with this type of thinking ?)<br>
+<p>
+	Do note that all works just fine when you do monolithic<br>
+	kernel compilation.  This problem appears only at modular<br>
+	IPv6.  (I have no idea, why same source on intel box did<br>
+	not need special tricks for producing working ipv6 module.)<br>
+<p>
+<i>&gt; Later,</i><br>
+<i>&gt; David S. Miller</i><br>
+<i>&gt; <a href="mailto:davem@dm.cobaltmicro.com">davem@dm.cobaltmicro.com</a></i><br>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@tele.fi">matti.aarnio@tele.fi</a>&gt;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0193.html">Maurice W. Hilarius: "RE: AlphaBIOS and milo"</a>
+<li> <b>Previous message:</b> <a href="0191.html">Jay.Estabrook@digital.com: "Re: AlphaBIOS and milo"</a>
+<li> <b>In reply to:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0197.html">Richard Henderson: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<li> <b>Reply:</b> <a href="0197.html">Richard Henderson: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

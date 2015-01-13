@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: A few patches for 2.4.x for Alpha...</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: A few patches for 2.4.x for Alpha...">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: A few patches for 2.4.x for Alpha...</H1>
+<HR>
+<P>
+<!-- received="Tue Aug 07 13:09:46 2001" -->
+<!-- isoreceived="20010807200946" -->
+<!-- sent="Tue, 7 Aug 2001 14:35:11 +0200" -->
+<!-- isosent="20010807123511" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: A few patches for 2.4.x for Alpha..." -->
+<!-- id="20010807143511.D31832@athlon.random" -->
+<!-- inreplyto="Pine.LNX.4.21.0108011737410.13146-200000@spawn.hockeyfiend.com" -->
+<STRONG>Subject: </STRONG>Re: A few patches for 2.4.x for Alpha...<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Aug 07 2001 - 05:35:11 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#48">[ date ]</A>
+<A HREF="index.html#48">[ thread ]</A>
+<A HREF="subject.html#48">[ subject ]</A>
+<A HREF="author.html#48">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0049.html">Helge Kreutzmann: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0047.html">Falk Hueffner: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0051.html">Andrea Arcangeli: "Re: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0000.html">Andrea Arcangeli: "Re: A few patches for 2.4.x for Alpha..."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Aug 01, 2001 at 05:59:05PM -0400, Christopher C. Chimelis wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I seem to be VERY unsuccessful in getting patches into the kernel anymore,
+</EM><BR>
+<EM>&gt; so I figured I'd try sending them to you first due to your high success
+</EM><BR>
+<EM>&gt; rate :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Attached is a patch that does three things:
+</EM><BR>
+<EM>&gt; * drivers/char/rtc.c:
+</EM><BR>
+<EM>&gt;   Removes MIPS DECstation epoch support for non-MIPS machines and adds
+</EM><BR>
+<EM>&gt;   standard PC (1900) epoch support in its place (which will act
+</EM><BR>
+<EM>&gt;   as a pre-2000 VMS epoch support patch as well).  It also adds post-2000
+</EM><BR>
+<EM>&gt;   VMS epoch support.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   My testing so far has shown that, with this patch, I can NEVER seem to
+</EM><BR>
+<EM>&gt;   guess the year incorrectly, regardless of where it was set.
+</EM><BR>
+<P>I usually don't enjoy changes in the RTC since it's not easy to audit
+<BR>
+them (I've no idea where are the specs for such rtc settings and it
+<BR>
+is more a guess for a few different protocols rather than a well
+<BR>
+designed algorithm sigh). However I checked they won't break my alpha
+<BR>
+box and I don't have any mips so I've no problem with them personally (I
+<BR>
+fit in the digital unix epoch).
+<BR>
+<P><EM>&gt; * arch/alpha/kernel/smp.c:
+</EM><BR>
+<EM>&gt;   Removed smp_tune_scheduling() function and the cacheflush_time var
+</EM><BR>
+<EM>&gt;   since they weren't being used.  I also ran into a few machine types 
+</EM><BR>
+<P>The space they waste is irrelevant, so I'd prefer not to drop it, we may
+<BR>
+use it in the future.
+<BR>
+<P><EM>&gt;   where this function being executed on an SMP machine during boot caused
+</EM><BR>
+<EM>&gt;   an oops.  I didn't bother looking into it too much (since the entire
+</EM><BR>
+<P>I guess the reason it broke is because maybe there wasn't any cpu with
+<BR>
+hardid 0 in the machine, so I will apply this patch to my tree instead
+<BR>
+of dropping the code:
+<BR>
+<P>--- 2.4.8pre5aa1/arch/alpha/kernel/smp.c.~1~	Wed Jul  4 04:03:45 2001
+<BR>
++++ 2.4.8pre5aa1/arch/alpha/kernel/smp.c	Tue Aug  7 14:29:25 2001
+<BR>
+@@ -211,13 +211,14 @@
+<BR>
+&nbsp;&nbsp;* We are not told how much cache there is, so we have to guess.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;static void __init
+<BR>
+-smp_tune_scheduling (void)
+<BR>
++smp_tune_scheduling (int cpuid)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct percpu_struct *cpu;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long on_chip_cache;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long freq;
+<BR>
+&nbsp;
+<BR>
+-	cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb-&gt;processor_offset);
+<BR>
++	cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb-&gt;processor_offset
+<BR>
++				      + cpuid * hwrpb-&gt;processor_size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (cpu-&gt;type)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case EV45_CPU:
+<BR>
+@@ -599,7 +600,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;processor = boot_cpuid;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_store_cpu_info(boot_cpuid);
+<BR>
+-	smp_tune_scheduling();
+<BR>
++	smp_tune_scheduling(boot_cpuid);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_setup_percpu_timer(boot_cpuid);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_idle();
+<BR>
+<P><P>Does it sound sane? Could you check if this cure the problem on your
+<BR>
+problematic machines?
+<BR>
+<P><EM>&gt; * arch/alpha/kernel/entry.S:
+</EM><BR>
+<EM>&gt;   arch/alpha/kernel/proto.h:
+</EM><BR>
+<EM>&gt;   arch/alpha/kernel/traps.c:
+</EM><BR>
+<EM>&gt;   This patch is from Daniel Potts (a coworker) who found out that, if the
+</EM><BR>
+<EM>&gt;   user invokes the crlfen PALcode call, the kernel is unable to cope with
+</EM><BR>
+<EM>&gt;   not having access to the FP registers.  He wrote two asm stubs to
+</EM><BR>
+<EM>&gt;   basically skip FP register access in these cases.  The problem was found
+</EM><BR>
+<EM>&gt;   to be extremely rare, but definite is a way for a user (non-root) to
+</EM><BR>
+<EM>&gt;   crash a running Alpha.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   There's also a small patch from Rick Gorton (also a coworker) that
+</EM><BR>
+<EM>&gt;   allows an illop trap to be handled correctly by the kernel.
+</EM><BR>
+<P>perfect.
+<BR>
+<P><EM>&gt; If you have any questions about the patches, feel free to ask :-)  I'm
+</EM><BR>
+<EM>&gt; extremely concerned about the problems that Daniel found (with the ability
+</EM><BR>
+<EM>&gt; of a common user to crash a running machine by just disabling FP
+</EM><BR>
+<EM>&gt; registers), so the sooner this goes in, the better off we all will be :-)
+</EM><BR>
+<P>Indeed. Thanks!
+<BR>
+<P>Andrea
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0049.html">Helge Kreutzmann: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0047.html">Falk Hueffner: "Re: Alpha milo bootdisks, can we use SuSes?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0051.html">Andrea Arcangeli: "Re: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0000.html">Andrea Arcangeli: "Re: A few patches for 2.4.x for Alpha..."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Sep 06 2001 - 05:03:50 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

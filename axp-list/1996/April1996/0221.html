@@ -1,0 +1,113 @@
+<!-- received="Tue Apr 16 08:52:09 1996 " -->
+<!-- sent="Tue, 16 Apr 1996 08:52:09 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: test patch for random crashes" -->
+<!-- id="m0u92hY-001UyNC@goonsquad.spies.com" -->
+<!-- inreplyto="m0u8pwR-00025dC@atheist.tamu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: test patch for random crashes</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: test patch for random crashes</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Tue, 16 Apr 1996 08:52:09 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#221">[ date ]</a><a href="index.html#221">[ thread ]</a><a href="subject.html#221">[ subject ]</a><a href="author.html#221">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0222.html">Deya Motawie: "nn - News Reader"</a>
+<li> <b>Previous message:</b> <a href="0220.html">netman@szem.szeg.matav.hu: "Re: Modems &amp; UDB serial port"</a>
+<li> <b>In reply to:</b> <a href="0203.html">Richard Henderson: "test patch for random crashes"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0237.html">Jim Paradis: "Re: test patch for random crashes"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Mon, 15 Apr 1996, Richard Henderson wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Those of you who were, like me, experiencing random program</i><br>
+<i>&gt; crashes, e.g. "touch" on bootup, should try the following. </i><br>
+<i>&gt; It seems to have worked for me on my eb164.</i><br>
+<p>
+Aieee.. I was afraid of that.<br>
+<p>
+I was hoping that the 21164 kept the instruction cache tagged by ITLB <br>
+entries, because that is what the eb164 PAL-code seems to imply (it's not <br>
+implied in any of my documentation, but comparing PAL-code for ev4 and <br>
+ev5 based machines I assumed it was true).<br>
+<p>
+The ev4(ev45) palcode does an instruction cache invalidate automatically <br>
+when you invalidate ITLB entries, and the ev5 PAL-code doesn't do that. I <br>
+hoped that that was because the hardware automatically does the right <br>
+thing (and invalidates only the icache entries that are invalidated by <br>
+the itlb flush), but that is obviously not true if this patch helps.<br>
+<p>
+Damn, this is actually one place where the alpha PAL-code design is <br>
+completely broken: there is no way to invalidate only user-mode icache, <br>
+even though the hardware has the support for it (imb() invalidates all of <br>
+the icache, even though we only want to do it for non-ASN pages). I'd <br>
+also like a page-granular icache invalidate. Oh, well..<br>
+<p>
+<i>&gt; --- pgtable.h.orig	Sat Apr  6 19:37:13 1996</i><br>
+<i>&gt; +++ pgtable.h	Mon Apr 15 09:49:08 1996</i><br>
+<i>&gt; @@ -12,11 +12,11 @@</i><br>
+<i>&gt;  #include &lt;asm/system.h&gt;</i><br>
+<i>&gt;  </i><br>
+<i>&gt;  /* Caches aren't brain-dead on the alpha. */</i><br>
+<i>&gt; -#define flush_cache_all()			do { } while (0)</i><br>
+<i>&gt; -#define flush_cache_mm(mm)			do { } while (0)</i><br>
+<i>&gt; -#define flush_cache_range(mm, start, end)	do { } while (0)</i><br>
+<i>&gt; -#define flush_cache_page(vma, vmaddr)		do { } while (0)</i><br>
+<i>&gt; -#define flush_page_to_ram(page)			do { } while (0)</i><br>
+<i>&gt; +#define flush_cache_all()			imb()</i><br>
+<i>&gt; +#define flush_cache_mm(mm)			imb()</i><br>
+<i>&gt; +#define flush_cache_range(mm, start, end)	imb()</i><br>
+<i>&gt; +#define flush_cache_page(vma, vmaddr)		imb()</i><br>
+<i>&gt; +#define flush_page_to_ram(page)			imb()</i><br>
+<i>&gt;  </i><br>
+<i>&gt;  /*</i><br>
+<i>&gt;   * Flush current user mapping.</i><br>
+<p>
+The above patch flushes a lot too much, but I guess that's better than <br>
+being buggy. I'll try to come up with a nicer way to do this. We should <br>
+potentially be able to flush in a more controlled manner by doing<br>
+<p>
+	get_mmu_context(current);	/* get new ASN number */<br>
+	switch_to_self(current);	/* do a swpctx to ourself */<br>
+<p>
+(that also takes care of the tlb flush). Anyway, thanks for pinpointing <br>
+this bug (it was high on my list of suspects, but I was hoping that it <br>
+wouldn't turn out to be this one).<br>
+<p>
+		Linus<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0222.html">Deya Motawie: "nn - News Reader"</a>
+<li> <b>Previous message:</b> <a href="0220.html">netman@szem.szeg.matav.hu: "Re: Modems &amp; UDB serial port"</a>
+<li> <b>In reply to:</b> <a href="0203.html">Richard Henderson: "test patch for random crashes"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0237.html">Jim Paradis: "Re: test patch for random crashes"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

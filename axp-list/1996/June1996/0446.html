@@ -1,0 +1,132 @@
+<!-- received="Sun Jun 30 15:55:53 1996 " -->
+<!-- sent="Sun, 30 Jun 1996 15:55:53 +0000 (GMT)" -->
+<!-- name="Gerard Roudier" -->
+<!-- email="groudier@club-internet.fr" -->
+<!-- subject="Re: ncr810 disconnect fix?" -->
+<!-- id="m0uaMtU-0002vOC@fast.net" -->
+<!-- inreplyto="199606300408.VAA07137@panda.azstarnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ncr810 disconnect fix?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ncr810 disconnect fix?</h2>
+
+<b>Gerard Roudier</b> (<a href="mailto:groudier@club-internet.fr"><i>groudier@club-internet.fr</i></a>)<br>
+<i>Sun, 30 Jun 1996 15:55:53 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#446">[ date ]</a><a href="index.html#446">[ thread ]</a><a href="subject.html#446">[ subject ]</a><a href="author.html#446">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0447.html">Brian E.W. Wood: "Re: Buying a DEC vx40b-c2 Universal Desktop Box. Need Advice"</a>
+<li> <b>Previous message:</b> <a href="0445.html">krathis@fast.net: "Buying a DEC vx40b-c2 Universal Desktop Box. Need Advice"</a>
+<li> <b>In reply to:</b> <a href="0442.html">David Mosberger-Tang: "ncr810 disconnect fix?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+David,<br>
+<p>
+On Sat, 29 Jun 1996, David Mosberger-Tang wrote:<br>
+<p>
+<i>&gt; Well, for those of you who don't want to switch to a whole new driver</i><br>
+<p>
+What about this "whole new driver"? Are you speeking about a 3rd one?<br>
+The original BSD driver and the Drew's driver are the same age.<br>
+The current version of the BSD ncr driver for linux is very closed to the <br>
+original one. Obviously, I have added some new code in order to take <br>
+advantage of Linux and fixed some bugs (and perhaps added some bugs too).<br>
+<p>
+Scsi drivers, especially for ncr scsi controller, are very hard to write <br>
+and to test.<br>
+The FreeBSD ncr driver has been ported to NetBSD and Linux and IMHO can be <br>
+adapted to other UNIX systems.<br>
+<p>
+As we share xfree86 drivers (S3,Mach64,etc..) among (free or not) unix systems, <br>
+we should be able to share scsi drivers.<br>
+IMHO, The only reason that may explain this situation is that free OSes must <br>
+ensure support of POSIX, SYSV and/or BSD system services or emulations in order i<br>
+to have some chance to be ever used. So, a xfree86 driver just need to map some <br>
+IO space and physical memory (mmio, frame buffer) with system specific code <br>
+and just run in user space.<br>
+It is more easy to make them portable. No need to reinvent the wheel or to <br>
+confront dynausors for that stuff.<br>
+<p>
+I would be very interested in the actual percentage of systems running a <br>
+free UNIX and using a ncr53c8xx scsi controller.<br>
+Dec Alpha hardware is a special case.<br>
+<p>
+<i>&gt; because of the ncr810 DISCONNECT bug, here is something to try: just</i><br>
+<i>&gt; delete the following lines in linux/arch/alpha/kernel/irq.c:device_interrupt:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	if (action) {</i><br>
+<i>&gt;		/* quick interrupts get executed with no extra overhead */</i><br>
+<i>&gt;		if (action-&gt;flags &amp; SA_INTERRUPT) {</i><br>
+<i>&gt;			while (action) {</i><br>
+<i>&gt;				action-&gt;handler(irq, action-&gt;dev_id, regs);</i><br>
+<i>&gt;				action = action-&gt;next;</i><br>
+<i>&gt;			}</i><br>
+<i>&gt;			ack_irq(ack);</i><br>
+<i>&gt;			return;</i><br>
+<i>&gt;		}</i><br>
+<i>&gt;	}</i><br>
+<p>
+Removing some code is a very nice way for debugging.<br>
+Note that I just looked into the source code and I think that I've guessed <br>
+something. IMHO, some other drivers will be happy of this change too.<br>
+<p>
+You can note the following too:<br>
+We are currently using fast scsi-2 data transfer at up to 10 MB/sec with <br>
+singled ended devices. IMMHO that is not recommended but I do it.<br>
+However, I have checked that scsi parity checking is enabled for my hard disks <br>
+and that the controller and the driver I use check scsi parity.<br>
+<p>
+Are pci scsi controllers from Buslogic and Adaptec supported under <br>
+Linux/Alpha? (My question is perhaps silly since I just begin with Alpha systems <br>
+and, at the moment, I donnot have access to Linux/Alpha boxes)<br>
+<p>
+<i>&gt; I have tried this on a Cabriolet with disconnect enabled and have not</i><br>
+<i>&gt; been able to crash the machine anymore.  Not proof positive, but it</i><br>
+<i>&gt; looks good.  Could other people try this and let me know whether it</i><br>
+<i>&gt; works?  In particular hearing from people with SCSI tape drives would</i><br>
+<i>&gt; be interesting.</i><br>
+<p>
+<i>&gt; Linus found this bug while we were discussing how to best fix a bug in</i><br>
+<i>&gt; _another_ driver (qlogicisp1020).  Turns out that both the Alpha</i><br>
+<i>&gt; version and the x86 version had seemingly sane interpretation of what</i><br>
+<i>&gt; the SA_INTERRUPT flag meant.  Problem is: the two interpretations were</i><br>
+<i>&gt; different!  Overall, this had the effect of leading to race conditions</i><br>
+<i>&gt; in certain drivers (notably the qlogicisp).  Now that everything is in</i><br>
+<i>&gt; sync, it works much better.  It also means that for the Alpha, the</i><br>
+<i>&gt; setting of SA_INTERRUPT has no effect whatsoever.</i><br>
+<p>
+<i>&gt;	--david</i><br>
+<p>
+       Gerard.<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0447.html">Brian E.W. Wood: "Re: Buying a DEC vx40b-c2 Universal Desktop Box. Need Advice"</a>
+<li> <b>Previous message:</b> <a href="0445.html">krathis@fast.net: "Buying a DEC vx40b-c2 Universal Desktop Box. Need Advice"</a>
+<li> <b>In reply to:</b> <a href="0442.html">David Mosberger-Tang: "ncr810 disconnect fix?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

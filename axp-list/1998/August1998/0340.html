@@ -1,0 +1,169 @@
+<!-- received="Fri Aug  7 01:10:21 1998 " -->
+<!-- sent="Thu, 6 Aug 1998 22:03:01 -0600 (MDT)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: SUID scripts?" -->
+<!-- id="199808070403.WAA07748@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="35CA490A.7103@yoda.omnicron.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SUID scripts?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SUID scripts?</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Thu, 6 Aug 1998 22:03:01 -0600 (MDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#340">[ date ]</a><a href="index.html#340">[ thread ]</a><a href="subject.html#340">[ subject ]</a><a href="author.html#340">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0341.html">Peter Rye: "Re: PGP 2.6.2"</a>
+<li> <b>Previous message:</b> <a href="0339.html">B. James Phillippe: "Re: Two as200 problems."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0348.html">cfm@maine.com: "Re: SUID scripts?"</a>
+<li> <b>Reply:</b> <a href="0348.html">cfm@maine.com: "Re: SUID scripts?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Mike \"Ford\" Ditto wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Here is an implementation of "secure" set-ID #! files (A.K.A. set-uid</i><br>
+<i>&gt; shell scripts) for Linux 2.0.x.</i><br>
+<p>
+[ Long kernel hack with unknown security implications and a need to<br>
+  be redone for every new kernel version elided... ]<br>
+<p>
+Instead of that it is much simpler to have a compiled "wrapper"<br>
+program which can call your shell script, avoiding various race<br>
+conditions, and execute it under id you want.  This is, for example,<br>
+what I use to run various font making scripts for TeX, under<br>
+a special id 'tex' and not 'root', on machines when I do not want<br>
+to leave all TeX directory trees world writable.  It can be easily<br>
+adapted for these few situations when you **really** want to run<br>
+a shell script under some other id.<br>
+<p>
+It is called under a desired name and executes "namesake" not<br>
+in your PATH.<br>
+<p>
+   Michal<br>
+<p>
+/****************************************************/<br>
+/*                                                  */<br>
+/*  Executable wrapper for MakeTeX... programs.     */<br>
+/*  Calls its namesake from TOOLS directory.        */<br>
+/*  Provide links with different names to make it   */<br>
+/*  multipurpose.                                   */<br>
+/*                                                  */<br>
+/*  Michal Jaegermann, Feb 11 1995                  */<br>
+/*                                                  */<br>
+/****************************************************/<br>
+<p>
+#include &lt;unistd.h&gt;<br>
+#include &lt;string.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+<p>
+/* Where are real scripts located */<br>
+#define TOOLS "/usr/lib/texmf/bin/i686-linux/"<br>
+#define ASIZE  120<br>
+<p>
+/*<br>
+ * This is a list of names under which we are willing<br>
+ * to execute. It has be NULL terminated.<br>
+ */<br>
+const char *accepted[] = {<br>
+    "MakeTeXPK",<br>
+    "MakeTeXTFM",<br>
+    "MakeTeXMF",<br>
+    "MakeTeXmkdir",<br>
+    NULL<br>
+};<br>
+<p>
+int<br>
+main(int argc, char **argv)<br>
+{<br>
+    char doer[ASIZE] = TOOLS;<br>
+    int idx = 0;<br>
+    /*<br>
+     * If your compiler is broken and the construction below<br>
+     * does not work then "tail = strchr(doer, '\0');", or<br>
+     * equivalent, will serve as well.<br>
+     */<br>
+    char *tail = doer + (sizeof(TOOLS) - 1);<br>
+    char *start;<br>
+<p>
+    /* find our base name */<br>
+    start = (start = strrchr(argv[0], '/')) ?<br>
+                               (start + 1) : argv[0];<br>
+    /* check if we are on the list */<br>
+    while (1) {<br>
+	if (NULL == accepted[idx])<br>
+	    exit(1);          /* not on the list - bye-bye */<br>
+	if (0 == strcmp(accepted[idx], start))<br>
+	    break;            /* this is ours */<br>
+	idx += 1;<br>
+    }<br>
+    /*<br>
+     * Set pretty bland, but hopefuly secure environment;<br>
+     * we intend to run this program 'suid'.<br>
+     */<br>
+    setenv("PATH", "/usr/local/bin:/bin:/usr/bin", 1);<br>
+    setenv("IFS", " ", 1);<br>
+    /*<br>
+     * You may want/need some other calls to setenv().<br>
+     * For example, if your system has an environment<br>
+     * variable pointing to shared libraries it should<br>
+     * be set here.<br>
+     */<br>
+<p>
+    /*<br>
+     * Attach our name at the end of a directory string.<br>
+     * This assumes that real scripts in TOOLS directory<br>
+     * will be called by their own names (but indirectly)<br>
+     */<br>
+    strncpy(tail, start, sizeof("MakeTeXmkdir" + 1));<br>
+    setuid(geteuid());		/* we want priviledges of<br>
+				   an owner of this program */<br>
+    return execv(doer, argv);   /* do it and tell results   */<br>
+}<br>
+<p>
+/*<br>
+ * Local variables:<br>
+ * compile-command: "gcc -s -O6 -fomit-frame-pointer -m486 -Wall -pipe -o ../MakeTeXPK maketex.c"<br>
+ * End:<br>
+ */<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0341.html">Peter Rye: "Re: PGP 2.6.2"</a>
+<li> <b>Previous message:</b> <a href="0339.html">B. James Phillippe: "Re: Two as200 problems."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0348.html">cfm@maine.com: "Re: SUID scripts?"</a>
+<li> <b>Reply:</b> <a href="0348.html">cfm@maine.com: "Re: SUID scripts?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

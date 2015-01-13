@@ -1,0 +1,767 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Problems with mpg123 (or is the multia too slow t</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: Problems with mpg123 (or is the multia too slow to decode MP3?)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Problems with mpg123 (or is the multia too slow to decode MP3?)</H1>
+<HR>
+<P>
+<!-- received="Sun Jun 20 05:29:46 1999" -->
+<!-- isoreceived="19990620122946" -->
+<!-- sent="Sat, 19 Jun 1999 21:51:00 -0700" -->
+<!-- isosent="19990620045100" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: Problems with mpg123 (or is the multia too slow to decode MP3?)" -->
+<!-- id="19990619215100.B8660@twiddle.net" -->
+<!-- inreplyto="199906181106.OAA25638@ee.oulu.fi" -->
+<STRONG>Subject: </STRONG>Re: Problems with mpg123 (or is the multia too slow to decode MP3?)<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Jun 19 1999 - 21:51:00 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#417">[ date ]</A>
+<A HREF="index.html#417">[ thread ]</A>
+<A HREF="subject.html#417">[ subject ]</A>
+<A HREF="author.html#417">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0418.html">Richard Henderson: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0416.html">Larry Snyder: "Re: backup no-compression option"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0379.html">RaymondInFinland: "Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0379.html">Richard Henderson: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, Jun 18, 1999 at 02:10:45PM +0300, RaymondInFinland wrote:
+<BR>
+<EM>&gt; I recently installed RH6.0 on my alpha and i've noticed that the 
+</EM><BR>
+<EM>&gt; included mpg123 player isn't performing very good. It's not able to 
+</EM><BR>
+<EM>&gt; decode the MP3 files realtime, it keeps dropping frames all the time. 
+</EM><BR>
+<P>Huh.  I've never seen mpg123 eat more than 7% cpu when playing
+<BR>
+to an actual audio device.  This is on an avanti, which is 
+<BR>
+marginally faster than a multia, but not 60% worth.
+<BR>
+<P>I did spend an evening once upon a time tweeking it to run a 
+<BR>
+bit better.  This is worth about a 20% speedup in test mode; I
+<BR>
+forget what that comes to when playing -- not much, really.
+<BR>
+<P><P>r~
+<BR>
+<P><P><P>diff -rup mpg123-0.59q/Makefile mpg123-0.59q-/Makefile
+<BR>
+--- mpg123-0.59q/Makefile	Tue Jan 26 06:35:18 1999
+<BR>
++++ mpg123-0.59q-/Makefile	Sat Jun 19 21:36:26 1999
+<BR>
+@@ -154,10 +154,8 @@ linux-alsa:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpg123-make
+<BR>
+&nbsp;
+<BR>
+&nbsp;linux-alpha:
+<BR>
+-	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o' \
+<BR>
+-		CFLAGS='-DLINUX -DOSS -Wall -O2 \
+<BR>
+-			-fomit-frame-pointer -funroll-all-loops \
+<BR>
+-			-finline-functions -ffast-math \
+<BR>
++	$(MAKE) CC=gcc LDFLAGS='-relax' OBJECTS='decode.o dct64.o audio_oss.o' \
+<BR>
++		CFLAGS='-DLINUX -DOSS -Wall -O3 -funroll-loops -ffast-math -mcpu=ev56 \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-Wall -O6 -DUSE_MMAP \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$(RPM_OPT_FLAGS)' \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mpg123-make
+<BR>
+diff -rup mpg123-0.59q/common.c mpg123-0.59q-/common.c
+<BR>
+--- mpg123-0.59q/common.c	Mon Jan 11 14:33:00 1999
+<BR>
++++ mpg123-0.59q-/common.c	Sat Jun 19 21:03:04 1999
+<BR>
+@@ -32,13 +32,8 @@ int tabsel_123[2][3][16] = {
+<BR>
+&nbsp;
+<BR>
+&nbsp;long freqs[9] = { 44100, 48000, 32000, 22050, 24000, 16000 , 11025 , 12000 , 8000 };
+<BR>
+&nbsp;
+<BR>
+-#ifdef I386_ASSEM
+<BR>
+&nbsp;int bitindex;
+<BR>
+&nbsp;unsigned char *wordpointer;
+<BR>
+-#else
+<BR>
+-static int bitindex;
+<BR>
+-static unsigned char *wordpointer;
+<BR>
+-#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int fsizeold=0,ssize;
+<BR>
+&nbsp;static unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
+<BR>
+Only in mpg123-0.59q-: config.cache
+<BR>
+Only in mpg123-0.59q-: config.h
+<BR>
+diff -rup mpg123-0.59q/dct64.c mpg123-0.59q-/dct64.c
+<BR>
+--- mpg123-0.59q/dct64.c	Sat Sep 20 04:16:04 1997
+<BR>
++++ mpg123-0.59q-/dct64.c	Sat Jun 19 21:08:05 1999
+<BR>
+@@ -18,7 +18,7 @@ void dct64(real *out0,real *out1,real *s
+<BR>
+&nbsp;&nbsp;&nbsp;real bufs[64];
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;{
+<BR>
+-  register int i,j;
+<BR>
++  register long i,j;
+<BR>
+&nbsp;&nbsp;&nbsp;register real *b1,*b2,*bs,*costab;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;b1 = samples;
+<BR>
+@@ -103,7 +103,7 @@ void dct64(real *out0,real *out1,real *s
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;register real *b1;
+<BR>
+-  register int i;
+<BR>
++  register long i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;for(b1=bufs,i=8;i;i--,b1+=4)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1[2] += b1[3];
+<BR>
+diff -rup mpg123-0.59q/decode.c mpg123-0.59q-/decode.c
+<BR>
+--- mpg123-0.59q/decode.c	Tue Jan 26 04:47:05 1999
+<BR>
++++ mpg123-0.59q-/decode.c	Sat Jun 19 21:04:12 1999
+<BR>
+@@ -12,10 +12,127 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;mpg123.h&quot;
+<BR>
+&nbsp;
+<BR>
+-#define WRITE_SAMPLE(samples,sum,clip) \
+<BR>
+-  if( (sum) &gt; 32767.0) { *(samples) = 0x7fff; (clip)++; } \
+<BR>
+-  else if( (sum) &lt; -32768.0) { *(samples) = -0x8000; (clip)++; } \
+<BR>
+-  else { *(samples) = sum; }
+<BR>
++#define WRITE_SAMPLE(samples,sum,clip)		\
+<BR>
++  do {						\
+<BR>
++    long _tmp_ = (sum);				\
+<BR>
++    long _c1_ = (_tmp_ &gt; 32767);		\
+<BR>
++    long _c2_ = (_tmp_ &lt; -32768);		\
+<BR>
++    (clip) += _c1_ + _c2_;			\
+<BR>
++    if (_c1_) _tmp_ = 32767;			\
+<BR>
++    if (_c2_) _tmp_ = -32768;			\
+<BR>
++    *(samples) = _tmp_;				\
+<BR>
++  } while (0)
+<BR>
++
+<BR>
++int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
+<BR>
++{
+<BR>
++  static real buffs[2][2][0x110];
+<BR>
++  const int step = 2;
+<BR>
++  static int bo = 1;
+<BR>
++  short *samples = (short *) (out+*pnt);
+<BR>
++
+<BR>
++  real *b0,(*buf)[0x110];
+<BR>
++  long int clip = 0; 
+<BR>
++  long int bo1;
+<BR>
++
+<BR>
++  if(!channel) {
+<BR>
++    bo--;
+<BR>
++    bo &amp;= 0xf;
+<BR>
++    buf = buffs[0];
+<BR>
++  }
+<BR>
++  else {
+<BR>
++    samples++;
+<BR>
++    buf = buffs[1];
+<BR>
++  }
+<BR>
++
+<BR>
++  if(bo &amp; 0x1) {
+<BR>
++    b0 = buf[0];
+<BR>
++    bo1 = bo;
+<BR>
++    dct64(buf[1]+((bo+1)&amp;0xf),buf[0]+bo,bandPtr);
+<BR>
++  }
+<BR>
++  else {
+<BR>
++    b0 = buf[1];
+<BR>
++    bo1 = bo+1;
+<BR>
++    dct64(buf[0]+bo,buf[1]+bo+1,bandPtr);
+<BR>
++  }
+<BR>
++
+<BR>
++
+<BR>
++  {
+<BR>
++    register long j;
+<BR>
++    real *window = decwin + 16 - bo1;
+<BR>
++ 
+<BR>
++    for (j=16;j;j--,window+=0x10,samples+=step)
+<BR>
++    {
+<BR>
++      real sum, t0, t1, t2, t3;
+<BR>
++      t0 = window[0] * b0[0];
+<BR>
++      t1 = window[1] * b0[1];
+<BR>
++      t2 = window[2] * b0[2];
+<BR>
++      t3 = window[3] * b0[3];
+<BR>
++      t0 += window[4] * b0[4];
+<BR>
++      t1 += window[5] * b0[5];
+<BR>
++      t2 += window[6] * b0[6];
+<BR>
++      t3 += window[7] * b0[7];
+<BR>
++      t0 += window[8] * b0[8];
+<BR>
++      t1 += window[9] * b0[9];
+<BR>
++      t2 += window[10] * b0[10];
+<BR>
++      t3 += window[11] * b0[11];
+<BR>
++      t0 += window[12] * b0[12];
+<BR>
++      t1 += window[13] * b0[13];
+<BR>
++      t2 += window[14] * b0[14];
+<BR>
++      t3 += window[15] * b0[15];
+<BR>
++      window += 16, b0 += 16;
+<BR>
++
+<BR>
++      sum = (t0 - t1) + (t2 - t3);
+<BR>
++
+<BR>
++      WRITE_SAMPLE(samples,sum,clip);
+<BR>
++    }
+<BR>
++
+<BR>
++    {
+<BR>
++      real sum, t0, t1, t2, t3;
+<BR>
++      t0 = window[0x0] * b0[0x0];
+<BR>
++      t1 = window[0x2] * b0[0x2];
+<BR>
++      t2 = window[0x4] * b0[0x4];
+<BR>
++      t3 = window[0x6] * b0[0x6];
+<BR>
++      t0 += window[0x8] * b0[0x8];
+<BR>
++      t1 += window[0xA] * b0[0xA];
+<BR>
++      t2 += window[0xC] * b0[0xC];
+<BR>
++      t3 += window[0xE] * b0[0xE];
+<BR>
++      sum = (t0 + t1) + (t2 + t3);
+<BR>
++      WRITE_SAMPLE(samples,sum,clip);
+<BR>
++      b0-=0x10,window-=0x20,samples+=step;
+<BR>
++    }
+<BR>
++    window += bo1&lt;&lt;1;
+<BR>
++
+<BR>
++    for (j=15;j;j--,b0-=0x20,window-=0x10,samples+=step)
+<BR>
++    {
+<BR>
++      real sum, t0, t1, t2, t3;
+<BR>
++      t0 = -window[-1] * b0[0];
+<BR>
++      t1 = -window[-2] * b0[1];
+<BR>
++      t2 = -window[-3] * b0[2];
+<BR>
++      t3 = -window[-4] * b0[3];
+<BR>
++      t0 -= window[-5] * b0[4];
+<BR>
++      t1 -= window[-6] * b0[5];
+<BR>
++      t2 -= window[-7] * b0[6];
+<BR>
++      t3 -= window[-8] * b0[7];
+<BR>
++      t0 -= window[-9] * b0[8];
+<BR>
++      t1 -= window[-10] * b0[9];
+<BR>
++      t2 -= window[-11] * b0[10];
+<BR>
++      t3 -= window[-12] * b0[11];
+<BR>
++      t0 -= window[-13] * b0[12];
+<BR>
++      t1 -= window[-14] * b0[13];
+<BR>
++      t2 -= window[-15] * b0[14];
+<BR>
++      t3 -= window[-16] * b0[15];
+<BR>
++      window -= 16, b0 += 16;
+<BR>
++
+<BR>
++      sum = (t0 + t1) + (t2 + t3);
+<BR>
++
+<BR>
++      WRITE_SAMPLE(samples,sum,clip);
+<BR>
++    }
+<BR>
++  }
+<BR>
++
+<BR>
++  *pnt += 128;
+<BR>
++
+<BR>
++  return clip;
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;int synth_1to1_8bit(real *bandPtr,int channel,unsigned char *samples,int *pnt)
+<BR>
+&nbsp;{
+<BR>
+@@ -111,113 +228,3 @@ int synth_1to1_mono2stereo(real *bandPtr
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+&nbsp;}
+<BR>
+-
+<BR>
+-
+<BR>
+-int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
+<BR>
+-{
+<BR>
+-  static real buffs[2][2][0x110];
+<BR>
+-  static const int step = 2;
+<BR>
+-  static int bo = 1;
+<BR>
+-  short *samples = (short *) (out+*pnt);
+<BR>
+-
+<BR>
+-  real *b0,(*buf)[0x110];
+<BR>
+-  int clip = 0; 
+<BR>
+-  int bo1;
+<BR>
+-
+<BR>
+-  if(equalfile)
+<BR>
+-	do_equalizer(bandPtr,channel);
+<BR>
+-
+<BR>
+-  if(!channel) {
+<BR>
+-    bo--;
+<BR>
+-    bo &amp;= 0xf;
+<BR>
+-    buf = buffs[0];
+<BR>
+-  }
+<BR>
+-  else {
+<BR>
+-    samples++;
+<BR>
+-    buf = buffs[1];
+<BR>
+-  }
+<BR>
+-
+<BR>
+-  if(bo &amp; 0x1) {
+<BR>
+-    b0 = buf[0];
+<BR>
+-    bo1 = bo;
+<BR>
+-    dct64(buf[1]+((bo+1)&amp;0xf),buf[0]+bo,bandPtr);
+<BR>
+-  }
+<BR>
+-  else {
+<BR>
+-    b0 = buf[1];
+<BR>
+-    bo1 = bo+1;
+<BR>
+-    dct64(buf[0]+bo,buf[1]+bo+1,bandPtr);
+<BR>
+-  }
+<BR>
+-
+<BR>
+-
+<BR>
+-  {
+<BR>
+-    register int j;
+<BR>
+-    real *window = decwin + 16 - bo1;
+<BR>
+- 
+<BR>
+-    for (j=16;j;j--,window+=0x10,samples+=step)
+<BR>
+-    {
+<BR>
+-      real sum;
+<BR>
+-      sum  = *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-      sum += *window++ * *b0++;
+<BR>
+-      sum -= *window++ * *b0++;
+<BR>
+-
+<BR>
+-      WRITE_SAMPLE(samples,sum,clip);
+<BR>
+-    }
+<BR>
+-
+<BR>
+-    {
+<BR>
+-      real sum;
+<BR>
+-      sum  = window[0x0] * b0[0x0];
+<BR>
+-      sum += window[0x2] * b0[0x2];
+<BR>
+-      sum += window[0x4] * b0[0x4];
+<BR>
+-      sum += window[0x6] * b0[0x6];
+<BR>
+-      sum += window[0x8] * b0[0x8];
+<BR>
+-      sum += window[0xA] * b0[0xA];
+<BR>
+-      sum += window[0xC] * b0[0xC];
+<BR>
+-      sum += window[0xE] * b0[0xE];
+<BR>
+-      WRITE_SAMPLE(samples,sum,clip);
+<BR>
+-      b0-=0x10,window-=0x20,samples+=step;
+<BR>
+-    }
+<BR>
+-    window += bo1&lt;&lt;1;
+<BR>
+-
+<BR>
+-    for (j=15;j;j--,b0-=0x20,window-=0x10,samples+=step)
+<BR>
+-    {
+<BR>
+-      real sum;
+<BR>
+-      sum = -*(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-      sum -= *(--window) * *b0++;
+<BR>
+-
+<BR>
+-      WRITE_SAMPLE(samples,sum,clip);
+<BR>
+-    }
+<BR>
+-  }
+<BR>
+-
+<BR>
+-  *pnt += 128;
+<BR>
+-
+<BR>
+-  return clip;
+<BR>
+-}
+<BR>
+-
+<BR>
+-
+<BR>
+diff -rup mpg123-0.59q/mpg123.h mpg123-0.59q-/mpg123.h
+<BR>
+--- mpg123-0.59q/mpg123.h	Tue Jan 26 04:47:05 1999
+<BR>
++++ mpg123-0.59q-/mpg123.h	Sat Jun 19 21:03:04 1999
+<BR>
+@@ -198,6 +198,29 @@ extern unsigned int   get1bit(void);
+<BR>
+&nbsp;extern unsigned int   getbits(int);
+<BR>
+&nbsp;extern unsigned int   getbits_fast(int);
+<BR>
+&nbsp;
+<BR>
++#ifdef __GNUC__
+<BR>
++extern inline unsigned int get1bit(void)
+<BR>
++{
+<BR>
++  extern int bitindex;
+<BR>
++  extern unsigned char *wordpointer;
+<BR>
++
+<BR>
++  int bi = bitindex;
+<BR>
++  unsigned char * wp = wordpointer;
+<BR>
++
+<BR>
++  unsigned char rval;
+<BR>
++  rval = *wp &lt;&lt; bi;
+<BR>
++
+<BR>
++  bi++;
+<BR>
++  wp += bi &gt;&gt; 3;
+<BR>
++  bi &amp;= 7;
+<BR>
++
+<BR>
++  wordpointer = wp;
+<BR>
++  bitindex = bi;
+<BR>
++
+<BR>
++  return rval&gt;&gt;7;
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;extern void set_pointer(long);
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern unsigned char *pcm_sample;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0418.html">Richard Henderson: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0416.html">Larry Snyder: "Re: backup no-compression option"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0379.html">RaymondInFinland: "Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0379.html">Richard Henderson: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

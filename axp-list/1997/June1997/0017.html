@@ -1,0 +1,106 @@
+<!-- received="Sun Jun  1 23:58:56 1997 " -->
+<!-- sent="Sun, 1 Jun 1997 20:40:38 -0700 (PDT)" -->
+<!-- name="Daryll Strauss" -->
+<!-- email="daryll@d2.com" -->
+<!-- subject="IEEE FP Problems" -->
+<!-- id="199706020340.UAA16094@jolt.d2.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>IEEE FP Problems</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>IEEE FP Problems</h2>
+
+<b>Daryll Strauss</b> (<a href="mailto:daryll@d2.com"><i>daryll@d2.com</i></a>)<br>
+<i>Sun, 1 Jun 1997 20:40:38 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#17">[ date ]</a><a href="index.html#17">[ thread ]</a><a href="subject.html#17">[ subject ]</a><a href="author.html#17">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0018.html">Britt Bolen: "2bit text editors"</a>
+<li> <b>Previous message:</b> <a href="0016.html">Patrick T. Glynn: "Re: Browsers for RHL"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+We've got a couple of IEEE floating point intensive applications that<br>
+we're trying to run under Alpha Linux. One of the applications is a Dec<br>
+Unix application which we don't have source to and the other is an<br>
+in-house tools which is native under Linux. Both expect the IEEE<br>
+behavior for floating point.<br>
+<p>
+There was some useful information on this topic posted to the list by<br>
+Jim Paradis in April. I've looked through that and the kernel sources<br>
+for traps.c, osf_sys.c, fp-emul.c, and ieee-math.c in 2.1.35. There<br>
+seems to be several problems I'm encountering. I've made a little<br>
+headway, but I've hit a serious stumbling block.<br>
+<p>
+The first thing I tried was to compile a program under Dec Unix that<br>
+checked the state of the fp control register. Those start out being<br>
+different. It looks like Dec Unix is clearing the bits back 0 and Linux<br>
+isn't. I forced those bits to 0 and I made sure<br>
+current-&gt;tss.flags&amp;IEEE_TRAP_ENABLE_MASK=0 in<br>
+osf_set_program_attributes.<br>
+<p>
+My native Dec Unix application did better, but still produced an FPE on<br>
+some data files. I remembered Jim's comments about division by zero, and<br>
+took a look at ieee-math.c. It looks like division by 0 returns NaN for<br>
+0/0, but causes and FPE for any other numerator. As a first stab I<br>
+corrected that by returning setting *c=IEEE_PINF and returning 0 in the<br>
+two division routines.<br>
+<p>
+This doesn't appear to be the right answer, because I'm always returning<br>
+IEEE_PINF. I'm not sure of the exact IEEE spec. It seems like I should<br>
+have to check the sign bits of the two operands and return IEEE_NINF if<br>
+they are different. (Is that true for division by negative 0?) From<br>
+looking at the rest of the code I don't think IEEE_NINF is ever<br>
+returned.<br>
+<p>
+These changes completely solved my floating point exceptions. Now I'm<br>
+seeing some arithmetic acceptions. So far, my testing has shown this<br>
+as occuring in fp-emul.c in alpha_fp_emul_imprecise in the case where a<br>
+OPC_PAL or OPC_JSR is encountered. I'm kind of baffled by this, because<br>
+I don't know enough about the Alpha instructions and scheduling. What's<br>
+this routine trying to do and what does the arithmetic exception really<br>
+mean? <br>
+<p>
+If anyone has an suggestions for how to tackle this I'd be happy to hear<br>
+them. I'm hoping to bundle these changes up into a patch once I get all<br>
+the problems striaghtened out.<br>
+<p>
+							Thanks,<br>
+							- |Daryll<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0018.html">Britt Bolen: "2bit text editors"</a>
+<li> <b>Previous message:</b> <a href="0016.html">Patrick T. Glynn: "Re: Browsers for RHL"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: constantly changing /etc/HOSTNAME file</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: constantly changing /etc/HOSTNAME file">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: constantly changing /etc/HOSTNAME file</H1>
+<HR>
+<P>
+<!-- received="Sun Dec 27 23:48:31 1998 PST" -->
+<!-- sent="Sun, 27 Dec 1998 16:47:59 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: constantly changing /etc/HOSTNAME file" -->
+<!-- id="199812272347.QAA12113@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="3686AB0E.B110A418@infinet.com" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20constantly%20changing%20/etc/HOSTNAME%20file"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Sun, 27 Dec 1998 16:47:59 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1101">[ date ]</A>
+<A HREF="index.html#1101">[ thread ]</A>
+<A HREF="subject.html#1101">[ subject ]</A>
+<A HREF="author.html#1101">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="1100.html">Paul Tomblin: "Re: smbmount"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="1099.html">Tad Grosvenor: "smbmount"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="1096.html">Designer 7: "Re: constantly changing /etc/HOSTNAME file"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+jmd wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Even if you are using DHCP it is hard to imagine that your ISP is that
+</EM><BR>
+<EM>&gt; &gt; &quot;smart&quot; that it rewrites your sysconfig files. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I don't think the ISP is writing to this file. I think there is
+</EM><BR>
+<EM>&gt; something internally wrong with my set up. 
+</EM><BR>
+<P>Probably not. :-)
+<BR>
+<P><EM>&gt; /etc/sysconfig/network is:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; NETWORKING=YES
+</EM><BR>
+<EM>&gt; FORWARD_IPV4=NO
+</EM><BR>
+<EM>&gt; HOSTNAME=localhost.localdomain
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Hm, I would put something here; even if only for
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;an &quot;internal&quot; use. 
+<BR>
+<P><EM>&gt; GATEWAYDEV=
+</EM><BR>
+<EM>&gt; GATEWAY=
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; /etc/rc.d/rc.sysinit includes the lines:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; if [ -f /etc/sysconfig/network ]; then
+</EM><BR>
+<EM>&gt; 	. /etc/sysconfig/network
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; else
+</EM><BR>
+<EM>&gt; 	NETWORKING=no
+</EM><BR>
+<EM>&gt; 	HOSTNAME=localhost
+</EM><BR>
+<P>More important are lines below:
+<BR>
+<P># Set the hostname.
+<BR>
+hostname ${HOSTNAME}
+<BR>
+echo hostname: `hostname`
+<BR>
+<P><P><EM>&gt; This is what happens:
+</EM><BR>
+<EM>&gt; I boot clean with &quot;localhost.localdomain&quot; in my /etc/HOSTNAME file.
+</EM><BR>
+<EM>&gt; If I dial in to my ISP this file (etc/HOSTNAME) is changed as soon as I
+</EM><BR>
+<EM>&gt; am logged in the ISP and have been assigned an IP address. (example
+</EM><BR>
+<EM>&gt; a021.pm3-1.nwk.infinet.com)
+</EM><BR>
+<P>The above seems to mean that you are using DHCP protocol to lease
+<BR>
+IP address and a name under which you are visible &quot;outside&quot;.
+<BR>
+<P><EM>&gt; Taking that example if I open /etc/HOSTNAME after I log in to the ISP
+</EM><BR>
+<EM>&gt; the file will read &quot;a021.pm3-1.nwk.infinet.com&quot; localhost.localdomain
+</EM><BR>
+<EM>&gt; will not be in this file.
+</EM><BR>
+<P>DHCP client writes a few files (like resolv.conf) usually in a private
+<BR>
+directory, like /etc/dhcp/, and executes a setup script.  It sounds
+<BR>
+like this scripts overwrites your /etc/HOSTNAME file (which is not very
+<BR>
+significant on its own anyway) with something probably from /etc/dhcp/.
+<BR>
+Apparently it also performs some other actions.  Why you would like to
+<BR>
+have in /etc/HOSTNAME somethings like localhost.localdomain is beyond
+<BR>
+my comprehension.
+<BR>
+<P><EM>&gt; If I open another terminal with ctl-alt-F2 then the login prompt will
+</EM><BR>
+<EM>&gt; be:
+</EM><BR>
+<EM>&gt; [&gt; [jmd@a021 jmd]$
+</EM><BR>
+<P>Prompt is set in your shell startup files (this depends on your login
+<BR>
+shell - but assuming that this is bash these will be /etc/profile,
+<BR>
+/etc/bashrc, ~/.bash_profile and ~/.bashrc).  You will see there
+<BR>
+something like 'PS1=.....' and /etc/HOSTNAME is not consulted in the
+<BR>
+process unless you make it to;  check for yourself by changing
+<BR>
+a contents of /etc/HOSTNAME and opening new shell.  BTW - I think that
+<BR>
+a default prompt in Red Hat configuration is very bad choice.
+<BR>
+You will find that pretty soon if you will try to check something
+<BR>
+in your various 'bin' subdirectories.  Not a very big deal as you can
+<BR>
+change that any way you want.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; I changed the permissions for /etc/HOSTNAME to 444 and it still wrote to
+</EM><BR>
+<EM>&gt; the file.
+</EM><BR>
+<P>Not wrote but apparently replaced it with something else.  That is
+<BR>
+another, not equivalent, operation.
+<BR>
+<P>You are still not presenting the whole story.  One has to guess what
+<BR>
+you are really doing (dhcp and its setup).  You also claimed that
+<BR>
+a new name shows after the next boot.  It is not clear how but your
+<BR>
+computer is doing only what it was told to do.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20constantly%20changing%20/etc/HOSTNAME%20file">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20constantly%20changing%20/etc/HOSTNAME%20file">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="1100.html">Paul Tomblin: "Re: smbmount"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="1099.html">Tad Grosvenor: "smbmount"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="1096.html">Designer 7: "Re: constantly changing /etc/HOSTNAME file"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Dec 27 1998 - 16:00:15 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

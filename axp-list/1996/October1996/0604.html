@@ -1,0 +1,196 @@
+<!-- received="Thu Oct 17 02:09:57 1996 " -->
+<!-- sent="Thu, 17 Oct 1996 09:06:04 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="199610170526.BAA10266@churchy.gnu.ai.mit.edu" -->
+<!-- inreplyto="Pine.LNX.3.93.961016194825.19685A-100000@pc5829.hil.siemens.at" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Thu, 17 Oct 1996 09:06:04 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#604">[ date ]</a><a href="index.html#604">[ thread ]</a><a href="subject.html#604">[ subject ]</a><a href="author.html#604">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0605.html">Sean Chisham: "Milo 2.0.18 and fs.h"</a>
+<li> <b>Previous message:</b> <a href="0603.html">Craig Burley: "Re: Househunting?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 16 Oct 1996, Ingo Molnar wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; On Wed, 16 Oct 1996, Theodore Y. Ts'o wrote:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; So will it be faster now to copy everything from userspace into a kernel</i><br>
+<i>&gt; &gt; "bounce buffer" first, instead of fetching things from user space one</i><br>
+<i>&gt; &gt; byte at a time?   That seems counter-intuitive, since traditionally the</i><br>
+<i>&gt; &gt; way you get speedups is to *reduce* the number of memory copies while</i><br>
+<i>&gt; &gt; going through a network or tty layer....</i><br>
+<i>&gt; </i><br>
+<i>&gt; i think you can do something like this:</i><br>
+<i>&gt; </i><br>
+<i>&gt;        if (exception()) {</i><br>
+<i>&gt;                printk("this is a test message in the tty exception handler");</i><br>
+<i>&gt;                return -EFAULT;</i><br>
+<i>&gt;        }</i><br>
+<i>&gt; </i><br>
+<i>&gt;        byte_by_byte fetching and tty logic;</i><br>
+<i>&gt; </i><br>
+<i>&gt;        end_exception();</i><br>
+<p>
+Not any more. This _was_ the original exception interface I used, and the<br>
+theory was exactly as you state: to move the exception handling to outside<br>
+any loops and thus make the overhead of exceptions negligible. <br>
+<p>
+However, reality intruded on my dreams. There were two problems with the<br>
+above approach (they were obvious pretty quickly: by the time I released<br>
+2.1.3 I already knew I had to change the interface): <br>
+<p>
+ - it worked on a C language level, and that meant that the exception code<br>
+   had to do a lot of state saving in order to restore the state at the time<br>
+   of the exception. Saving 4-5 registers etc.. (remember: I'm actually<br>
+   counting instructions here, so saving 5 registers is a _minimum_ of 5<br>
+   instructions. Too much overhead ;)<br>
+<p>
+ - it was _extremely_ tricky to be 100% sure that the above kind of thing<br>
+   worked correctly in the face of compiler optimizations. Essentially, the<br>
+   compiler needs to know about that kind of "longjmp" behaviour, and while<br>
+   it is possible to tell gcc about longjmp that also has a rather<br>
+   detrimental effect on code generation and on error reporting. <br>
+<p>
+Also, the problem was that the above kind of interface put the burden of<br>
+being tricky on the people who wrote basic kernel code, and that's bad. <br>
+Because there is a LOT of basic kernel code, so having a complex interface is<br>
+a bad thing because that makes the kernel complex. <br>
+<p>
+It _also_ had the problem that it still needed the explicit "verify_area()"<br>
+calls due to various architecture-specific "features"  (like the lack of<br>
+reliable write protection reporting on 386 chips and problems on ARM etc). <br>
+<p>
+So, in 2.1.4 I changed the rules. Instead of having a complex interface, I<br>
+changed it to use a very simple interface that has a hairy and ugly<br>
+architecture-specific implementation. But that _implementation_ can be hidden<br>
+in header files and a few small architecture-specific files, so now the<br>
+complexity is in the right place (concentrated in one place that you can go<br>
+over with a microscope to make sure it works), rather than scattered all over<br>
+the kernel. <br>
+<p>
+Also, the 2.1.4 interface is totally abstracted, so I moved the exception<br>
+handling to the assembler level: that allowed me to do much less state saving<br>
+(in fact, I do _no_ state saving, I just put the information on where to<br>
+resume after a exception into a register). It also made the worry about what<br>
+the compiler does go away. <br>
+<p>
+(It also makes it easier to support nested exceptions if I ever decide that<br>
+it's a good idea - the original code really couldn't handle nested exceptions<br>
+very cleanly at all, and certainly not efficiently). <br>
+<p>
+So the 2.1.4 interface (and I'm pretty certain this is the "final" <br>
+interface) doesn't actually export the notion of exceptions to the kernel<br>
+proper at all. Nobody sees the exceptions themselves, because the magic is<br>
+all hidden in architecture-specific files. That also means that if there is<br>
+an architecture that cannot reliably generate exceptions we can just do it<br>
+all "by hand", and the kernel proper never even knows that exceptions aren't<br>
+used. <br>
+<p>
+Now, this all means that you can't move the exception handling to outside any<br>
+loops: you simply cannot separate the exception handling and the actual user<br>
+access any more. On the other hand, the new code is a _lot_ simpler to use<br>
+than the original exception handling, and it's also actually faster for the<br>
+case where you can't move it out of the loop.  Quite noticeably less<br>
+overhead, actually. <br>
+<p>
+Just as an example: the optimal code right now for getting something from<br>
+user space looks like this (x86 assembly)<br>
+<p>
+	movl current_set,%ebx	/* get the "current" pointer */<br>
+	movl $1f,%edx		/* tell the exception code where to abort */<br>
+	incl 984(%ebx)		/* increment exception count */<br>
+	movl xxxx,%eax		/* get the value */<br>
+	decl 984(%ebx)		/* decrement exception count */<br>
+	xorl %edx,%edx		/* no error if we got here */<br>
+1:<br>
+<p>
+That's just 6 instructions to get a word from user space. The full sequence<br>
+is a bit more, because it needs to verify the address (check that it isn't a<br>
+kernel address unless it's allowed to be) but it's still not very much.  It's<br>
+roughly 10-12 instructions (and _no_ loop - just one test) all told,<br>
+depending a bit on how gcc organizes it all. <br>
+<p>
+And eventually, when the exception code has matured, I can actually remove<br>
+the "sanity check" code, and then the exception count tests are not needed<br>
+any more, so the above shrinks down to just<br>
+<p>
+	movl $1f,%edx		/* tell the exception code where to abort */<br>
+	movl xxxx,%eax		/* get the value */<br>
+	xorl %edx,%edx		/* no error if we got here */<br>
+1:<br>
+<p>
+which is just about optimal (remember: the above three instructions<br>
+essentially make the whole "verify_area()" rigamole totally unnecessary, and<br>
+of the above three instructions one is obviously required even if you don't<br>
+check the address: the one that actually gets the value from user space ;)<br>
+<p>
+Now, the above is the reason why I am so certain that the new exception code<br>
+is the "right thing". I can actually _count_ the instructions needed to do<br>
+the full test for validity, and go through them one by one and make sure that<br>
+none of them are useless. With _three_ instructions I can do what used to<br>
+need a loop through the virtual memory management structures. <br>
+<p>
+Now, because the checking cannot be moved outside the loop, some loops have<br>
+to be moved inside the checking if we want to have the best possible<br>
+performance. That's why I want to add the new functions "clear_user()" and<br>
+"strncpy_from_user()" : those are things where we're currently looping<br>
+outside the exception code for no really good reason (as a side note:  those<br>
+are also things that generally need architecture-specific functions for the<br>
+best performance anyway).<br>
+<p>
+All the other loops I have looked through that do checking inside the loop<br>
+are not really a problem. They do some non-trivial operation on the data<br>
+inside the loop (translating a byte with opost processing in the case of the<br>
+tty layer, for example), and as such the very small overhead caused by the<br>
+exception handling isn't really an issue.<br>
+<p>
+It's the RISC philosophy: make the basic operations simple, and do them<br>
+extremely quickly. Complex operations might be slower, but complex operations<br>
+are relatively rare. <br>
+<p>
+			Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0605.html">Sean Chisham: "Milo 2.0.18 and fs.h"</a>
+<li> <b>Previous message:</b> <a href="0603.html">Craig Burley: "Re: Househunting?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

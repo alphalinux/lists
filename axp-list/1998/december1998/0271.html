@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Swap/VM Question or &quot;Cannot load interpreter&quo</TITLE>
+<META NAME="Author" CONTENT="Stefan Boresch (stefan@mdy.univie.ac.at)">
+<META NAME="Subject" CONTENT="Swap/VM Question or &quot;Cannot load interpreter&quot;">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Swap/VM Question or &quot;Cannot load interpreter&quot;</H1>
+<HR>
+<P>
+<!-- received="Mon Dec 07 13:47:25 1998 PST" -->
+<!-- sent="Mon, 7 Dec 1998 13:49:25 +0100 (CET)" -->
+<!-- name="Stefan Boresch" -->
+<!-- email="stefan@mdy.univie.ac.at" -->
+<!-- subject="Swap/VM Question or &quot;Cannot load interpreter&quot;" -->
+<!-- id="199812071249.NAA05322@beta.mdy.univie.ac.at" -->
+<!-- inreplyto="" -->
+<STRONG>Stefan Boresch</STRONG> (<A HREF="mailto:stefan@mdy.univie.ac.at?subject=Re:%20Swap/VM%20Question%20or%20&quot;Cannot%20load%20interpreter&quot;"><EM>stefan@mdy.univie.ac.at</EM></A>)<BR>
+<EM>Mon, 7 Dec 1998 13:49:25 +0100 (CET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#271">[ date ]</A>
+<A HREF="index.html#271">[ thread ]</A>
+<A HREF="subject.html#271">[ subject ]</A>
+<A HREF="author.html#271">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0270.html">Stefan Schroepfer: "xcdroast-0.96d and egcs-1.1b (or what else?)"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is a follow-up to my questions from a few days ago.  I seem to
+<BR>
+have solved my problem, but I would really like to understand why
+<BR>
+things work the way they (apparently) do.
+<BR>
+<P>It turns out that the instabilities (manifesting themselves with
+<BR>
+'Cannot load interpreter' messages) go away when I add plenty of swap
+<BR>
+space, much more than I naively thought to be required.
+<BR>
+<P>The machine in question is a LX-533MHz with 256MB RAM and (originally)
+<BR>
+272 MB swap space (two partitions).  My (actually D. Gilbert's )
+<BR>
+testprogram (I'll append it one more time at the end of this mail)
+<BR>
+allocates memory for a large array, then writes and read to it in an
+<BR>
+infinite loop.  When I set the array size to 240MB, the whole job
+<BR>
+still fits nicely in RAM, no swap space is used.  Well, obviously when
+<BR>
+I set the array size to 260 MB, the machine has to swap.  Assuming
+<BR>
+that the kernel and the various demons eat several MBs, I estimated
+<BR>
+that the job would use maybe 20-30MB swapspace.  Well, so it does,
+<BR>
+initially.  However, watching with vmstat (thanks for pointing out
+<BR>
+this utility), the actual used swap space climbs all the way up to
+<BR>
+272M.  It seems that in the course of one read/write cycle the whole
+<BR>
+260M array is swapped to disk.  Now the job usually runs for several
+<BR>
+iterations, but apparently at some point there is memory starvation
+<BR>
+and the &quot;Cannot load interpreter&quot; messages appear.  I guess I can
+<BR>
+understand that it may be faster to have everything that is in memory
+<BR>
+also in the swap space, but should it crash the machine?  Do my
+<BR>
+findings imply that any useable swap space has to be at least the size
+<BR>
+of RAM (plus, possibly, some extra MBs)?  Is this the origin of the
+<BR>
+rule of the thumb that swap space ought to be at least twice the size
+<BR>
+of RAM?  (E.g., the one UX on which this test runs fine incidentally
+<BR>
+has 128MB of RAM and 256MB of swap, obviously the test was run only
+<BR>
+with 130MB) For this particular testcase on the LX, adding a swapfile
+<BR>
+of 96MB cured the problem (bringing total swap to 272+96=368MB).
+<BR>
+Behavior of a 2.0.35 and 2.0.36 kernel was identical.  Increasing
+<BR>
+the values in /proc/sys/vm/freepages helped stall the problem, but
+<BR>
+eventually it would show up; only the larger swap space fixed the
+<BR>
+problem.
+<BR>
+<P>Again, I'd appreciate to understand how this works to avoid set-up
+<BR>
+problems/mistakes for future machines.  Maybe, on the other hand, my
+<BR>
+experience helps explain why other people see this message under heavy
+<BR>
+swapping. 
+<BR>
+<P>Thanks,
+<BR>
+<P>Stefan Boresch
+<BR>
+<P>-----------------------------------------------------------------------
+<BR>
+<P>Our adapted version of D. Gilbert's memtest.c (using egcs 1.1b)
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+<P>#define SIZE (260*256*1024*sizeof(int))
+<BR>
+int main() {
+<BR>
+&nbsp;&nbsp;volatile int * volatile pl=(int *)malloc(SIZE);
+<BR>
+<P>&nbsp;&nbsp;int a;
+<BR>
+<P>&nbsp;&nbsp;int s;
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;int sum1,sum2;
+<BR>
+<P>&nbsp;&nbsp;printf(&quot;Using %d bytes.\n&quot;,SIZE);
+<BR>
+&nbsp;&nbsp;for(s=1056;;s++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Filling with seed of s=0x%x \n&quot;,s);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;srandom(s);
+<BR>
+sum1=0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(a=0;a&lt;(SIZE/sizeof(int));a++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int tmp1=random();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sum1+=tmp1;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pl[a]=tmp1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;srandom(s);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Testing with seed of s=0x%x \n&quot;,s);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(a=0,sum2=0;a&lt;(SIZE/sizeof(int));a++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int tmp1=random();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int tmp2=pl[a];
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sum2+=tmp1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (tmp1!=tmp2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;MISMATCH ERROR! at a=0x%x (random=0x%x array=0x%x
+<BR>
+reread=0x%x seed=
+<BR>
+0x%x)\n&quot;,a,tmp1,tmp2,pl[a],s);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Completed pass with seed of s=0x%x sum1=0x%x
+<BR>
+sum2=0x%x\n&quot;,s,sum1,sum2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (sum1!=sum2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Internal inconsistency! Sums differ! sum1=0x%x
+<BR>
+sum2=0x%x\n&quot;,sum1,sum2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;};
+<BR>
+};
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Swap/VM%20Question%20or%20&quot;Cannot%20load%20interpreter&quot;">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Swap/VM%20Question%20or%20&quot;Cannot%20load%20interpreter&quot;">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0270.html">Stefan Schroepfer: "xcdroast-0.96d and egcs-1.1b (or what else?)"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Dec 07 1998 - 06:00:18 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

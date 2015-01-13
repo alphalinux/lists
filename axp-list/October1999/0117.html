@@ -1,0 +1,290 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Semi-success with Jensen Installation...</TITLE>
+<META NAME="Author" CONTENT="Jo Schambach (jschamba@physics.utexas.edu)">
+<META NAME="Subject" CONTENT="Re: Semi-success with Jensen Installation...">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Semi-success with Jensen Installation...</H1>
+<HR>
+<P>
+<!-- received="Fri Oct 08 14:46:03 1999" -->
+<!-- isoreceived="19991008214603" -->
+<!-- sent="Fri, 08 Oct 1999 09:31:16 -0500" -->
+<!-- isosent="19991008143116" -->
+<!-- name="Jo Schambach" -->
+<!-- email="jschamba@physics.utexas.edu" -->
+<!-- subject="Re: Semi-success with Jensen Installation..." -->
+<!-- id="37FE0034.5BC52301@physics.utexas.edu" -->
+<!-- inreplyto="11EB515FBDB3D111BF270000F84A9ED60436C8A1@shrexc1.shr.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Semi-success with Jensen Installation...<BR>
+<STRONG>From: </STRONG>Jo Schambach (<EM>jschamba@physics.utexas.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Oct 08 1999 - 07:31:16 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#117">[ date ]</A>
+<A HREF="index.html#117">[ thread ]</A>
+<A HREF="subject.html#117">[ subject ]</A>
+<A HREF="author.html#117">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0118.html">James Peret: "dual boot (slightly off topic)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0116.html">Champigny, Michael: "Semi-success with Jensen Installation..."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0116.html">Champigny, Michael: "Semi-success with Jensen Installation..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0126.html">Michal Jaegermann: "Re: Semi-success with Jensen Installation..."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0116.html">Jo Schambach: "Re: Semi-success with Jensen Installation..."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I had similar problems as you describe with your system. Here is what I
+<BR>
+did to &quot;fix&quot; them (it's not really a fix, but a workaround, since I
+<BR>
+never figured out what really was broke):
+<BR>
+<P>1) The portmapper hanging seems to be a problem with many of the init.d
+<BR>
+scripts as delivered by RH 6.0. They all use the function &quot;daemon&quot; (like
+<BR>
+&quot;daemon portmap&quot; in the &quot;portmap&quot; script). This function is defined in
+<BR>
+the script &quot;functions&quot;. I also replaced the &quot;killproc&quot; function in this
+<BR>
+file, since it also seems to hang, with the following:
+<BR>
+<P>killproc() {            # kill the named process(es)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pid=`/bin/ps -e |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/bin/grep -w $1 |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/bin/sed -e 's/^  *//' -e 's/ .*//'`
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ &quot;$pid&quot; != &quot;&quot; ] &amp;&amp; kill $pid
+<BR>
+}
+<BR>
+<P>You can do all these changes while in single user mode.
+<BR>
+After I did this, my Jensen came up fine in multiuser mode.
+<BR>
+<P>2) The &quot;clock&quot; function in /sbin seems to use the wrong method for
+<BR>
+accessing the hardware clock. I installed the sources from RH6.0 CD and
+<BR>
+then made the following change in the file clock-alpha.c:
+<BR>
+<P>#include &lt;asm/posix_types.h&gt; /* seems to be necessary to get all the
+<BR>
+types */
+<BR>
+/* #undef USE_DEV_PORT */
+<BR>
+#define USE_DEV_PORT
+<BR>
+<P>After recompiling and installing this file in /sbin the clock seemed to
+<BR>
+be set correctly on my Jensen.
+<BR>
+<P>Again, these solutions are just &quot;working on the symptons&quot; rather than
+<BR>
+finding the cause, so some real guru needs to tell us what is really
+<BR>
+wrong. But at least it got me up and running.
+<BR>
+<P>I hope this helps.
+<BR>
+<P>Jo
+<BR>
+<P>&quot;Champigny, Michael&quot; wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The problem I was having turned out to be the hard disk. For some reason,
+</EM><BR>
+<EM>&gt; my Jensen didn't like my 1GB Quantum Fireball. I put in a DEC 2GB drive
+</EM><BR>
+<EM>&gt; and the install went fine. Very strange since the Fireball works on an
+</EM><BR>
+<EM>&gt; XLT-300
+</EM><BR>
+<EM>&gt; and an AXPpci33.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Anyway, I followed the install on Tom's recent website, and by following the
+</EM><BR>
+<EM>&gt; dialog on this list. I have nothing to add to that procedure, as it worked
+</EM><BR>
+<EM>&gt; fine.
+</EM><BR>
+<EM>&gt; I used the jensen2.img and the updated RH ramdisk.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; My hardware is stock, with a DE422 EtherWorks and a #9 GXE video card.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I tried booting the default RH 6.0 kernel...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;&gt;&gt; boot -fl i dka0
+</EM><BR>
+<EM>&gt; ...
+</EM><BR>
+<EM>&gt; aboot&gt; 3/boot/vmlinuz-2.2.5-16 root=/dev/sda3
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It gets to kswapd and then hangs. :-( Does anyone know why the generic
+</EM><BR>
+<EM>&gt; kernel shipped with Red Hat fails on the Jensen? It works on my other boxes.
+</EM><BR>
+<EM>&gt; :-(
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I then copied the jensen3.img (static monolithic kernel image) onto the
+</EM><BR>
+<EM>&gt; beginning
+</EM><BR>
+<EM>&gt; of the disk and tried booting with that...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; aboot&gt; 0/2.2.12.gz root=/dev/sda3
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Now it hangs while starting the portmapper daemon. Damn!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Finally, I got in using single user mode...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; aboot&gt; 0/2.2.12.gz root=/dev/sda3 single
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; At this point the clock was hosed. It looks like RH ships the fixed clock
+</EM><BR>
+<EM>&gt; (type
+</EM><BR>
+<EM>&gt; &quot;clock -h&quot; and you'll see the -J Jensen option. The only change should be to
+</EM><BR>
+<EM>&gt; add a line to one of the rc* scripts in /etc/rc.d to add a &quot;-J&quot; option after
+</EM><BR>
+<EM>&gt; the
+</EM><BR>
+<EM>&gt; &quot;-A&quot; clock option. That *should* fix the Jensen clock but I had other fish
+</EM><BR>
+<EM>&gt; to fry.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I commented out all the daemon lines in the /etc/rc.d area. I rebooted and
+</EM><BR>
+<EM>&gt; managed
+</EM><BR>
+<EM>&gt; to get in this time in multi-user mode.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I did get warnings about System.map, but no big deal.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; At this point was able to get X up and running. I used the S3 server, 8-bit
+</EM><BR>
+<EM>&gt; depth and
+</EM><BR>
+<EM>&gt; 1024x768. Higher resolutions resulted in flicker and off-center display. I
+</EM><BR>
+<EM>&gt; tried out some
+</EM><BR>
+<EM>&gt; 16-bit modes too but the pixels were &quot;fat&quot; on the display and generally
+</EM><BR>
+<EM>&gt; mangled. :-(
+</EM><BR>
+<EM>&gt; Also, when leaving X, the console display is completely screwed no matter
+</EM><BR>
+<EM>&gt; what mode
+</EM><BR>
+<EM>&gt; I exit from.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I had to add the option &quot;nolinear&quot; to get X going but otherwise KDE came up
+</EM><BR>
+<EM>&gt; fine.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So that's where I'm at. If anyone figures out how to get the stock RH kernel
+</EM><BR>
+<EM>&gt; working
+</EM><BR>
+<EM>&gt; in multi-user mode, I'd very much appreciate it. Please post it to the list
+</EM><BR>
+<EM>&gt; so everyone
+</EM><BR>
+<EM>&gt; benefits, and I'll let anyone know if I solve anything else.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; /Michael
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; --
+</EM><BR>
+<EM>&gt; To unsubscribe: send e-mail to axp-list-request@redhat.com with
+</EM><BR>
+<EM>&gt; 'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</EM><BR>
+<P><PRE>
+-- 
+Joachim Schambach			Tel: (512) 471-1303
+Physics Department, RLM 5.208		FAX: (798) 998-5513
+University of Texas			email: jschamba@physics.utexas.edu
+Austin, TX 78712, USA
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0118.html">James Peret: "dual boot (slightly off topic)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0116.html">Champigny, Michael: "Semi-success with Jensen Installation..."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0116.html">Champigny, Michael: "Semi-success with Jensen Installation..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0126.html">Michal Jaegermann: "Re: Semi-success with Jensen Installation..."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0116.html">Jo Schambach: "Re: Semi-success with Jensen Installation..."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:50 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

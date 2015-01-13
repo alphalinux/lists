@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: bsd-style partitioning</TITLE>
+<META NAME="Author" CONTENT="Martin Ostermann (ost@comnets.rwth-aachen.de)">
+<META NAME="Subject" CONTENT="Re: bsd-style partitioning">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: bsd-style partitioning</H1>
+<HR>
+<P>
+<!-- received="Thu Feb 11 17:06:56 1999 PST" -->
+<!-- sent="11 Feb 1999 18:05:08 +0100" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="Re: bsd-style partitioning" -->
+<!-- id="43btj0zxa3.fsf@comnets.rwth-aachen.de" -->
+<!-- inreplyto="Thu, 11 Feb 1999 08:32:26 -0800 (PST)&quot;" -->
+<STRONG>Martin Ostermann</STRONG> (<A HREF="mailto:ost@comnets.rwth-aachen.de?subject=Re:%20bsd-style%20partitioning"><EM>ost@comnets.rwth-aachen.de</EM></A>)<BR>
+<EM>11 Feb 1999 18:05:08 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#359">[ date ]</A>
+<A HREF="index.html#359">[ thread ]</A>
+<A HREF="subject.html#359">[ subject ]</A>
+<A HREF="author.html#359">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0360.html">Daniel J. Frasnelli: "Library questions (Re: Assembler code conversion package)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0358.html">Uncle George: "Re: My 2940uw doesnt work on a Dec Alpha"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 11 Feb 1999 08:32:26 -0800 (PST), Marc Alvidrez &lt;<A HREF="mailto:alvia@ocf.berkeley.edu?subject=Re:%20bsd-style%20partitioning">alvia@ocf.berkeley.edu</A>&gt; said:
+<BR>
+<EM>&gt; Is writing a disklabel an irreprable act?  After I write a disklabel, will
+</EM><BR>
+<P>Basically, yes. It will destroy the previous fdisk label. But it will
+<BR>
+not touch the existing partitions. It would be theoretically possible
+<BR>
+to create an bsdlabel whose partitions access the same areas as the
+<BR>
+previous fdisk label. The biggest problem involves &quot;logical drives&quot; in
+<BR>
+the extended partition: there are 1 or 2 blocks used for linear
+<BR>
+linking all &quot;logical drives&quot; together, so the bsdlabel partition must
+<BR>
+not start on the beginning of the cylinder, but one or two blocks
+<BR>
+later.
+<BR>
+<P><EM>&gt; I be unable to boot from a floppy with the &quot;root= /dev/sda2&quot; flag? 
+</EM><BR>
+<P>Since /dev/sda2 used to be a primary partition, I guess you'd be able to
+<BR>
+install the bsdlabel in such a way that this is possible.
+<BR>
+<P><EM>&gt; How are bsd partitions accessed (does /dev/sda2 = /dev/c0t0d0s1).  
+</EM><BR>
+<P>They get maped to /dev/sda*, but I don't know exactly how.
+<BR>
+<P><EM>&gt; bsd-style partitions, will I need to make sure that I create new devices? 
+</EM><BR>
+<P>No, you don't need to.
+<BR>
+<P><EM>&gt; What about /etc/fstab? 
+</EM><BR>
+<P>It basicallly looks the same.
+<BR>
+<P><EM>&gt; My current partition table looks like this:
+</EM><BR>
+<P><EM>&gt; Disk /dev/sda: 141 heads, 62 sectors, 1018 cylinders
+</EM><BR>
+<EM>&gt; Units = cylinders of 8742 * 512 bytes
+</EM><BR>
+<P><EM>&gt;    Device Boot    Start      End   Blocks   Id  System
+</EM><BR>
+<EM>&gt; /dev/sda2             2       48   205437   83  Linux native
+</EM><BR>
+<EM>&gt; /dev/sda3            49     1018  4239870    5  Extended
+</EM><BR>
+<EM>&gt; /dev/sda5            49      236   821717   83  Linux native
+</EM><BR>
+<EM>&gt; /dev/sda6           237      476  1049009   83  Linux native
+</EM><BR>
+<EM>&gt; /dev/sda7           477      505   126728   82  Linux swap
+</EM><BR>
+<EM>&gt; /dev/sda8           506      681   769265   83  Linux native
+</EM><BR>
+<P><EM>&gt; Can I just ignore the extended partition when defining the bsd partitions
+</EM><BR>
+<EM>&gt; so that it will look something like: 
+</EM><BR>
+<P><EM>&gt; Partition       Mount Point     Start   End
+</EM><BR>
+<EM>&gt; 0               /               2       48
+</EM><BR>
+<P>Yes.
+<BR>
+<P><EM>&gt; 1               swap            477     505
+</EM><BR>
+<P>you could reinitalize swap, than that will work ...
+<BR>
+<P><EM>&gt; 2               whole disk      0       1018
+</EM><BR>
+<P>I had problems with such an entry, because different kernel versions
+<BR>
+did the mapping differently. Suddenly /dev/sda4 became /dev/sda3 ...
+<BR>
+If you don't intend to use this (e.g. for backup), I would skip it.
+<BR>
+<P><EM>&gt; 6               /usr            49      236
+</EM><BR>
+<EM>&gt; 7               /home           237     476
+</EM><BR>
+<P>No, because of those extra blocks in the extended partiton.
+<BR>
+<P>HTH, Martin
+<BR>
+<PRE>
+-- 
+Martin Ostermann                | mailto:ost+<A HREF="mailto:sig0@comnets.rwth-aachen.de?subject=Re:%20bsd-style%20partitioning">sig0@comnets.rwth-aachen.de</A>
+Communication Networks          | <A HREF="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</A>
+Aachen University of Technology | phone: ++49/241/807917
+Germany                         | fax: ++49/241/8890378
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20bsd-style%20partitioning">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20bsd-style%20partitioning">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0360.html">Daniel J. Frasnelli: "Library questions (Re: Assembler code conversion package)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0358.html">Uncle George: "Re: My 2940uw doesnt work on a Dec Alpha"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Feb 11 1999 - 10:00:17 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

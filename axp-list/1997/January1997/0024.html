@@ -1,0 +1,176 @@
+<!-- received="Thu Jan  2 11:47:42 1997 " -->
+<!-- sent="Thu, 2 Jan 1997 00:47:26 -0500 (EST)" -->
+<!-- name="Yash Khemani" -->
+<!-- email="khemani@plexstar.com" -->
+<!-- subject="problems setting up networking" -->
+<!-- id="9701012317.ZM713@davros.bwh.com" -->
+<!-- inreplyto="199701010139.SAA19254@ellpspace.math.ualberta.ca" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>problems setting up networking</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>problems setting up networking</h2>
+
+<b>Yash Khemani</b> (<a href="mailto:khemani@plexstar.com"><i>khemani@plexstar.com</i></a>)<br>
+<i>Thu, 2 Jan 1997 00:47:26 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#24">[ date ]</a><a href="index.html#24">[ thread ]</a><a href="subject.html#24">[ subject ]</a><a href="author.html#24">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0025.html">Joachim Geiler: "Re: Troubles with X and S3"</a>
+<li> <b>Previous message:</b> <a href="0023.html">Bryan W. Headley: "Re: Big problems with 4.0 installation"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+hi folks,<br>
+<p>
+first, happy new year to all!  hope we've all sobered up by<br>
+now, or are getting there quickly :-)<br>
+<p>
+next, my networking problem you may have heard me complain<br>
+about.  here is what i want to do...i've set up a subnet<br>
+for my home machines.  my udb running redhat/axp is to act<br>
+as router.  here is what i've configured...<br>
+<p>
+meera_s.plexstar.com (192.245.235.97, 192.245.235.42) is my udb.<br>
+it's acting as a nameserver - i have named running.<br>
+<p>
+my resolv.conf:<br>
+# start of resolv.conf<br>
+search plexstar.com <br>
+nameserver 127.0.0.1<br>
+# end of resolv.conf<br>
+<p>
+(i had the above also with "domain plexstar.com")<br>
+<p>
+my nsswitch.conf:<br>
+# start of nsswitch.conf<br>
+passwd:         files<br>
+group:          files<br>
+hosts:          files dns<br>
+networks:       files<br>
+protocols:      files<br>
+rpc:            files<br>
+ethers:         files<br>
+netmasks:       files<br>
+bootparams:     files<br>
+automount:      files<br>
+aliases:        files<br>
+services:       files<br>
+# end of nsswitch.conf<br>
+<p>
+my /etc/hosts:<br>
+# start of /etc/hosts<br>
+127.0.0.1       localhost       <br>
+192.245.235.97  meera_s meera_s.plexstar.com linux linux.plexstar.com loghost<br>
+192.245.235.42  meera_s meera_s.plexstar.com linux linux.plexstar.com<br>
+# end of /etc/hosts<br>
+<p>
+my /etc/sysconfig/network:<br>
+# start of /etc/sysconfig/network<br>
+NETWORKING=yes<br>
+HOSTNAME=meera_s.plexstar.com<br>
+DOMAINNAME=plexstar.com<br>
+GATEWAY=192.245.230.97<br>
+GATEWAYDEV=eth0<br>
+# end of /etc/sysconfig/network<br>
+<p>
+my /etc/sysconfig/network-scripts/ifcfg-eth0:<br>
+# start of /etc/sysconfig/network-scripts/ifcfg-eth0<br>
+DEVICE=eth0<br>
+IPADDR=192.245.235.97<br>
+NETMASK=255.255.255.224<br>
+NETWORK=192.245.235.96<br>
+BROADCAST=192.245.235.97<br>
+ONBOOT=yes<br>
+BOOTP=no<br>
+# end of /etc/sysconfig/network-scripts/ifcfg-eth0<br>
+<p>
+<p>
+<p>
+route reveals:<br>
+Kernel IP routing table<br>
+Destination     Gateway         Genmask         Flags Metric Ref    Use<br>
+Iface<br>
+192.245.235.96  *               255.255.255.224 U     0      0        1<br>
+eth0<br>
+127.0.0.0       *               255.255.255.224 U     0      0        3 lo<br>
+                                                                                <br>
+<p>
+<p>
+ifconfig -a reveals:<br>
+lo        Link encap:Local Loopback  <br>
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.255.255.224<br>
+          UP BROADCAST LOOPBACK RUNNING  MTU:7168  Metric:1<br>
+          RX packets:159 errors:0 dropped:0 overruns:0<br>
+          TX packets:159 errors:0 dropped:0 overruns:0<br>
+<p>
+eth0      Link encap:10Mbps Ethernet  HWaddr 08:00:2B:E5:F1:80<br>
+          inet addr:192.245.235.97  Bcast:192.245.235.97<br>
+Mask:255.255.255.224<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:28613 errors:0 dropped:0 overruns:0<br>
+          TX packets:28855 errors:0 dropped:0 overruns:0<br>
+          Interrupt:10 Base address:0xb000 <br>
+<p>
+<p>
+<p>
+okay, i can ping/telnet this machine from itself and other machines on my<br>
+home network. but if i do: nslookup meera_s, it freezes, waiting, looking.<br>
+and if i do a nslookup of eith ip (192.245.235.42, 192.245.235.97), i get:<br>
+Server:  localhost<br>
+Address:  127.0.0.1<br>
+<p>
+*** localhost can't find 192.245.235.97: Server failed<br>
+<p>
+i can nslookup any other machine in my dns records...<br>
+i am not including my entire dns files, but here is an excerpt:<br>
+meera_s         IN      A       192.245.235.42<br>
+meera_s         IN      A       192.245.235.97<br>
+ms              IN      CNAME   meera_s.plexstar.com.<br>
+<p>
+and from the reverse lookup records:<br>
+97              IN      PTR     meera_s.plexstar.com.<br>
+<p>
+<p>
+so what am i not doing right?<br>
+<p>
+is there anything else i should take into consideration?<br>
+<p>
+thanks!<br>
+yash<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0025.html">Joachim Geiler: "Re: Troubles with X and S3"</a>
+<li> <b>Previous message:</b> <a href="0023.html">Bryan W. Headley: "Re: Big problems with 4.0 installation"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

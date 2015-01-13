@@ -1,0 +1,239 @@
+<!-- received="Sun Mar 15 17:35:31 1998 " -->
+<!-- sent="Sun, 15 Mar 1998 23:19:08 +0100 (MET)" -->
+<!-- name="Nils Swart" -->
+<!-- email="nils@thrijswijk.nl" -->
+<!-- subject="Problems with 2.1.90" -->
+<!-- id="3.0.5.32.19980315113615.0085e120@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Problems with 2.1.90</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Problems with 2.1.90</h2>
+
+<b>Nils Swart</b> (<a href="mailto:nils@thrijswijk.nl"><i>nils@thrijswijk.nl</i></a>)<br>
+<i>Sun, 15 Mar 1998 23:19:08 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#384">[ date ]</a><a href="index.html#384">[ thread ]</a><a href="subject.html#384">[ subject ]</a><a href="author.html#384">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0385.html">dean prichard: "Re: Problems with 2.1.90"</a>
+<li> <b>Previous message:</b> <a href="0383.html">Hugo van der Kooij: "Re: SSH 1.2.21 &amp; RH5.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+Today I tried to compile kernel 2.1.90 (patch 3), and after a few minor<br>
+homemade patches (see below).<br>
+<p>
+After these patches, all goes well and everything seems to compile<br>
+smoothly. Until I try to boot this kernel.<br>
+<p>
+The first thing it starts complaining about is "Keyboard timeout" before<br>
+initting the scsi controller. And the system completely hangs when it<br>
+inits my Adaptec 2940UW.. <br>
+<p>
+This is a 164SX at 533 MHz, running RedHat 5.0 with all standard glibc<br>
+updates. <br>
+gcc -v returns :<br>
+Reading specs from /usr/lib/gcc-lib/alpha-redhat-linux/2.7.2.3/specs<br>
+gcc version 2.7.2.3<br>
+<p>
+Does anyone have an idea why a) the keyboard timeout is given and b) the<br>
+2940UW initialisation hangs the system ?<br>
+<p>
+Thanks in advance !<br>
+<p>
+------- [ Home made patches for kernel 2.1.90 pre-3 ] ----<br>
+<p>
+--- /usr/src/linux/mm/page_alloc.c.old    Mon Nov 11 11:21:41 1991<br>
++++ /usr/src/linux/mm/page_alloc.c        Mon Nov 11 11:23:22 1991<br>
+@@ -31,6 +31,11 @@<br>
+ int nr_swap_pages = 0;<br>
+ int nr_free_pages = 0;<br>
+<p>
++/* 980315 <a href="mailto:nils@tdsdata.net">nils@tdsdata.net</a>   Possible bugfix ? */<br>
++int min_free_pages = 0;<br>
++int free_pages_low = 0;<br>
++int free_pages_high = 0;<br>
++<br>
+ /*<br>
+  * Free area management<br>
+  *<br>
+--------------[snip]-----------------<br>
+--- /usr/src/linux/arch/alpha/kernel/bios32.c.old        Sun Mar 15 16:25:25 1998<br>
++++ /usr/src/linux/arch/alpha/kernel/bios32.c    Sun Mar 15 16:26:09 1998<br>
+@@ -813,7 +813,7 @@<br>
+  */<br>
+ static inline void eb66p_fixup(void)<br>
+ {<br>
+-       static char irq_tab[5][5] __initdata = {<br>
++       static char irq_tab[5][5]  = {<br>
+                {16+0, 16+0, 16+5,  16+9, 16+13},  /* IdSel 6,  slot 0,<br>
+J25 */<br>
+                {16+1, 16+1, 16+6, 16+10, 16+14},  /* IdSel 7,  slot 1,<br>
+J26 */<br>
+                {  -1,   -1,   -1,    -1,    -1},  /* IdSel 8,  SIO<br>
+*/<br>
+@@ -869,7 +869,7 @@<br>
+ #if defined(CONFIG_ALPHA_PC164) || defined(CONFIG_ALPHA_LX164)<br>
+ static inline void alphapc164_fixup(void)<br>
+ {<br>
+-       static char irq_tab[7][5] __initdata = {<br>
++       static char irq_tab[7][5]  = {<br>
+                /*INT   INTA  INTB   INTC   INTD */<br>
+                { 16+2, 16+2, 16+9,  16+13, 16+17}, /* IdSel  5, slot 2,<br>
+J20 */<br>
+                { 16+0, 16+0, 16+7,  16+11, 16+15}, /* IdSel  6, slot 0,<br>
+J29 */<br>
+@@ -900,7 +900,7 @@<br>
+  */<br>
+ static inline void cabriolet_fixup(void)<br>
+ {<br>
+-       static char irq_tab[5][5] __initdata = {<br>
++       static char irq_tab[5][5]  = {<br>
+                { 16+2, 16+2, 16+7, 16+11, 16+15}, /* IdSel 5,  slot 2,<br>
+J21 */<br>
+                { 16+0, 16+0, 16+5,  16+9, 16+13}, /* IdSel 6,  slot 0,<br>
+J19 */<br>
+                { 16+1, 16+1, 16+6, 16+10, 16+14}, /* IdSel 7,  slot 1,<br>
+J20 */<br>
+@@ -956,7 +956,7 @@<br>
+  */<br>
+ static inline void eb66_and_eb64p_fixup(void)<br>
+ {<br>
+-       static char irq_tab[5][5] __initdata = {<br>
++       static char irq_tab[5][5]  = {<br>
+                {16+7, 16+7, 16+7, 16+7,  16+7},  /* IdSel 5,  slot ?, ??<br>
+*/<br>
+                {16+0, 16+0, 16+2, 16+4,  16+9},  /* IdSel 6,  slot ?, ??<br>
+*/<br>
+                {16+1, 16+1, 16+3, 16+8, 16+10},  /* IdSel 7,  slot ?, ??<br>
+*/<br>
+@@ -1005,7 +1005,7 @@<br>
+  */<br>
+ static inline void mikasa_fixup(void)<br>
+ {<br>
+-       static char irq_tab[8][5] __initdata = {<br>
++       static char irq_tab[8][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                {16+12, 16+12, 16+12, 16+12, 16+12},    /* IdSel 17,  SCSI<br>
+*/<br>
+                {   -1,    -1,    -1,    -1,    -1},    /* IdSel 18,  PCEB<br>
+*/<br>
+@@ -1076,7 +1076,7 @@<br>
+  */<br>
+ static inline void noritake_fixup(void)<br>
+ {<br>
+-       static char irq_tab[13][5] __initdata = {<br>
++       static char irq_tab[13][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                {   -1,    -1,    -1,    -1,    -1},  /* IdSel 18,  PCEB<br>
+*/<br>
+                {   -1,    -1,    -1,    -1,    -1},  /* IdSel 19,  PPB<br>
+*/<br>
+@@ -1140,7 +1140,7 @@<br>
+  */<br>
+ static inline void alcor_fixup(void)<br>
+ {<br>
+-       static char irq_tab[6][5] __initdata = {<br>
++       static char irq_tab[6][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                { 16+8,  16+8,  16+9, 16+10, 16+11},    /* IdSel 18,  slot<br>
+0 */<br>
+                {16+16, 16+16, 16+17, 16+18, 16+19},    /* IdSel 19,  slot<br>
+3 */<br>
+@@ -1195,7 +1195,7 @@<br>
+  */<br>
+ static inline void xlt_fixup(void)<br>
+ {<br>
+-       static char irq_tab[7][5] __initdata = {<br>
++       static char irq_tab[7][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                {16+13, 16+13, 16+13, 16+13, 16+13},    /* IdSel 17,<br>
+TULIP  */<br>
+                { 16+8,  16+8,  16+9, 16+10, 16+11},    /* IdSel 18,  slot<br>
+0 */<br>
+@@ -1266,7 +1266,7 @@<br>
+ #ifdef CONFIG_ALPHA_SABLE<br>
+ static inline void sable_fixup(void)<br>
+ {<br>
+-        static char irq_tab[9][5] __initdata = {<br>
++        static char irq_tab[9][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                { 32+0,  32+0,  32+0,  32+0,  32+0},  /* IdSel 0,  TULIP<br>
+*/<br>
+                { 32+1,  32+1,  32+1,  32+1,  32+1},  /* IdSel 1,  SCSI<br>
+*/<br>
+@@ -1349,7 +1349,7 @@<br>
+ #ifdef CONFIG_ALPHA_MIATA<br>
+ static inline void miata_fixup(void)<br>
+ {<br>
+-        static char irq_tab[18][5] __initdata = {<br>
++        static char irq_tab[18][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                {16+ 8, 16+ 8, 16+ 8, 16+ 8, 16+ 8},  /* IdSel 14,<br>
+DC21142  */<br>
+                {   -1,    -1,    -1,    -1,    -1},  /* IdSel 15,  EIDE<br>
+*/<br>
+@@ -1420,7 +1420,7 @@<br>
+ #ifdef CONFIG_ALPHA_SX164<br>
+ static inline void sx164_fixup(void)<br>
+ {<br>
+-       static char irq_tab[5][5] __initdata = {<br>
++       static char irq_tab[5][5]  = {<br>
+                /*INT    INTA   INTB   INTC   INTD */<br>
+                { 16+ 9, 16+ 9, 16+13, 16+17, 16+21}, /* IdSel 5 slot 2<br>
+J17 */<br>
+                { 16+11, 16+11, 16+15, 16+19, 16+23}, /* IdSel 6 slot 0<br>
+J19 */<br>
+@@ -1461,7 +1461,7 @@<br>
+         * that they use the default INTA line, if they are interrupt<br>
+         * driven at all).<br>
+         */<br>
+-       static const char pirq_tab[][5] __initdata = {<br>
++       static const char pirq_tab[][5]  = {<br>
+ #ifdef CONFIG_ALPHA_P2K<br>
+                { 0,  0, -1, -1, -1}, /* idsel  6 (53c810) */<br>
+                {-1, -1, -1, -1, -1}, /* idsel  7 (SIO: PCI/ISA bridge) */<br>
+----------------------------------------[snip]=---------------<br>
+<p>
+Greets,<br>
+	Nils Swart<br>
+	(<a href="mailto:nils@thrijswijk.nl">nils@thrijswijk.nl</a> / nils@tdsdata.net)<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0385.html">dean prichard: "Re: Problems with 2.1.90"</a>
+<li> <b>Previous message:</b> <a href="0383.html">Hugo van der Kooij: "Re: SSH 1.2.21 &amp; RH5.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

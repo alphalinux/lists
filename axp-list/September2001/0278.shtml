@@ -1,0 +1,456 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> reiserfs on all my SRM-alpha drives: how I did it</H1> 
+	
+<!-- received="Fri Oct 26 21:01:03 2001" -->
+<!-- isoreceived="20011027040103" -->
+<!-- sent="Fri, 26 Oct 2001 16:26:38 -0400" -->
+<!-- isosent="20011026202638" -->
+<!-- name="James D. Freels" -->
+<!-- email="freelsjd@ornl.gov" -->
+<!-- subject="reiserfs on all my SRM-alpha drives: how I did it" -->
+<!-- id="0GLT00FDQY4FBJ@email.cind.ornl.gov" -->
+<STRONG>Subject: </STRONG>reiserfs on all my SRM-alpha drives: how I did it<BR>
+<STRONG>From: </STRONG>James D. Freels (<EM>freelsjd@ornl.gov</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Oct 26 13:26:38 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#278">[ date ]</A>
+<A HREF="index.shtml#278">[ thread ]</A>
+<A HREF="subject.shtml#278">[ subject ]</A>
+<A HREF="author.shtml#278">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0279.shtml">Bryan W. Headley: "Re: Hammer : Re: Forw: FW: Red Hat has NOT dropped Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0277.shtml">jason.brashear@amd.com: "RE: Hammer"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0293.shtml">Christopher C. Chimelis: "Re: reiserfs on all my SRM-alpha drives: how I did it"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Because I have been happy with reiserfs on my Intel Linux machines, 
+<BR>
+I have just converted all my ext2 filesystems to reiserfs filesystems on 
+<BR>
+my first Alpha machine (after testing a single filesystem for a few days).  
+<BR>
+All appears well.  My system is SRM based, and since aboot doesn't 
+<BR>
+recognize reiserfs yet, I had to pull a few configuration tricks to get 
+<BR>
+things like I want.  All partitions except the boot partition (sda1) were 
+<BR>
+easily converted by copying contents to another drive, issuing a 
+<BR>
+mkreiserfs on the empty partition, and copying the saved contents
+<BR>
+back to the new partition.  The boot partition required some more work.
+<BR>
+I thought others might be interested so I am posting my how-to below:
+<BR>
+_____________________________________________________
+<BR>
+October 26, 2001
+<BR>
+<P>These are notes to myself on how to setup the boot process for
+<BR>
+a Debian/Alpha computer using the SRM console.  
+<BR>
+<P>First, create the kernel image.  This is the normal process for
+<BR>
+creating a kernel image.  Particular configuration options that go
+<BR>
+into the &quot;/usr/src/linux/.config&quot; file that are unique to this machine
+<BR>
+<P>CONFIG_ALPHA=y
+<BR>
+CONFIG_ALPHA_PC164=y
+<BR>
+CONFIG_ALPHA_EV5=y
+<BR>
+CONFIG_ALPHA_CIA=y
+<BR>
+CONFIG_ALPHA_SRM=y
+<BR>
+CONFIG_ALPHA_BROKEN_IRQ_MASK=y
+<BR>
+CONFIG_SRM_ENV=y
+<BR>
+CONFIG_SCSI_NCR53C8XX=y
+<BR>
+CONFIG_SCSI_NCR53C8XX_DEFAULT_TAGS=8
+<BR>
+CONFIG_SCSI_NCR53C8XX_MAX_TAGS=32
+<BR>
+CONFIG_SCSI_NCR53C8XX_SYNC=0
+<BR>
+CONFIG_DE4X5=y
+<BR>
+CONFIG_RTC=y
+<BR>
+CONFIG_REISERFS_FS=y
+<BR>
+CONFIG_MATHEMU=y
+<BR>
+<P>Actually build the kernel by issuing the command
+<BR>
+&quot;make dep;make clean;make boot&quot;
+<BR>
+from the /usr/src/linux area.  You will then have the following two
+<BR>
+files of importance after the build (since we do not use modules for
+<BR>
+this machine):
+<BR>
+/usr/src/linux/System.map
+<BR>
+/usr/src/linux/arch/alpha/boot/vmlinux.gz
+<BR>
+<P>Second, and assuming a new v2.4.13 kernel, copy these essential files
+<BR>
+to four places: 
+<BR>
+<P>1) archival:
+<BR>
+cp /usr/src/linux/System.map /boot/System.map-2.4.13
+<BR>
+cp /usr/src/linux/arch/alpha/boot/vmlinux.gz /boot/vmlinuz-2.4.13
+<BR>
+ln -sf /boot/System.map-2.4.13 System.map
+<BR>
+ln -sf /boot/vmlinuz-2.4.13 vmlinuz
+<BR>
+<P>2) 1st boot option (1.44 Mb floppy drive):
+<BR>
+<P>Put a new floppy diskette (1.44 Mb) into the floppy drive.
+<BR>
+<P>Format the drive by issuing the command &quot;fdformat /dev/fd0&quot;
+<BR>
+<P>Create an ext2 filesystem on the floppy drive &quot;mke2fs /dev/fd0&quot;
+<BR>
+<P>Copy an SRM-bootable image (in aboot Debian package) by 
+<BR>
+&quot;e2writeboot /dev/fd0 /boot/bootlx&quot; 
+<BR>
+<P>Mount the floppy diskette as an ext2 filesystem
+<BR>
+&quot;mount /dev/fd0 /mnt/floppy&quot;
+<BR>
+<P>Copy the kernel image to the floppy
+<BR>
+&quot;cp /boot/vmlinuz /mnt/floppy&quot;
+<BR>
+<P>umount /mnt/floppy
+<BR>
+<P>You can now boot the machine from this kernel stored on the floppy by
+<BR>
+issuing the sequence starting with &quot;shutdown -h now&quot;.  Then push the
+<BR>
+reset botton on the from panel.  While the machine is booting up, you
+<BR>
+will see SRM messages &quot;e2.e3.e4.e5.e6.e7&quot;.  At this point issue a
+<BR>
+couple of control-Cs (^-C).  Then it will try and boot, and issue a
+<BR>
+couple more control-Cs (^-C).  Note control-c is the &quot;halt&quot; key in SRM
+<BR>
+lingo.  This key could be reconfigured to something else, but
+<BR>
+control-c is fine.  You should now be at the SRM prompt that looks
+<BR>
+like &quot;&gt;&gt;&quot; without the double quotes.  If you did not issue the
+<BR>
+control-Cs, the SRM firmware would automatically start booting with
+<BR>
+the default boot configuration which is the same as the &quot;hard drive
+<BR>
+direct-boot&quot; configuration below.  
+<BR>
+<P>Some important SRM configuration parameters that have been set for
+<BR>
+this machine (and given in the /proc/srm_environment) are:
+<BR>
+<P>bootdef_dev = dka0
+<BR>
+boot_file = vmlinuz
+<BR>
+bootos_flags = &quot;root=/dev/sdb1 cycle=500000000&quot;
+<BR>
+auto_action = restart
+<BR>
+boot_reset = on
+<BR>
+<P>Note: the &quot;cycle=500000000&quot; is a requirement that arose due to a
+<BR>
+clock-timing problem in the 2.4.x kernels on the alpha that did not
+<BR>
+exist in the 2.2.x kernels.  It is a workaround that will likely get
+<BR>
+corrected and be unnecessary in a future kernel.
+<BR>
+<P>Note2: The SRM console still doesn't behave exactly like I would want
+<BR>
+because I have to push the reset button to reboot.  I get the prompt &quot;&gt;&gt;&quot;
+<BR>
+after a &quot;shutdown -r now&quot; or &quot;shutdown -h now&quot;, but I cannot get a
+<BR>
+reboot unless I hit the reset button.
+<BR>
+<P>To boot the floppy issue
+<BR>
+<P>boot dva0 -fi vmlinuz -fl &quot;root=/dev/sdb1 cycle=500000000&quot;
+<BR>
+<P>3) 2nd boot option (hard drive directly)
+<BR>
+<P>Previously, the 1st harddrive (lowest scsi ID or sda, which would get
+<BR>
+you the c:\ drive in the dos/windows world) has been partitioned using
+<BR>
+the BSD partition option of fdisk.  sda1 is 4-sector partition
+<BR>
+(sectors 2-5 of the sda drive) that is an ext2 filesystem type because
+<BR>
+aboot does not understand reiserfs, but does understand UFS, ext2,
+<BR>
+iso9660, etc.  sda2 starts at sector 6 and goes to the end of the
+<BR>
+drive and is presently a reiserfs partition.  sector 1 is left alone
+<BR>
+(no filesystem placed) to make room for raw binary files for aboot and
+<BR>
+the kernel.  The partition print from fdisk looks like this:
+<BR>
+<P>fdisk /dev/sda
+<BR>
+Detected an OSF/1 disklabel on /dev/sda, entering disklabel mode.
+<BR>
+To return to DOS partition table mode, use the 'r' command.
+<BR>
+<P>BSD disklabel command (m for help): p
+<BR>
+<P>2 partitions:
+<BR>
+#       start       end      size     fstype   [fsize bsize   cpg]
+<BR>
+&nbsp;&nbsp;a:        2         5         4       ext2
+<BR>
+&nbsp;&nbsp;b:        6      1022      1017       ext2
+<BR>
+<P>BSD disklabel command (m for help):
+<BR>
+<P>The filesystems were made by issuing
+<BR>
+mke2fs /dev/sda1
+<BR>
+mkreiserfs /dev/sda2
+<BR>
+<P>The sda2 partition is used by the system as /usr3 (general user
+<BR>
+area).  The sda1 partition is used to store kernels, boot
+<BR>
+configuration, etc., and is not automounted in /etc/fstab to minimize
+<BR>
+the possibility of corruption (not journeled as now all the other
+<BR>
+partitions are with the reiserfs).
+<BR>
+<P>After having created the partitions and filesystems on /dev/sda, then
+<BR>
+we must create the direct-boot information.
+<BR>
+<P>A filesystem-less boot (direct-boot) is created with (from the
+<BR>
+/boot area):
+<BR>
+<P>swriteboot /dev/sda bootlx vmlinuz
+<BR>
+<P>The SRM system is configured by default to boot this image.  This
+<BR>
+default configuration is also duplicated in the aboot configuration
+<BR>
+(see next).
+<BR>
+<P>4) 3rd boot option (hard drive boot options)
+<BR>
+<P>Copy the new kernel image to the ext2 boot options area with the
+<BR>
+commands:
+<BR>
+<P>mount -t ext2 /dev/sda1 /mnt/sda1
+<BR>
+cp /usr/src/linux/arch/alpha/boot/vmlinux.gz /mnt/sda1/vmlinuz-2.4.13
+<BR>
+<P>Also included in the same area (/mnt/sda1) are other older kernel
+<BR>
+images and the aboot configuration file in &quot;/mnt/sda1/etc/aboot.conf&quot;.
+<BR>
+<P>Confirm the correct location of the aboot configuration file by
+<BR>
+issuing the command
+<BR>
+<P>abootconf /dev/sda 1
+<BR>
+<P>It turns out that abootconf will only work for /dev/sda (as far as I
+<BR>
+can tell) which forces aboot.conf to be located where it is.  Debian
+<BR>
+by default puts it into /etc/aboot.conf and this would work if the
+<BR>
+root filesystem were sda1.  We could do this if we always booted
+<BR>
+from floppy or direct-boot from the hard drive.  But, if we want
+<BR>
+reiserfs and &quot;hard drive boot options&quot;, then we have to have the
+<BR>
+little ext2 filesystem in sda1.  That is basically why it is set up
+<BR>
+the way it is.
+<BR>
+<P>Now the contents of /mnt/sda1/etc/aboot.conf is
+<BR>
+#
+<BR>
+# aboot default configurations jdf 10/26/2001
+<BR>
+#
+<BR>
+# boot option descriptions:
+<BR>
+#
+<BR>
+# 0 boots a compressed kernel image &quot;vmlinuz&quot; from aboot
+<BR>
+#   space just before the first partition.  This aboot 
+<BR>
+#   space is created with the command (from /boot)
+<BR>
+#   swriteboot /dev/sda bootlx vmlinuz
+<BR>
+# 1 boots current kernel
+<BR>
+# 2 boots current kernel in single-user mode
+<BR>
+# 3 boots prior kernel
+<BR>
+# 4 boots previous stable kernel
+<BR>
+#
+<BR>
+0:0/vmlinuz        ro root=/dev/sdb1 cycle=500000000
+<BR>
+1:1/vmlinuz-2.4.13 ro root=/dev/sdb1 cycle=500000000
+<BR>
+2:1/vmlinuz-2.4.13 ro root=/dev/sdb1 cycle=500000000 single
+<BR>
+3:1/vmlinuz-2.4.12 ro root=/dev/sdb1 cycle=500000000
+<BR>
+4:1/vmlinuz-2.2.19 ro root=/dev/sdb1 cycle=500000000
+<BR>
+-
+<BR>
+<P>With this type of arrangement, you can optionally boot from the SRM
+<BR>
+prompt (to get the prompt see above) by getting into the interactive
+<BR>
+mode of aboot:
+<BR>
+<P><EM>&gt;&gt;boot -fl i 
+</EM><BR>
+<P>Then issue the options directly (see the aboot help menu) when it goes
+<BR>
+into interactive mode)&quot;
+<BR>
+<P>0 (same as hard drive direct boot)
+<BR>
+<P>or
+<BR>
+<P>1 (effectively the same, but now booting from the ext2 partition)
+<BR>
+<P>or
+<BR>
+<P>2 (same as boot 1, but single-user mode)
+<BR>
+<P>or
+<BR>
+<P>etc.  (older kernels, test kernels, etc.)
+<BR>
+<P><P>BOTTOM LINE
+<BR>
+<P>cd /usr/src/linux
+<BR>
+make menuconfig
+<BR>
+make dep;make clean;make boot
+<BR>
+cp System.map /boot/System.map
+<BR>
+cp ./arch/alpha/boot/vmlinux.gz /boot/vmlinuz
+<BR>
+cd /boot
+<BR>
+swriteboot /dev/sda bootlx vmlinuz
+<BR>
+<P>cp other kernel images to floppy and/or hard-drive options as desired
+<BR>
+and described above.
+<BR>
+<P>REFERENCES
+<BR>
+<P>SRM Firmware Howto (from Linux Howto web pages)
+<BR>
+Alpha SRM Console for Alpha Microprossor Motherboards User's Guide
+<BR>
+(from Compaq web pages)
+<BR>
+man pages (from aboot Debian packages) on aboot.conf, swriteboot,
+<BR>
+e2writeboot, aboot
+<BR>
+reserifsprogs (Debian package and man pages)
+<BR>
+<P>TO BE DONE
+<BR>
+<P>Add CD-ROM as a boot option and create my own boot CDs.
+<BR>
+<P><P><PRE>
+-- 
+James D. Freels, P.E._i, Ph.D.
+Oak Ridge National Laboratory
+freelsjd@ornl.gov - work
+jdfreels@home.com - home
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0279.shtml">Bryan W. Headley: "Re: Hammer : Re: Forw: FW: Red Hat has NOT dropped Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0277.shtml">jason.brashear@amd.com: "RE: Hammer"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0293.shtml">Christopher C. Chimelis: "Re: reiserfs on all my SRM-alpha drives: how I did it"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Nov  1 07:26:51 2001 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

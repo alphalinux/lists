@@ -1,0 +1,162 @@
+<!-- received="Sun Feb 15 18:58:09 1998 " -->
+<!-- sent="Mon, 16 Feb 1998 00:40:58 +0200 (EET)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@tele.fi" -->
+<!-- subject="Re: Alpha machine-fault crashes" -->
+<!-- id="19980215224100Z92176-7709+26@mea.tmt.tele.fi" -->
+<!-- inreplyto="E0y49I1-0000Ct-00@jma24.robinson.cam.ac.uk" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Alpha machine-fault crashes</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Alpha machine-fault crashes</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@tele.fi"><i>matti.aarnio@tele.fi</i></a>)<br>
+<i>Mon, 16 Feb 1998 00:40:58 +0200 (EET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#155">[ date ]</a><a href="index.html#155">[ thread ]</a><a href="subject.html#155">[ subject ]</a><a href="author.html#155">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0156.html">Andreas Johansson: "Re: nfs-fs as module on 2.0.33"</a>
+<li> <b>Previous message:</b> <a href="0154.html">Richard Henderson: "Re: 2.1.86 compile problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Hey people,</i><br>
+<i>&gt; </i><br>
+<i>&gt; I was hoping maybe someone could shed some light on why this was done</i><br>
+<i>&gt; like this.</i><br>
+<p>
+	You don't mention which version you have been looking at.<br>
+	At <a href="mailto:axp-linux@redhat.com">axp-linux@redhat.com</a> -list we recently discussed on<br>
+	this, and (perhaps) were able to figure it out.<br>
+<p>
+	At lower-speed PYXIS machines, PCI bus probeing required<br>
+	apparently two   mb()   calls, but at 600 MHz things begun<br>
+	to fail.   Ergo, that "fix" went out of the window..<br>
+	Eventually it was discovered that to have the PYXIS to do what<br>
+	was wanted, we had to have a read-access of PYXIS_ERR register:<br>
+	(Hmm.. 2.1.85 didn't have it, I could not check 2.1.86 yet.)<br>
+	(How fast is your PYXIS machine ?)<br>
+<p>
+        draina();<br>
+        PYXIS_mcheck_expected = 1;<br>
+        mb();<br>
+        /* access configuration space: */<br>
+        *(vuip)addr = value;<br>
+        mb();<br>
+        *(vuip)PYXIS_ERR; /* do a PYXIS read to force the write */<br>
+        PYXIS_mcheck_expected = 0;<br>
+        mb();<br>
+<p>
+<p>
+	This double-mb() code has considerable history in Alpha chipset<br>
+	support, which all propably had the same problem, and we just<br>
+	used code we did not understand, but which seemed to work..<br>
+	(If I remember correctly, the original double-mb() code was by<br>
+	 DEC guys who saw code for other operating systems on Alpha..)<br>
+<p>
+	In principle of the three  mb()  above, only the middle one<br>
+	should be needed.  The  PYXIS_mcheck_expected  variable is<br>
+	present in various on-chip caches, and the exception processing<br>
+	will get it from those without having forced its write out to<br>
+	memory.  OTOH, the first  mb()  makes sure that write-buffers<br>
+	are empty, and next one has only the desired control register<br>
+	write in there -- thus ensure desired access order.<br>
+<p>
+<i>&gt;         /*</i><br>
+<i>&gt;          * Check if machine check is due to a badaddr() and if so,</i><br>
+<i>&gt;          * ignore the machine check.</i><br>
+<i>&gt;          */</i><br>
+<i>&gt;         mb();</i><br>
+<i>&gt;         mb();  /* magic */</i><br>
+<i>&gt;         if (PYXIS_mcheck_expected/* &amp;&amp; (mchk_sysdata-&gt;epic_dcsr &amp;&amp; 0x0c00UL)*/)</i><br>
+<i>&gt; {</i><br>
+<i>&gt;                 DBG(("PYXIS machine check expected\n"));</i><br>
+<i>&gt;                 PYXIS_mcheck_expected = 0;</i><br>
+<i>&gt;                 PYXIS_mcheck_taken = 1;</i><br>
+<i>&gt;                 mb();</i><br>
+<i>&gt;                 mb();  /* magic */</i><br>
+<i>&gt;                 draina();</i><br>
+<i>&gt;                 pyxis_pci_clr_err();</i><br>
+<i>&gt;                 wrmces(0x7);</i><br>
+<i>&gt;                 mb();</i><br>
+<i>&gt;         }</i><br>
+<i>&gt; </i><br>
+<i>&gt; Is the code to do a machine check. It's basically taken straight out of</i><br>
+<i>&gt; the alpha reference manual.</i><br>
+<p>
+	Indeed, except it contains spurious mb()s..<br>
+<p>
+<i>&gt; However, there's an else {} clause which contains the same code, plus a</i><br>
+<i>&gt; kernel debug message along the lines of:</i><br>
+<i>&gt; </i><br>
+<i>&gt;                 printk("PYXIS machine check NOT expected\n") ;</i><br>
+<i>&gt; </i><br>
+<i>&gt; and some other stuff. Now what seems to happen is the poor machine</i><br>
+<i>&gt; recursively enters this bit of code, and the machine falls over.</i><br>
+<p>
+	Recursively or repeatedly ?<br>
+	Having serial-console activated, and logging everything<br>
+	into another machine might help -- thats the way I do<br>
+	tracking of things of this type, anyway.<br>
+<p>
+<i>&gt; It doesn't make sense to me to be kludging the system when it's doing</i><br>
+<i>&gt; something it clearly _shouldn't_ be, so I commented out that bit of</i><br>
+<i>&gt; code, and the offending program now just crashes. The offending program</i><br>
+<i>&gt; being X, actually :)</i><br>
+<i>&gt; </i><br>
+<i>&gt; What I wanted to know was whether anyone knows why that code was there</i><br>
+<i>&gt; in the first place, and perhaps whether anyone else sees this type of</i><br>
+<i>&gt; crashing and whether it's a SX164-specific bug.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I suspect actually that preventing the cause of the unexpected machine</i><br>
+<i>&gt; check in the first place would be much more effective.</i><br>
+<p>
+	Indeed.  I suspect PCI processing, but for further<br>
+	discussions I suggest moving this to  <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a><br>
+	that is the place where current active AXP hackers are.<br>
+<p>
+<i>&gt; ----</i><br>
+<i>&gt; John Appleby,                           Pourquoi est-ce qu'un reve</i><br>
+<i>&gt; Cambridge University,                     ne soit jamais realise?</i><br>
+<i>&gt; UK.                               Simone de Beauvoir - Les Belles Images</i><br>
+<i>&gt; Tel.: +44 1223 460954      email: <a href="mailto:john@apples.net">john@apples.net</a></i><br>
+<i>&gt; Fax.: +44 1344 622245        www: <a href="http://www.apples.net">http://www.apples.net</a></i><br>
+<i>&gt; Mob.:     0958 256936      ntalk: <a href="mailto:jma24@apples.net">jma24@apples.net</a></i><br>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@tele.fi">matti.aarnio@tele.fi</a>&gt;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0156.html">Andreas Johansson: "Re: nfs-fs as module on 2.0.33"</a>
+<li> <b>Previous message:</b> <a href="0154.html">Richard Henderson: "Re: 2.1.86 compile problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

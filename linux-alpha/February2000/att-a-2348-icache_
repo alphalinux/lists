@@ -1,0 +1,390 @@
+diff -rup linux-dist/arch/alpha/kernel/machvec_impl.h linux/arch/alpha/kernel/machvec_impl.h
+--- linux-dist/arch/alpha/kernel/machvec_impl.h	Mon Feb 21 02:49:21 2000
++++ linux/arch/alpha/kernel/machvec_impl.h	Thu Feb 24 14:27:30 2000
+@@ -44,7 +44,6 @@
+ 	mv_switch_mm:			ev4_switch_mm,			\
+ 	mv_activate_mm:			ev4_activate_mm,		\
+ 	mv_flush_tlb_current:		ev4_flush_tlb_current,		\
+-	mv_flush_tlb_other:		ev4_flush_tlb_other,		\
+ 	mv_flush_tlb_current_page:	ev4_flush_tlb_current_page
+ 
+ #define DO_EV5_MMU							\
+@@ -52,7 +51,6 @@
+ 	mv_switch_mm:			ev5_switch_mm,			\
+ 	mv_activate_mm:			ev5_activate_mm,		\
+ 	mv_flush_tlb_current:		ev5_flush_tlb_current,		\
+-	mv_flush_tlb_other:		ev5_flush_tlb_other,		\
+ 	mv_flush_tlb_current_page:	ev5_flush_tlb_current_page
+ 
+ #define DO_EV6_MMU							\
+@@ -60,7 +58,6 @@
+ 	mv_switch_mm:			ev5_switch_mm,			\
+ 	mv_activate_mm:			ev5_activate_mm,		\
+ 	mv_flush_tlb_current:		ev5_flush_tlb_current,		\
+-	mv_flush_tlb_other:		ev5_flush_tlb_other,		\
+ 	mv_flush_tlb_current_page:	ev5_flush_tlb_current_page
+ 
+ #define IO_LITE(UP,low)							\
+diff -rup linux-dist/arch/alpha/kernel/smp.c linux/arch/alpha/kernel/smp.c
+--- linux-dist/arch/alpha/kernel/smp.c	Thu Feb 24 14:44:36 2000
++++ linux/arch/alpha/kernel/smp.c	Thu Feb 24 14:27:30 2000
+@@ -972,6 +972,33 @@ flush_tlb_range(struct mm_struct *mm, un
+ 	flush_tlb_mm(mm);
+ }
+ 
++static void
++ipi_flush_icache_page(void *x)
++{
++	struct mm_struct *mm = (struct mm_struct *) x;
++	if (mm == current->active_mm)
++		__load_new_mm_context(mm);
++}
++
++void
++flush_icache_page(struct vm_area_struct *vma, struct page *page)
++{
++	struct mm_struct *mm = vma->vm_mm;
++
++	if ((vma->vm_flags & VM_EXEC) == 0)
++		return;
++
++	mm->context = 0;
++	if (mm == current->active_mm) {
++		__load_new_mm_context(mm);
++		if (atomic_read(&mm->mm_users) <= 1)
++			return;
++	}
++
++	if (smp_call_function(ipi_flush_icache_page, mm, 1, 1)) {
++		printk(KERN_CRIT "flush_icache_page: timed out\n");
++	}
++}
+ 
+ int
+ smp_info(char *buffer)
+diff -rup linux-dist/arch/alpha/mm/fault.c linux/arch/alpha/mm/fault.c
+--- linux-dist/arch/alpha/mm/fault.c	Tue Nov 23 10:10:38 1999
++++ linux/arch/alpha/mm/fault.c	Thu Feb 24 14:27:30 2000
+@@ -38,9 +38,18 @@ extern void die_if_kernel(char *,struct 
+ unsigned long last_asn = ASN_FIRST_VERSION;
+ #endif
+ 
+-void ev5_flush_tlb_current(struct mm_struct *mm)
++extern void
++__load_new_mm_context(struct mm_struct *next_mm)
+ {
+-	ev5_activate_mm(NULL, mm, smp_processor_id());
++	unsigned long mmc;
++
++	mmc = __get_new_mm_context(next_mm, smp_processor_id());
++	next_mm->context = mmc;
++	current->thread.asn = mmc & HARDWARE_ASN_MASK;
++        current->thread.ptbr
++	  = ((unsigned long) next_mm->pgd - IDENT_ADDR) >> PAGE_SHIFT;
++
++	__reload_thread(&current->thread);
+ }
+ 
+ 
+diff -rup linux-dist/include/asm-alpha/machvec.h linux/include/asm-alpha/machvec.h
+--- linux-dist/include/asm-alpha/machvec.h	Mon Feb 21 02:49:52 2000
++++ linux/include/asm-alpha/machvec.h	Thu Feb 24 14:27:30 2000
+@@ -67,10 +67,9 @@ struct alpha_machine_vector
+ 
+ 	void (*mv_switch_mm)(struct mm_struct *, struct mm_struct *,
+ 			     struct task_struct *, long);
+-	void (*mv_activate_mm)(struct mm_struct *, struct mm_struct *, long);
++	void (*mv_activate_mm)(struct mm_struct *, struct mm_struct *);
+ 
+ 	void (*mv_flush_tlb_current)(struct mm_struct *);
+-	void (*mv_flush_tlb_other)(struct mm_struct *);
+ 	void (*mv_flush_tlb_current_page)(struct mm_struct * mm,
+ 					  struct vm_area_struct *vma,
+ 					  unsigned long addr);
+diff -rup linux-dist/include/asm-alpha/mmu_context.h linux/include/asm-alpha/mmu_context.h
+--- linux-dist/include/asm-alpha/mmu_context.h	Mon Feb 21 02:49:34 2000
++++ linux/include/asm-alpha/mmu_context.h	Thu Feb 24 14:27:30 2000
+@@ -22,7 +22,8 @@
+ #include <asm/io.h>
+ #endif
+ 
+-static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
++static inline void
++enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
+ {
+ }
+ 
+@@ -58,8 +59,7 @@ __reload_thread(struct thread_struct *pc
+  * in use) and the Valid bit set, then entries can also effectively be
+  * made coherent by assigning a new, unused ASN to the currently
+  * running process and not reusing the previous ASN before calling the
+- * appropriate PALcode routine to invalidate the translation buffer
+- * (TB)". 
++ * appropriate PALcode routine to invalidate the translation buffer (TB)". 
+  *
+  * In short, the EV4 has a "kind of" ASN capability, but it doesn't actually
+  * work correctly and can thus not be used (explaining the lack of PAL-code
+@@ -123,8 +123,6 @@ extern unsigned long last_asn;
+ #define __MMU_EXTERN_INLINE
+ #endif
+ 
+-extern void get_new_mm_context(struct task_struct *p, struct mm_struct *mm);
+-
+ static inline unsigned long
+ __get_new_mm_context(struct mm_struct *mm, long cpu)
+ {
+@@ -133,6 +131,7 @@ __get_new_mm_context(struct mm_struct *m
+ 
+ 	if ((asn & HARDWARE_ASN_MASK) >= MAX_ASN) {
+ 		tbiap();
++		imb();
+ 		next = (asn & ~HARDWARE_ASN_MASK) + ASN_FIRST_VERSION;
+ 	}
+ 	cpu_last_asn(cpu) = next;
+@@ -140,35 +139,6 @@ __get_new_mm_context(struct mm_struct *m
+ }
+ 
+ __EXTERN_INLINE void
+-ev4_switch_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm,
+-	      struct task_struct *next, long cpu)
+-{
+-	/* As described, ASN's are broken.  But we can optimize for
+-	   switching between threads -- if the mm is unchanged from
+-	   current we needn't flush.  */
+-	/* ??? May not be needed because EV4 PALcode recognizes that
+-	   ASN's are broken and does a tbiap itself on swpctx, under
+-	   the "Must set ASN or flush" rule.  At least this is true
+-	   for a 1992 SRM, reports Joseph Martin (jmartin@hlo.dec.com).
+-	   I'm going to leave this here anyway, just to Be Sure.  -- r~  */
+-
+-	if (prev_mm != next_mm)
+-		tbiap();
+-}
+-
+-__EXTERN_INLINE void
+-ev4_activate_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm, long cpu)
+-{
+-	/* This is only called after changing mm on current.  */
+-	tbiap();
+-
+-        current->thread.ptbr
+-	  = ((unsigned long) next_mm->pgd - IDENT_ADDR) >> PAGE_SHIFT;
+-
+-	__reload_thread(&current->thread);
+-}
+-
+-__EXTERN_INLINE void
+ ev5_switch_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm,
+ 	      struct task_struct *next, long cpu)
+ {
+@@ -193,28 +163,50 @@ ev5_switch_mm(struct mm_struct *prev_mm,
+ }
+ 
+ __EXTERN_INLINE void
+-ev5_activate_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm, long cpu)
++ev4_switch_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm,
++	      struct task_struct *next, long cpu)
+ {
+-	unsigned long mmc = __get_new_mm_context(next_mm, cpu);
+-	next_mm->context = mmc;
+-	current->thread.asn = mmc & HARDWARE_ASN_MASK;
+-        current->thread.ptbr
+-	  = ((unsigned long) next_mm->pgd - IDENT_ADDR) >> PAGE_SHIFT;
++	/* As described, ASN's are broken for TLB usage.  But we can
++	   optimize for switching between threads -- if the mm is
++	   unchanged from current we needn't flush.  */
++	/* ??? May not be needed because EV4 PALcode recognizes that
++	   ASN's are broken and does a tbiap itself on swpctx, under
++	   the "Must set ASN or flush" rule.  At least this is true
++	   for a 1992 SRM, reports Joseph Martin (jmartin@hlo.dec.com).
++	   I'm going to leave this here anyway, just to Be Sure.  -- r~  */
++	if (prev_mm != next_mm)
++		tbiap();
++
++	/* Do continue to allocate ASNs, because we can still use them
++	   to avoid flushing the icache.  */
++	ev5_switch_mm(prev_mm, next_mm, next, cpu);
++}
+ 
+-	__reload_thread(&current->thread);
++extern void __load_new_mm_context(struct mm_struct *);
++
++__EXTERN_INLINE void
++ev5_activate_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm)
++{
++	__load_new_mm_context(next_mm);
+ }
+ 
++__EXTERN_INLINE void
++ev4_activate_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm)
++{
++	__load_new_mm_context(next_mm);
++	tbiap();
++}
+ 
+ #ifdef CONFIG_ALPHA_GENERIC
+-# define switch_mm			alpha_mv.mv_switch_mm
+-# define activate_mm(x,y)		alpha_mv.mv_activate_mm((x),(y),smp_processor_id())
++# define switch_mm(a,b,c,d)	alpha_mv.mv_switch_mm((a),(b),(c),(d))
++# define activate_mm(x,y)	alpha_mv.mv_activate_mm((x),(y))
+ #else
+ # ifdef CONFIG_ALPHA_EV4
+-#  define switch_mm			ev4_switch_mm
+-#  define activate_mm(x,y)		ev4_activate_mm((x),(y),smp_processor_id())
++#  define switch_mm(a,b,c,d)	ev4_switch_mm((a),(b),(c),(d))
++#  define activate_mm(x,y)	ev4_activate_mm((x),(y))
+ # else
+-#  define switch_mm			ev5_switch_mm
+-#  define activate_mm(x,y)		ev5_activate_mm((x),(y),smp_processor_id())
++#  define switch_mm(a,b,c,d)	ev5_switch_mm((a),(b),(c),(d))
++#  define activate_mm(x,y)	ev5_activate_mm((x),(y))
+ # endif
+ #endif
+ 
+diff -rup linux-dist/include/asm-alpha/pgalloc.h linux/include/asm-alpha/pgalloc.h
+--- linux-dist/include/asm-alpha/pgalloc.h	Mon Feb 21 02:49:52 2000
++++ linux/include/asm-alpha/pgalloc.h	Thu Feb 24 14:27:30 2000
+@@ -3,50 +3,84 @@
+ 
+ #include <linux/config.h>
+ 
++#ifndef __EXTERN_INLINE
++#define __EXTERN_INLINE extern inline
++#define __MMU_EXTERN_INLINE
++#endif
++
++extern void __load_new_mm_context(struct mm_struct *);
++
++
+ /* Caches aren't brain-dead on the Alpha. */
+ #define flush_cache_all()			do { } while (0)
+ #define flush_cache_mm(mm)			do { } while (0)
+ #define flush_cache_range(mm, start, end)	do { } while (0)
+ #define flush_cache_page(vma, vmaddr)		do { } while (0)
+ #define flush_page_to_ram(page)			do { } while (0)
+-/*
+- * The icache is not coherent with the dcache on alpha, thus before
+- * running self modified code like kernel modules we must always run
+- * an imb().
+- */
++
++/* Note that the following two definitions are _highly_ dependent
++   on the contexts in which they are used in the kernel.  I personally
++   think it is criminal how loosely defined these macros are.  */
++
++/* We need to flush the kernel's icache after loading modules.  The
++   only other use of this macro is in load_aout_interp which is not
++   used on Alpha. 
++
++   Note that this definition should *not* be used for userspace
++   icache flushing.  While functional, it is _way_ overkill.  The
++   icache is tagged with ASNs and it suffices to allocate a new ASN
++   for the process.  */
+ #ifndef __SMP__
+ #define flush_icache_range(start, end)		imb()
+ #else
+ #define flush_icache_range(start, end)		smp_imb()
+ extern void smp_imb(void);
+ #endif
+-#define flush_icache_page(vma, page)		do { } while (0)
++
++/* We need to flush the userspace icache after setting breakpoints in
++   ptrace.  I don't think it's needed in do_swap_page, or do_no_page,
++   but I don't know how to get rid of it either.
++
++   Instead of indiscriminately using imb, take advantage of the fact
++   that icache entries are tagged with the ASN and load a new mm context.  */
++/* ??? Ought to use this in arch/alpha/kernel/signal.c too.  */
++
++#ifndef __SMP__
++static inline void
++flush_icache_page(struct vm_area_struct *vma, struct page *page)
++{
++	if (vma->vm_flags & VM_EXEC) {
++		struct mm_struct *mm = vma->vm_mm;
++		mm->context = 0;
++		if (current->active_mm == mm)
++			__load_new_mm_context(mm);
++	}
++}
++#else
++extern void flush_icache_page(struct vm_area_struct *vma, struct page *page);
++#endif
++
+ 
+ /*
+  * Use a few helper functions to hide the ugly broken ASN
+  * numbers on early Alphas (ev4 and ev45)
+  */
+ 
+-#ifndef __EXTERN_INLINE
+-#define __EXTERN_INLINE extern inline
+-#define __MMU_EXTERN_INLINE
+-#endif
+-
+ __EXTERN_INLINE void
+ ev4_flush_tlb_current(struct mm_struct *mm)
+ {
++	__load_new_mm_context(mm);
+ 	tbiap();
+ }
+ 
+ __EXTERN_INLINE void
+-ev4_flush_tlb_other(struct mm_struct *mm)
++ev5_flush_tlb_current(struct mm_struct *mm)
+ {
++	__load_new_mm_context(mm);
+ }
+ 
+-extern void ev5_flush_tlb_current(struct mm_struct *mm);
+-
+-__EXTERN_INLINE void
+-ev5_flush_tlb_other(struct mm_struct *mm)
++extern inline void
++flush_tlb_other(struct mm_struct *mm)
+ {
+ 	mm->context = 0;
+ }
+@@ -62,7 +96,12 @@ ev4_flush_tlb_current_page(struct mm_str
+ 			   struct vm_area_struct *vma,
+ 			   unsigned long addr)
+ {
+-	tbi(2 + ((vma->vm_flags & VM_EXEC) != 0), addr);
++	int tbi_flag = 2;
++	if (vma->vm_flags & VM_EXEC) {
++		__load_new_mm_context(mm);
++		tbi_flag = 3;
++	}
++	tbi(tbi_flag, addr);
+ }
+ 
+ __EXTERN_INLINE void
+@@ -71,7 +110,7 @@ ev5_flush_tlb_current_page(struct mm_str
+ 			   unsigned long addr)
+ {
+ 	if (vma->vm_flags & VM_EXEC)
+-		ev5_flush_tlb_current(mm);
++		__load_new_mm_context(mm);
+ 	else
+ 		tbi(2, addr);
+ }
+@@ -79,16 +118,13 @@ ev5_flush_tlb_current_page(struct mm_str
+ 
+ #ifdef CONFIG_ALPHA_GENERIC
+ # define flush_tlb_current		alpha_mv.mv_flush_tlb_current
+-# define flush_tlb_other		alpha_mv.mv_flush_tlb_other
+ # define flush_tlb_current_page		alpha_mv.mv_flush_tlb_current_page
+ #else
+ # ifdef CONFIG_ALPHA_EV4
+ #  define flush_tlb_current		ev4_flush_tlb_current
+-#  define flush_tlb_other		ev4_flush_tlb_other
+ #  define flush_tlb_current_page	ev4_flush_tlb_current_page
+ # else
+ #  define flush_tlb_current		ev5_flush_tlb_current
+-#  define flush_tlb_other		ev5_flush_tlb_other
+ #  define flush_tlb_current_page	ev5_flush_tlb_current_page
+ # endif
+ #endif
+
+--KsGdsel6WgEHnImy--
+

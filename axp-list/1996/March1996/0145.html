@@ -1,0 +1,247 @@
+<!-- received="Fri Mar 15 11:48:13 1996 " -->
+<!-- sent="Fri, 15 Mar 1996 11:48:13 -0500 (EST)" -->
+<!-- name="Jim Paradis" -->
+<!-- email="paradis@amt.tay1.dec.com" -->
+<!-- subject="Jensen-HOWTO: First pass" -->
+<!-- id="9603151648.AA31494@ives.amt.tay1.dec.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Jensen-HOWTO: First pass</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Jensen-HOWTO: First pass</h2>
+
+<b>Jim Paradis</b> (<a href="mailto:paradis@amt.tay1.dec.com"><i>paradis@amt.tay1.dec.com</i></a>)<br>
+<i>Fri, 15 Mar 1996 11:48:13 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#145">[ date ]</a><a href="index.html#145">[ thread ]</a><a href="subject.html#145">[ subject ]</a><a href="author.html#145">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0146.html">Ray Curtis: "Re: SPEC Comparison"</a>
+<li> <b>Previous message:</b> <a href="0144.html">Ka'plaagh  15-Mar-1996 1717 +0000: "Milo-1.3.73"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+As promised, here's the first pass of my Jensen-HOWTO.  It's a bit rough<br>
+around the edges, but my tech writer will get on it right away (Have at<br>
+it, Charlie!).  There should be at least enough information contained herein<br>
+to let you get started...<br>
+<p>
+    Installing Linux on the DEC 2000 AXP and the DECpc 150 AXP ("Jensen")<br>
+<p>
+The first PC-class Alpha systems produced by Digital were the "Jensen"<br>
+series.  Two models were produced, which differed only in the bundled<br>
+software.  The DECpc 150 AXP was bundled with Windows NT, while the<br>
+DEC 2000 AXP was bundled with either OpenVMS or DEC OSF/1.  The Jensen<br>
+was an EISA-based system with a 21064 Alpha processor running at 150MHz.<br>
+<p>
+With the introduction of higher-performance PCI-based systems, Digital<br>
+discontinued manufacturing the Jensen.  Customers are replacing their<br>
+Jensens with higher-performance systems.  With a number of Jensens<br>
+appearing on the surplus market and in the back corners of laboratories<br>
+and computer rooms, there has been considerable interest in running<br>
+Linux on them.<br>
+<p>
+Jensen was the first target platform for the Linux/Alpha port, so running<br>
+Linux on a Jensen is not a problem.  Installing Linux on a Jensen is another<br>
+matter entirely, due to the following constraints:<br>
+<p>
+	- Linux requires either OSF PALcode or the MILO PALcode.<br>
+<p>
+	- Jensen is sufficiently different from the PCI-based systems<br>
+	  that porting the MILO PALcode would be a significant<br>
+	  undertaking.<br>
+<p>
+	- Jensen has OSF PALcode in its ROM, but it is only available<br>
+	  within the SRM console.<br>
+<p>
+	- The SRM console firmware on Jensen cannot access the floppy<br>
+	  drive -- only SCSI and network devices.<br>
+<p>
+	- The ARC console firmware on Jensen can access the floppy drive,<br>
+	  but it uses a different PAL and cannot switch to the OSF PALcode.<br>
+<p>
+	- Jensen is no longer being produced by Digital, so there is<br>
+	  little chance of getting a firmware upgrade such that the SRM<br>
+	  console can access the floppy drive.<br>
+<p>
+	- "fdisk" style partition tables are incompatible with the SRM<br>
+	  boot mechanism.  This means that Linux and NT cannot coexist<br>
+	  on the same disk.<br>
+<p>
+	- The SRM firmware on Jensen has a limit of 8 characters of stored<br>
+	  boot flags, or 16 characters on the command line.  This requires<br>
+	  the ability to process abbreviated command lines.  The kernel<br>
+	  that I provide understands one abbreviation: INSTALL.  This<br>
+	  is exactly equivalent to: "root=/dev/fd0 load_ramdisk=1".  I<br>
+	  will implement more in the future.<br>
+<p>
+Taken together, these constraints yield the following procedure for <br>
+installing Linux on a Jensen:<br>
+<p>
+	- From the ARC console, partition the Linux device and install<br>
+	  the bootable kernel.<br>
+<p>
+	- From the SRM console, boot the Linux kernel and complete the<br>
+	  installation.<br>
+<p>
+The necessary files can be found in:<br>
+	<br>
+	ftp.digital.com:/pub/DEC/Linux-Alpha/JENSEN_INSTALL<br>
+<p>
+This directory contains the following:<br>
+<p>
+	arcutils/		Standalone ARC utilities<br>
+<i>	   |</i><br>
+	   +--minlabel.exe	Partitioning utility<br>
+<i>	   |</i><br>
+	   +--copyboot.exe	Utility for copying the bootdisk to the<br>
+				hard drive<br>
+<p>
+	bootdisk.1.3.72.jensen.srm.gz	Boot disk for Jensen.  This is a<br>
+					modified 1.3.72 kernel which you<br>
+					must use for Jensen install.  Source<br>
+					patches will be available in this<br>
+					directory within a day or so...<br>
+<p>
+	pseudo-bootdisk.gz		ext2 disk which contains vmlinux.gz<br>
+					version 1.3.72 for Jensen.  Not<br>
+					usable in the current boot scheme,<br>
+					but Red Hat requires it for install.<br>
+<p>
+This is the detailed procedure:<br>
+<p>
+Prepare your floppies:<br>
+<p>
+	- Create a DOS-formatted floppy with the standalone<br>
+	  ARC utilities (MINLABEL.EXE and COPYBOOT.EXE)<br>
+<p>
+	- Uncompress the boot disk image and copy it to a floppy<br>
+	  using dd (unix) or rawrite (DOS)<br>
+<p>
+	- If you are installing Red Hat, uncompress the pseudo-bootdisk<br>
+	  image and copy it to a floppy using dd or rawrite.<br>
+<p>
+	- Create the ramdisk floppy image for your distribution.<br>
+<p>
+	- You will, of course, need the installation media for your <br>
+	  OS distribution (CD or floppies)<br>
+<p>
+Installation procedure:<br>
+<p>
+	- Get to the ARC console opening screen.  If your Jensen <br>
+	  comes up to the ARC console (it says "ARC" in the first<br>
+	  line and presents you with a menu), you're all set.  If <br>
+	  it comes up to the SRM console (&gt;&gt;&gt; prompt), enter the command<br>
+	  "SET OS NT" and power-cycle.<br>
+<p>
+	- Insert the "ARC utilities" disk.<br>
+<p>
+	Partition the disk(s):<br>
+<p>
+	- Choose "Run a program"<br>
+<p>
+	- Enter: <br>
+		eisa(0)disk(0)fdisk(0)minlabel.exe  <br>
+<p>
+	  This invokes the standalone minlabel utility, which is <br>
+	  exactly like the Linux minlabel utility.<br>
+<p>
+	- Choose the disk you are going to partition.  I have made<br>
+	  every effort to make these utilities understand Linux-style<br>
+	  device names, so you should be able to enter something like<br>
+	  "/dev/sda"<br>
+<p>
+	- Partition the disk.  Most likely you'll want a small (4Mb)<br>
+	  initial partition for the bootstrap, and the rest of the<br>
+	  disk for Linux.  If you have only one disk on your system,<br>
+	  you'll have to further partition the disk to provide a<br>
+	  Linux partition and a swap partition.<br>
+<p>
+	- Exit the minlabel program.<br>
+<p>
+	Copy the Linux kernel to the boot partition:<br>
+<p>
+	- Choose "Run a program" from the ARC menu<br>
+<p>
+	- Enter: eisa(0)disk(0)fdisk(0)copyboot.exe<br>
+<p>
+	- Select source and destination devices<br>
+	  (source is typically /dev/fd0, destination is /dev/sda, /dev/sdb,...)<br>
+<p>
+	- Remove the ARC utilities disk from the drive and insert the<br>
+	  Linux boot disk.<br>
+<p>
+	- Hit ENTER to start copying.<br>
+<p>
+	Set up the system to come up to SRM console:<br>
+<p>
+	- Remove floppy from drive<br>
+<p>
+	- Select "Supplementary menu..."<br>
+<p>
+	- Select "Set up the system..."<br>
+<p>
+	- Select "Switch to OpenVMS or OSF console"<br>
+<p>
+	- Select "Switch to OSF"<br>
+<p>
+	- Type ESC<br>
+<p>
+	- Power-cycle the system.<br>
+<p>
+	Boot and install your system:<br>
+<p>
+	- At &gt;&gt;&gt; prompt, type:  BOOT -FL INSTALL DKAx00, where<br>
+	  x00 refers to the boot device (DKA000 for SCSI device<br>
+	  0, DKA100 for device 1, etc.)<br>
+<p>
+	- When prompted, insert RAMDisk floppy<br>
+<p>
+	- Install as usual for that distribution.<br>
+<p>
+Once you have installed Linux on your system, you can boot it from the<br>
+SRM console by saying something like:<br>
+<p>
+<i>	&gt;&gt;&gt; boot -fl "root=0802 ro" dka000</i><br>
+<p>
+One future improvement I would like to work on would be to substitute<br>
+a variant of MILO for the bootable kernel.  This would make booting new<br>
+kernels much easier, as well as eliminating any need for abbreviated<br>
+boot option strings.<br>
+<p>
+<pre>
+-- 
+Jim Paradis (<a href="mailto:paradis@amt.tay1.dec.com">paradis@amt.tay1.dec.com</a>)        "It's not procrastination, 
+Digital Equipment Corporation		       it's my new Just-In-Time 
+(508)952-4047				       Workload Management System!"
+<a href="http://www.tiac.net/users/jrp/index.html">http://www.tiac.net/users/jrp/index.html</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0146.html">Ray Curtis: "Re: SPEC Comparison"</a>
+<li> <b>Previous message:</b> <a href="0144.html">Ka'plaagh  15-Mar-1996 1717 +0000: "Milo-1.3.73"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Roman Zippel (zippel@fh-brandenburg.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 14 19:15:09 2000" -->
+<!-- isoreceived="20000315031509" -->
+<!-- sent="Tue, 14 Mar 2000 10:28:02 +0100 (MET)" -->
+<!-- isosent="20000314092802" -->
+<!-- name="Roman Zippel" -->
+<!-- email="zippel@fh-brandenburg.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.GSO.4.10.10003141003060.6433-100000@zeus.fh-brandenburg.de" -->
+<!-- inreplyto="Pine.LNX.4.10.10003120944340.5794-100000@penguin.transmeta.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Roman Zippel (<EM>zippel@fh-brandenburg.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Mar 14 2000 - 01:28:02 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#72">[ date ]</A>
+<A HREF="index.html#72">[ thread ]</A>
+<A HREF="subject.html#72">[ subject ]</A>
+<A HREF="author.html#72">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0073.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0071.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0034.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0024.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0034.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P><EM>&gt; &gt; Is it now an error to do __sti in interrupt mode?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; No, why would it be?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Doing an __sti in interrupts will let higher-priority interrupts in. As it
+</EM><BR>
+<EM>&gt; always has.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I think it's probably stupid most of the time, and shows that something is
+</EM><BR>
+<EM>&gt; wrong (an interrupt should not take long enough for it to matter that we
+</EM><BR>
+<EM>&gt; do an __sti), but sometimes that kind of stupidity is a result of horrible
+</EM><BR>
+<EM>&gt; hardware latencies (eg the time it takes to read a sector from the IDE
+</EM><BR>
+<EM>&gt; disk using programmed IO).
+</EM><BR>
+<P>Could we then _please_ call it differently to make it visible that
+<BR>
+something is wrong. The IDE code has already a ide__sti because of the
+<BR>
+problems it causes on other architectures. We should not carelessly allow
+<BR>
+generally what is no problem on other hardware. You get lots of hardware
+<BR>
+(especially embedded ones) into trouble, if you _easily_ allow a __sti in
+<BR>
+an interrupt.
+<BR>
+To explain the problem a bit more in detail: basically you have only three
+<BR>
+possibilities to avoid interrupts going mad:
+<BR>
+- local interrupt mask in the cpu
+<BR>
+- interrupt mask in the interrupt controller
+<BR>
+- acknowledge interrupt and manage a pending bit.
+<BR>
+Now there are systems out there, that don't have an interrupt controller
+<BR>
+and consequently it's possible the interrupt has to be acknowledge (e.g.
+<BR>
+the interrupt is level sensitive and the driver has to remove the cause of
+<BR>
+the interrupt), so if you now allow other interrupts to do a __sti, what
+<BR>
+shall I do now?
+<BR>
+There are some more (cpu dependend) tricks (like playing with the
+<BR>
+interrupt stack), but all this causes suffering in the general case for a
+<BR>
+few special cases, what could so easily avoided.
+<BR>
+Of course I could make __sti() conditional, but the IDE interrupt again
+<BR>
+starts with a __cli(). So what I'm arguing for is, please don't advertise
+<BR>
+__sti() for hiding a broken design, make it _visible_.
+<BR>
+<P>bye, Roman
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0073.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0071.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0034.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0024.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0034.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

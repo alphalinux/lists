@@ -1,0 +1,155 @@
+<!-- received="Mon Oct  7 15:45:44 1996 " -->
+<!-- sent="Sun, 06 Oct 1996 23:23:58 +0300" -->
+<!-- name="Kari Davidsson" -->
+<!-- email="d154402@cs.tut.fi" -->
+<!-- subject="Re: rembrant" -->
+<!-- id="2.2.32.19961006204931.00709020@norfolk.infi.net" -->
+<!-- inreplyto="rembrant" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: rembrant</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: rembrant</h2>
+
+<b>Kari Davidsson</b> (<a href="mailto:d154402@cs.tut.fi"><i>d154402@cs.tut.fi</i></a>)<br>
+<i>Sun, 06 Oct 1996 23:23:58 +0300</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#226">[ date ]</a><a href="index.html#226">[ thread ]</a><a href="subject.html#226">[ subject ]</a><a href="author.html#226">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0227.html">Erik Troan: "Re: Redhat-4.0 buglet + question about Xtga elf server"</a>
+<li> <b>Previous message:</b> <a href="0225.html">Mark Hamstra: "Red Hat 4.0 install using minlabel"</a>
+<li> <b>Maybe in reply to:</b> <a href="0181.html">Kari Davidsson: "rembrant"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0227.html">Erik Troan: "Re: Redhat-4.0 buglet + question about Xtga elf server"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi again,<br>
+<p>
+	This is getting more and more strange.....<br>
+Following is a small summary of what I have been doing to solve/debug<br>
+the problem, stated in my first "rembrant" post.<br>
+<p>
+1) I began by checking if the other install methods faild to locate <br>
+my hard disk. Shortly: they all did. So this rules out (i think) that<br>
+this is a FTP-install connected. The CD-ROM method created device file<br>
+in /tmp for the cdrom, but that is useless for my since I dont have a<br>
+CDROM drive yet.<br>
+<p>
+Reboot to redhat-picasso<br>
+<p>
+2) Tried to make the /dev/sda* entries manually, i.e.<br>
+	2.a) used gunzip to uncompress ramdisk.img<br>
+	2.b) used dd to "mirror" the filesystem to a unused hard disk<br>
+	partion on sda.<br>
+	2.c) mounted the hardisk partition with the uncompressed<br>
+	ramdisk fs to /mnt<br>
+	2.c) cp ecoff binary mknod from /bin to /mnt/bin<br>
+	2.d) created the device entries in /mnt/tmp, e.g.<br>
+		mknod /mnt/tmp/sda b 8 0<br>
+	      for sda, sda1, sda2, sda3 and sda4.<br>
+	2.e) used dd to create an image of the updated ramdisk fs.<br>
+	2.f) compress the image<br>
+	2.g) used dd to copy the compressed ramdisk fs to floppy.<br>
+<p>
+Reboot with boot diskette (noname.img) from ftp.redhat.com and the<br>
+new ramdisk image.<br>
+<p>
+3) Began the install process, the install process failed as before in <br>
+locating the hardisk or the scsi controler (or both 8-)).<br>
+4) Noticed that the /tmp/sda entry was gone, but the other sda* entries<br>
+were there.<br>
+5) Created the sda entry again with mknod /tmp/sda b 8 0<br>
+6) Tried fdisk /tmp/sda. It saw the partitions correctly. So the kernel<br>
+must "see" the hardware correctly.<br>
+7) Tried "retry", i.e. to find the partitions again. Resulted again in<br>
+lost /tmp/sda.<br>
+8) Looked once again at VC3 an noticed that when the "second stage<br>
+install" as looking at /proc/scsi/scsi it only outputs part of the<br>
+"harddisk label". Stops the echo in the word Model, to be precise,<br>
+<p>
+* /proc/scsi/scsi: Attatched devices:<br>
+Host: scsi0 Channel: 00 Id: 00 Lun: 00<br>
+  Vendor: TOSHIBA Mo<br>
+*scsi devices are available<br>
+*running: /usr/bin/fdisk /usr/bin/fdisk /tmp/sda<br>
+*unmounting all filesystems<br>
+<p>
+9)Manually doing on VC2 cat /proc/scsi/scsi outputs the whole entry.<br>
+10) Each time I do retry in the Canceled menu for the "Find current <br>
+installation" step, the lines<br>
+<p>
+*running: /usr/bin/fdisk /usr/bin/fdisk /tmp/sda<br>
+*unmounting all filesystems<br>
+<p>
+are echoed to VC3.<br>
+<p>
+11) If I try to skip the step "Find current installation" the process<br>
+goes though the tcp/ip and network configuration process and then it<br>
+just hangs.<br>
+<p>
+Conclusions:<br>
+Somwhere in the install process the sda entry is deleted and is not<br>
+created again. I dont think it is a bug in fdisk, since fdisk works<br>
+manually on VC2. I am not very much concered about step 11. It is <br>
+possible that I have some other error in my system that make the<br>
+FTP login (or what ever) hang.<br>
+<p>
+Hope all this makes sense. Hope that I am the only one having those<br>
+strange problems 8-).<br>
+<p>
+	One very much pussled,<br>
+<p>
+		K.D.<br>
+<p>
+P.S. Will continue this "research" later. Linux is fun again 8-). Have<br>
+not had so much fun since in the SLS (pre. slackware) times 8-), when<br>
+it was a major step to get the Icelandic keybord layout and screen fonts<br>
+working, not to mention all the pussles with LILO and how to boot and<br>
+install SLS on my 386. 8-).<br>
+<p>
+<pre>
+--
+  *********************************************************************
+  * Kári Davíðsson                    *                               *
+  * Opiskelijankatu 4 C 151           *                               *
+  * 33720 Tampere                     *     Your advertisement here.  *
+  * Finland                           *     Low prices.               *
+  * Tel: + 358-(9)50-5225153          *                               *
+  * <a href="mailto:d154402@cs.tut.fi">d154402@cs.tut.fi</a>                 *	                              *
+  *********************************************************************
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0227.html">Erik Troan: "Re: Redhat-4.0 buglet + question about Xtga elf server"</a>
+<li> <b>Previous message:</b> <a href="0225.html">Mark Hamstra: "Red Hat 4.0 install using minlabel"</a>
+<li> <b>Maybe in reply to:</b> <a href="0181.html">Kari Davidsson: "rembrant"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0227.html">Erik Troan: "Re: Redhat-4.0 buglet + question about Xtga elf server"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

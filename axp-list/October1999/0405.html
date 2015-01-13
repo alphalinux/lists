@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: patch_v2: (on Alpha) emulating missing instructio</TITLE>
+<META NAME="Author" CONTENT="Robert Harley (Robert.Harley@inria.fr)">
+<META NAME="Subject" CONTENT="Re: patch_v2: (on Alpha) emulating missing instructions">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: patch_v2: (on Alpha) emulating missing instructions</H1>
+<HR>
+<P>
+<!-- received="Mon Oct 18 14:53:17 1999" -->
+<!-- isoreceived="19991018215317" -->
+<!-- sent="Mon, 18 Oct 1999 16:46:59 +0200 (MET DST)" -->
+<!-- isosent="19991018144659" -->
+<!-- name="Robert Harley" -->
+<!-- email="Robert.Harley@inria.fr" -->
+<!-- subject="Re: patch_v2: (on Alpha) emulating missing instructions" -->
+<!-- id="199910181446.QAA18379@pauillac.inria.fr" -->
+<!-- inreplyto="patch_v2: (on Alpha) emulating missing instructions" -->
+<STRONG>Subject: </STRONG>Re: patch_v2: (on Alpha) emulating missing instructions<BR>
+<STRONG>From: </STRONG>Robert Harley (<EM>Robert.Harley@inria.fr</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Oct 18 1999 - 07:46:59 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#405">[ date ]</A>
+<A HREF="index.html#405">[ thread ]</A>
+<A HREF="subject.html#405">[ subject ]</A>
+<A HREF="author.html#405">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0406.html">justin bailey: "Re: mpg123/mp3 decoder?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0404.html">Peter Rival: "Re: Continued alpha hanging"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0367.html">Luke Deller: "patch_v2: (on Alpha) emulating missing instructions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0409.html">Phil Carmody: "Re: patch_v2: (on Alpha) emulating missing instructions"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0367.html">Robert Harley: "Re: patch_v2: (on Alpha) emulating missing instructions"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+BTW, here is a fast and short way of doing minuw():
+<BR>
+<P>------------------------------------------------------------------------------
+<BR>
+#define CMPBGE(a, b, c) \
+<BR>
+&nbsp;&nbsp;asm(&quot;cmpbge %1, %2, %0&quot; : &quot;=r&quot; (c) : &quot;r&quot; (a), &quot;r&quot; (b))
+<BR>
+#define ZAP(a, b, c) \
+<BR>
+&nbsp;&nbsp;asm(&quot;zap %1, %2, %0&quot; : &quot;=r&quot; (c) : &quot;r&quot; (a), &quot;r&quot; (b))
+<BR>
+#define ZAPNOT(a, b, c) \
+<BR>
+&nbsp;&nbsp;asm(&quot;zapnot %1, %2, %0&quot; : &quot;=r&quot; (c) : &quot;r&quot; (a), &quot;r&quot; (b))
+<BR>
+<P>static u64 minuw(u64 x, u64 y) {
+<BR>
+&nbsp;&nbsp;u64 eq, ge1, ge2;
+<BR>
+<P>&nbsp;&nbsp;CMPBGE(x, y, ge1);
+<BR>
+&nbsp;&nbsp;CMPBGE(0, x ^ y, eq);
+<BR>
+<P>&nbsp;&nbsp;ge2 = (ge1 &amp; ~eq | eq &amp; ge1&lt;&lt;1) &amp; 0xAA;
+<BR>
+&nbsp;&nbsp;ge2 |= ge2&gt;&gt;1;
+<BR>
+<P>&nbsp;&nbsp;ZAP(x, ge2, x);
+<BR>
+&nbsp;&nbsp;ZAPNOT(y, ge2, y);
+<BR>
+<P>&nbsp;&nbsp;return x | y;
+<BR>
+} /* end function minuw */
+<BR>
+------------------------------------------------------------------------------
+<BR>
+<P><P>The output from gcc 2.95 looks like:
+<BR>
+<P>------------------------------------------------------------------------------
+<BR>
+minuw:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpbge $16, $17, $1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $16,$17,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov $31,$2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpbge $2, $3, $2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$1,$4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bic $1,$2,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and $2,$4,$2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $1,$2,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and $1,170,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srl $1,1,$2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $1,$2,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;zapnot $17, $1, $17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;zap $16, $1, $16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $16,$17,$0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret $31,($26),1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end minuw
+<BR>
+------------------------------------------------------------------------------
+<BR>
+<P><P>This bit:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov $31,$2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpbge $2, $3, $2
+<BR>
+<P>would be better as:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpbge $31, $3, $2
+<BR>
+<P><P>Bye,
+<BR>
+&nbsp;&nbsp;Rob.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0406.html">justin bailey: "Re: mpg123/mp3 decoder?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0404.html">Peter Rival: "Re: Continued alpha hanging"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0367.html">Luke Deller: "patch_v2: (on Alpha) emulating missing instructions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0409.html">Phil Carmody: "Re: patch_v2: (on Alpha) emulating missing instructions"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0367.html">Robert Harley: "Re: patch_v2: (on Alpha) emulating missing instructions"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:52 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

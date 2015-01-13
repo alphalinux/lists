@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Starfire kern_err on Avanti with 2.4test12pre7</H1> 
+	
+<!-- received="Thu Dec 07 20:02:58 2000" -->
+<!-- isoreceived="20001208040258" -->
+<!-- sent="Thu, 7 Dec 2000 20:09:07 +0300" -->
+<!-- isosent="20001207170907" -->
+<!-- name="Ivan Kokshaysky" -->
+<!-- email="ink@jurassic.park.msu.ru" -->
+<!-- subject="Re: Starfire kern_err on Avanti with 2.4test12pre7" -->
+<!-- id="20001207200907.A1086@jurassic.park.msu.ru" -->
+<!-- inreplyto="01bd01c06068$140a79b0$7400a8c0@dukat.cb.de" -->
+<STRONG>Subject: </STRONG>Re: Starfire kern_err on Avanti with 2.4test12pre7<BR>
+<STRONG>From: </STRONG>Ivan Kokshaysky (<EM>ink@jurassic.park.msu.ru</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Dec  7 09:09:07 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#77">[ date ]</A>
+<A HREF="index.shtml#77">[ thread ]</A>
+<A HREF="subject.shtml#77">[ subject ]</A>
+<A HREF="author.shtml#77">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0078.shtml">jason.brashear@amd.com: "Red Hat 7.0 On an Alpha Workstation 4/233"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0076.shtml">Ingo T. Storm: "Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0076.shtml">Ingo T. Storm: "Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0080.shtml">Ingo T. Storm: "Re: Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0076.shtml">Ivan Kokshaysky: "Re: Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Yes, this code will _always_ fail on alpha, so yet another
+<BR>
+#ifndef __alpha__ is needed.
+<BR>
+<P>Ivan.
+<BR>
+<P>On Thu, Dec 07, 2000 at 05:09:29PM +0100, Ingo T. Storm wrote:
+<BR>
+<EM>&gt; Hi,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (If there is a better list to post this, please let me know. And
+</EM><BR>
+<EM>&gt; please forgive me if I am being really dumb. This is the first time I
+</EM><BR>
+<EM>&gt; play with a test kernel because I am in desperate need of iptables. )
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I compiled 2.4test12-pre7 on one my Avantis. The Adaptec 4-port-NIC
+</EM><BR>
+<EM>&gt; with 4 starfire chips works, i.e. basic connectivity is ok (ping, ftp,
+</EM><BR>
+<EM>&gt; ssh). Alas, the starfire driver bombards the syslog with a kernel
+</EM><BR>
+<EM>&gt; error messages for each packet that reaches or leaves the interface.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; --------- sample messages ---------
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Dec  7 18:11:43 kleinbonum kernel: eth2: Internal fault: The skbuff
+</EM><BR>
+<EM>&gt; addresses do not match in netdev_rx: 1198671889 vs. fffffc0007724800 /
+</EM><BR>
+<EM>&gt; fffffc0007724810.
+</EM><BR>
+<EM>&gt; Dec  7 18:11:44 kleinbonum kernel: eth2: Internal fault: The skbuff
+</EM><BR>
+<EM>&gt; addresses do not match in netdev_rx: 1198669841 vs. fffffc0007724000 /
+</EM><BR>
+<EM>&gt; fffffc0007724010.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -----------------------------------
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I am afraid I am far from being a useful C programmer, but I think
+</EM><BR>
+<EM>&gt; located the code that produces these messages in starfire.c:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ---- code from starfire.c -----
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; #ifndef final_version /* Remove after testing. */
+</EM><BR>
+<EM>&gt;  if (le32_to_cpu(np-&gt;rx_ring[entry].rxaddr &amp; ~3) != ((unsigned long)
+</EM><BR>
+<EM>&gt; temp))
+</EM><BR>
+<EM>&gt;  printk(KERN_ERR &quot;%s: Internal fault: The skbuff addresses &quot;
+</EM><BR>
+<EM>&gt;     &quot;do not match in netdev_rx: %d vs. %p / %p.\n&quot;,
+</EM><BR>
+<EM>&gt;     dev-&gt;name,
+</EM><BR>
+<EM>&gt;     le32_to_cpu(np-&gt;rx_ring[entry].rxaddr),
+</EM><BR>
+<EM>&gt;     skb-&gt;head, temp);
+</EM><BR>
+<EM>&gt; #endif
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ------------------------------
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Now - can someone please enlighten me if I it is really safe to remove
+</EM><BR>
+<EM>&gt; this stuff or if I have stumbled over a problem - or if I have to live
+</EM><BR>
+<EM>&gt; with it and by a new RAID Array for /var/log/messages;-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Thanks!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Ingo
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; _______________________________________________
+</EM><BR>
+<EM>&gt; Axp-list mailing list
+</EM><BR>
+<EM>&gt; Axp-list@redhat.com
+</EM><BR>
+<EM>&gt; https://listman.redhat.com/mailman/listinfo/axp-list
+</EM><BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0078.shtml">jason.brashear@amd.com: "Red Hat 7.0 On an Alpha Workstation 4/233"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0076.shtml">Ingo T. Storm: "Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0076.shtml">Ingo T. Storm: "Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0080.shtml">Ingo T. Storm: "Re: Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0076.shtml">Ivan Kokshaysky: "Re: Starfire kern_err on Avanti with 2.4test12pre7"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Jan  2 07:48:31 2001 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

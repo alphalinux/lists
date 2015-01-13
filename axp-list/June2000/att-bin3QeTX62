@@ -1,0 +1,41 @@
+diff -ruN linux-clean/arch/alpha/config.in linux/arch/alpha/config.in
+--- linux-clean/arch/alpha/config.in	Mon Mar 27 17:18:32 2000
++++ linux/arch/alpha/config.in	Fri Jun 16 15:45:28 2000
+@@ -159,7 +159,7 @@
+ 	-o "$CONFIG_ALPHA_NORITAKE" = "y" -o "$CONFIG_ALPHA_PC164" = "y" \
+ 	-o "$CONFIG_ALPHA_LX164" = "y" -o "$CONFIG_ALPHA_SX164" = "y" \
+ 	-o "$CONFIG_ALPHA_DP264" = "y" -o "$CONFIG_ALPHA_RAWHIDE" = "y" \
+-	-o "$CONFIG_ALPHA_EIGER" = "y" ]
++	-o "$CONFIG_ALPHA_EIGER" = "y" -o "$CONFIG_ALPHA_NAUTILUS" = "y"]
+ then
+   bool 'Use SRM as bootloader' CONFIG_ALPHA_SRM
+ fi
+diff -ruN linux-clean/arch/alpha/kernel/sys_nautilus.c linux/arch/alpha/kernel/sys_nautilus.c
+--- linux-clean/arch/alpha/kernel/sys_nautilus.c	Sun Feb 27 16:28:01 2000
++++ linux/arch/alpha/kernel/sys_nautilus.c	Fri Jun 16 17:17:42 2000
+@@ -53,6 +53,16 @@
+ static void __init
+ nautilus_init_irq(void)
+ {
++        outb(0, DMA1_RESET_REG);
++	outb(0, DMA2_RESET_REG);
++	outb(DMA_MODE_CASCADE, DMA2_MODE_REG);
++	outb(0, DMA2_MASK_REG);
++  
++
++	if (alpha_using_srm) 
++		alpha_mv.device_interrupt = srm_device_interrupt;
++	
++
+ 	init_i8259a_irqs();
+ 	common_init_isa_dma();
+ }
+@@ -511,7 +521,7 @@
+ 	DO_IRONGATE_IO,
+ 	DO_IRONGATE_BUS,
+ 	machine_check:		nautilus_machine_check,
+-	max_dma_address:	ALPHA_NAUTILUS_MAX_DMA_ADDRESS,
++	max_dma_address:	ALPHA_MAX_DMA_ADDRESS,
+ 	min_io_address:		DEFAULT_IO_BASE,
+ 	min_mem_address:	DEFAULT_MEM_BASE,
+ 

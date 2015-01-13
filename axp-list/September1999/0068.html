@@ -1,0 +1,348 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: How was this kernel built?</TITLE>
+<META NAME="Author" CONTENT="Joseph A. Martin (jmartin@linux08.mro.dec.com)">
+<META NAME="Subject" CONTENT="How was this kernel built?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>How was this kernel built?</H1>
+<HR>
+<P>
+<!-- received="Thu Sep 09 14:26:42 1999" -->
+<!-- isoreceived="19990909212642" -->
+<!-- sent="Thu, 9 Sep 1999 11:42:09 -0400" -->
+<!-- isosent="19990909154209" -->
+<!-- name="Joseph A. Martin" -->
+<!-- email="jmartin@linux08.mro.dec.com" -->
+<!-- subject="How was this kernel built?" -->
+<!-- id="199909091542.LAA12759@linux08.mro.dec.com" -->
+<STRONG>Subject: </STRONG>How was this kernel built?<BR>
+<STRONG>From: </STRONG>Joseph A. Martin (<EM>jmartin@linux08.mro.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Sep 09 1999 - 08:42:09 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#68">[ date ]</A>
+<A HREF="index.html#68">[ thread ]</A>
+<A HREF="subject.html#68">[ subject ]</A>
+<A HREF="author.html#68">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0069.html">Sean Hunter: "Re: Its official!  Alpha linux rocks!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0067.html">Duccio Medini: "Re: INIT: &quot;x&quot; respawning too fast"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Sep 08, 1999 at 04:31:37PM -0400, Eran Guendelman wrote:
+<BR>
+<EM>&gt; In general, how do I find out the options the kernel was compiled with,
+</EM><BR>
+<EM>&gt; because if I have to recompile it I want to make sure I only change
+</EM><BR>
+<EM>&gt; this specific setting.
+</EM><BR>
+<P>Someone published a solution to this problem on the linux-kernel list
+<BR>
+a few weeks ago.  Unfortunately, it is a prospective solution rather
+<BR>
+than a retrospective one:  he proposed embedding the .config file in
+<BR>
+the /proc file system.
+<BR>
+<P>I don't know if the idea was accepted and will appear soon or if it
+<BR>
+was rejected/ignored.  As it happens, the original author beat me by a
+<BR>
+day to the same idea.  Below are MY previously unpublished patches to
+<BR>
+achieve the same effect.
+<BR>
+<P>\Joe   					Joseph A. Martin
+<BR>
+&nbsp;Joseph.Martin@Compaq.com		Compaq Computer Corporation
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;200 Forest Street MRO1-2/K20
+<BR>
+&nbsp;(508) 467-2100				Marlboro, MA  01752  U.S.A.
+<BR>
+<P><P>diff -urp rth1-pre1-2.2.11/Documentation/Configure.help patch_CONFIGZ/Documentation/Configure.help
+<BR>
+--- rth1-pre1-2.2.11/Documentation/Configure.help	Tue Jun 29 13:58:39 1999
+<BR>
++++ patch_CONFIGZ/Documentation/Configure.help	Wed Jul 14 17:52:14 1999
+<BR>
+@@ -7092,6 +7092,17 @@ CONFIG_PROC_FS
+<BR>
+&nbsp;&nbsp;&nbsp;This option will enlarge your kernel by about 18 KB. Several
+<BR>
+&nbsp;&nbsp;&nbsp;programs depend on this, so everyone should say Y here.
+<BR>
+&nbsp;
+<BR>
++compressed configuration (/proc/.config.gz)
+<BR>
++CONFIG_PROC_CONFIGZ
+<BR>
++  A compressed version of the configuration file (.config) from which
+<BR>
++  the kernel was built is placed in the /proc filesystem.  One can
+<BR>
++  think of this as the rest of /proc/version.  Sample usage:
+<BR>
++  &quot;gunzip - &lt; /proc/.config.gz | more&quot;
+<BR>
++
+<BR>
++  This option is useful for kernel developers and for users who need
+<BR>
++  to communicate their exact configuration to technical support.  It
+<BR>
++  adds about 2 KB to the kernel.
+<BR>
++
+<BR>
+&nbsp;NFS filesystem support
+<BR>
+&nbsp;CONFIG_NFS_FS
+<BR>
+&nbsp;&nbsp;&nbsp;If you are connected to some other (usually local) Unix computer
+<BR>
+diff -urp rth1-pre1-2.2.11/fs/Config.in patch_CONFIGZ/fs/Config.in
+<BR>
+--- rth1-pre1-2.2.11/fs/Config.in	Tue Jun 29 13:58:42 1999
+<BR>
++++ patch_CONFIGZ/fs/Config.in	Wed Jul 14 17:52:14 1999
+<BR>
+@@ -34,6 +34,9 @@ if [ &quot;$CONFIG_NTFS_FS&quot; != &quot;n&quot; -a &quot;$CONFI
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;tristate 'OS/2 HPFS filesystem support (read only)' CONFIG_HPFS_FS
+<BR>
+&nbsp;bool '/proc filesystem support' CONFIG_PROC_FS
+<BR>
++if [ &quot;$CONFIG_PROC_FS&quot; = &quot;y&quot; ]; then
+<BR>
++  bool '   compressed configuration (/proc/.config.gz)' CONFIG_PROC_CONFIGZ
+<BR>
++fi
+<BR>
+&nbsp;if [ &quot;$CONFIG_UNIX98_PTYS&quot; = &quot;y&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;# It compiles as a module for testing only.  It should not be used
+<BR>
+&nbsp;&nbsp;&nbsp;# as a module in general.  If we make this &quot;tristate&quot;, a bunch of people
+<BR>
+diff -urp rth1-pre1-2.2.11/fs/proc/Makefile patch_CONFIGZ/fs/proc/Makefile
+<BR>
+--- rth1-pre1-2.2.11/fs/proc/Makefile	Wed Jun 24 17:30:10 1998
+<BR>
++++ patch_CONFIGZ/fs/proc/Makefile	Wed Jul 14 17:52:14 1999
+<BR>
+@@ -29,3 +29,13 @@ O_OBJS += proc_devtree.o
+<BR>
+&nbsp;endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;include $(TOPDIR)/Rules.make
+<BR>
++
+<BR>
++ifeq ($(CONFIG_PROC_CONFIGZ),y)
+<BR>
++array.o: configz.h
+<BR>
++
+<BR>
++configz.h: $(TOPDIR)/.config
+<BR>
++	@echo 'static const char configz_array[] = {' &gt; .conf
+<BR>
++	@gzip -9 - &lt; $(TOPDIR)/.config | od -An -t x1 | tr -s '\040' '\012' | \
+<BR>
++sed -e '/[0-9a-f][0-9a-f]/s/\(.*\)/0x\1,/' -e '$$s/,/};/' &gt;&gt; .conf
+<BR>
++	@mv -f .conf $@
+<BR>
++endif
+<BR>
+diff -urp rth1-pre1-2.2.11/fs/proc/array.c patch_CONFIGZ/fs/proc/array.c
+<BR>
+--- rth1-pre1-2.2.11/fs/proc/array.c	Tue Jun 29 13:58:38 1999
+<BR>
++++ patch_CONFIGZ/fs/proc/array.c	Wed Jul 14 17:52:14 1999
+<BR>
+@@ -1242,6 +1242,20 @@ static int get_pidcpu(int pid, char * bu
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_PROC_CONFIGZ
+<BR>
++#include &quot;configz.h&quot;
+<BR>
++static int get_configz(char *buffer, char **start, off_t offset, off_t length)
+<BR>
++{
+<BR>
++	if (offset &gt;= sizeof(configz_array))
+<BR>
++		return 0;
+<BR>
++	if (length + offset &gt; sizeof(configz_array))
+<BR>
++		length = sizeof(configz_array) - offset;
+<BR>
++	memcpy(buffer, &amp;configz_array[offset], length);
+<BR>
++	*start = buffer;
+<BR>
++	return length;
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;#ifdef CONFIG_MODULES
+<BR>
+&nbsp;extern int get_module_list(char *);
+<BR>
+&nbsp;extern int get_ksyms_list(char *, char **, off_t, int);
+<BR>
+@@ -1351,6 +1365,10 @@ static long get_root_array(char * page, 
+<BR>
+&nbsp;#ifdef CONFIG_STRAM_PROC
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case PROC_STRAM:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return get_stram_list(page);
+<BR>
++#endif
+<BR>
++#ifdef CONFIG_PROC_CONFIGZ
+<BR>
++		case PROC_CONFIGZ:
+<BR>
++			return get_configz(page, start, offset, length);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EBADF;
+<BR>
+diff -urp rth1-pre1-2.2.11/fs/proc/root.c patch_CONFIGZ/fs/proc/root.c
+<BR>
+--- rth1-pre1-2.2.11/fs/proc/root.c	Thu Apr 29 12:50:46 1999
+<BR>
++++ patch_CONFIGZ/fs/proc/root.c	Wed Jul 14 17:52:14 1999
+<BR>
+@@ -668,6 +668,13 @@ static struct proc_dir_entry proc_root_p
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NULL, NULL				/* parent, subdir */
+<BR>
+&nbsp;};
+<BR>
+&nbsp;#endif
+<BR>
++#if CONFIG_PROC_CONFIGZ
+<BR>
++static struct proc_dir_entry proc_root_configz = {
+<BR>
++	PROC_CONFIGZ, 10, &quot;.config.gz&quot;,
+<BR>
++	S_IFREG | S_IRUGO, 1, 0, 0,
+<BR>
++	0, &amp;proc_array_inode_operations
+<BR>
++};
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;__initfunc(void proc_root_init(void))
+<BR>
+&nbsp;{
+<BR>
+@@ -737,6 +744,9 @@ __initfunc(void proc_root_init(void))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;proc_tty_init();
+<BR>
+&nbsp;#ifdef __powerpc__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;proc_register(&amp;proc_root, &amp;proc_root_ppc_htab);
+<BR>
++#endif
+<BR>
++#if CONFIG_PROC_CONFIGZ
+<BR>
++	proc_register(&amp;proc_root, &amp;proc_root_configz);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;#ifdef CONFIG_PROC_DEVICETREE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;proc_device_tree_init();
+<BR>
+diff -urp rth1-pre1-2.2.11/include/linux/proc_fs.h patch_CONFIGZ/include/linux/proc_fs.h
+<BR>
+--- rth1-pre1-2.2.11/include/linux/proc_fs.h	Fri Jul  9 16:55:57 1999
+<BR>
++++ patch_CONFIGZ/include/linux/proc_fs.h	Thu Jul 15 11:12:18 1999
+<BR>
+@@ -52,7 +52,8 @@ enum root_directory_inos {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PROC_STRAM,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PROC_SOUND,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PROC_MTRR, /* whether enabled or not */
+<BR>
+-	PROC_FS
+<BR>
++	PROC_FS,
+<BR>
++	PROC_CONFIGZ
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;enum pid_directory_inos {
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0069.html">Sean Hunter: "Re: Its official!  Alpha linux rocks!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0067.html">Duccio Medini: "Re: INIT: &quot;x&quot; respawning too fast"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Oct 04 1999 - 12:44:51 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

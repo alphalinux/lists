@@ -1,0 +1,545 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: 2.3.42 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="2.3.42 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.3.42 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 04 04:02:02 2000" -->
+<!-- isoreceived="20000204120202" -->
+<!-- sent="Fri, 4 Feb 2000 04:06:28 +0100 (CET)" -->
+<!-- isosent="20000204030628" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="2.3.42 alpha updates" -->
+<!-- id="Pine.LNX.4.21.0002031957060.257-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>2.3.42 alpha updates<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 03 2000 - 19:06:28 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#78">[ date ]</A>
+<A HREF="index.html#78">[ thread ]</A>
+<A HREF="subject.html#78">[ subject ]</A>
+<A HREF="author.html#78">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0079.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0077.html">Andrea Arcangeli: "2.3.42 alpha RW semaphores"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0079.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I finished now to fixup the alpha port for 2.3.42 (the smp cpu map update
+<BR>
+part is from Jay Estabrook).
+<BR>
+<P>I developed from scratch rw semaphores based on spinlocks. The overhead
+<BR>
+seems quite load by looking the code and they are at least quite obviously
+<BR>
+right ;). BTW, they are not architecture-dependent so other archs can cut
+<BR>
+and past if necessary.
+<BR>
+<P>diff -urN ref/arch/alpha/kernel/alpha_ksyms.c alpha-compile/arch/alpha/kernel/alpha_ksyms.c
+<BR>
+--- ref/arch/alpha/kernel/alpha_ksyms.c	Fri Feb  4 04:04:42 2000
+<BR>
++++ alpha-compile/arch/alpha/kernel/alpha_ksyms.c	Thu Feb  3 22:20:21 2000
+<BR>
+@@ -164,7 +164,8 @@
+<BR>
+&nbsp;EXPORT_SYMBOL(flush_tlb_range);
+<BR>
+&nbsp;EXPORT_SYMBOL(smp_imb);
+<BR>
+&nbsp;EXPORT_SYMBOL(cpu_data);
+<BR>
+-EXPORT_SYMBOL(cpu_number_map);
+<BR>
++EXPORT_SYMBOL(__cpu_number_map);
+<BR>
++EXPORT_SYMBOL(__cpu_logical_map);
+<BR>
+&nbsp;EXPORT_SYMBOL(global_bh_lock);
+<BR>
+&nbsp;EXPORT_SYMBOL(global_bh_count);
+<BR>
+&nbsp;EXPORT_SYMBOL(synchronize_bh);
+<BR>
+diff -urN ref/arch/alpha/kernel/semaphore.c alpha-compile/arch/alpha/kernel/semaphore.c
+<BR>
+--- ref/arch/alpha/kernel/semaphore.c	Tue Sep 14 14:34:22 1999
+<BR>
++++ alpha-compile/arch/alpha/kernel/semaphore.c	Fri Feb  4 03:52:14 2000
+<BR>
+@@ -127,3 +127,39 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return waking_non_zero_trylock(sem);
+<BR>
+&nbsp;}
+<BR>
++
+<BR>
++/* RW spinlock-based semaphores, 2000 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
++void down_read_failed(struct rw_semaphore * sem)
+<BR>
++{
+<BR>
++	struct task_struct *tsk = current;
+<BR>
++	DECLARE_WAITQUEUE(wait, tsk);
+<BR>
++
+<BR>
++	add_wait_queue_exclusive(&amp;sem-&gt;wait, &amp;wait);
+<BR>
++
+<BR>
++	do {
+<BR>
++		__set_task_state(tsk, TASK_UNINTERRUPTIBLE|TASK_EXCLUSIVE);
+<BR>
++		spin_unlock_irq(&amp;sem-&gt;lock);
+<BR>
++		schedule();
+<BR>
++		spin_lock_irq(&amp;sem-&gt;lock);
+<BR>
++	} while (sem-&gt;wr);
+<BR>
++
+<BR>
++	remove_wait_queue(&amp;sem-&gt;wait, &amp;wait);
+<BR>
++}
+<BR>
++
+<BR>
++void down_write_failed(struct rw_semaphore * sem)
+<BR>
++{
+<BR>
++	struct task_struct *tsk = current;
+<BR>
++	DECLARE_WAITQUEUE(wait, tsk);
+<BR>
++
+<BR>
++	add_wait_queue_exclusive(&amp;sem-&gt;wait, &amp;wait);
+<BR>
++
+<BR>
++	do {
+<BR>
++		__set_task_state(tsk, TASK_UNINTERRUPTIBLE|TASK_EXCLUSIVE);
+<BR>
++		spin_unlock_irq(&amp;sem-&gt;lock);
+<BR>
++		schedule();
+<BR>
++		spin_lock_irq(&amp;sem-&gt;lock);
+<BR>
++	} while (sem-&gt;rd || sem-&gt;wr);
+<BR>
++
+<BR>
++	remove_wait_queue(&amp;sem-&gt;wait, &amp;wait);
+<BR>
++}
+<BR>
+diff -urN ref/arch/alpha/kernel/smp.c alpha-compile/arch/alpha/kernel/smp.c
+<BR>
+--- ref/arch/alpha/kernel/smp.c	Fri Feb  4 04:04:42 2000
+<BR>
++++ alpha-compile/arch/alpha/kernel/smp.c	Thu Feb  3 22:20:21 2000
+<BR>
+@@ -71,7 +71,7 @@
+<BR>
+&nbsp;int smp_threads_ready;		/* True once the per process idle is forked. */
+<BR>
+&nbsp;cycles_t cacheflush_time;
+<BR>
+&nbsp;
+<BR>
+-int cpu_number_map[NR_CPUS];
+<BR>
++int __cpu_number_map[NR_CPUS];
+<BR>
+&nbsp;int __cpu_logical_map[NR_CPUS];
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void calibrate_delay(void);
+<BR>
+@@ -433,7 +433,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;idle-&gt;processor = cpuid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__cpu_logical_map[cpunum] = cpuid;
+<BR>
+-	cpu_number_map[cpuid] = cpunum;
+<BR>
++	__cpu_number_map[cpuid] = cpunum;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;idle-&gt;has_cpu = 1; /* we schedule the first task manually */
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;del_from_runqueue(idle);
+<BR>
+@@ -462,7 +462,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* we must invalidate our stuff as we failed to boot the CPU */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__cpu_logical_map[cpunum] = -1;
+<BR>
+-	cpu_number_map[cpuid] = -1;
+<BR>
++	__cpu_number_map[cpuid] = -1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* the idle task is local to us so free it as we don't use it */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free_task_struct(idle);
+<BR>
+@@ -536,11 +536,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long bogosum;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Take care of some initial bookkeeping.  */
+<BR>
+-	memset(cpu_number_map, -1, sizeof(cpu_number_map));
+<BR>
++	memset(__cpu_number_map, -1, sizeof(__cpu_number_map));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(__cpu_logical_map, -1, sizeof(__cpu_logical_map));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(ipi_data, 0, sizeof(ipi_data));
+<BR>
+&nbsp;
+<BR>
+-	cpu_number_map[smp_boot_cpuid] = 0;
+<BR>
++	__cpu_number_map[smp_boot_cpuid] = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__cpu_logical_map[0] = smp_boot_cpuid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;processor = smp_boot_cpuid;
+<BR>
+&nbsp;
+<BR>
+diff -urN ref/include/asm-alpha/semaphore.h alpha-compile/include/asm-alpha/semaphore.h
+<BR>
+--- ref/include/asm-alpha/semaphore.h	Thu Feb  3 22:21:25 2000
+<BR>
++++ alpha-compile/include/asm-alpha/semaphore.h	Fri Feb  4 04:00:34 2000
+<BR>
+@@ -6,6 +6,7 @@
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* (C) Copyright 1996 Linus Torvalds
+<BR>
+&nbsp;&nbsp;* (C) Copyright 1996 Richard Henderson
+<BR>
++ * (C) Copyright 2000 Andrea Arcangeli
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/current.h&gt;
+<BR>
+@@ -265,5 +266,96 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;m&quot;(sem-&gt;count), &quot;r&quot;(pv)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;$24&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;}
+<BR>
++
+<BR>
++/* RW spinlock-based semaphores, 2000 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
++struct rw_semaphore
+<BR>
++{
+<BR>
++	spinlock_t lock;
+<BR>
++	int rd, wr;
+<BR>
++	wait_queue_head_t wait;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	long __magic;
+<BR>
++#endif
+<BR>
++};
+<BR>
++
+<BR>
++#define __RWSEM_INITIALIZER(name, rd, wr)		\
+<BR>
++{							\
+<BR>
++	SPIN_LOCK_UNLOCKED,				\
+<BR>
++	(rd), (wr),					\
+<BR>
++	__WAIT_QUEUE_HEAD_INITIALIZER((name).wait)	\
+<BR>
++	__SEM_DEBUG_INIT(name)				\
+<BR>
++}
+<BR>
++
+<BR>
++#define __DECLARE_RWSEM_GENERIC(name, rd, wr) \
+<BR>
++	struct rw_semaphore name = __RWSEM_INITIALIZER(name, rd, wr)
+<BR>
++
+<BR>
++#define DECLARE_RWSEM(name) __DECLARE_RWSEM_GENERIC(name, 0, 0)
+<BR>
++#define DECLARE_RWSEM_READ_LOCKED(name) __DECLARE_RWSEM_GENERIC(name, 1, 0)
+<BR>
++#define DECLARE_RWSEM_WRITE_LOCKED(name) __DECLARE_RWSEM_GENERIC(name, 0, 1)
+<BR>
++
+<BR>
++extern inline void init_rwsem(struct rw_semaphore * sem)
+<BR>
++{
+<BR>
++	spin_lock_init(&amp;sem-&gt;lock);
+<BR>
++	sem-&gt;rd = sem-&gt;wr = 0;
+<BR>
++	init_waitqueue_head(&amp;sem-&gt;wait);
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	sem-&gt;__magic = (long)&amp;sem-&gt;__magic;
+<BR>
++#endif
+<BR>
++}
+<BR>
++
+<BR>
++#ifndef CHECK_MAGIC
+<BR>
++#define CHECK_MAGIC(x)
+<BR>
++#endif
+<BR>
++
+<BR>
++extern void down_read_failed(struct rw_semaphore *);
+<BR>
++extern void down_write_failed(struct rw_semaphore *);
+<BR>
++
+<BR>
++extern inline void down_read(struct rw_semaphore * sem)
+<BR>
++{
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++
+<BR>
++	spin_lock_irq(&amp;sem-&gt;lock);
+<BR>
++	if (sem-&gt;wr)
+<BR>
++		down_read_failed(sem);
+<BR>
++	sem-&gt;rd++;
+<BR>
++	spin_unlock_irq(&amp;sem-&gt;lock);
+<BR>
++}
+<BR>
++
+<BR>
++extern inline void down_write(struct rw_semaphore * sem)
+<BR>
++{
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++
+<BR>
++	spin_lock(&amp;sem-&gt;lock);
+<BR>
++	if (sem-&gt;rd || sem-&gt;wr)
+<BR>
++		down_write_failed(sem);
+<BR>
++	sem-&gt;wr = 1;
+<BR>
++	spin_unlock(&amp;sem-&gt;lock);
+<BR>
++}
+<BR>
++
+<BR>
++#define up_read(sem)						\
+<BR>
++do {								\
+<BR>
++	unsigned long flags;					\
+<BR>
++								\
+<BR>
++	CHECK_MAGIC((sem)-&gt;__magic);				\
+<BR>
++								\
+<BR>
++	spin_lock_irqsave(&amp;(sem)-&gt;lock, flags);			\
+<BR>
++	if (!--(sem)-&gt;rd &amp;&amp; waitqueue_active(&amp;(sem)-&gt;wait))	\
+<BR>
++		wake_up(&amp;(sem)-&gt;wait);				\
+<BR>
++	spin_unlock_irqrestore(&amp;(sem)-&gt;lock, flags);		\
+<BR>
++} while (0)
+<BR>
++
+<BR>
++#define up_write(sem)					\
+<BR>
++do {							\
+<BR>
++	unsigned long flags;				\
+<BR>
++							\
+<BR>
++	CHECK_MAGIC((sem)-&gt;__magic);			\
+<BR>
++							\
+<BR>
++	spin_lock_irqsave(&amp;(sem)-&gt;lock, flags);		\
+<BR>
++	(sem)-&gt;wr = 0;					\
+<BR>
++	if (waitqueue_active(&amp;(sem)-&gt;wait))		\
+<BR>
++		wake_up(&amp;(sem)-&gt;wait);			\
+<BR>
++	spin_unlock_irqrestore(&amp;(sem)-&gt;lock, flags);	\
+<BR>
++} while(0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif
+<BR>
+diff -urN ref/include/asm-alpha/smp.h alpha-compile/include/asm-alpha/smp.h
+<BR>
+--- ref/include/asm-alpha/smp.h	Fri Feb  4 04:04:42 2000
+<BR>
++++ alpha-compile/include/asm-alpha/smp.h	Thu Feb  3 22:21:25 2000
+<BR>
+@@ -45,7 +45,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Map from cpu id to sequential logical cpu number.  This will only
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;not be idempotent when cpus failed to come on-line.  */
+<BR>
+-extern int cpu_number_map[NR_CPUS];
+<BR>
++extern int __cpu_number_map[NR_CPUS];
+<BR>
++#define cpu_number_map(cpu)  __cpu_number_map[cpu]
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* The reverse map from sequential logical cpu number to cpu id.  */
+<BR>
+&nbsp;extern int __cpu_logical_map[NR_CPUS];
+<BR>
+diff -urN ref/include/asm-alpha/types.h alpha-compile/include/asm-alpha/types.h
+<BR>
+--- ref/include/asm-alpha/types.h	Mon Jan 18 02:27:22 1999
+<BR>
++++ alpha-compile/include/asm-alpha/types.h	Thu Feb  3 21:45:59 2000
+<BR>
+@@ -71,6 +71,10 @@
+<BR>
+&nbsp;typedef unsigned long u64;
+<BR>
+&nbsp;#define BITS_PER_LONG 64
+<BR>
+&nbsp;
+<BR>
++/* Dma addresses are 32-bits wide.  */
+<BR>
++
+<BR>
++typedef u32 dma_addr_t;
+<BR>
++
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* __KERNEL__ */
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0079.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0077.html">Andrea Arcangeli: "2.3.42 alpha RW semaphores"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0079.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:27 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

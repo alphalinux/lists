@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: RH upgrade without reboot?</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: RH upgrade without reboot?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: RH upgrade without reboot?</H1>
+<HR>
+<P>
+<!-- received="Sun Feb 28 21:26:18 1999 PST" -->
+<!-- sent="Sun, 28 Feb 1999 13:18:30 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: RH upgrade without reboot?" -->
+<!-- id="199902282018.NAA14148@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="36D99A6B.B7266AB8@lur.rwth-aachen.de" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20RH%20upgrade%20without%20reboot?"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Sun, 28 Feb 1999 13:18:30 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#874">[ date ]</A>
+<A HREF="index.html#874">[ thread ]</A>
+<A HREF="subject.html#874">[ subject ]</A>
+<A HREF="author.html#874">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0875.html">Sebastian Moeller: "Re: RH upgrade without reboot?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0873.html">Izaak Bozof: "UDB/Multia MILO problem: Addl Info"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0871.html">Izaak Bozof: "UDB/Multia MILO problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0871.html">Izaak Bozof: "UDB/Multia MILO problem"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Sebastian Moeller wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Michal Jaegermann wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Yes.  It is.  But you will have to do that in the right order
+</EM><BR>
+<EM>&gt; &gt; as there some interdepencies and some actions may be a bit hairy.
+</EM><BR>
+<EM>&gt; &gt; When you are running the &quot;standard&quot; procedure you do not
+</EM><BR>
+<EM>&gt; &gt; have to worry about that as you run a minimal system from a ramdisk
+</EM><BR>
+<EM>&gt; &gt; and doing updates on something else.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Well there is a quick and DIRTY way. Put all the new RPMS (which you
+</EM><BR>
+<EM>&gt; want to upgrade) in one directory and do a rpm -Uhv --nodeps  --force
+</EM><BR>
+<EM>&gt; *.rpm (I had to do it twice and I replaced rpm as the last thing), et
+</EM><BR>
+<EM>&gt; voilà you are running rh 5.2.
+</EM><BR>
+<P>No, not really.  You only think so. :-)
+<BR>
+<P>The above will be correct only towards processes you started
+<BR>
+after you performed the above.  There are various long running
+<BR>
+processes on your machine which are quite hard to restart.  If they
+<BR>
+are using shared libraries and you updated these then you have
+<BR>
+double images now of libraries in memory (old ones mapped for
+<BR>
+old processes and new ones for what you started now) and on a disk
+<BR>
+as well (a file really disappears if there is no more pending
+<BR>
+references to it - even if it is becoming unaccesible through a
+<BR>
+file system).  So you are really runnig a mixture of an old and
+<BR>
+a new system.
+<BR>
+<P>In particular 'init' (process number 1) is quite hard to restart
+<BR>
+without rebooting.  There are some hacky ways around but if your
+<BR>
+'init' was not designed for that you may have a difficult time. :-)
+<BR>
+<P>A kernel version is a secondary issue.  Kernels are actually rather
+<BR>
+independent from the rest and most stuff (not necessarily &quot;all&quot;)
+<BR>
+will not care.
+<BR>
+<P>Note also that if your upgrade changed major versions of libraries in the
+<BR>
+process (NOT the case between 5.1 and 5.2) then the procedure outlined
+<BR>
+above will make your system totally unusable at some point.  Say you
+<BR>
+need 'cp' to proceed; if you installed new libraries first than &quot;old cp&quot;
+<BR>
+ceased to work, but if started with a replacement of 'cp' then it does
+<BR>
+not work yet as it needs new libraries and you are stuck. There are ways
+<BR>
+around that as well but the &quot;quick and DIRTY&quot; as above is not good enough.
+<BR>
+Holding of with replacing 'rpm' does not help as it calls many other
+<BR>
+things in the course of its work so even statically linked version
+<BR>
+of rpm is not good enough.  Actually I would start with updating
+<BR>
+'rpm' first as it is possible that &quot;new rpms&quot; use a format with new
+<BR>
+fields which are not acceptable to your previous 'rpm' utility; this
+<BR>
+really happened quite a few times in the past.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;Michal
+<BR>
+<P>p.s. Inventing ways to deal with all these difficulties above
+<BR>
+can be a stimulating intelectual exercise :-) but be careful
+<BR>
+when experimenting on real systems.  Chances that you hose them
+<BR>
+are substantial.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20RH%20upgrade%20without%20reboot?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20RH%20upgrade%20without%20reboot?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0875.html">Sebastian Moeller: "Re: RH upgrade without reboot?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0873.html">Izaak Bozof: "UDB/Multia MILO problem: Addl Info"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0871.html">Izaak Bozof: "UDB/Multia MILO problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0871.html">Izaak Bozof: "UDB/Multia MILO problem"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Feb 28 1999 - 14:02:09 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

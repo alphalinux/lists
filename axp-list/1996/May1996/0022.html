@@ -1,0 +1,235 @@
+<!-- received="Thu May  2 11:26:53 1996 " -->
+<!-- sent="Thu, 2 May 1996 11:26:53 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: gcc: Internal compiler error: program cc1 got fatal signal 6" -->
+<!-- id="m0uF1DS-0001pfC@atheist.tamu.edu" -->
+<!-- inreplyto="3186527a.28880263@mail.eunet.ch" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gcc: Internal compiler error: program cc1 got fatal signal 6</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gcc: Internal compiler error: program cc1 got fatal signal 6</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Thu, 2 May 1996 11:26:53 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#22">[ date ]</a><a href="index.html#22">[ thread ]</a><a href="subject.html#22">[ subject ]</a><a href="author.html#22">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Previous message:</b> <a href="0021.html">Jim Paradis: "Re: ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+The bug that Francois reported is fixed in the most recent<br>
+gcc snapshot, but I was thinking that that does the rest of<br>
+you very little good.<br>
+<p>
+I spent some time trying to isolate the change that fixed<br>
+the problem, but for naught.  The patch below does fix the<br>
+problem, but is not aesthetically pleasing as it simply<br>
+patches reload.c all the way up to the most recent snapshot.<br>
+<p>
+Enjoy.<br>
+<p>
+<p>
+r~<br>
+<p>
+--- reload.c.orig	Mon Mar 25 20:30:39 1996<br>
++++ reload.c	Mon Apr 22 21:51:15 1996<br>
+@@ -1,5 +1,5 @@<br>
+ /* Search an insn for pseudo regs that must be in hard regs and are not.<br>
+-   Copyright (C) 1987, 88, 89, 92, 93, 94, 1995 Free Software Foundation, Inc.<br>
++   Copyright (C) 1987, 88, 89, 92-5, 1996 Free Software Foundation, Inc.<br>
+ <br>
+ This file is part of GNU CC.<br>
+ <br>
+@@ -291,6 +291,7 @@<br>
+ static int push_secondary_reload PROTO((int, rtx, int, int, enum reg_class,<br>
+ 					enum machine_mode, enum reload_type,<br>
+ 					enum insn_code *));<br>
++static enum reg_class find_valid_class PROTO((enum machine_mode, int));<br>
+ static int push_reload		PROTO((rtx, rtx, rtx *, rtx *, enum reg_class,<br>
+ 				       enum machine_mode, enum machine_mode,<br>
+ 				       int, int, int, enum reload_type));<br>
+@@ -360,6 +361,9 @@<br>
+   /* If X is a paradoxical SUBREG, use the inner value to determine both the<br>
+      mode and object being reloaded.  */<br>
+   if (GET_CODE (x) == SUBREG<br>
++#ifdef CLASS_CANNOT_CHANGE_SIZE<br>
++      &amp;&amp; reload_class != CLASS_CANNOT_CHANGE_SIZE<br>
++#endif<br>
+       &amp;&amp; (GET_MODE_SIZE (GET_MODE (x))<br>
+<i> 	  &gt; GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))</i><br>
+     {<br>
+@@ -688,6 +692,38 @@<br>
+ }<br>
+ #endif /* SECONDARY_MEMORY_NEEDED */<br>
+ <br>
++/* Find the largest class for which every register number plus N is valid in<br>
++   M1 (if in range).  Abort if no such class exists.  */<br>
++<br>
++static enum reg_class<br>
++find_valid_class (m1, n)<br>
++     enum machine_mode  m1;<br>
++     int n;<br>
++{<br>
++  int class;<br>
++  int regno;<br>
++  enum reg_class best_class;<br>
++  int best_size = 0;<br>
++<br>
++  for (class = 1; class &lt; N_REG_CLASSES; class++)<br>
++    {<br>
++      int bad = 0;<br>
++      for (regno = 0; regno &lt; FIRST_PSEUDO_REGISTER &amp;&amp; ! bad; regno++)<br>
++	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)<br>
++	    &amp;&amp; TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)<br>
++	    &amp;&amp; ! HARD_REGNO_MODE_OK (regno + n, m1))<br>
++	  bad = 1;<br>
++<br>
++      if (! bad &amp;&amp; reg_class_size[class] &gt; best_size)<br>
++	best_class = class, best_size = reg_class_size[class];<br>
++    }<br>
++<br>
++  if (best_size == 0)<br>
++    abort ();<br>
++<br>
++  return best_class;<br>
++}<br>
++<br>
+ /* Record one reload that needs to be performed.<br>
+    IN is an rtx saying where the data are to be found before this instruction.<br>
+    OUT says where they must be stored after the instruction.<br>
+@@ -890,17 +926,23 @@<br>
+      However, we must reload the inner reg *as well as* the subreg in<br>
+      that case.  */<br>
+ <br>
++  /* Similar issue for (SUBREG constant ...) if it was not handled by the<br>
++     code above.  This can happen if SUBREG_WORD != 0.  */<br>
++<br>
+   if (in != 0 &amp;&amp; GET_CODE (in) == SUBREG<br>
+-      &amp;&amp; GET_CODE (SUBREG_REG (in)) == REG<br>
+-      &amp;&amp; REGNO (SUBREG_REG (in)) &lt; FIRST_PSEUDO_REGISTER<br>
+-      &amp;&amp; (! HARD_REGNO_MODE_OK (REGNO (SUBREG_REG (in)), inmode)<br>
+-	  || (GET_MODE_SIZE (inmode) &lt;= UNITS_PER_WORD<br>
+-	      &amp;&amp; (GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))<br>
+-		  &gt; UNITS_PER_WORD)<br>
+-	      &amp;&amp; ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))<br>
+-		   / UNITS_PER_WORD)<br>
+-		  != HARD_REGNO_NREGS (REGNO (SUBREG_REG (in)),<br>
+-				       GET_MODE (SUBREG_REG (in)))))))<br>
++      &amp;&amp; (CONSTANT_P (SUBREG_REG (in))<br>
++	  || (GET_CODE (SUBREG_REG (in)) == REG<br>
++	      &amp;&amp; REGNO (SUBREG_REG (in)) &lt; FIRST_PSEUDO_REGISTER<br>
++	      &amp;&amp; (! HARD_REGNO_MODE_OK (REGNO (SUBREG_REG (in))<br>
++					+ SUBREG_WORD (in),<br>
++					inmode)<br>
++		  || (GET_MODE_SIZE (inmode) &lt;= UNITS_PER_WORD<br>
++		      &amp;&amp; (GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))<br>
++			  &gt; UNITS_PER_WORD)<br>
++		      &amp;&amp; ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))<br>
++			   / UNITS_PER_WORD)<br>
++			  != HARD_REGNO_NREGS (REGNO (SUBREG_REG (in)),<br>
++					       GET_MODE (SUBREG_REG (in)))))))))<br>
+     {<br>
+       /* This relies on the fact that emit_reload_insns outputs the<br>
+ 	 instructions for input reloads of type RELOAD_OTHER in the same<br>
+@@ -908,11 +950,11 @@<br>
+ 	 RELOAD_OTHER, we are guaranteed that this inner reload will be<br>
+ 	 output before the outer reload.  */<br>
+       push_reload (SUBREG_REG (in), NULL_RTX, &amp;SUBREG_REG (in), NULL_PTR,<br>
+-		   GENERAL_REGS, VOIDmode, VOIDmode, 0, 0, opnum, type);<br>
++		   find_valid_class (inmode, SUBREG_WORD (in)),<br>
++		   VOIDmode, VOIDmode, 0, 0, opnum, type);<br>
+       dont_remove_subreg = 1;<br>
+     }<br>
+ <br>
+-<br>
+   /* Similarly for paradoxical and problematical SUBREGs on the output.<br>
+      Note that there is no reason we need worry about the previous value<br>
+      of SUBREG_REG (out); even if wider than out,<br>
+@@ -981,7 +1023,8 @@<br>
+   if (out != 0 &amp;&amp; GET_CODE (out) == SUBREG<br>
+       &amp;&amp; GET_CODE (SUBREG_REG (out)) == REG<br>
+       &amp;&amp; REGNO (SUBREG_REG (out)) &lt; FIRST_PSEUDO_REGISTER<br>
+-      &amp;&amp; (! HARD_REGNO_MODE_OK (REGNO (SUBREG_REG (out)), outmode)<br>
++      &amp;&amp; (! HARD_REGNO_MODE_OK (REGNO (SUBREG_REG (out)) + SUBREG_WORD (out),<br>
++				outmode)<br>
+<i> 	  || (GET_MODE_SIZE (outmode) &lt;= UNITS_PER_WORD</i><br>
+ 	      &amp;&amp; (GET_MODE_SIZE (GET_MODE (SUBREG_REG (out)))<br>
+<i> 		  &gt; UNITS_PER_WORD)</i><br>
+@@ -997,7 +1040,9 @@<br>
+ 	 output after the outer reload.  */<br>
+       dont_remove_subreg = 1;<br>
+       push_reload (SUBREG_REG (out), SUBREG_REG (out), &amp;SUBREG_REG (out),<br>
+-		   &amp;SUBREG_REG (out), ALL_REGS, VOIDmode, VOIDmode, 0, 0,<br>
++		   &amp;SUBREG_REG (out),<br>
++		   find_valid_class (outmode, SUBREG_WORD (out)),<br>
++		   VOIDmode, VOIDmode, 0, 0,<br>
+ 		   opnum, RELOAD_OTHER);<br>
+     }<br>
+ <br>
+@@ -1230,9 +1275,13 @@<br>
+ 	 For example, we may now have both IN and OUT<br>
+ 	 while the old one may have just one of them.  */<br>
+ <br>
+-      if (inmode != VOIDmode)<br>
++      /* The modes can be different.  If they are, we want to reload in<br>
++	 the larger mode, so that the value is valid for both modes.  */<br>
++      if (inmode != VOIDmode<br>
++	  &amp;&amp; GET_MODE_SIZE (inmode) &gt; GET_MODE_SIZE (reload_inmode[i]))<br>
+ 	reload_inmode[i] = inmode;<br>
+-      if (outmode != VOIDmode)<br>
++      if (outmode != VOIDmode<br>
++	  &amp;&amp; GET_MODE_SIZE (outmode) &gt; GET_MODE_SIZE (reload_outmode[i]))<br>
+ 	reload_outmode[i] = outmode;<br>
+       if (in != 0)<br>
+ 	reload_in[i] = in;<br>
+@@ -5517,7 +5566,7 @@<br>
+   /* Reject VALUE if it was loaded from GOAL<br>
+      and is also a register that appears in the address of GOAL.  */<br>
+ <br>
+-  if (goal_mem &amp;&amp; value == SET_DEST (PATTERN (where))<br>
++  if (goal_mem &amp;&amp; value == SET_DEST (single_set (where))<br>
+       &amp;&amp; refers_to_regno_for_reload_p (valueno,<br>
+ 				       (valueno<br>
+ 					+ HARD_REGNO_NREGS (valueno, mode)),<br>
+@@ -5899,7 +5948,7 @@<br>
+ 	fprintf (stderr, ", inc by %d\n", reload_inc[r]);<br>
+ <br>
+       if (reload_nocombine[r])<br>
+-	fprintf (stderr, ", can combine", reload_nocombine[r]);<br>
++	fprintf (stderr, ", can't combine", reload_nocombine[r]);<br>
+ <br>
+       if (reload_secondary_p[r])<br>
+ 	fprintf (stderr, ", secondary_reload_p");<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0023.html">Richard Henderson: "Re: ev4sched---here it is"</a>
+<li> <b>Previous message:</b> <a href="0021.html">Jim Paradis: "Re: ev4sched---here it is"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

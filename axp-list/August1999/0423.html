@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: tbia() on DEC 3000 question</TITLE>
+<META NAME="Author" CONTENT="Craig P Prescott (prescott@phys.ufl.edu)">
+<META NAME="Subject" CONTENT="Re: tbia() on DEC 3000 question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: tbia() on DEC 3000 question</H1>
+<HR>
+<P>
+<!-- received="Wed Aug 18 09:42:25 1999" -->
+<!-- isoreceived="19990818164225" -->
+<!-- sent="Wed, 18 Aug 1999 05:36:45 -0400" -->
+<!-- isosent="19990818093645" -->
+<!-- name="Craig P Prescott" -->
+<!-- email="prescott@phys.ufl.edu" -->
+<!-- subject="Re: tbia() on DEC 3000 question" -->
+<!-- id="199908180936.FAA15756@neptune.phys.ufl.edu" -->
+<!-- inreplyto="19990816171655.A26946@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: tbia() on DEC 3000 question<BR>
+<STRONG>From: </STRONG>Craig P Prescott (<EM>prescott@phys.ufl.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Aug 18 1999 - 02:36:45 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#423">[ date ]</A>
+<A HREF="index.html#423">[ thread ]</A>
+<A HREF="subject.html#423">[ subject ]</A>
+<A HREF="author.html#423">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0424.html">Jason Irons: "Diagram for DEC3000 power supply"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0422.html">Richard Henderson: "Re: gcc 2.95 &amp; debugging symbols"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0391.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0424.html">Jason Irons: "Diagram for DEC3000 power supply"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0391.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello;
+<BR>
+<P>Thanks very much for your reply - I want to make sure I understand it.
+<BR>
+<P>On Mon, 16 Aug 1999 17:16:55 -0700, Richard Henderson wrote:
+<BR>
+<EM>&gt; Hmm.  If you are faulting at this point, this means that the
+</EM><BR>
+<EM>&gt; empty page tables we set up are actually being used.  This
+</EM><BR>
+<EM>&gt; suggests that the KSEG superpage is not enabled.
+</EM><BR>
+<P>The empty pages being what we flushed in free_area_init()...
+<BR>
+<P>This enabling of the KSEG superpage - I am not sure how this happens,
+<BR>
+but it sounds like something I could check.  Is that the significance of
+<BR>
+paging_init()'s
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clear_bit(PG_reserved, &amp;mem_map[pfn++].flags);
+<BR>
+<P><EM>&gt; Alternately, that PC is very suspicious.  In-kernel addresses
+</EM><BR>
+<EM>&gt; should all reference KSEG.  So code addresses should begin 
+</EM><BR>
+<EM>&gt; about 0xfffffc0000310000.  If you'd actually been executing
+</EM><BR>
+<EM>&gt; with PC = 0x60401, we've just removed the mapping out from 
+</EM><BR>
+<EM>&gt; under you, causing the fault.  This scenario puts blame on 
+</EM><BR>
+<EM>&gt; the bootstrap code that jumps into the kernel image.
+</EM><BR>
+<P>Ok.  removed the mapping - again, because we've flushed everything in
+<BR>
+free_area_init()?
+<BR>
+<P><EM>&gt; It may be though that 0x60401 is merely the physical address
+</EM><BR>
+<EM>&gt; within the PALcode that took the double fault, which would
+</EM><BR>
+<EM>&gt; make that number perfectly reasonable.  I'm just not sure
+</EM><BR>
+<EM>&gt; how to interpret that line.
+</EM><BR>
+<P>Perhaps some of what follows is not totally tangential to the above.
+<BR>
+<P>The top of System.map reads
+<BR>
+<P>fffffc0000300000 A swapper_pg_dir
+<BR>
+fffffc0000310000 A _text
+<BR>
+fffffc0000310000 T __start
+<BR>
+<P>and the bottom finishes with
+<BR>
+<P>fffffc00004657e8 A _end
+<BR>
+<P>I had sprinkled some srm_printk (is this ok to do??) calls around (I am
+<BR>
+working from a serial console), and just prior to paging_init() 
+<BR>
+<P>memory_start is   0xfffffc00004657e8
+<BR>
+memory_end   is   0xfffffc0008000000 (the 3000/500 has 128 Megs of RAM)
+<BR>
+<P>and inside paging_init(), just after free_area_init(), 
+<BR>
+<P>start_mem becomes 0xfffffc00005a67e8
+<BR>
+<P>Are these starting values sensible?
+<BR>
+<P>I'm sure I'm doing something silly, I just don't know what.  Thanks
+<BR>
+again for your help.
+<BR>
+<P>Cheers,
+<BR>
+Craig
+<BR>
+<PRE>
+---
+Craig P Prescott                              (352) 846-3145 (Phone)
+2011 New Physics Building                     (352) 392-8863 (Fax)
+University of Florida, Gainesville, FL 32611  prescott@phys.ufl.edu
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0424.html">Jason Irons: "Diagram for DEC3000 power supply"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0422.html">Richard Henderson: "Re: gcc 2.95 &amp; debugging symbols"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0391.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0424.html">Jason Irons: "Diagram for DEC3000 power supply"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0391.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

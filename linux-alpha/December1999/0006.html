@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [patch] 2.3.30pre6 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: [patch] 2.3.30pre6 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patch] 2.3.30pre6 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Sun Dec 05 20:27:15 1999" -->
+<!-- isoreceived="19991206042715" -->
+<!-- sent="Sun, 5 Dec 1999 21:04:17 +0100 (CET)" -->
+<!-- isosent="19991205200417" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: [patch] 2.3.30pre6 alpha updates" -->
+<!-- id="Pine.LNX.4.10.9912052043480.1515-100000@alpha.random" -->
+<!-- inreplyto="19991205111858.A5899@cygnus.com" -->
+<STRONG>Subject: </STRONG>Re: [patch] 2.3.30pre6 alpha updates<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Dec 05 1999 - 12:04:17 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#6">[ date ]</A>
+<A HREF="index.html#6">[ thread ]</A>
+<A HREF="subject.html#6">[ subject ]</A>
+<A HREF="author.html#6">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0005.html">Andrea Arcangeli: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, 5 Dec 1999, Richard Henderson wrote:
+<BR>
+<P><EM>&gt;You did this for the Contaq?  This wasn't necessary.  We do have code
+</EM><BR>
+<EM>&gt;to properly init the bridge now -- that's what pcibios_assign_special does.
+</EM><BR>
+<P>pcibios_assign_special _only_ deals with pci base address. Without the
+<BR>
+quirk added in the pci_fixup_irq stuff all the irqs of the contaq gets set
+<BR>
+to 0 here.
+<BR>
+<P><EM>&gt;&gt;  static struct {
+</EM><BR>
+<EM>&gt;&gt; -	unsigned long bits __cacheline_aligned;
+</EM><BR>
+<EM>&gt;&gt; -} ipi_data[NR_CPUS];
+</EM><BR>
+<EM>&gt;&gt; +	unsigned long bits ____cacheline_aligned;
+</EM><BR>
+<EM>&gt;&gt; +} ipi_data[NR_CPUS] __cacheline_aligned;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;One or the other is sufficient.  No need to align both.
+</EM><BR>
+<P>____cacheline_aligned make sure that the struct is large a multiple of
+<BR>
+32bytes.
+<BR>
+<P>__cacheline_aligned make sure the struct will start in an aligned
+<BR>
+boundary.
+<BR>
+<P>If you remove the first it make no sense to alloc the struct in an aligned
+<BR>
+boundary and depending on the number of CPUs you may break the
+<BR>
+.data.cacheline_aligned section. So if you use the second you must use
+<BR>
+also the first.
+<BR>
+<P>If you remove the only the second the first cacheline could be not local
+<BR>
+to the cpu.
+<BR>
+<P><EM>&gt;&gt; diff -urN 2.3.30pre6/include/asm-alpha/hw_irq.h a/include/asm-alpha/hw_irq.h
+</EM><BR>
+<EM>&gt;&gt; --- 2.3.30pre6/include/asm-alpha/hw_irq.h	Thu Jan  1 01:00:00 1970
+</EM><BR>
+<EM>&gt;&gt; +++ a/include/asm-alpha/hw_irq.h	Sun Dec  5 15:38:27 1999
+</EM><BR>
+<EM>&gt;&gt; @@ -0,0 +1,91 @@
+</EM><BR>
+<EM>&gt;&gt; +#ifndef _ALPHA_HW_IRQ_H
+</EM><BR>
+<EM>&gt;&gt; +#define _ALPHA_HW_IRQ_H
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;What was the point of moving this file from arch/alpha/kernel/irq_impl.h?
+</EM><BR>
+<P>Because I am putting in sync the alpha port with the i386 port.
+<BR>
+arch/i386/kernel/irq.c is almost the same of arch/alpha/kernel/irq.c in my
+<BR>
+current devel tree. I am going to use the _plain_ (completly cut and
+<BR>
+pasted) request_irq()/free_irq()/probe_irq*()/disable_irq*()/enable_irq()
+<BR>
+of the i386 port. I am sharing the irq_desc_t data structure in
+<BR>
+include/linux/irq.h.
+<BR>
+<P><EM>&gt;Yes, there is an include/asm-i386/hw_irq.h, but so what?  This is not
+</EM><BR>
+<EM>&gt;something that the rest of the kernel can even remotely use.
+</EM><BR>
+<P>If you want to use include/linux/irq.h you should implement hw_irq.h and
+<BR>
+so I did. I am only going in the i386 way (that puts the very arch stuff
+<BR>
+in asm-i386 instead of arch/i386/kernel) that is the mainstream linux way
+<BR>
+as far I can tell.
+<BR>
+<P><EM>&gt;&gt; +#define __cacheline_aligned					\
+</EM><BR>
+<EM>&gt;&gt; +  __attribute__((__aligned__(SMP_CACHE_BYTES),			\
+</EM><BR>
+<EM>&gt;&gt; +		 __section__(&quot;.data.cacheline_aligned&quot;)))
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;You can't use this on Alpha without modifying the link script.
+</EM><BR>
+<P>It's just modifyed as far I can tell:
+<BR>
+<P>andrea@alpha:~/kernel/2.3.30pre6-alpha &gt; grep cacheline arch/alpha/vmlinux.lds
+<BR>
+&nbsp;&nbsp;.data.cacheline_aligned : { *(.data.cacheline_aligned) }
+<BR>
+andrea@alpha:~/kernel/2.3.30pre6-alpha &gt; grep -C irq_desc System.map
+<BR>
+fffffc000049c000 A __init_end
+<BR>
+fffffc00004a0000 A _data
+<BR>
+fffffc00004a0000 D irq_desc
+<BR>
+fffffc00004a1000 d ipi_data
+<BR>
+fffffc00004a1400 d aligned_data
+<BR>
+andrea@alpha:~/kernel/2.3.30pre6-alpha &gt; objdump -d -j
+<BR>
+.data.cacheline_aligned vmlinux
+<BR>
+<P>vmlinux:     file format elf64-alpha
+<BR>
+<P>Disassembly of section .data.cacheline_aligned:
+<BR>
+<P>fffffc00004a0000 &lt;irq_desc&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+<P>fffffc00004a1000 &lt;ipi_data&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+<P>fffffc00004a1400 &lt;aligned_data&gt;:
+<BR>
+fffffc00004a1400:       00 c0 49 00 00 fc ff ff 00 00 00 00 00 00 00 00 
+<BR>
+..I.............
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+andrea@alpha:~/kernel/2.3.30pre6-alpha &gt;
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0005.html">Andrea Arcangeli: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

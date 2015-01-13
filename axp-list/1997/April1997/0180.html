@@ -1,0 +1,141 @@
+<!-- received="Fri Apr  4 06:16:07 1997 " -->
+<!-- sent="04 Apr 1997 13:11:17 +0200" -->
+<!-- name="Markus Dickebohm" -->
+<!-- email="m.dickebohm@uni-koeln.de" -->
+<!-- subject="XEmacs 19.15 on Linux Alpha" -->
+<!-- id="9704041044.AA01959@alpha3" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>XEmacs 19.15 on Linux Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>XEmacs 19.15 on Linux Alpha</h2>
+
+<b>Markus Dickebohm</b> (<a href="mailto:m.dickebohm@uni-koeln.de"><i>m.dickebohm@uni-koeln.de</i></a>)<br>
+<i>04 Apr 1997 13:11:17 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#180">[ date ]</a><a href="index.html#180">[ thread ]</a><a href="subject.html#180">[ subject ]</a><a href="author.html#180">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0181.html">Woodstock: "RE: ncr53c8xx support in 2.0.29"</a>
+<li> <b>Previous message:</b> <a href="0179.html">Scott Manley: "MSS"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0182.html">Markus Dickebohm: "XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)"</a>
+<li> <b>Reply:</b> <a href="0182.html">Markus Dickebohm: "XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Just in case someone is interested in gettings XEmacs-19.15 to work on<br>
+Linux Alpha, here are the results of my attempts:<br>
+<p>
+I tried to compile XEmacs 19.15 on a DEC Alpha running Linux (2.0.29)<br>
+and have the following problems:<br>
+<p>
+Linux Alpha don't seem to be a supported platform, that why I had to<br>
+change <br>
+	src/m/alpha.h<br>
+and<br>
+	src/s/linux.h<br>
+in the following way:<br>
+<p>
+   from:				  to:<br>
+#define UNEXEC unexalpha.o              #define UNEXEC unexelf1.o<br>
+#define LINUX_SBRK_BUG                  #undef LINUX_SBRK_BUG<br>
+#define ECOFF				#define ELF<br>
+#define DATA_END \                      /* #define DATA_END \<br>
+   ({ extern int _EDATA; &amp;_EDATA; })      ({ extern int _edata; &amp;_edata; })<br>
+                                          */<br>
+<p>
+The "unexelf1.c"-file is "stolen" from the FSF Emacs 19.34 release.<br>
+Because UNEXEC is defined in s/linux.h too, I commented that line out.<br>
+<p>
+With these little changes and<br>
+	./configure --run-in-place<br>
+everything compiles quite cleanly (even with -Wall I don't get many<br>
+warnings) until it comes to "gmalloc.c". To get this file compiled I<br>
+had to comment out line 1303:<br>
+<p>
+  extern __ptr_t __sbrk __P ((int increment));<br>
+<p>
+because it is inconsistent with "/usr/include/unistd.h":<br>
+<p>
+  extern __ptr_t __sbrk __P ((ptrdiff_t __delta));<br>
+<p>
+<p>
+Now, XEmacs compiles without an error. <br>
+<p>
+Unfortunately the "ld" I'm using at the moment (ld version 2.7 (with<br>
+BFD 2.7.0.2)) has a bug in respect to create big binaries. That's why<br>
+Richard Henderson adviced me to build shared libraries from the static<br>
+ones. I did this for<br>
+	a) libcompface.a<br>
+	b) liblw.a<br>
+with:<br>
+<p>
+	gcc -shared -o src/libcompface.so \<br>
+              -Wl,--whole-archive /usr/lib/libcompface.a \<br>
+              -Wl,--no-whole-archive<br>
+<p>
+<p>
+Now XEmacs even links without a problem. But the resulting "temacs"<br>
+segfaults:<br>
+<p>
+(gdb) file temacs<br>
+Reading symbols from temacs...run<br>
+done.<br>
+(gdb) run<br>
+Starting program: /usr/local/src/emacs/xemacs-19.15/src/temacs <br>
+<p>
+Program received signal SIGSEGV, Segmentation fault.<br>
+0x12006d1d4 in emacs_doprnt_string_va () at doprnt.c:736<br>
+736     {<br>
+<p>
+<p>
+I'm quite sure that the problem is in gmalloc.c (the backtrace shows<br>
+an infinite loop). Brady Montz (<a href="mailto:bradym@cs.arizona.edu">bradym@cs.arizona.edu</a>) explained in<br>
+comp.emacs.xemacs that he has had similar problems getting 19.14 to<br>
+run. He send patches to comp.emacs.xemacs, but they don't solve the<br>
+problem.<br>
+<p>
+It would be so nice to have a running native XEmacs on Linux Alpha<br>
+(unfortunately the Digital Unix version is far from being stable on<br>
+Linux), maybe someone has suggestions where to investigate further.<br>
+<p>
+Thanks,<br>
+Markus<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0181.html">Woodstock: "RE: ncr53c8xx support in 2.0.29"</a>
+<li> <b>Previous message:</b> <a href="0179.html">Scott Manley: "MSS"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0182.html">Markus Dickebohm: "XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)"</a>
+<li> <b>Reply:</b> <a href="0182.html">Markus Dickebohm: "XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

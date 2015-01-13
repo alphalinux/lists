@@ -1,0 +1,112 @@
+<!-- received="Wed Jun 12 08:04:18 1996 " -->
+<!-- sent="Wed, 12 Jun 1996 08:04:18 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: performance of 21164-300 vs P6-200 (fwd)" -->
+<!-- id="199606121504.IAA28637@koala.azstarnet.com" -->
+<!-- inreplyto="performance of 21164-300 vs P6-200 (fwd)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: performance of 21164-300 vs P6-200 (fwd)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: performance of 21164-300 vs P6-200 (fwd)</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Wed, 12 Jun 1996 08:04:18 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#138">[ date ]</a><a href="index.html#138">[ thread ]</a><a href="subject.html#138">[ subject ]</a><a href="author.html#138">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0139.html">Michael Schwingen: "Re: Old Jensen with new firmware Won't initialize Video BIOS"</a>
+<li> <b>Previous message:</b> <a href="0137.html">Jim Nance: "Re: performance of 21164-300 vs P6-200 (fwd)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Wed, 12 Jun 1996 07:36:17 -0400 (EDT), Jim Nance &lt;<a href="mailto:Jim_Nance@avanticorp.com">Jim_Nance@avanticorp.com</a>&gt; said:</i><br>
+<p>
+  Jim&gt; He also did a little loop unrolling in test1 which made a<br>
+  Jim&gt; tremendous performance difference:<br>
+<p>
+  roadrunner&gt; ./newtest1 10<br>
+  Jim&gt; 	  1000 10 4.20 190.48<br>
+  roadrunner&gt; ./test1 10<br>
+  Jim&gt; 	  1000 10 0.58 137.14<br>
+<p>
+The numbers Richard got on his 300MHz (?) eb164 for this new version<br>
+of test1 are interesting, too (Richard, I hope you don't mind me<br>
+quoting your results):<br>
+<p>
+  ecoff (gcc version 2.7.1 off the red hat 3.0.3 cd)<br>
+      1000        10      3.65    219.18<br>
+<p>
+  elf shared (gcc version 2.7.2 snapshot 960602)<br>
+      1000        10      3.76    212.78<br>
+  LD_BIND_NOW=1<br>
+      1000        10      3.65    219.04<br>
+<p>
+  elf static (same)<br>
+      1000        10      3.41    234.73<br>
+<p>
+I'm not sure yet we understand why the "elf static" binary is that<br>
+much faster, but ELF performance isn't really something anybody has<br>
+had time yet to look into, so it may be that we just get lucky.<br>
+<p>
+Now where does the improvement come from?  Well, gcc either is not<br>
+agressive enough about using registers (of which the Alpha has plenty)<br>
+or its alias analysis is extremely conservative.  The upshot of this<br>
+is that most loops in the tests I looked at are scheduled _exactly_<br>
+the way they are written in the sources---very often, a load is<br>
+immediately followed by a use.  I looked at one function each in test1<br>
+and test3 and in both cases, just separating the loads from the stores<br>
+(and putting the actual operations in between) improved performance<br>
+tremendously.  In test3, this reduced execution time of function<br>
+svmva() from 1.07 seconds down to 0.56 seconds on my Cabriolet (275MHz<br>
+21064a, the times where measured with gprof---so they should not be<br>
+taken literally, but the relative performance is usually accurate).<br>
+The overall improvement for test3 was less because I didn't have the<br>
+time to make the same kind of changes to the other functions.<br>
+<p>
+To summarize:<br>
+<p>
+ (1) When using the DEC C compilers, be sure it's operating in ANSI C<br>
+     mode (-std1)<br>
+<p>
+ (2) When using gcc, it may be necessary to spend some time optimizing<br>
+     the code for the Alpha to get similar (or better) performance than<br>
+     what DEC C achieves (cc -migrate -O4 -std1 or some such).<br>
+<p>
+ (3) gcc -O -Wall is a great assistant in tracking down 64-bit problems<br>
+     in code.<br>
+<p>
+So, please, do _not_ jump out of the window!  (Or is that "into<br>
+window(s), these days?? ;-))<br>
+<p>
+	--david<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0139.html">Michael Schwingen: "Re: Old Jensen with new firmware Won't initialize Video BIOS"</a>
+<li> <b>Previous message:</b> <a href="0137.html">Jim Nance: "Re: performance of 21164-300 vs P6-200 (fwd)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

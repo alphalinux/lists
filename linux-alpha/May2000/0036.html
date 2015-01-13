@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Calling testers for another Dead Function</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com )">
+<META NAME="Subject" CONTENT="Re: Calling testers for another Dead Function Optimisation update">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Calling testers for another Dead Function Optimisation update</H1>
+<HR>
+<P>
+<!-- received="Mon May 22 17:59:39 2000" -->
+<!-- isoreceived="20000523005939" -->
+<!-- sent="20 May 2000 23:12:15 -0700" -->
+<!-- isosent="20000521061215" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com " -->
+<!-- subject="Re: Calling testers for another Dead Function Optimisation update" -->
+<!-- id="8g7unv$v9$1@penguin.transmeta.com" -->
+<!-- inreplyto="391EECB7.2F5670E7@netx4.com" -->
+<STRONG>Subject: </STRONG>Re: Calling testers for another Dead Function Optimisation update<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com </EM>)<BR>
+<STRONG>Date: </STRONG>Sat May 20 2000 - 23:12:15 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#36">[ date ]</A>
+<A HREF="index.html#36">[ thread ]</A>
+<A HREF="subject.html#36">[ subject ]</A>
+<A HREF="author.html#36">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0037.html">Ivan Kokshaysky: "2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0035.html">Barrett Southworth: "Free Disk Space"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0027.html">Dan Malek: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0027.html">Linus Torvalds: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+In article &lt;391EECB7.2F5670E7@netx4.com&gt;, Dan Malek  &lt;dan@netx4.com&gt; wrote:
+<BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;This is the way the kernel used to be, with the kernel objects
+</EM><BR>
+<EM>&gt;as *.a files instead of *.o files.  I remember a discussion on
+</EM><BR>
+<EM>&gt;some mailing lists when things changed from *.a to *.o, and I
+</EM><BR>
+<EM>&gt;asked why it had changed.  The response I received was the change
+</EM><BR>
+<EM>&gt;was due to loadable modules, that when you link the kernel as a
+</EM><BR>
+<EM>&gt;bunch of *.a files the result is usually missing lots of functions
+</EM><BR>
+<EM>&gt;that a loadable module may want to call.
+</EM><BR>
+<P>You asked the wrong people.
+<BR>
+<P>The reason most of the Linux kernel is linked using &quot;lr -R&quot; instead of
+<BR>
+creating lots of object file archives with &quot;ar&quot; is quite simple.
+<BR>
+<P>It has to be done that way in order to force-link the &quot;unnecessary&quot;
+<BR>
+sections that have pointers to initialization routines etc.
+<BR>
+<P>In 2.3.x kernels, the Linux kernel no longer depends on having special
+<BR>
+initialization functions that call all the initializers for stuff that
+<BR>
+was configured in: instead the kernel uses a few special sections that
+<BR>
+just have all init-function pointers in it, and a simple routine that
+<BR>
+walks that section and calls all initializers.
+<BR>
+<P>This means, for example, that we no longer have the horribly ugly crap:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;..
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#ifdef CONFIG_FATFS
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatfs_init();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#ifdef CONFIG_EXT2FS
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ext2fs_init();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;... approximately 200 lines of this ...
+<BR>
+<P>but instead each module that needs to be explicitly initialized just
+<BR>
+adds itself to the magic initializer section.
+<BR>
+<P>And thus we need to link the combination of object files with &quot;ld -R&quot;
+<BR>
+instead of &quot;ar&quot;, because if we used an archive none of the object files
+<BR>
+would appear to be referenced from anywhere (because each object file
+<BR>
+contains it's own &quot;caller&quot;). 
+<BR>
+<P>The new method is, btw, about a million times cleaner than the old one,
+<BR>
+mainly because:
+<BR>
+&nbsp;- loadable modules and built-in kernel modules have 100% the same
+<BR>
+&nbsp;&nbsp;&nbsp;source code. Some simple compile-time macros will just either
+<BR>
+&nbsp;&nbsp;&nbsp;populate the initializer section or the magic &quot;init_module()&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;function.
+<BR>
+&nbsp;- when adding a new driver or a new filesystem, no longer do we have to
+<BR>
+&nbsp;&nbsp;&nbsp;edit any shared files for initialization: just add the config option,
+<BR>
+&nbsp;&nbsp;&nbsp;add the makefile entry, and you're done. No need to edit
+<BR>
+&nbsp;&nbsp;&nbsp;fs/filesystems.c to add another new filesystem type.
+<BR>
+<P>So the &quot;ld -R&quot; is not going away, unless people can show how to maintain
+<BR>
+these good properties..
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0037.html">Ivan Kokshaysky: "2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0035.html">Barrett Southworth: "Free Disk Space"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0027.html">Dan Malek: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0027.html">Linus Torvalds: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

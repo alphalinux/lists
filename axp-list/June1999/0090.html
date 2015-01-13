@@ -1,0 +1,246 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: RE: Various 6.0 issues</TITLE>
+<META NAME="Author" CONTENT="Wessels, Hans (H.Wessels@energie-delfland.nl)">
+<META NAME="Subject" CONTENT="RE: Various 6.0 issues">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: Various 6.0 issues</H1>
+<HR>
+<P>
+<!-- received="Fri Jun 04 08:52:55 1999" -->
+<!-- isoreceived="19990604155255" -->
+<!-- sent="Fri, 4 Jun 1999 09:58:36 +0200" -->
+<!-- isosent="19990604075836" -->
+<!-- name="Wessels, Hans" -->
+<!-- email="H.Wessels@energie-delfland.nl" -->
+<!-- subject="RE: Various 6.0 issues" -->
+<!-- id="c=US%a=_%p=delfland%l=MSMAIL-990604075836Z-159@msmail.energie-delfland.nl" -->
+<!-- inreplyto="Various 6.0 issues" -->
+<STRONG>Subject: </STRONG>RE: Various 6.0 issues<BR>
+<STRONG>From: </STRONG>Wessels, Hans (<EM>H.Wessels@energie-delfland.nl</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jun 04 1999 - 00:58:36 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#90">[ date ]</A>
+<A HREF="index.html#90">[ thread ]</A>
+<A HREF="subject.html#90">[ subject ]</A>
+<A HREF="author.html#90">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0091.html">Luigi Cavallo: "??? PAM_pwdb and user nobody ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0089.html">Reid van Melle: "dotlock"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0080.html">Alvin Starr: "Various 6.0 issues"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0326.html">The Flying Snail: "Re: Various 6.0 issues"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0080.html">Wessels, Hans: "RE: Various 6.0 issues"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi Alvin,
+<BR>
+<P><EM>&gt;
+</EM><BR>
+<EM>&gt;5) ping gives me:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;64 bytes from 127.0.0.1: icmp_seq=0 ttl=255 time=0.2 ms
+</EM><BR>
+<EM>&gt;wrong data byte #8 should be 0x8 but was 0xb1
+</EM><BR>
+<EM>&gt;	c d e f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22
+</EM><BR>
+<EM>&gt;23 24 25 26 27 28 29 2a 2b 
+</EM><BR>
+<EM>&gt;	2c 2d 2e 2f 0 0 0 0 0 0 0 0 0 0 0 0 
+</EM><BR>
+<P>This issue has been in the list several times.
+<BR>
+<P>Solution:
+<BR>
+-----------------------------&gt;8-----------------------------------------
+<BR>
+<P>&nbsp;Message-ID: &lt;373C443A.4B574A75@ife.ee.ethz.ch&gt;
+<BR>
+&nbsp;Date: Fri, 14 May 1999 17:41:46 +0200
+<BR>
+&nbsp;From: Alex Rhomberg &lt;rhomberg@ife.ee.ethz.ch&gt;
+<BR>
+&nbsp;Organization: Electronics Lab, ETH Zurich, Switzerland
+<BR>
+<P>ping in netkit 0.11+ assumes that timeval has a length of eight bytes
+<BR>
+and works with 32 bit alignment. This is no longer the case on my Alphas
+<BR>
+running Linux 2.2.5 and Redhat 6.0 (might be due to glibc 2.1??)
+<BR>
+Ping generated unaligned traps and erroneously reported receiving of
+<BR>
+wrong data.
+<BR>
+This is fixed by the following patch. Note that I did not read the whole
+<BR>
+code but just made some wild guesses. The unaligned traps and the wrong
+<BR>
+data errors are gone.
+<BR>
+<P>Regards
+<BR>
+- Alex
+<BR>
+<P>--- ping.unpatched.c    Fri May 14 17:30:50 1999
+<BR>
++++ ping.c      Fri May 14 17:31:06 1999
+<BR>
+@@ -394,7 +394,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(options &amp; F_PINGFILLED))
+<BR>
+-               for (i = 8; i &lt; datalen; ++i)
+<BR>
++               for (i = sizeof(struct timeval); i &lt; datalen; ++i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*datap++ = i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ident = getpid() &amp; 0xFFFF;
+<BR>
+@@ -657,11 +657,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;                 /* 'Twas not our ECHO */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++nreceived;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (timing) {
+<BR>
++                 struct timeval temp_tv;
+<BR>
+&nbsp;#ifndef icmp_data
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tp = (struct timeval *)(icp + 1);
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tp = (struct timeval *)icp-&gt;icmp_data;
+<BR>
+&nbsp;#endif
+<BR>
++                       if((long)tp % sizeof(tp-&gt;tv_sec))
+<BR>
++                       {
+<BR>
++                         char *unaligned_pointer = (char *)tp;
+<BR>
++                         tp = &amp;temp_tv;
+<BR>
++                         memcpy(tp, unaligned_pointer, sizeof(struct
+<BR>
+timeval));
+<BR>
++                       }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tvsub(&amp;tv, tp);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;triptime = tv.tv_sec * 10000 + (tv.tv_usec /
+<BR>
+100);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tsum += triptime;
+<BR>
+@@ -697,9 +704,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void)printf(&quot; (DUP!)&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* check the data */
+<BR>
+&nbsp;#ifndef icmp_data
+<BR>
+-                       cp = ((u_char*)(icp + 1) + 8);
+<BR>
++                       cp = ((u_char*)(icp + 1) + sizeof(struct
+<BR>
+timeval));
+<BR>
+&nbsp;#else
+<BR>
+-                       cp = (u_char*)icp-&gt;icmp_data + 8;
+<BR>
++                       cp = (u_char*)icp-&gt;icmp_data + sizeof(struct
+<BR>
+timeval);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp = &amp;outpack[8 + sizeof(struct timeval)];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 8; i &lt; datalen; ++i, ++cp, ++dp) {
+<BR>
+<P><PRE>
+-- 
+  _________________________________________________________________
+ /                                                                 \
+|  Alex Rhomberg                           Tel: +41 1 632 49 18     |
+|  Institut fuer Elektronik                Fax: +41 1 632 12 10     |
+|  ETH Zuerich                        Zentrale: +41 1 632 11 11     |
+|  Gloriastrasse 35                                                 |
+|  8092 Zuerich               email: rhomberg@ife.ee.ethz.ch        |
+ \_________________________________________________________________/
+<P><P>I strongly suspect that doing an uncoditional copy instead of testing
+'tp' every time would be an overal win - but this is only a hunch.
+If you do the test then at least do:
+                       if( 0 != ((long)tp &amp; (sizeof(tp-&gt;tv_sec) - 1)))
+and move a declaration of temp_tv inside of a block, as I suspect that
+a compiler will be not smart enough, but basically that is it.
+<P>Wait a minute, an alignment on 8 bytes boundary, i.e. &quot; &amp; (sizeof(long)
+- 1)&quot;,
+should be good enough.  Details, details....
+<P>   Michal
+<P>-----------------------------8&lt;-----------------------------------------
+------------------
+Bye, Hans
+----------------------------------------------------------------------
+   /|   /\/\/\   |\      ir. Hans Wessels
+  / |  / /\/\ \  | \     H.Wessels@Energie-Delfland.nl
+ /  | / / /\ \ \ |  \    tel.: 015 251 4397
+/   |/ / /  \ \ \|   \   
+\   |\ \ \  / / /|   /   prive:
+ \  | \ \ \/ / / |  /    mr_ni@mbh.org
+  \ |  \ \/\/ /  | /     Fidelus Bittus et Fuckus Clockcyclus!
+   \|   \/\/\/   |/      
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0091.html">Luigi Cavallo: "??? PAM_pwdb and user nobody ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0089.html">Reid van Melle: "dotlock"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0080.html">Alvin Starr: "Various 6.0 issues"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0326.html">The Flying Snail: "Re: Various 6.0 issues"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0080.html">Wessels, Hans: "RE: Various 6.0 issues"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:25 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

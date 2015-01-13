@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: 2.2.x corruption solved (Was Re: Statica</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')</H1>
+<HR>
+<P>
+<!-- received="Tue Oct 12 18:03:06 1999" -->
+<!-- isoreceived="19991013010306" -->
+<!-- sent="Tue, 12 Oct 1999 15:21:52 +0200 (CEST)" -->
+<!-- isosent="19991012132152" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')" -->
+<!-- id="Pine.LNX.4.10.9910121505530.646-100000@alpha.random" -->
+<!-- inreplyto="19991012092828.D283@strangepork.lab.nz.eds.com" -->
+<STRONG>Subject: </STRONG>Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Oct 12 1999 - 06:21:52 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#60">[ date ]</A>
+<A HREF="index.html#60">[ thread ]</A>
+<A HREF="subject.html#60">[ subject ]</A>
+<A HREF="author.html#60">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0061.html">Falk Hueffner: "Re: Status of boot-floppies on Alpha?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0059.html">Paul Slootman: "Re: apt whoops!"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0046.html">Martin Lucina: "2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0067.html">Martin Lucina: "Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0046.html">Andrea Arcangeli: "Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+?On Tue, 12 Oct 1999, Martin Lucina wrote:
+<BR>
+<P><EM>&gt;Actually, I've figured it out now. What happened was that when I was
+</EM><BR>
+<EM>&gt;installing the box, 'fdisk' somehow gave me a default end cylinder for the
+</EM><BR>
+<EM>&gt;last partition on the disklabel which was actually one cylinder past the
+</EM><BR>
+<EM>&gt;end of the disk. Hence the mysterious crash every time I did a make install
+</EM><BR>
+<P>Ahhh I created a bogus partition on my machine too due the fdisk bug! And
+<BR>
+to check if that was the case for me too I had the bad idea to:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp /dev/zero /var/tmp
+<BR>
+<P>where /var is the last partition with the additional (out of bound) sector
+<BR>
+included.
+<BR>
+<P>After some time the kernel crashed and I destroyed all partitions of my
+<BR>
+hard disk. _all_. Note that the partition table was still fine. Only the
+<BR>
+contents of the partitons (superblocks mainly) was completly screwed up.
+<BR>
+<P>fsck was complaining no-magic number.
+<BR>
+<P>fsck -B4096 -b xxx -y using a rasonable correct backup-superblock (it had
+<BR>
+at least the magic number in the right place ;) continued running for 5/10
+<BR>
+minutes then exited complaining something. Then fsck using the backup
+<BR>
+superblock wasn't working anymore. So i run fsck with the master
+<BR>
+superblock and it worked but then after 10/15 minutes of `yes` fsck
+<BR>
+started complaining WARNING ERROR IN FSCK OR YOU HAVE THE DISK MOUNTED or
+<BR>
+something like that. I hadn't the disk mounted at all...
+<BR>
+<P>Now (after some hour wasted in restoring the system completly :() I
+<BR>
+removed 1 sector from the last partition and cp /var/tmp works fine.
+<BR>
+<P>This is my current partition that now works:
+<BR>
+<P>BSD label for device: /dev/sda
+<BR>
+<P>5 partitions:
+<BR>
+#        size   offset    fstype   [fsize bsize   cpg]
+<BR>
+&nbsp;&nbsp;a:  1226752     2048      ext2                        # (Cyl.    2 - 600)
+<BR>
+&nbsp;&nbsp;b:  8192000  1228800      ext2                        # (Cyl.  601 - 4600)
+<BR>
+&nbsp;&nbsp;c: 17772544        0    unused        0     0         # (Cyl.    1 - 8678)
+<BR>
+&nbsp;&nbsp;d:  6144000  9420800      ext2                        # (Cyl. 4601 - 7600)
+<BR>
+&nbsp;&nbsp;e:  2207744 15564800      ext2                        # (Cyl. 7601 - 8678)
+<BR>
+<P><P>The old partition looked like this:
+<BR>
+<P>BSD label for device: /dev/sda
+<BR>
+<P>5 partitions:
+<BR>
+#        size   offset    fstype   [fsize bsize   cpg]
+<BR>
+&nbsp;&nbsp;a:  1226752     2048      ext2                        # (Cyl.    2 - 600)
+<BR>
+&nbsp;&nbsp;b:  8192000  1228800      ext2                        # (Cyl.  601 - 4600)
+<BR>
+&nbsp;&nbsp;c: 17772544        0    unused        0     0         # (Cyl.    1 - 8678)
+<BR>
+&nbsp;&nbsp;d:  6144000  9420800      ext2                        # (Cyl. 4601 - 7600)
+<BR>
+&nbsp;&nbsp;e:  2207744 15564800      ext2                        # (Cyl. 7601 - 8679)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^
+<BR>
+<P>The partition `c' had the right vaue, while fsck suggested me to use 8679
+<BR>
+for the end of the last partiton `e'. I didn't cared about the correct
+<BR>
+partition c limit as partition c is a kind of black magic that I don't
+<BR>
+like and I have to ignore in first place....
+<BR>
+<P>So this is a warning for people having partition c stopping before one of
+<BR>
+your partition. fdisk is right about partition c. Trust its end and not
+<BR>
+what fdisk suggests as end of other partitions.
+<BR>
+<P>I think the fix is simply a -1 in some line of fdisk... Looks like a
+<BR>
+silly/typo bug. I cc'ed to the author of the bsdlabel in our fdisk. If he
+<BR>
+can't fix that I can do that myself.
+<BR>
+<P>Andrea
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0061.html">Falk Hueffner: "Re: Status of boot-floppies on Alpha?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0059.html">Paul Slootman: "Re: apt whoops!"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0046.html">Martin Lucina: "2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0067.html">Martin Lucina: "Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0046.html">Andrea Arcangeli: "Re: 2.2.x corruption solved (Was Re: Statically linked 'tar')"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:57 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

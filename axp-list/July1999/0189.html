@@ -1,0 +1,471 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alph</TITLE>
+<META NAME="Author" CONTENT="Wes Bauske (wsb@paralleldata.com)">
+<META NAME="Subject" CONTENT="Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)</H1>
+<HR>
+<P>
+<!-- received="Mon Jul 12 18:24:25 1999" -->
+<!-- isoreceived="19990713012425" -->
+<!-- sent="Mon, 12 Jul 1999 12:11:34 -0500" -->
+<!-- isosent="19990712171134" -->
+<!-- name="Wes Bauske" -->
+<!-- email="wsb@paralleldata.com" -->
+<!-- subject="Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)" -->
+<!-- id="378A21C6.1E094CB4@paralleldata.com" -->
+<!-- inreplyto="m3aet29c62.fsf@vermis.bfr.co.il" -->
+<STRONG>Subject: </STRONG>Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)<BR>
+<STRONG>From: </STRONG>Wes Bauske (<EM>wsb@paralleldata.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jul 12 1999 - 10:11:34 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#189">[ date ]</A>
+<A HREF="index.html#189">[ thread ]</A>
+<A HREF="subject.html#189">[ subject ]</A>
+<A HREF="author.html#189">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0190.html">Alexander L. Belikoff: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0188.html">Alexander L. Belikoff: "an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0188.html">Alexander L. Belikoff: "an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0191.html">Uncle George: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0188.html">Wes Bauske: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Try modifying your code to pass the address of a double rather 
+<BR>
+than the double itself and see if you still can create the
+<BR>
+problem. I've seen problems passing floats/doubles to functions
+<BR>
+rather than their addresses. I just pass the address instead.
+<BR>
+<P><P>Wes
+<BR>
+<P><P>&quot;Alexander L. Belikoff&quot; wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Hello everybody,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; While porting our code to Alpha dp264 (ev6), I've found the following
+</EM><BR>
+<EM>&gt; bug, that bit us quite painfully. It maybe the case that somebody
+</EM><BR>
+<EM>&gt; reported it before, but then it is unclear why nobody bothered to
+</EM><BR>
+<EM>&gt; issue an emergency bugfix release (1.1.3?). This one really looks like
+</EM><BR>
+<EM>&gt; a major showstopper...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I. The environment:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alpha dp264 (dual-CPU), running RedHat Linux 5.2 with kernel 2.2.10
+</EM><BR>
+<EM>&gt; (w/ d-ansn-2).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Bothe &quot;native&quot; compiler (egcs 1.0.3) and egcs 1.1.2 installed (the
+</EM><BR>
+<EM>&gt; latter built manually and installed in /usr/local/egcs). The latter
+</EM><BR>
+<EM>&gt; shows:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; $ gcc -v
+</EM><BR>
+<EM>&gt; Reading specs from /usr/local/egcs/lib/gcc-lib/alphaev6-unknown-linux-gnu/egcs-2.91.66/specs
+</EM><BR>
+<EM>&gt; gcc version egcs-2.91.66 19990314 (egcs-1.1.2 release)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; II. Short description of the bug:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; When optimized, memcpy() function IN SOME CASES doesn't properly copy
+</EM><BR>
+<EM>&gt; the data.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; III. The program (it is as minimal as it could be - the main bulk of
+</EM><BR>
+<EM>&gt; the source is the hexdump function):
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ============================================================================
+</EM><BR>
+<EM>&gt; #include &lt;assert.h&gt;
+</EM><BR>
+<EM>&gt; #include &lt;ctype.h&gt;
+</EM><BR>
+<EM>&gt; #include &lt;stdlib.h&gt;
+</EM><BR>
+<EM>&gt; #include &lt;stdio.h&gt;
+</EM><BR>
+<EM>&gt; #include &lt;unistd.h&gt;
+</EM><BR>
+<EM>&gt; #include &lt;string.h&gt;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; void
+</EM><BR>
+<EM>&gt; hexdump(
+</EM><BR>
+<EM>&gt;         FILE* fp,               /* in - output stream */
+</EM><BR>
+<EM>&gt;         char* name,             /* in - dump name (or NULL) */
+</EM><BR>
+<EM>&gt;         char* buf,              /* in - buffer to dump */
+</EM><BR>
+<EM>&gt;         const size_t len        /* in - buffer length */
+</EM><BR>
+<EM>&gt;         )
+</EM><BR>
+<EM>&gt; {
+</EM><BR>
+<EM>&gt;     int i, j;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     assert(fp != NULL);
+</EM><BR>
+<EM>&gt;     assert(buf != NULL);
+</EM><BR>
+<EM>&gt;     assert(len &gt; 0);
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; #define LMAX  16                /* number of bytes per line */
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     fprintf(fp, &quot;\n=== %s dump at %p (%d bytes) ====================\n&quot;,
+</EM><BR>
+<EM>&gt;             (name ? name : &quot;&quot;), buf, (int) len);
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     for (i = 0; i &lt; len; i += LMAX) {
+</EM><BR>
+<EM>&gt;         unsigned short* ibuf = (unsigned short*) &amp;buf[i];
+</EM><BR>
+<EM>&gt;         fprintf(fp, &quot;%04d-%04d     &quot;, i,
+</EM><BR>
+<EM>&gt;                 (int) ((i + LMAX - 1 &lt; len) ? i + LMAX - 1 : len));
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         for (j = 0; j &lt; LMAX / 2; j++) {
+</EM><BR>
+<EM>&gt;             if (i + j * 2 &gt;= len) {
+</EM><BR>
+<EM>&gt;                 fprintf(fp, &quot;%*s&quot;, (LMAX / 2 - j) * 5, &quot;&quot;);
+</EM><BR>
+<EM>&gt;                 break;
+</EM><BR>
+<EM>&gt;             }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;             fprintf(fp, &quot;%04X &quot;, ibuf[j]);
+</EM><BR>
+<EM>&gt;         }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         fprintf(fp, &quot;     &quot;);
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         for (j = 0; j &lt; LMAX; j++) {
+</EM><BR>
+<EM>&gt;             char c;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;             if (i + j &gt;= len)
+</EM><BR>
+<EM>&gt;                 break;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;             c = isprint(buf[i + j]) ? buf[i + j] : '.';
+</EM><BR>
+<EM>&gt;             fprintf(fp, &quot;%c&quot;, c);
+</EM><BR>
+<EM>&gt;         }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         fprintf(fp, &quot;\n&quot;);
+</EM><BR>
+<EM>&gt;     }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     fprintf(fp, &quot;=========================================================&quot;
+</EM><BR>
+<EM>&gt;             &quot;==================\n\n&quot;);
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; void
+</EM><BR>
+<EM>&gt; put_f8(
+</EM><BR>
+<EM>&gt;        double v,                /* in - value */
+</EM><BR>
+<EM>&gt;        char* buf                /* in - destination address */
+</EM><BR>
+<EM>&gt;        )
+</EM><BR>
+<EM>&gt; {
+</EM><BR>
+<EM>&gt;     v = 99.875;
+</EM><BR>
+<EM>&gt;     hexdump(stdout, &quot;pack_f8: v&quot;, (char*) &amp;v, 8);
+</EM><BR>
+<EM>&gt;     memcpy(buf, &amp;v, 8);
+</EM><BR>
+<EM>&gt;     hexdump(stdout, &quot;pack_f8: buf&quot;, (char*) buf, 8);
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; int
+</EM><BR>
+<EM>&gt; main()
+</EM><BR>
+<EM>&gt; {
+</EM><BR>
+<EM>&gt;   double foovar = 0.05;
+</EM><BR>
+<EM>&gt;   double dbuf[3];
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   memset(dbuf, '\0', sizeof(dbuf));
+</EM><BR>
+<EM>&gt;   put_f8(foovar, (char*) &amp;dbuf);
+</EM><BR>
+<EM>&gt;   exit(1);
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; /*
+</EM><BR>
+<EM>&gt;   Local Variables:
+</EM><BR>
+<EM>&gt;   compile-command: &quot;gcc -O2 -g  packbug.c -o packbug&quot;
+</EM><BR>
+<EM>&gt;   End:
+</EM><BR>
+<EM>&gt; */
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; =============================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (the corresponding .i file is attached below)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; IV. A bug demo session.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The program tries to write a double prec. value into a buffer, using
+</EM><BR>
+<EM>&gt; memcpy(). The value hexdump is printed before memcpy(), and the buffer
+</EM><BR>
+<EM>&gt; hexdump is printed after it - they don't match in the environment
+</EM><BR>
+<EM>&gt; above, IF the compiler is egcs 1.1.2, AND -O2 is used. There may be
+</EM><BR>
+<EM>&gt; other combinations, however, showing the same bug.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; a. a &quot;buggy&quot; session:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; $ gcc -v
+</EM><BR>
+<EM>&gt; Reading specs from /usr/local/egcs/lib/gcc-lib/alphaev6-unknown-linux-gnu/egcs-2.91.66/specs
+</EM><BR>
+<EM>&gt; gcc version egcs-2.91.66 19990314 (egcs-1.1.2 release)
+</EM><BR>
+<EM>&gt; $ gcc -Wall -O2 -g  packbug.c -o packbug
+</EM><BR>
+<EM>&gt; $ ./packbug
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: v dump at 0x11ffff6e0 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 F800 4058                          ......X@
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: buf dump at 0x11ffff700 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 0000 0000                          ........
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; b. no optimization
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; $ gcc -v
+</EM><BR>
+<EM>&gt; Reading specs from /usr/local/egcs/lib/gcc-lib/alphaev6-unknown-linux-gnu/egcs-2.91.66/specs
+</EM><BR>
+<EM>&gt; gcc version egcs-2.91.66 19990314 (egcs-1.1.2 release)
+</EM><BR>
+<EM>&gt; $ gcc -Wall -g  packbug.c -o packbug
+</EM><BR>
+<EM>&gt; $ ./packbug
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: v dump at 0x11ffff6e0 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 F800 4058                          ......X@
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: buf dump at 0x11ffff708 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 F800 4058                          ......X@
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; c. egcs 1.0.3
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; $ /usr/bin/gcc -v
+</EM><BR>
+<EM>&gt; Reading specs from /usr/lib/gcc-lib/alpha-redhat-linux/egcs-2.90.29/specs
+</EM><BR>
+<EM>&gt; gcc version egcs-2.90.29 980515 (egcs-1.0.3 release)
+</EM><BR>
+<EM>&gt; $ /usr/bin/gcc -Wall -O2 -g  packbug.c -o packbug
+</EM><BR>
+<EM>&gt; $ ./packbug
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: v dump at 0x11ffff6e0 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 F800 4058                          ......X@
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; === pack_f8: buf dump at 0x11ffff700 (8 bytes) ====================
+</EM><BR>
+<EM>&gt; 0000-0008     0000 0000 F800 4058                          ......X@
+</EM><BR>
+<EM>&gt; ===========================================================================
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Regards,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; PS. Here is a cpp'ed file:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   ----------------------------------------------------------------------------------------------------
+</EM><BR>
+<EM>&gt;                    Name: packbug.i.gz
+</EM><BR>
+<EM>&gt;    packbug.i.gz    Type: GNU gzip (application/gz)
+</EM><BR>
+<EM>&gt;                Encoding: x-uuencode
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   ----------------------------------------------------------------------------------------------------
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; --
+</EM><BR>
+<EM>&gt; Alexander L. Belikoff
+</EM><BR>
+<EM>&gt; Bloomberg L.P. / BFM Financial Research Ltd.
+</EM><BR>
+<EM>&gt; abel@vallinor4.com, abel@bfr.co.il
+</EM><BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0190.html">Alexander L. Belikoff: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0188.html">Alexander L. Belikoff: "an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0188.html">Alexander L. Belikoff: "an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0191.html">Uncle George: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0188.html">Wes Bauske: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:35 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

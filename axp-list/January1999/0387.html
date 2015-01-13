@@ -1,0 +1,560 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: alpha timer patch [Re: reporting 2.2 kernel bugs]</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="alpha timer patch [Re: reporting 2.2 kernel bugs]">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>alpha timer patch [Re: reporting 2.2 kernel bugs]</H1>
+<HR>
+<P>
+<!-- received="Fri Jan 08 06:55:41 1999 PST" -->
+<!-- sent="Thu, 7 Jan 1999 22:54:59 -0800" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="alpha timer patch [Re: reporting 2.2 kernel bugs]" -->
+<!-- id="19990107225459.A4342@dot.cygnus.com" -->
+<!-- inreplyto="199901080616.HAA26171@mycroft.r5c.nl" -->
+<STRONG>Richard Henderson</STRONG> (<A HREF="mailto:rth@cygnus.com?subject=Re:%20alpha%20timer%20patch%20[Re:%20reporting%202.2%20kernel%20bugs]"><EM>rth@cygnus.com</EM></A>)<BR>
+<EM>Thu, 7 Jan 1999 22:54:59 -0800</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#387">[ date ]</A>
+<A HREF="index.html#387">[ thread ]</A>
+<A HREF="subject.html#387">[ subject ]</A>
+<A HREF="author.html#387">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0388.html">Ringo LI: "Re: Alpha Server 1000A - Noritake Image (Kernel)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0386.html">Brendan Miller: "Re: symptom definition -- multia"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0358.html">Larry Snyder: "symptom definition -- multia"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0420.html">Willem Boschman: "Re: alpha timer patch [Re: reporting 2.2 kernel bugs]"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, Jan 08, 1999 at 07:13:48AM +0100, Willem Boschman wrote:
+<BR>
+<EM>&gt; I don't have any explainations for you but i do know it works. Have 
+</EM><BR>
+<EM>&gt; been using this since 2.1.125 every normal kernel gets the clock 
+</EM><BR>
+<EM>&gt; wrong while with patch its fine.I did think mayby its an error in egcs 
+</EM><BR>
+<EM>&gt; (1.0.3 or 1.1a ?) which does't occur if you move the code so i tried 
+</EM><BR>
+<EM>&gt; gcc-2.8.1 and now egcs-1.1.1. No change.
+</EM><BR>
+<P>I have trouble beliveing in compiler bugs in this case
+<BR>
+because in either case the compiled code should be the
+<BR>
+same, isolated as it is in its own function. 
+<BR>
+<P>I am willing to believe in mysterious interactions with
+<BR>
+the rest of the boot process.  To that end, would the
+<BR>
+several folks that have been having Alpha timer problems
+<BR>
+try out the following patch?
+<BR>
+<P><P>r~
+<BR>
+<P><P><P>diff -rup 2.2.0-pre5/arch/alpha/kernel/irq.c 2.2.0-pre5-axp/arch/alpha/kernel/irq.c
+<BR>
+--- 2.2.0-pre5/arch/alpha/kernel/irq.c	Thu Jan  7 15:51:29 1999
+<BR>
++++ 2.2.0-pre5-axp/arch/alpha/kernel/irq.c	Thu Jan  7 22:06:16 1999
+<BR>
+@@ -314,14 +314,14 @@ free_irq(unsigned int irq, void *dev_id)
+<BR>
+&nbsp;
+<BR>
+&nbsp;int get_irq_list(char *buf)
+<BR>
+&nbsp;{
+<BR>
+-	int i, j;
+<BR>
++	int i;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction * action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *p = buf;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;           &quot;);
+<BR>
+-	for (j = 0; j &lt; smp_num_cpus; j++)
+<BR>
+-		p += sprintf(p, &quot;CPU%d       &quot;, j);
+<BR>
++	for (i = 0; j &lt; smp_num_cpus; i++)
+<BR>
++		p += sprintf(p, &quot;CPU%d       &quot;, i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*p++ = '\n';
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+diff -rup 2.2.0-pre5/arch/alpha/kernel/proto.h 2.2.0-pre5-axp/arch/alpha/kernel/proto.h
+<BR>
+--- 2.2.0-pre5/arch/alpha/kernel/proto.h	Mon Oct 12 11:40:12 1998
+<BR>
++++ 2.2.0-pre5-axp/arch/alpha/kernel/proto.h	Thu Jan  7 22:53:10 1999
+<BR>
+@@ -129,8 +129,6 @@ extern void tsunami_init_arch(unsigned l
+<BR>
+&nbsp;extern void tsunami_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* setup.c */
+<BR>
+-extern void init_pit_rest(void);
+<BR>
+-extern void generic_init_pit (void);
+<BR>
+&nbsp;extern unsigned long srm_hae;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* smp.c */
+<BR>
+@@ -143,6 +141,8 @@ extern void reset_for_srm(void);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* time.c */
+<BR>
+&nbsp;extern void timer_interrupt(int irq, void *dev, struct pt_regs * regs);
+<BR>
++extern void rtc_init_pit(void);
+<BR>
++extern void generic_init_pit(void);
+<BR>
+&nbsp;extern unsigned long est_cycle_freq;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* smc37c93x.c */
+<BR>
+diff -rup 2.2.0-pre5/arch/alpha/kernel/setup.c 2.2.0-pre5-axp/arch/alpha/kernel/setup.c
+<BR>
+--- 2.2.0-pre5/arch/alpha/kernel/setup.c	Mon Dec 28 16:15:31 1998
+<BR>
++++ 2.2.0-pre5-axp/arch/alpha/kernel/setup.c	Thu Jan  7 22:03:01 1999
+<BR>
+@@ -275,6 +275,16 @@ setup_arch(char **cmdline_p, unsigned lo
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (alpha_mv.init_arch)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.init_arch(memory_start_p, memory_end_p);
+<BR>
+&nbsp;
+<BR>
++	/* Initialize the timers.  */
+<BR>
++	/* ??? There is some circumstantial evidence that this needs
+<BR>
++	   to be done now rather than later in time_init, which would
+<BR>
++	   be more natural.  Someone please explain or refute.  */
+<BR>
++#if defined(CONFIG_RTC)
+<BR>
++	rtc_init_pit();
+<BR>
++#else
+<BR>
++	alpha_mv.init_pit();
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Give us a default console.  TGA users will see nothing until
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* chr_dev_init is called, rather late in the boot sequence.
+<BR>
+diff -rup 2.2.0-pre5/arch/alpha/kernel/sys_ruffian.c 2.2.0-pre5-axp/arch/alpha/kernel/sys_ruffian.c
+<BR>
+--- 2.2.0-pre5/arch/alpha/kernel/sys_ruffian.c	Mon Dec 28 16:16:03 1998
+<BR>
++++ 2.2.0-pre5-axp/arch/alpha/kernel/sys_ruffian.c	Thu Jan  7 22:52:40 1999
+<BR>
+@@ -82,7 +82,7 @@ ruffian_device_interrupt(unsigned long v
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* then all the PCI slots/INTXs (12-31) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* flash(5) :DWH:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-        pld &amp;= 0x00000000ffffff9fUL; /* was ffff7f */
+<BR>
++	pld &amp;= 0x00000000ffffff9fUL; /* was ffff7f */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Now for every possible bit set, work through them and call
+<BR>
+@@ -118,12 +118,12 @@ ruffian_device_interrupt(unsigned long v
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_irq(j, j, regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-                } else { /* if not an ISA int */
+<BR>
++		} else { /* if not an ISA int */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_irq(16 + i, 16 + i, regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-                *(vulp)PYXIS_INT_REQ = 1UL &lt;&lt; i; mb();
+<BR>
+-                *(vulp)PYXIS_INT_REQ; /* read to force the write */
+<BR>
++		*(vulp)PYXIS_INT_REQ = 1UL &lt;&lt; i; mb();
+<BR>
++		*(vulp)PYXIS_INT_REQ; /* read to force the write */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -222,7 +222,7 @@ ruffian_init_arch(unsigned long *mem_sta
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_enable_errors();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!pyxis_srm_window_setup()) {
+<BR>
+-	        printk(&quot;ruffian_init_arch: Skipping window register rewrites.&quot;
+<BR>
++		printk(&quot;ruffian_init_arch: Skipping window register rewrites.&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;\n... Trust DeskStation firmware!\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_finish_init_arch();
+<BR>
+@@ -233,7 +233,10 @@ ruffian_init_pit (void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Ruffian depends on the system timer established in MILO! */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_region(0x70, 0x10, &quot;timer&quot;);
+<BR>
+-	init_pit_rest();
+<BR>
++
+<BR>
++	outb(0xb6, 0x43);       /* pit counter 2: speaker */
+<BR>
++	outb(0x31, 0x42);
+<BR>
++	outb(0x13, 0x42);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+diff -rup 2.2.0-pre5/arch/alpha/kernel/time.c 2.2.0-pre5-axp/arch/alpha/kernel/time.c
+<BR>
+--- 2.2.0-pre5/arch/alpha/kernel/time.c	Mon Dec 28 16:16:03 1998
+<BR>
++++ 2.2.0-pre5-axp/arch/alpha/kernel/time.c	Thu Jan  7 22:23:29 1999
+<BR>
+@@ -158,43 +158,28 @@ static inline unsigned long mktime(unsig
+<BR>
+&nbsp;&nbsp;* drivers depend on them being initialized (e.g., joystick driver).
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-/* It is (normally) only counter 0 that presents config problems, so
+<BR>
+-   provide this support function to do the rest of the job.  */
+<BR>
+-
+<BR>
+-void inline
+<BR>
+-init_pit_rest(void)
+<BR>
+-{
+<BR>
+-#if 0
+<BR>
+-	/* Leave refresh timer alone---nobody should depend on a
+<BR>
+-	   particular value anyway. */
+<BR>
+-	outb(0x54, 0x43);	/* counter 1: refresh timer */
+<BR>
+-	outb(0x18, 0x41);
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-	outb(0xb6, 0x43);	/* counter 2: speaker */
+<BR>
+-	outb(0x31, 0x42);
+<BR>
+-	outb(0x13, 0x42);
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;#ifdef CONFIG_RTC
+<BR>
+-static inline void
+<BR>
++void
+<BR>
+&nbsp;rtc_init_pit (void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char control;
+<BR>
+&nbsp;
+<BR>
+-	/* Setup interval timer if /dev/rtc is being used */
+<BR>
++	/* Turn off RTC interrupts before /dev/rtc is initialized */
+<BR>
++	control = CMOS_READ(RTC_CONTROL);
+<BR>
++	control &amp;= ~(RTC_PIE | RTC_AIE | RTC_UIE);
+<BR>
++	CMOS_WRITE(control, RTC_CONTROL);
+<BR>
++	(void) CMOS_READ(RTC_INTR_FLAGS);
+<BR>
++
+<BR>
++	request_region(0x40, 0x20, &quot;timer&quot;); /* reserve pit */
+<BR>
++
+<BR>
++	/* Setup interval timer.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x34, 0x43);		/* binary, mode 2, LSB/MSB, ch 0 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(LATCH &amp; 0xff, 0x40);	/* LSB */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(LATCH &gt;&gt; 8, 0x40);		/* MSB */
+<BR>
+-	request_region(0x40, 0x20, &quot;timer&quot;); /* reserve pit */
+<BR>
+&nbsp;
+<BR>
+-	/* Turn off RTC interrupts before /dev/rtc is initialized */
+<BR>
+-	control = CMOS_READ(RTC_CONTROL);
+<BR>
+-        control &amp;= ~(RTC_PIE | RTC_AIE | RTC_UIE);
+<BR>
+-        CMOS_WRITE(control, RTC_CONTROL);
+<BR>
+-        CMOS_READ(RTC_INTR_FLAGS);
+<BR>
+-
+<BR>
+-	init_pit_rest();
+<BR>
++	outb(0xb6, 0x43);	/* pit counter 2: speaker */
+<BR>
++	outb(0x31, 0x42);
+<BR>
++	outb(0x13, 0x42);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+@@ -203,7 +188,7 @@ generic_init_pit (void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char x;
+<BR>
+&nbsp;
+<BR>
+-        /* Reset periodic interrupt frequency.  */
+<BR>
++	/* Reset periodic interrupt frequency.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x = CMOS_READ(RTC_FREQ_SELECT) &amp; 0x3f;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (x != 0x26 &amp;&amp; x != 0x19 &amp;&amp; x != 0x06) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Setting RTC_FREQ to 1024 Hz (%x)\n&quot;, x);
+<BR>
+@@ -218,36 +203,26 @@ generic_init_pit (void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x &amp;= ~(RTC_AIE | RTC_UIE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CMOS_WRITE(x, RTC_CONTROL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	CMOS_READ(RTC_INTR_FLAGS);
+<BR>
++	(void) CMOS_READ(RTC_INTR_FLAGS);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_region(RTC_PORT(0), 0x10, &quot;timer&quot;); /* reserve rtc */
+<BR>
+&nbsp;
+<BR>
+-	/* Turn off the PIT.  */
+<BR>
+-	outb(0x36, 0x43);	/* counter 0: system timer */
+<BR>
++	outb(0x36, 0x43);	/* pit counter 0: system timer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x00, 0x40);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x00, 0x40);
+<BR>
+&nbsp;
+<BR>
+-	init_pit_rest();
+<BR>
++	outb(0xb6, 0x43);	/* pit counter 2: speaker */
+<BR>
++	outb(0x31, 0x42);
+<BR>
++	outb(0x13, 0x42);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-/* This probably isn't Right, but it is what the old code did.  */
+<BR>
+-#if defined(CONFIG_RTC)
+<BR>
+-# define init_pit	rtc_init_pit
+<BR>
+-#else
+<BR>
+-# define init_pit	alpha_mv.init_pit
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-
+<BR>
+&nbsp;void
+<BR>
+&nbsp;time_init(void)
+<BR>
+&nbsp;{
+<BR>
+-        void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
++	void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long cycle_freq;
+<BR>
+&nbsp;
+<BR>
+-	/* Initialize the timers.  */
+<BR>
+-	init_pit();
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* The Linux interpretation of the CMOS clock register contents:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* When the Update-In-Progress (UIP) flag goes from 1 to 0, the
+<BR>
+@@ -322,8 +297,8 @@ time_init(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;state.partial_tick = 0L;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* setup timer */ 
+<BR>
+-        irq_handler = timer_interrupt;
+<BR>
+-        if (request_irq(TIMER_IRQ, irq_handler, 0, &quot;timer&quot;, NULL))
+<BR>
++	irq_handler = timer_interrupt;
+<BR>
++	if (request_irq(TIMER_IRQ, irq_handler, 0, &quot;timer&quot;, NULL))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;panic(&quot;Could not allocate timer IRQ!&quot;);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20alpha%20timer%20patch%20[Re:%20reporting%202.2%20kernel%20bugs]">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20alpha%20timer%20patch%20[Re:%20reporting%202.2%20kernel%20bugs]">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0388.html">Ringo LI: "Re: Alpha Server 1000A - Noritake Image (Kernel)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0386.html">Brendan Miller: "Re: symptom definition -- multia"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0358.html">Larry Snyder: "symptom definition -- multia"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0420.html">Willem Boschman: "Re: alpha timer patch [Re: reporting 2.2 kernel bugs]"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:47 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

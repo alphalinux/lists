@@ -1,0 +1,180 @@
+<!-- received="Thu Sep  4 09:47:49 1997 " -->
+<!-- sent="Thu, 4 Sep 1997 13:47:28 -0400 (EDT)" -->
+<!-- name="Stephen J. Gaudet" -->
+<!-- email="sjg@dcginc.com" -->
+<!-- subject="Re: Installing aboot" -->
+<!-- id="199709041747.NAA20239@mailrelay.tiac.net" -->
+<!-- inreplyto="Installing aboot" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Installing aboot</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Installing aboot</h2>
+
+<b>Stephen J. Gaudet</b> (<a href="mailto:sjg@dcginc.com"><i>sjg@dcginc.com</i></a>)<br>
+<i>Thu, 4 Sep 1997 13:47:28 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#55">[ date ]</a><a href="index.html#55">[ thread ]</a><a href="subject.html#55">[ subject ]</a><a href="author.html#55">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0056.html">Eduardo Augusto Trettel: "Re: Installing aboot"</a>
+<li> <b>Previous message:</b> <a href="0054.html">Eduardo A. Trettel: "Installing aboot"</a>
+<li> <b>Maybe in reply to:</b> <a href="0329.html">Eduardo A. Trettel: "Installing aboot"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0062.html">Stephen J. Gaudet: "Re: Installing aboot"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello Trettel<br>
+<p>
+<i>&gt;	I'm trying to install aboot 0.5 on my harddisk on a AS255. </i><br>
+<i>&gt;Quoting from the SRM-Howto:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	"... We suggest that the disk be partitioned such that the first</i><br>
+<i>&gt;partition starts at an offset of 2048 sectors ..."</i><br>
+<i>&gt;</i><br>
+<i>&gt;	So I have made a partition scheme like this:</i><br>
+<i>&gt;</i><br>
+<i>&gt;Disk /dev/sda: 99 heads, 48 sectors, 865 cylinders</i><br>
+<i>&gt;Units = cylinders of 4752 * 512 bytes</i><br>
+<i>&gt;</i><br>
+<i>&gt;   Device Boot   Begin    Start      End   Blocks   Id  System</i><br>
+<i>&gt;/dev/sda1            2        2       29    66528   82  Linux swap</i><br>
+<i>&gt;/dev/sda2           30       30      269   570240   83  Linux native</i><br>
+<i>&gt;/dev/sda3          270      270      865  1416096   83  Linux native</i><br>
+<i>&gt;</i><br>
+<i>&gt;	As long as the first partition starts at cylinder #2, and</i><br>
+<i>&gt;each cylinder has 4752 sectors, I guess I have meet the requirements</i><br>
+<i>&gt;pointed in the Howto. However when I try swriteboot I get:</i><br>
+<i>&gt;</i><br>
+<i>&gt;error: bootcode overlaps with partition #1. If you really want this, use</i><br>
+<i>&gt;-f1</i><br>
+<i>&gt;</i><br>
+<i>&gt;	There is something I'm missing? Any hints will be welcomed.</i><br>
+<p>
+Here's what we do with any new unknown values for a drive.<br>
+<p>
+1)run fdisk<br>
+<p>
+2)run BSD label and take the values for cylinder, heads, and sectors.<br>
+Please note almost every drive today is running higher then 63 sectors.<br>
+However, Alpha Linux is stuck with using 63 sectors as a default.  This<br>
+means in order to configure your disk to get every bit of space, the heads<br>
+and cylinders count has to change.<br>
+<p>
+Therefore, what you see under BSD label may not make sense however, it<br>
+works.  The best method to check this is multiply cyl x heads x sectors =<br>
+disk size.<br>
+<p>
+<p>
+3)run fdisk again<br>
+<p>
+type "x" takes you to an expert screen(these numbers are for example only)<br>
+<p>
+enter in the cylinders, sectors and heads of your hard disk, i.e.:<br>
+	c=cylinders	2112<br>
+	h=heads		16<br>
+	s=sectors	63<br>
+should show 2128896 blocks, done by 2112x16x63=<br>
+<p>
+type "r" to return to menu, also saves parameters<br>
+<p>
+Partition disk as follows:<br>
+A = "milo&amp; linload"<br>
+B = "/" 	for root<br>
+C = "/usr" 	for user<br>
+D = "swap"	needed for swap space, usual rule is 2x memory size, <br>
+ie: 32mb x 2 = 64mb swap.<br>
+<p>
+<p>
+ Now create the desired partitions, please note every drive is different.  This<br>
+is only an example:<br>
+<p>
+	Command (m for help): n<br>
+	Command action /e extended /p primary partition: p &lt;milo/linload&gt;<br>
+	Partition number (1-4): 1<br>
+	First cylinder (1-2112): 1<br>
+	Last cylinder or +size ...: +1440K   (***** This must be followed*****)<br>
+<p>
+	Command (m for help): t<br>
+	Partition number (1-4): 1<br>
+	Hex code (type L to list codes): 4<br>
+	Changed system type of partition 1 to 4 (DOS 16-bit &lt;32M)<br>
+<p>
+	Command (m for help): n<br>
+	Command action /e extended /p primary partition: p &lt;/&gt;<br>
+	Partition number (1-4): 2<br>
+	First cylinder (2-2112): 2<br>
+	Last cylinder or +size ...: 100    (** make this about 50~100mb **)<br>
+					   <br>
+        Command (m for help): n<br>
+	Command action /e extended /p primary partition: p &lt;/usr&gt;<br>
+	Partition number (1-4): 3<br>
+	First cylinder (102-2112): 102<br>
+	Last cylinder or +size ...: 2000   (** make this a big as possible **)<br>
+					   (** remember about swap, though **)<br>
+<p>
+	Command (m for help): n<br>
+	Command action /e extended /p primary partition: p &lt;/swap&gt;<br>
+	Partition number (1-4): 4<br>
+	First cylinder (2001-2112): 2001<br>
+	Last cylinder or +size ...: 2112 (** about twice memory size **)<br>
+<p>
+	Command (m for help): t<br>
+	Partition number (1-4): 4<br>
+	Hex code (type L to list codes): 82<br>
+	Changed system type of partition 2 to 82 (Linux swap)<br>
+<p>
+	Command (m for help): w<br>
+<p>
+At # hit Alt F1 to get back to Linux install program<br>
+<p>
+This should do it.<br>
+<p>
+Cheers,<br>
+<p>
+Steve<br>
+ +1-603-421-1800	<a href="http://www.dcginc.com">http://www.dcginc.com</a><br>
+ ______________________________________________________________<br>
+<i>| Stephen Gaudet        |  ** Digital Authorized reseller **   |</i><br>
+<i>| DCG Computers Inc.    | Alpha, Intel Pentium Pro systems and |</i><br>
+<i>| 4 Sanborn Rd, Suite 2 | motherbds running NT, Linux, &amp; UNIX  |</i><br>
+<i>| Londonderry, NH 03053 |--------------------------------------|</i><br>
+<i>| ph:603-421-1800 x 10 fax:603-421-0911 <a href="mailto:e-mail:sjg@dcginc.com">e-mail:sjg@dcginc.com</a>  |</i><br>
+ --------------------------------------------------------------<br>
+ ***** Now shipping, the DCG Viper II 600Mhz Alpha System *****<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0056.html">Eduardo Augusto Trettel: "Re: Installing aboot"</a>
+<li> <b>Previous message:</b> <a href="0054.html">Eduardo A. Trettel: "Installing aboot"</a>
+<li> <b>Maybe in reply to:</b> <a href="0329.html">Eduardo A. Trettel: "Installing aboot"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0062.html">Stephen J. Gaudet: "Re: Installing aboot"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

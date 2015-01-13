@@ -1,0 +1,264 @@
+<!-- received="Sat Apr 26 22:24:37 1997 " -->
+<!-- sent="Sat, 26 Apr 1997 21:20:22 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@stommel.tamu.edu" -->
+<!-- subject="alpha patches for 2.1.36" -->
+<!-- id="199704270220.VAA12311@stommel.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>alpha patches for 2.1.36</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>alpha patches for 2.1.36</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@stommel.tamu.edu"><i>richard@stommel.tamu.edu</i></a>)<br>
+<i>Sat, 26 Apr 1997 21:20:22 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1116">[ date ]</a><a href="index.html#1116">[ thread ]</a><a href="subject.html#1116">[ subject ]</a><a href="author.html#1116">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1117.html">Richard Henderson: "Re: regex on alpha"</a>
+<li> <b>Previous message:</b> <a href="1115.html">SurferBoy: "pppd LCP negotiation problems..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Whee.  Two problems.<br>
+<p>
+  (1) Binutils 2.7.0.16 seems to have odd problems with the link<br>
+      script.  The problem being that I can't seem to catch it<br>
+      doing anything in particular wrong.  Nevertheless, it'll<br>
+      hard-hang before getting going.<br>
+<p>
+      Oddly, the problem seems to go away when "-N" is removed.<br>
+      I tested this solution successfully with both 2.7.0.2 and<br>
+      2.7.0.16.  Let me know if it goes awry for you.<br>
+<p>
+  (2) The gnifty ll/sc branch optimization I did hardcoded <br>
+      changing back to .text, which really does bad things when<br>
+      you start moving code to .text.init.  Unfortunately the<br>
+      assembler has a teeny bug in that you can't use .previous<br>
+      after .text 2, so we simply have to back the change out<br>
+      for now.  <br>
+<p>
+In any case, I'm currently running 2.1.36 and saving 16k worth<br>
+of initialization code and data.  What fun!<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+diff -up linux-2.1.36/include/asm-alpha/atomic.h.orig linux-2.1.36/include/asm-alpha/atomic.h<br>
+--- linux-2.1.36/include/asm-alpha/atomic.h.orig	Sat Apr 26 20:23:46 1997<br>
++++ linux-2.1.36/include/asm-alpha/atomic.h	Sat Apr 26 20:27:22 1997<br>
+@@ -40,10 +40,7 @@ extern __inline__ void atomic_add(int i,<br>
+ 	"1:	ldl_l %0,%1\n"<br>
+ 	"	addl %0,%2,%0\n"<br>
+ 	"	stl_c %0,%1\n"<br>
+-	"	beq %0,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (__atomic_fool_gcc(v))<br>
+ 	:"Ir" (i), "m" (__atomic_fool_gcc(v)));<br>
+ }<br>
+@@ -55,10 +52,7 @@ extern __inline__ void atomic_sub(int i,<br>
+ 	"1:	ldl_l %0,%1\n"<br>
+ 	"	subl %0,%2,%0\n"<br>
+ 	"	stl_c %0,%1\n"<br>
+-	"	beq %0,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (__atomic_fool_gcc(v))<br>
+ 	:"Ir" (i), "m" (__atomic_fool_gcc(v)));<br>
+ }<br>
+@@ -74,10 +68,7 @@ extern __inline__ long atomic_add_return<br>
+ 	"	addl %0,%3,%0\n"<br>
+ 	"	mov %0,%2\n"<br>
+ 	"	stl_c %0,%1\n"<br>
+-	"	beq %0,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (__atomic_fool_gcc(v)), "=&amp;r" (result)<br>
+ 	:"Ir" (i), "m" (__atomic_fool_gcc(v)));<br>
+ 	return result;<br>
+@@ -91,10 +82,7 @@ extern __inline__ long atomic_sub_return<br>
+ 	"	subl %0,%3,%0\n"<br>
+ 	"	mov %0,%2\n"<br>
+ 	"	stl_c %0,%1\n"<br>
+-	"	beq %0,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (__atomic_fool_gcc(v)), "=&amp;r" (result)<br>
+ 	:"Ir" (i), "m" (__atomic_fool_gcc(v)));<br>
+ 	return result;<br>
+diff -up linux-2.1.36/include/asm-alpha/bitops.h.orig linux-2.1.36/include/asm-alpha/bitops.h<br>
+--- linux-2.1.36/include/asm-alpha/bitops.h.orig	Sat Apr 26 20:23:54 1997<br>
++++ linux-2.1.36/include/asm-alpha/bitops.h	Sat Apr 26 20:28:07 1997<br>
+@@ -29,11 +29,8 @@ extern __inline__ unsigned long set_bit(<br>
+ 	"	bne %2,2f\n"<br>
+ 	"	xor %0,%3,%0\n"<br>
+ 	"	stl_c %0,%1\n"<br>
+-	"	beq %0,3f\n"<br>
++	"	beq %0,1b\n"<br>
+ 	"2:\n"<br>
+-	".text 2\n"<br>
+-	"3:	br 1b\n"<br>
+-	".text"<br>
+ 	:"=&amp;r" (temp), "=m" (*m), "=&amp;r" (oldbit)<br>
+ 	:"Ir" (1UL &lt;&lt; (nr &amp; 31)), "m" (*m));<br>
+ <br>
+@@ -52,11 +49,8 @@ extern __inline__ unsigned long clear_bi<br>
+ 	"	beq %2,2f\n\t"<br>
+ 	"	xor %0,%3,%0\n\t"<br>
+ 	"	stl_c %0,%1\n\t"<br>
+-	"	beq %0,3f\n"<br>
++	"	beq %0,1b\n"<br>
+ 	"2:\n"<br>
+-	".text 2\n"<br>
+-	"3:	br 1b\n"<br>
+-	".text"<br>
+ 	:"=&amp;r" (temp), "=m" (*m), "=&amp;r" (oldbit)<br>
+ 	:"Ir" (1UL &lt;&lt; (nr &amp; 31)), "m" (*m));<br>
+ <br>
+@@ -74,10 +68,7 @@ extern __inline__ unsigned long change_b<br>
+ 	"	and %0,%3,%2\n\t"<br>
+ 	"	xor %0,%3,%0\n\t"<br>
+ 	"	stl_c %0,%1\n\t"<br>
+-	"	beq %0,3f\n"<br>
+-	".text 2\n"<br>
+-	"3:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (*m), "=&amp;r" (oldbit)<br>
+ 	:"Ir" (1UL &lt;&lt; (nr &amp; 31)), "m" (*m));<br>
+ <br>
+diff -up linux-2.1.36/include/asm-alpha/semaphore.h.orig linux-2.1.36/include/asm-alpha/semaphore.h<br>
+--- linux-2.1.36/include/asm-alpha/semaphore.h.orig	Sat Apr 26 20:23:59 1997<br>
++++ linux-2.1.36/include/asm-alpha/semaphore.h	Sat Apr 26 20:28:52 1997<br>
+@@ -45,11 +45,8 @@ static inline int waking_non_zero(struct<br>
+ 	"	ble	%1,2f\n"<br>
+ 	"	subl	%1,1,%0\n"<br>
+ 	"	stl_c	%0,%2\n"<br>
+-	"	beq	%0,3f\n"<br>
++	"	beq	%0,1b\n"<br>
+ 	"2:\n"<br>
+-	".text 2\n"<br>
+-	"3:	br	1b\n"<br>
+-	".text"<br>
+ 	: "=r"(ret), "=r"(tmp), "=m"(__atomic_fool_gcc(&amp;sem-&gt;waking))<br>
+ 	: "0"(0));<br>
+ <br>
+diff -up linux-2.1.36/include/asm-alpha/softirq.h.orig linux-2.1.36/include/asm-alpha/softirq.h<br>
+--- linux-2.1.36/include/asm-alpha/softirq.h.orig	Sat Apr 26 20:24:04 1997<br>
++++ linux-2.1.36/include/asm-alpha/softirq.h	Sat Apr 26 20:29:27 1997<br>
+@@ -16,10 +16,7 @@ static inline void clear_active_bhs(unsi<br>
+ 	"1:	ldq_l %0,%1\n"<br>
+ 	"	and %0,%2,%0\n"<br>
+ 	"	stq_c %0,%1\n"<br>
+-	"	beq %0,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %0,1b\n"<br>
+ 	:"=&amp;r" (temp), "=m" (bh_active)<br>
+ 	:"Ir" (x), "m" (bh_active));<br>
+ }<br>
+diff -up linux-2.1.36/include/asm-alpha/spinlock.h.orig linux-2.1.36/include/asm-alpha/spinlock.h<br>
+--- linux-2.1.36/include/asm-alpha/spinlock.h.orig	Sat Apr 26 20:24:09 1997<br>
++++ linux-2.1.36/include/asm-alpha/spinlock.h	Sat Apr 26 20:30:10 1997<br>
+@@ -39,10 +39,10 @@ typedef struct { } rwlock_t;<br>
+ #define write_lock_irq(lock)	cli()<br>
+ #define write_unlock_irq(lock)	sti()<br>
+ <br>
+-#define read_lock_irqsave(lock, flags)		save_and_cli(flags)<br>
+-#define read_unlock_irqrestore(lock, flags)	restore_flags(flags)<br>
+-#define write_lock_irqsave(lock, flags)		save_and_cli(flags)<br>
+-#define write_unlock_irqrestore(lock, flags)	restore_flags(flags)<br>
++#define read_lock_irqsave(lock, flags)		swpipl(flags,7)<br>
++#define read_unlock_irqrestore(lock, flags)	setipl(flags)<br>
++#define write_lock_irqsave(lock, flags)		swpipl(flags,7)<br>
++#define write_unlock_irqrestore(lock, flags)	setipl(flags)<br>
+ <br>
+ #else<br>
+ <br>
+diff -up linux-2.1.36/include/asm-alpha/system.h.orig linux-2.1.36/include/asm-alpha/system.h<br>
+--- linux-2.1.36/include/asm-alpha/system.h.orig	Sat Apr 26 20:24:14 1997<br>
++++ linux-2.1.36/include/asm-alpha/system.h	Sat Apr 26 20:30:38 1997<br>
+@@ -128,10 +128,7 @@ extern __inline__ unsigned long xchg_u32<br>
+ 	"1:	ldl_l %0,%2\n"<br>
+ 	"	bis %3,%3,%1\n"<br>
+ 	"	stl_c %1,%2\n"<br>
+-	"	beq %1,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %1,1b\n"<br>
+ 	: "=&amp;r" (val), "=&amp;r" (dummy), "=m" (*m)<br>
+ 	: "r" (val), "m" (*m));<br>
+ <br>
+@@ -146,10 +143,7 @@ extern __inline__ unsigned long xchg_u64<br>
+ 	"1:	ldq_l %0,%2\n"<br>
+ 	"	bis %3,%3,%1\n"<br>
+ 	"	stq_c %1,%2\n"<br>
+-	"	beq %1,2f\n"<br>
+-	".text 2\n"<br>
+-	"2:	br 1b\n"<br>
+-	".text"<br>
++	"	beq %1,1b\n"<br>
+ 	: "=&amp;r" (val), "=&amp;r" (dummy), "=m" (*m)<br>
+ 	: "r" (val), "m" (*m));<br>
+ <br>
+diff -up linux-2.1.36/arch/alpha/Makefile.orig linux-2.1.36/arch/alpha/Makefile<br>
+--- linux-2.1.36/arch/alpha/Makefile.orig	Sat Apr 26 20:23:23 1997<br>
++++ linux-2.1.36/arch/alpha/Makefile	Sat Apr 26 20:22:57 1997<br>
+@@ -10,7 +10,7 @@<br>
+ <br>
+ NM := nm -B<br>
+ <br>
+-LINKFLAGS = -static -T arch/alpha/vmlinux.lds -N<br>
++LINKFLAGS = -static -T arch/alpha/vmlinux.lds<br>
+ CFLAGS := $(CFLAGS) -pipe -mno-fp-regs -ffixed-8<br>
+ <br>
+ HEAD := arch/alpha/kernel/head.o<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1117.html">Richard Henderson: "Re: regex on alpha"</a>
+<li> <b>Previous message:</b> <a href="1115.html">SurferBoy: "pppd LCP negotiation problems..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

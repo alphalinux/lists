@@ -1,0 +1,181 @@
+<!-- received="Thu Nov 14 20:17:40 1996 " -->
+<!-- sent="Thu, 14 Nov 96 17:15:35 PST" -->
+<!-- name="Matthew Jacob" -->
+<!-- email="mjacob@feral.com" -->
+<!-- subject="Re: 2.0.24: Tulip.c still not working" -->
+<!-- id="9611150115.AA01150@feral.com" -->
+<!-- inreplyto="2.0.24: Tulip.c still not working" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 2.0.24: Tulip.c still not working</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 2.0.24: Tulip.c still not working</h2>
+
+<b>Matthew Jacob</b> (<a href="mailto:mjacob@feral.com"><i>mjacob@feral.com</i></a>)<br>
+<i>Thu, 14 Nov 96 17:15:35 PST</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#671">[ date ]</a><a href="index.html#671">[ thread ]</a><a href="subject.html#671">[ subject ]</a><a href="author.html#671">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0672.html">Richard Henderson: "Re: modules and exceptioning 2.1.8+"</a>
+<li> <b>Previous message:</b> <a href="0670.html">Christopher Darrell: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+ <br>
+<p>
+I've mailed Linus and others about this before, but I get no<br>
+response. There are two issues that confuse things, apparently.<br>
+<p>
+First, the multicast fix (code after "Now add this frame") seems<br>
+to make the auto media detect code get invoked all over again<br>
+and causes things to be broken.<br>
+<p>
+Second, v2.1.8 and later seem to have troubles (at least on my<br>
+UDB)- but this isn't directly related to the tulip driver- this<br>
+happens even with the de4x5 driver on.<br>
+<p>
+I have a patch against the 2.0.24/2.1.7 tulip driver that fixes<br>
+some issues (mostly for correctly supporting the PCI stuff<br>
+for the Znyx ether arrays and some of the SMC card support),<br>
+but I've had to do the gross thing about taking the multicast<br>
+patch and enclosing it within #ifndef __alpha__. I will look<br>
+at solving this when I have time.<br>
+<p>
+I recommend you try this commenting out as well.<br>
+If anyone else knows what gives, enlighten us.<br>
+<p>
+<p>
+<p>
+----- Begin Included Message -----<br>
+<p>
+<i>&gt;From <a href="mailto:owner-linux-kernel-outgoing@vger.rutgers.edu">owner-linux-kernel-outgoing@vger.rutgers.edu</a> Thu Nov 14 17:06:33 1996</i><br>
+Return-Path: &lt;<a href="mailto:owner-linux-kernel-outgoing@vger.rutgers.edu">owner-linux-kernel-outgoing@vger.rutgers.edu</a>&gt;<br>
+Date: 	Fri, 15 Nov 1996 00:54:43 +0100 (MET)<br>
+From: Fritz Ganter &lt;<a href="mailto:ganter@rebekka.tu-graz.ac.at">ganter@rebekka.tu-graz.ac.at</a>&gt;<br>
+Reply-To: <a href="mailto:ganter@fvkma.tu-graz.ac.at">ganter@fvkma.tu-graz.ac.at</a><br>
+To: <a href="mailto:torvalds@cs.helsinki.fi">torvalds@cs.helsinki.fi</a>, xp-list@redhat.com, linux-kernel@vger.rutgers.edu<br>
+Subject: 2.0.25: Tulip.c still not working<br>
+Mime-Version: 1.0<br>
+Content-Type: TEXT/PLAIN; charset=US-ASCII<br>
+Sender: <a href="mailto:owner-linux-kernel@vger.rutgers.edu">owner-linux-kernel@vger.rutgers.edu</a><br>
+Content-Length: 2453<br>
+<p>
+<p>
+Hello all!<br>
+<p>
+I still get not running my smc8432 on an Alpha Cabriolet.<br>
+This is since the patch in 2.0.24, the patch in 25 didn't fix the problem.<br>
+<p>
+After switching to runlevel 3 (I think ifconfig is called) I get<br>
+following:<br>
+Nov 15 00:33:37 jassi kernel: eth0: enabling BNC port.<br>
+Nov 15 00:34:16 jassi last message repeated 9 times<br>
+Nov 15 00:34:56 jassi last message repeated 4 times<br>
+<p>
+The device never comes up, if have to do a "ifconfig eth0 down" to get the<br>
+kernel quiet.<br>
+<p>
+The patch with disables my card is:<br>
+<p>
+--- tulip.c	Fri Nov 15 00:36:36 1996<br>
++++ tulip.c.25	Thu Nov 14 23:56:03 1996<br>
+@@ -37,7 +37,7 @@<br>
+ /* #define  TULIP_FULL_DUPLEX 1 */<br>
+ <br>
+ /* Define to fix port. */<br>
+-#define  TULIP_FIX_PORT 1 <br>
++#define  TULIP_FIX_PORT 1<br>
+ <br>
+ /* Define to probe only first detected device */<br>
+ /*#define	TULIP_MAX_CARDS 1*/<br>
+@@ -1133,6 +1133,25 @@<br>
+ 		} while (++i &lt; 15);<br>
+ <br>
+ 		/* Now add this frame to the Tx list. */<br>
++		{<br>
++			unsigned long flags;<br>
++			unsigned int entry;<br>
++			<br>
++			save_flags(flags); cli();<br>
++			entry = tp-&gt;cur_tx++ % TX_RING_SIZE;<br>
++			tp-&gt;dirty_tx++;<br>
++			restore_flags(flags);<br>
++<br>
++			tp-&gt;tx_skbuff[entry] = 0;<br>
++			/* Put the setup frame on the Tx list. */<br>
++			tp-&gt;tx_ring[entry].length = 192 |<br>
++			      (entry == TX_RING_SIZE-1 ? 0x0a000000 : 0x08000000);<br>
++			tp-&gt;tx_ring[entry].buffer1 = virt_to_bus((char *)tp-&gt;setup_frame);<br>
++			tp-&gt;tx_ring[entry].buffer2 = 0;<br>
++			tp-&gt;tx_ring[entry].status = TRING_OWN;<br>
++			/* Trigger an immediate transmit demand. */<br>
++			tio_write(TPOLL_TRIGGER, CSR1);<br>
++		}<br>
+ 	}<br>
+ }<br>
+ <br>
+Ignore the diff for TULIP_FIX_PORT 1.<br>
+<p>
+Here is my /proc/pci for the card:<br>
+  Bus  0, device   5, function  0:<br>
+    Ethernet controller: DEC DC21041 (rev 17).<br>
+      Medium devsel.  Fast back-to-back capable.  IRQ 18.  Master Capable.<br>
+Latency=32.  <br>
+      I/O at 0xb800.<br>
+      Non-prefetchable 32 bit memory at 0x4000000.<br>
+<p>
+and the boot message:<br>
+<p>
+Nov 15 00:33:37 jassi kernel: tulip.c:v0.10 8/11/95 <br>
+<a href="mailto:becker@cesdis.gsfc.nasa.gov">becker@cesdis.gsfc.nasa.gov</a><br>
+Nov 15 00:33:37 jassi kernel:         +0.72 4/17/96<br>
+<a href="http://www.dsl.tutics.tut.ac.jp/~linux/tulip">http://www.dsl.tutics.tut.ac.jp/~linux/tulip</a><br>
+Nov 15 00:33:37 jassi kernel: eth0: smc8432 (DEC 21041 Tulip) at 0xb800,<br>
+00:00:c0:7f:b6:ce, IRQ 18<br>
+<p>
+I think this should really be fixed!<br>
+<p>
+<p>
+Fritz "who dances with the Linux" Ganter.      <a href="mailto:ganter@fvkma.tu-graz.ac.at">ganter@fvkma.tu-graz.ac.at</a><br>
+WWW: <a href="http://fvkma.tu-graz.ac.at/ganter">http://fvkma.tu-graz.ac.at/ganter</a>                 <a href="mailto:ganter@quant-x.com">ganter@quant-x.com</a><br>
+EDV-Consulting F.Ganter Grazerstr. 26a,A-8045 Graz    <a href="mailto:support@quant-x.com">support@quant-x.com</a><br>
+      Member of the Quant-X Group: Alpha based Systems running Linux<br>
+<p>
+<p>
+<p>
+----- End Included Message -----<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0672.html">Richard Henderson: "Re: modules and exceptioning 2.1.8+"</a>
+<li> <b>Previous message:</b> <a href="0670.html">Christopher Darrell: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

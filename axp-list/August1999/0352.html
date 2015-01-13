@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: ncr53c8xx timeouts</TITLE>
+<META NAME="Author" CONTENT="Wes Bauske (wsb@paralleldata.com)">
+<META NAME="Subject" CONTENT="ncr53c8xx timeouts">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>ncr53c8xx timeouts</H1>
+<HR>
+<P>
+<!-- received="Sun Aug 15 09:29:03 1999" -->
+<!-- isoreceived="19990815162903" -->
+<!-- sent="Sun, 15 Aug 1999 02:35:54 -0500" -->
+<!-- isosent="19990815073554" -->
+<!-- name="Wes Bauske" -->
+<!-- email="wsb@paralleldata.com" -->
+<!-- subject="ncr53c8xx timeouts" -->
+<!-- id="37B66DDA.BFE51731@paralleldata.com" -->
+<STRONG>Subject: </STRONG>ncr53c8xx timeouts<BR>
+<STRONG>From: </STRONG>Wes Bauske (<EM>wsb@paralleldata.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Aug 15 1999 - 00:35:54 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#352">[ date ]</A>
+<A HREF="index.html#352">[ thread ]</A>
+<A HREF="subject.html#352">[ subject ]</A>
+<A HREF="author.html#352">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0353.html">David Webb: "2.2.11 system.map"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0351.html">David Webb: "Re: 2.2.11 segate.c problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0361.html">Michal Jaegermann: "Re: ncr53c8xx timeouts"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+As I've been testing SCSI cards, I got tired of
+<BR>
+those timeout messages from the ncr53c8xx driver.
+<BR>
+<P>If you get the following types of messages at boot:
+<BR>
+<P>ncr53c895-0: command processing resumed
+<BR>
+ncr53c895-0-&lt;0,*&gt;: WIDE SCSI (16 bit) enabled.
+<BR>
+ncr53c895-0-&lt;0,*&gt;: FAST-20 WIDE SCSI 40.0 MB/s (50 ns, offset 15)
+<BR>
+scsi : aborting command due to timeout : pid 17, scsi1, channel 0, id 0, lun 0 Test Unit Ready 00 00
+<BR>
+00 00 00
+<BR>
+ncr53c8xx_abort: pid=17 serial_number=18 serial_number_at_timeout=18
+<BR>
+ncr53c895-0: abort ccb=fffffc0017fd9440 (cancel)
+<BR>
+SCSI host 1 abort (pid 17) timed out - resetting
+<BR>
+SCSI bus is being reset for host 1 channel 0.
+<BR>
+ncr53c8xx_reset: pid=17 reset_flags=2 serial_number=18 serial_number_at_timeout=18
+<BR>
+ncr53c895-0: resetting, command processing suspended for 2 seconds
+<BR>
+ncr53c895-0: restart (scsi reset).
+<BR>
+ncr53c895-0: Downloading SCSI SCRIPTS.
+<BR>
+ncr53c895-0: command processing resumed
+<BR>
+ncr53c895-0-&lt;0,*&gt;: WIDE SCSI (16 bit) enabled.
+<BR>
+ncr53c895-0-&lt;0,*&gt;: FAST-20 WIDE SCSI 40.0 MB/s (50 ns, offset 15)
+<BR>
+SCSI host 1 abort (pid 17) timed out - resetting
+<BR>
+SCSI bus is being reset for host 1 channel 0.
+<BR>
+ncr53c8xx_reset: pid=17 reset_flags=2 serial_number=19 serial_number_at_timeout=19
+<BR>
+ncr53c895-0: resetting, command processing suspended for 2 seconds
+<BR>
+<P>etc....
+<BR>
+<P>Then do the following to ncr53c8xx.c in routine:
+<BR>
+<P>static unsigned ncrgetfreq (ncb_p np, int gen)
+<BR>
+<P>Multiply ms after it's calculated by 2. For some
+<BR>
+reason, the newer ncr53c8xx.c is computing the
+<BR>
+wrong MHZ for my scsi cards. This has happened on
+<BR>
+875/875J/895 so it isn't isolated to a single type
+<BR>
+of card.
+<BR>
+<P>My code segment:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (!(INW(nc_sist) &amp; GEN) &amp;&amp; ms++ &lt; 100000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UDELAY (1000);  /* count ms */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OUTB (nc_stime1, 0);    /* disable general purpose timer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* set prescaler to divide by whatever 0 means
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* 0 ought to choose divide by 2, but appears
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* to set divide by 3.5 mode in my 53c810 ...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OUTB (nc_scntl3, 0);
+<BR>
+<P>/* wsb */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ms=ms*2;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (bootverbose &gt;= 2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;%s: Delay (GEN=%d): %u msec\n&quot;, ncr_name(np), gen, ms);
+<BR>
+<P><P>This may be specific to my XP1000/21264, but I recall
+<BR>
+others saying they saw the same problem so if you
+<BR>
+want it to quit resetting over and over, try this.
+<BR>
+<P>The sym53c8xx.c code has the same problem.
+<BR>
+<P><P>Wes
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0353.html">David Webb: "2.2.11 system.map"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0351.html">David Webb: "Re: 2.2.11 segate.c problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0361.html">Michal Jaegermann: "Re: ncr53c8xx timeouts"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:14:59 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

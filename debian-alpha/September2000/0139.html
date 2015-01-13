@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Glibc, gcc, libdb2 and nss_db</TITLE>
+<META NAME="Author" CONTENT="Ben Collins (bcollins@debian.org)">
+<META NAME="Subject" CONTENT="Glibc, gcc, libdb2 and nss_db">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Glibc, gcc, libdb2 and nss_db</H1>
+<HR>
+<P>
+<!-- received="Mon Sep 25 19:47:32 2000" -->
+<!-- isoreceived="20000926024732" -->
+<!-- sent="Mon, 25 Sep 2000 12:46:08 -0400" -->
+<!-- isosent="20000925164608" -->
+<!-- name="Ben Collins" -->
+<!-- email="bcollins@debian.org" -->
+<!-- subject="Glibc, gcc, libdb2 and nss_db" -->
+<!-- id="20000925124608.K1668@visi.net" -->
+<STRONG>Subject: </STRONG>Glibc, gcc, libdb2 and nss_db<BR>
+<STRONG>From: </STRONG>Ben Collins (<EM>bcollins@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Sep 25 2000 - 09:46:08 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#139">[ date ]</A>
+<A HREF="index.html#139">[ thread ]</A>
+<A HREF="subject.html#139">[ subject ]</A>
+<A HREF="author.html#139">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0140.html">Jay Estabrook: "Re: Single User Mode?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0138.html">Stephane Bortzmeyer: "Re: Cannot install an aboot boot block"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0142.html">David Huggins-Daines: "Re: Glibc, gcc, libdb2 and nss_db"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Well, here it comes. Glibc 2.1.94, hot of the glibc release process. I'm
+<BR>
+currently building i386, powerpc and sparc, which I will upload throughout
+<BR>
+the day and tonight as I build them. These are going into woody. Several
+<BR>
+notes for the other ports (the ones I cannot build).
+<BR>
+<P>This upload consists of 4 parts (listed in the subject). The gcc NMU is
+<BR>
+ok'd by Matthias and comes with several patches from him. Also added by me
+<BR>
+is some code to make the libg++ and libstdc++ upgrades go fine with the
+<BR>
+new Glibc, plus a backport of the gpc to 2.95.2-13 (the last version
+<BR>
+that will compile on non-{i386,m68k}).
+<BR>
+<P>Also, because libdb1,2 is no longer in glibc, the new libdb2 NMU (not
+<BR>
+authorized, but I will email the maintainer) will take over the
+<BR>
+libdb.so.[23] sonames (via symlink). This is only a hack until packages
+<BR>
+compiled against the old glibc provided libdb can be recompiled against
+<BR>
+libdb2. NOTE: some programs (like exim) will report something to the
+<BR>
+affect of &quot;foo requires versioned symbols&quot; because the libdb2 is not
+<BR>
+versioned. This does not appear to cause any problems, and is actually
+<BR>
+output from ld.so. For now libc6 pre-depends on libdb2, just so we don't
+<BR>
+get any broken packages on upgrade. Once everything gets recompiled
+<BR>
+against libdb2, that can be removed (hopefully before release with some
+<BR>
+effort).
+<BR>
+<P>The third part is nss_db. Since libdb2 is no longer in glibc proper, and
+<BR>
+because nss_db requires a db library, it was split upstream. It is now a
+<BR>
+seperate package (known as libnss-db). For now libc6 pre-depends on
+<BR>
+libnss-db, also so we don't break any systems.
+<BR>
+<P>Build order for ports:
+<BR>
+<P>1) Build the new gcc_2.95.2-15. Do NOT upload this build, but install it.
+<BR>
+2) Build glibc 2.1.94-1, do not install yet
+<BR>
+3) Build db2 and nss_db
+<BR>
+4) Upgrade libdb2 (and -dev, for later steps) and all libc6 packages
+<BR>
+5) Rebuild gcc_2.95.2-15 (save this one for uploading) and install
+<BR>
+6) Rebuild glibc and install (you can probably skip this if you want)
+<BR>
+6) Now build the two other packages (nss_db, db2)
+<BR>
+<P>This should suffice for a clean build. Of course, your preferences may
+<BR>
+vary. Good thing is, 2.2 does not require rebuilding anything else (that I
+<BR>
+have seen), and if it does, IMO it is a bug (versioned symbols are meant
+<BR>
+just for that purpose).
+<BR>
+<P>Other notes about the new glibc:
+<BR>
+<P>* nss1 compat is gone
+<BR>
+* ldconfig is now provided by glibc for all archs, ldso will remove it.
+<BR>
+&nbsp;&nbsp;Let me know how this works on libc5 systems. TBH, I am not overly
+<BR>
+&nbsp;&nbsp;concerned with that though. The ldso package is a henderence nowadays
+<BR>
+&nbsp;&nbsp;and we should stop relying on it. I have plans for lots of things with
+<BR>
+&nbsp;&nbsp;ldconfig, including an /etc/ld.so.d/ directory for packages to supply
+<BR>
+&nbsp;&nbsp;their specific directories, and a dpkg friendly update-ld.so.cache
+<BR>
+&nbsp;&nbsp;script that works similar to the update-menus script, but it has to
+<BR>
+&nbsp;&nbsp;contend with other things.
+<BR>
+<P><P>Ben Collins
+<BR>
+<P><PRE>
+-- 
+ -----------=======-=-======-=========-----------=====------------=-=------
+/  Ben Collins  --  ...on that fantastic voyage...  --  Debian GNU/Linux   \
+`  bcollins@debian.org  --  bcollins@openldap.org  --  bcollins@linux.com  '
+ `---=========------=======-------------=-=-----=-===-======-------=--=---'
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0140.html">Jay Estabrook: "Re: Single User Mode?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0138.html">Stephane Bortzmeyer: "Re: Cannot install an aboot boot block"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0142.html">David Huggins-Daines: "Re: Glibc, gcc, libdb2 and nss_db"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Oct 01 2000 - 07:47:36 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

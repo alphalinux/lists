@@ -1,0 +1,138 @@
+<!-- received="Tue May  7 09:56:32 1996 " -->
+<!-- sent="Tue, 7 May 1996 09:56:32 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="one more alignment trap" -->
+<!-- id="9605070748.AA16866@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>one more alignment trap</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>one more alignment trap</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Tue, 7 May 1996 09:56:32 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#89">[ date ]</a><a href="index.html#89">[ thread ]</a><a href="subject.html#89">[ subject ]</a><a href="author.html#89">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0090.html">Martin Ostermann: "Re: The aboot - Jensen saga"</a>
+<li> <b>Previous message:</b> <a href="0088.html">Harald Koenig: "one more 32/64bit fix for XF86_S3"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+my first fix for s3im.c wasn't sufficient.  there may be odd addresses<br>
+too which was showed by some "x11perf" runs last night.<br>
+<p>
+so here is a more gerenal (and ugly) fix relative to the original sources.<br>
+I havent tested this one (only compiled,not run yet) so look at it <br>
+and be careful.<br>
+<p>
+<p>
+Harald<br>
+-------------------------------------------------------------------------------<br>
+--- /soft/r6/xc/programs/Xserver/hw/xfree86/accel/s3/s3im.c.Df	Sun Apr 28 23:56:35 1996<br>
++++ /soft/r6/xc/programs/Xserver/hw/xfree86/accel/s3/s3im.c	Tue May  7 09:49:40 1996<br>
+@@ -882,7 +882,7 @@<br>
+       short *psrcs = (short *)&amp;psrc[px*s3Bpp];<br>
+       for (i = 0; i &lt; w; ) {<br>
+ 	 if (s3InfoRec.bitsPerPixel == 32) {<br>
+-	    outl (PIX_TRANS, *((long*)(psrcs)));<br>
++	    outl (PIX_TRANS, *((int*)(psrcs)));<br>
+ 	    psrcs+=2;<br>
+ 	    i += 4;<br>
+ 	 }<br>
+@@ -1164,11 +1164,48 @@<br>
+ 				       ((unsigned char *)(ptmp) + (srcx &gt;&gt; 3));<br>
+ 		    x2 = srcx &amp; 7;		/* Offset within byte. */<br>
+ 		    if( np &gt;= 16 ) {<br>
++#ifdef __alpha__ /* alignment check */<br>
++		      switch ((long)pnt &amp; 3) {<br>
++		      case 0:<br>
+ 			pix = (unsigned short)(*((unsigned int *)(pnt)) &gt;&gt; x2);<br>
++			break;<br>
++		      case 2:<br>
++			pix = (unsigned short)((*pnt | (*(pnt+1)&lt;&lt;16)) &gt;&gt; x2);<br>
++			break;			  <br>
++		      default:<br>
++			pix = (unsigned short)(( ((unsigned char *)(pnt))[0]&lt;&lt;0  |<br>
++						 ((unsigned char *)(pnt))[1]&lt;&lt;8  |<br>
++						 ((unsigned char *)(pnt))[2]&lt;&lt;16 |<br>
++						 ((unsigned char *)(pnt))[3]&lt;&lt;24 ) &gt;&gt; x2);<br>
++			break;<br>
++		      }<br>
++#else<br>
++		      pix = (unsigned short)(*((unsigned int *)(pnt)) &gt;&gt; x2);<br>
++#endif<br>
+ 		    }<br>
+ 		    else if( pw &gt;= 16 ) {<br>
++#ifdef __alpha__ /* alignment check */<br>
++		      switch ((long)pnt &amp; 3) {<br>
++		      case 0:<br>
+ 			pix = (unsigned short)((*((unsigned int *)(pnt)) &gt;&gt; x2)<br>
+-						 &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np);<br>
++					       &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np);<br>
++			break;<br>
++		      case 2:<br>
++			pix = (unsigned short)(((*pnt | (*(pnt+1)&lt;&lt;16)) &gt;&gt; x2)<br>
++					       &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np);<br>
++			break;			  <br>
++		      default:<br>
++			pix = (unsigned short)(((((unsigned char *)(pnt))[0]&lt;&lt;0  |<br>
++						 ((unsigned char *)(pnt))[1]&lt;&lt;8  |<br>
++						 ((unsigned char *)(pnt))[2]&lt;&lt;16 |<br>
++						 ((unsigned char *)(pnt))[3]&lt;&lt;24 ) &gt;&gt; x2)<br>
++					       &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np);<br>
++			break;<br>
++		      }<br>
++#else<br>
++		      pix = (unsigned short)((*((unsigned int *)(pnt)) &gt;&gt; x2)<br>
++					     &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np);<br>
++#endif<br>
+ 		    }<br>
+ 		    else if( pw &gt;= 8 ) {<br>
+ 			pix = ((*pnt &gt;&gt; x2) &amp; MSKBIT(np)) | (*ptmp &lt;&lt; np)<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0090.html">Martin Ostermann: "Re: The aboot - Jensen saga"</a>
+<li> <b>Previous message:</b> <a href="0088.html">Harald Koenig: "one more 32/64bit fix for XF86_S3"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

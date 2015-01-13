@@ -1,0 +1,295 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Problems with stuck spinlocks in 2.2.19</H1> 
+	
+<!-- received="Tue Jun 19 12:26:10 2001" -->
+<!-- isoreceived="20010619192610" -->
+<!-- sent="Mon, 18 Jun 2001 13:35:43 -0600" -->
+<!-- isosent="20010618193543" -->
+<!-- name="Craig Tierney" -->
+<!-- email="ctierney@hpti.com" -->
+<!-- subject="Re: Problems with stuck spinlocks in 2.2.19" -->
+<!-- id="20010618133543.E14891@hpti.com" -->
+<!-- inreplyto="3B2E479C.34FADDC1@zk3.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Problems with stuck spinlocks in 2.2.19<BR>
+<STRONG>From: </STRONG>Craig Tierney (<EM>ctierney@hpti.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jun 18 12:35:43 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#157">[ date ]</A>
+<A HREF="index.shtml#157">[ thread ]</A>
+<A HREF="subject.shtml#157">[ subject ]</A>
+<A HREF="author.shtml#157">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0158.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0156.shtml">Craig Tierney: "Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0155.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0158.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0155.shtml">Craig Tierney: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, Jun 18, 2001 at 02:25:32PM -0400, Peter Rival wrote:
+<BR>
+<EM>&gt; Hi Craig,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     Your best bet is probably to  rebuild your cluster with
+</EM><BR>
+<EM>&gt; -fomit-frame-pointer turned off and -g3 added to the compile flags.  That
+</EM><BR>
+<EM>&gt; way you'll get a full symbol table to work with.  From there, you can
+</EM><BR>
+<EM>&gt; &quot;gdb vmlinux /proc/kcore&quot; and then &quot;list *0xfffffc000032de14&quot;.  That will
+</EM><BR>
+<EM>&gt; tell you where the spinlock is coming from.  Hrm...  read_write.c sounds
+</EM><BR>
+<EM>&gt; familiar...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;     This is supposed to be just a debugging message, but has been known
+</EM><BR>
+<EM>&gt; to cause systems to hang.  If you're feeling adventurous, you could
+</EM><BR>
+<EM>&gt; always set DEBUG_SPINLOCK to 0 in arch/alpha/kernel/spinlock.c.  The real
+</EM><BR>
+<EM>&gt; problem, if memory serves, is that I think you're running into a proble
+</EM><BR>
+<EM>&gt; with the global kernel lock in the lseek() routine which isn't fixed
+</EM><BR>
+<EM>&gt; until the 2.4 series.  Sure you can't make that upgrade?  I'm doubting
+</EM><BR>
+<EM>&gt; it, but thought I'd ask anyway. :)
+</EM><BR>
+<P>In a perfect world of course.  
+<BR>
+<P>I am rebuild the kernel as you suggested and will try that out.
+<BR>
+The problem with this is that it takes about 24 hours before
+<BR>
+we start to see a failure on one of the nodes.  
+<BR>
+<P>I am looking that the source code for read_write.c between
+<BR>
+2.4.4 and 2.2.19.  It seems that in the llseek routines there
+<BR>
+are not that many changes.  The main difference between
+<BR>
+the size of a couple of the types (int to long) that the
+<BR>
+lock_kernel() and unlock kernel calls have been moved
+<BR>
+from sys_lseek() to llseek().
+<BR>
+<P>2.2.19 version of llseek:
+<BR>
+<P>static inline loff_t llseek(struct file *file, loff_t offset, int origin)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loff_t (*fn)(struct file *, loff_t, int);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fn = default_llseek;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (file-&gt;f_op &amp;&amp; file-&gt;f_op-&gt;llseek)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fn = file-&gt;f_op-&gt;llseek;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return fn(file, offset, origin);
+<BR>
+}
+<BR>
+<P>2.4.4 version of llseek:
+<BR>
+<P>static inline loff_t llseek(struct file *file, loff_t offset, int origin)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loff_t (*fn)(struct file *, loff_t, int);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loff_t retval;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fn = default_llseek;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (file-&gt;f_op &amp;&amp; file-&gt;f_op-&gt;llseek)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fn = file-&gt;f_op-&gt;llseek;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lock_kernel();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retval = fn(file, offset, origin);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlock_kernel();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return retval;
+<BR>
+}
+<BR>
+<P><P>In sys_lseek in 2.2.19, the lock_kernel() is at the beginning
+<BR>
+of the function and unlock_kernel() is right at the end.  The
+<BR>
+llseek function is called only from sys_lseek.  
+<BR>
+<P>The code beyond that is no different as far as I can tell.  The
+<BR>
+lock is just a bit more localized.
+<BR>
+<P>Or were you saying that the global lock has the problem and not
+<BR>
+how the global lock is called in lseek?
+<BR>
+<P>Craig
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt;  - Pete
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Craig Tierney wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; I am running linux-2.2.19 on a base of Redhat 6.1 on
+</EM><BR>
+<EM>&gt; &gt; several dual processor UP2000 nodes.  Packages
+</EM><BR>
+<EM>&gt; &gt; that are requred to be upgraded according to the kernel
+</EM><BR>
+<EM>&gt; &gt; have been.  The kernel has been patched to include
+</EM><BR>
+<EM>&gt; &gt; a few NFS patches for this kernel.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; I am having problems with the nodes hanging up.
+</EM><BR>
+<EM>&gt; &gt; I am getting messages like the following:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; sched.c:28 spinlock stuck in identd at fffffc000032de14(0) owner ps at
+</EM><BR>
+<EM>&gt; &gt; fffffc0000350cd8(1) read_write.c:41
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; The messages are not all the same.  Once I saw when
+</EM><BR>
+<EM>&gt; &gt; csh was fighting with csh.  I did not record all
+</EM><BR>
+<EM>&gt; &gt; the messages though.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; When these messages start to show up on the console,
+</EM><BR>
+<EM>&gt; &gt; the node never gets unstuck.  You cannot rsh into
+</EM><BR>
+<EM>&gt; &gt; the node. Rebooting is the only way to clear it up.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; Since these nodes are in a cluster, there are many
+</EM><BR>
+<EM>&gt; &gt; rsh and ssh processes to the boxes for mpi jobs.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; My real question is not what is wrong, but how can
+</EM><BR>
+<EM>&gt; &gt; I debug lock problems like this?  The line numbers never
+</EM><BR>
+<EM>&gt; &gt; seem to correspond to any lines in the source code
+</EM><BR>
+<EM>&gt; &gt; that are relevant (sometimes #include lines, other times
+</EM><BR>
+<EM>&gt; &gt; just white space, but not to spinlocks or other SMP
+</EM><BR>
+<EM>&gt; &gt; mechanisms).
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; Thanks,
+</EM><BR>
+<EM>&gt; &gt; Craig
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; --
+</EM><BR>
+<EM>&gt; &gt; Craig Tierney (ctierney@hpti.com)
+</EM><BR>
+<EM>&gt; &gt; phone: 303-497-3112
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; _______________________________________________
+</EM><BR>
+<EM>&gt; &gt; Axp-list mailing list
+</EM><BR>
+<EM>&gt; &gt; Axp-list@redhat.com
+</EM><BR>
+<EM>&gt; &gt; https://listman.redhat.com/mailman/listinfo/axp-list
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; _______________________________________________
+</EM><BR>
+<EM>&gt; Axp-list mailing list
+</EM><BR>
+<EM>&gt; Axp-list@redhat.com
+</EM><BR>
+<EM>&gt; https://listman.redhat.com/mailman/listinfo/axp-list
+</EM><BR>
+<P><PRE>
+-- 
+Craig Tierney (ctierney@hpti.com)
+phone: 303-497-3112
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0158.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0156.shtml">Craig Tierney: "Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0155.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0158.shtml">Peter Rival: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0155.shtml">Craig Tierney: "Re: Problems with stuck spinlocks in 2.2.19"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Jul  5 05:45:29 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

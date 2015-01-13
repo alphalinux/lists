@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> More fun with spinlocks</H1> 
+	
+<!-- received="Sun Apr 15 07:14:26 2001" -->
+<!-- isoreceived="20010415141426" -->
+<!-- sent="Sat, 14 Apr 2001 20:14:31 -0400" -->
+<!-- isosent="20010415001431" -->
+<!-- name="Greg Lindahl" -->
+<!-- email="lindahl@conservativecomputer.com" -->
+<!-- subject="More fun with spinlocks" -->
+<!-- id="20010414201431.B18054@wumpus.int.den.wayport.net" -->
+<STRONG>Subject: </STRONG>More fun with spinlocks<BR>
+<STRONG>From: </STRONG>Greg Lindahl (<EM>lindahl@conservativecomputer.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Apr 14 17:14:31 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#369">[ date ]</A>
+<A HREF="index.shtml#369">[ thread ]</A>
+<A HREF="subject.shtml#369">[ subject ]</A>
+<A HREF="author.shtml#369">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0370.shtml">Jean-Claude Magras: "Re: Digital's invalid image"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0368.shtml">Rich Payne: "Re: Digital's invalid image"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0425.shtml">Greg Lindahl: "Re: More fun with spinlocks"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+OK, so how do I read this:
+<BR>
+<P>xprt.c:1052 spinlock stuck in hybcst.d0000.fs at fffffc00003ee468(0)
+<BR>
+owner rsh at fffffc00003ee900(1) xprt.c:1146
+<BR>
+<P>wait_on_bh, CPU 1: 0000000000000000
+<BR>
+irq:  1 [1 0]
+<BR>
+bh:   1 [1 0]
+<BR>
+<P>The machine is a 2-cpu UP2000 running 2.2.19. Looks like the 2
+<BR>
+processes involved are rsh and hybcst (the weather code that is used
+<BR>
+to predict weather for US airlines...), and the spinlock was taken at
+<BR>
+linux/net/sunrpc/xprt.c line 1146 and the other guy who wants it is in
+<BR>
+linux/net/sunrpc/xprt.c line 1052... known problem? It's an nfs v3
+<BR>
+thing.
+<BR>
+<P>*
+<BR>
+&nbsp;* Releases the socket for use by other requests.
+<BR>
+&nbsp;*/
+<BR>
+void
+<BR>
+xprt_up_transmit(struct rpc_task *task)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct rpc_xprt *xprt = task-&gt;tk_rqstp-&gt;rq_xprt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xprt-&gt;snd_task &amp;&amp; xprt-&gt;snd_task == task) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long   oldflags;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_irqsave(&amp;xprt_sock_lock, oldflags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xprt-&gt;snd_task = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!rpc_wake_up_next(&amp;xprt-&gt;sending) &amp;&amp; xprt-&gt;stream)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xprt_add_tcp_timer(xprt, RPCXPRT_TIMEOUT);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(&amp;xprt_sock_lock, oldflags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+}
+<BR>
+<P>And the person who wants it is xprt.c:1052:
+<BR>
+<P>/*
+<BR>
+&nbsp;* The following 2 routines allow a task to sleep while socket memory is
+<BR>
+&nbsp;* low.
+<BR>
+&nbsp;*/
+<BR>
+static void
+<BR>
+tcp_write_space(struct sock *sk)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct rpc_xprt *xprt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long   oldflags;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(xprt = xprt_from_sock(sk)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xprt-&gt;shutdown)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Wait until we have enough socket memory */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (sock_wspace(sk) &lt; min(sk-&gt;sndbuf,XPRT_MIN_WRITE_SPACE))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xprt_test_and_set_wspace(xprt))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto out;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_irqsave(&amp;xprt_sock_lock, oldflags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xprt-&gt;snd_task &amp;&amp; xprt-&gt;snd_task-&gt;tk_rpcwait == &amp;xprt-&gt;sending)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rpc_wake_up_task(xprt-&gt;snd_task);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(&amp;xprt_sock_lock, oldflags);
+<BR>
+&nbsp;out:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wake_up_interruptible(sk-&gt;sleep);
+<BR>
+}
+<BR>
+<P>Is this a known problem?
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0370.shtml">Jean-Claude Magras: "Re: Digital's invalid image"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0368.shtml">Rich Payne: "Re: Digital's invalid image"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0425.shtml">Greg Lindahl: "Re: More fun with spinlocks"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat May  5 06:18:13 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

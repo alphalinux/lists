@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Why wouldn't gcc release build on Alpha ?</TITLE>
+<META NAME="Author" CONTENT="Christopher C. Chimelis (chris@debian.org)">
+<META NAME="Subject" CONTENT="Re: Why wouldn't gcc release build on Alpha ?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Why wouldn't gcc release build on Alpha ?</H1>
+<HR>
+<P>
+<!-- received="Wed Feb 07 09:05:30 2001" -->
+<!-- isoreceived="20010207170530" -->
+<!-- sent="Wed, 7 Feb 2001 00:16:18 -0500 (EST)" -->
+<!-- isosent="20010207051618" -->
+<!-- name="Christopher C. Chimelis" -->
+<!-- email="chris@debian.org" -->
+<!-- subject="Re: Why wouldn't gcc release build on Alpha ?" -->
+<!-- id="Pine.LNX.4.21.0102070007440.4980-100000@spawn.hockeyfiend.com" -->
+<!-- inreplyto="3A8099B3.DB322C9C@tn.utwente.nl" -->
+<STRONG>Subject: </STRONG>Re: Why wouldn't gcc release build on Alpha ?<BR>
+<STRONG>From: </STRONG>Christopher C. Chimelis (<EM>chris@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Feb 06 2001 - 21:16:18 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#242">[ date ]</A>
+<A HREF="index.html#242">[ thread ]</A>
+<A HREF="subject.html#242">[ subject ]</A>
+<A HREF="author.html#242">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0243.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0241.html">Andrei A. Dergatchev: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0241.html">Andrei A. Dergatchev: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0243.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0241.html">Christopher C. Chimelis: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 7 Feb 2001, Andrei A. Dergatchev wrote:
+<BR>
+<P><EM>&gt; Thanks for the tip from Jean-Paul, I finally managed to get
+</EM><BR>
+<EM>&gt; rid of perl5.6 errors - &quot;apt-get -f install perl-5.6-*&quot; did it for me.
+</EM><BR>
+<EM>&gt; [Thinking about it, perhaps I need to subscribe to some other
+</EM><BR>
+<EM>&gt; Debian lists, not only alpha, to stay tuned with such kind of
+</EM><BR>
+<EM>&gt; questions.]
+</EM><BR>
+<P>The best list to be on for that is debian-devel.  There's a lot of 
+<BR>
+noise on that list, but it can be VERY informative.
+<BR>
+<P><EM>&gt; I: Unpacking glibc-2.2.1.tar.bz2 as glibc-2.2.1 in temp-unpack/.
+</EM><BR>
+<EM>&gt; prep.sh: bzcat: command not found
+</EM><BR>
+<P>Ok, here's what I do for all builds:
+<BR>
+&nbsp;apt-get source &lt;package&gt;
+<BR>
+rather than using the '-b' option.  This unpacks the sources, but does not
+<BR>
+build.  Then, I go into the unpacked dir and look at debian/control (or in
+<BR>
+this case, debian/control.in, since the control file is generated at build
+<BR>
+time).  In there, you'll see a line that begins with:
+<BR>
+&nbsp;Build-Depends:
+<BR>
+Which will list everything you need to build the package (or should...in
+<BR>
+the case of glibc, it will...I can vouch for that personally).
+<BR>
+<P>A large number of packages use the Build-Depends lines now to help the
+<BR>
+autobuilders know what to install in order to build the packages.  These
+<BR>
+lines also help me, since I'm the normal &quot;semi-autobuilder&quot; for Alpha :-P
+<BR>
+<P>In short, though...here's the list of things you'll need:
+<BR>
+<P>Build-Depends: gettext, gcc (&gt;= 2.95.2-15), make (&gt;= 3.78-4),
+<BR>
+dpkg-dev (&gt;= 1.4.1.5), debianutils (&gt;= 1.13.1), tar (&gt;= 1.13.11), bzip2,
+<BR>
+texinfo (&gt;= 4.0), kernel-headers [!hurd-i386], mig [hurd-i386],
+<BR>
+hurd-dev [hurd-i386], gnumach-dev [hurd-i386]
+<BR>
+Build-Depends-Indep: perl5
+<BR>
+<P>Oh, one other thing, if you see something like:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernel-headers [!hurd-i386]
+<BR>
+It basically means that whatever platform(s) is/are in the brackets either
+<BR>
+need or don't need the listed package.  Since the above example has &quot;!&quot; in
+<BR>
+front of hurd-i386, it just means that hurd-i386 doesn't need that
+<BR>
+package.  If there were no &quot;!&quot;, then it would need it only on the listed
+<BR>
+platform(s):
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mig [hurd-i386]
+<BR>
+Means only hurd-i386 needs 'mig' installed.
+<BR>
+<P>You may run into problems building glibc involving the kernel headers.  If
+<BR>
+you do, please write me directly and I'll tell you what to modify or add
+<BR>
+to get you through that (FYI, I build all glibc's for Debian-Alpha and
+<BR>
+have for years now).
+<BR>
+<P>C
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0243.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0241.html">Andrei A. Dergatchev: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0241.html">Andrei A. Dergatchev: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0243.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0241.html">Christopher C. Chimelis: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:00 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

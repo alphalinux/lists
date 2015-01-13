@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Roman Zippel (zippel@fh-brandenburg.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Tue Feb 29 21:14:55 2000" -->
+<!-- isoreceived="20000301051455" -->
+<!-- sent="Tue, 29 Feb 2000 18:39:24 +0100 (MET)" -->
+<!-- isosent="20000229173924" -->
+<!-- name="Roman Zippel" -->
+<!-- email="zippel@fh-brandenburg.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.GSO.4.10.10002291838060.11534-100000@zeus.fh-brandenburg.de" -->
+<!-- inreplyto="Pine.LNX.4.10.10002271529220.1620-100000@chiara.csoma.elte.hu" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Roman Zippel (<EM>zippel@fh-brandenburg.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Feb 29 2000 - 09:39:24 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#174">[ date ]</A>
+<A HREF="index.html#174">[ thread ]</A>
+<A HREF="subject.html#174">[ subject ]</A>
+<A HREF="author.html#174">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0173.html">Andrea Arcangeli: "Re: wh64 (slow)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0168.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0168.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>On Sun, 27 Feb 2000, Ingo Molnar wrote:
+<BR>
+<P><EM>&gt; yep. In 2.5 the IA32 irq.c will probably be moved into kernel/irq.c so
+</EM><BR>
+<EM>&gt; it's important to keep it 64-bit clean. Since there are 11 different
+</EM><BR>
+<EM>&gt; architectures in the main tree now (and 2-3 not yet integrated ones) this
+</EM><BR>
+<EM>&gt; can definitely not happen now, but will be very important to do in 2.5.
+</EM><BR>
+<P>It would be great, if I could be notified when this is going to happen (or
+<BR>
+at least the architecture maintainers, Jes will surely forward it).
+<BR>
+I see some possible problems if you going to unify it too much and define
+<BR>
+some requirements, that might need some workarounds.
+<BR>
+<P>First, isn't the irq probing stuff ISA related? I don't know of any other
+<BR>
+insanity that would need this.
+<BR>
+<P>My second and main problem there is do_IRQ(). Is that really supposed to
+<BR>
+be architecture dependend? On a halfway sane interrupt architecure I
+<BR>
+optimize you this, so that there is almost nothing left, that couldn't be
+<BR>
+done in the assembler entry immediatly. Unfortunately my knowledge about
+<BR>
+the ia32 interrupt stuff isn't as good as I'd like to, anyway, I hope that 
+<BR>
+most of the following ideas don't seem to come from a different world. :)
+<BR>
+<P>- I think the spinlock in there isn't really necessary, if real state
+<BR>
+changes are only happen from non-interrupt contexts. Everywhere else would
+<BR>
+be a &quot;disable_irq(); spin_lock()&quot; sequence sufficient.
+<BR>
+- I doubt that all the status stuff is really necessary, except for
+<BR>
+IRQ_INPROGRESS for SMP synchronisation.
+<BR>
+- IRQ_REPLAY: Do interrupt handler require a real interrupt context or
+<BR>
+isn't a faked context sufficient?
+<BR>
+- IRQ_WAITING: it's only used for int probing and could IMO be moved to a
+<BR>
+special interrupt handler.
+<BR>
+- IRQ_DISABLED: We could implement an optimistic scheme, where we replace
+<BR>
+the action field with a dummy action, that keeps the interrupt disabled.
+<BR>
+enable_irq()/disable_irq() would be very cheap then and we disable the
+<BR>
+interrupt only when the really interrupt happens (and most of the time not
+<BR>
+at all for short disable_irq()/enable_irq() sequences).
+<BR>
+- IRQ_PENDING: If I interpret the comment there correctly, the check is
+<BR>
+only necessary for faulty SMP hardware?
+<BR>
+<P>A related problem: IMO it's possible to do the soft irqs to do without
+<BR>
+turning on/off interrupts all the time, all we have to do is to make sure
+<BR>
+that only the last interrupt enters do_softirq() (local_irq_count could be
+<BR>
+used for that) and only at exit of do_softirq() we have to disable
+<BR>
+interrupts again to check for more pending soft irqs and to finally drop
+<BR>
+the interrupt context.
+<BR>
+<P>Partly I did stuff like this already, although for m68k port, but it made
+<BR>
+it possibly to install _very_ thin realtime layer (the current RTLinux
+<BR>
+stuff could also be much simpler), basically normal interrupts were only
+<BR>
+delayed into the soft irq part and only real time interrupts were executed
+<BR>
+immediatly. That allowed me to install a special serial interrupt handler
+<BR>
+that could handle the byte stream from the stupid 1-byte-fifo in the Amiga
+<BR>
+at 57600 bps and more. We have PPC Amigas with 200MHz and more that can't
+<BR>
+do that under Linux. :-(
+<BR>
+<P>Ok, I hope that gives some ideas what could be improved (I have more of
+<BR>
+them :-) ), maybe I can hack something together, that also works on ia32.
+<BR>
+<P>bye, Roman
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0173.html">Andrea Arcangeli: "Re: wh64 (slow)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0168.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0168.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

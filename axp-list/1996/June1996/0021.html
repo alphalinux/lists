@@ -1,0 +1,281 @@
+<!-- received="Mon Jun  3 15:21:56 1996 " -->
+<!-- sent="Mon, 3 Jun 1996 15:21:56 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: gcc question" -->
+<!-- id="199606032221.PAA15714@koala.azstarnet.com" -->
+<!-- inreplyto="gcc question" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gcc question</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gcc question</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Mon, 3 Jun 1996 15:21:56 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#21">[ date ]</a><a href="index.html#21">[ thread ]</a><a href="subject.html#21">[ subject ]</a><a href="author.html#21">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0022.html">Chad Woolf: "Postgres95"</a>
+<li> <b>Previous message:</b> <a href="0020.html">Brian Wood: "gcc question"</a>
+<li> <b>Maybe in reply to:</b> <a href="0020.html">Brian Wood: "gcc question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0039.html">David Mosberger-Tang: "Re: gcc question"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here is a patch that will make mgetty+sendfax-0.98 as found on sunsite<br>
+compile under Linux/Alpha.<br>
+<p>
+Please note that it is _not possible_ to initialize unions in ANSI C.<br>
+And there are good reasons why this is so: mgetty fails to compile<br>
+under Linux/Alpha because there a pointer is 64 bits wide whereas an<br>
+int is only 32 bits wide.  The patch below makes use of a GNU C<br>
+extension.  With the patch, mgetty will compile as long as GCC is<br>
+used.  However, it would be better to initialize the variants at<br>
+runtime, since that would make the program more portable.<br>
+<p>
+	--david<br>
+<pre>
+--
+diff -urN mgetty-0.98/conf_mg.c mgetty-0.98axp/conf_mg.c
+--- mgetty-0.98/conf_mg.c	Wed Aug 30 03:42:16 1995
++++ mgetty-0.98axp/conf_mg.c	Mon Jun  3 15:11:13 1996
+@@ -53,68 +53,69 @@
+  */
+ 
+ struct conf_data_mgetty c = {
+-	{ "speed", DEFAULT_PORTSPEED, CT_INT, C_PRESET },
+-	{ "switchbd", FAX_RECV_SWITCHBD, CT_INT, C_PRESET },
+-	{ "direct", FALSE, CT_BOOL, C_PRESET },
+-	{ "blocking", FALSE, CT_BOOL, C_PRESET },
++	{ "speed", {DEFAULT_PORTSPEED}, CT_INT, C_PRESET },
++	{ "switchbd", {FAX_RECV_SWITCHBD}, CT_INT, C_PRESET },
++	{ "direct", {FALSE}, CT_BOOL, C_PRESET },
++	{ "blocking", {FALSE}, CT_BOOL, C_PRESET },
+ 
+-	{ "port-owner", (int) DEVICE_OWNER, CT_STRING, C_PRESET },
++	{ "port-owner", {p: DEVICE_OWNER}, CT_STRING, C_PRESET },
+ #ifdef DEVICE_GROUP
+-	{ "port-group", (int) DEVICE_GROUP, CT_STRING, C_PRESET },
++	{ "port-group", {p: DEVICE_GROUP}, CT_STRING, C_PRESET },
+ #else
+-	{ "port-group", 0, CT_STRING, C_EMPTY },
++	{ "port-group", {p: 0}, CT_STRING, C_EMPTY },
+ #endif
+-	{ "port-mode", FILE_MODE, CT_INT, C_PRESET },
++	{ "port-mode", {FILE_MODE}, CT_INT, C_PRESET },
+ 
+-	{ "toggle-dtr", TRUE, CT_BOOL, C_PRESET },
+-	{ "toggle-dtr-waittime", 500, CT_INT, C_PRESET },
+-	{ "data-only", FALSE, CT_BOOL, C_PRESET },
+-	{ "fax-only", FALSE, CT_BOOL, C_PRESET },
+-	{ "modem-type", (int) DEFAULT_MODEMTYPE, CT_STRING, C_PRESET },
+-	{ "init-chat", 0, CT_CHAT, C_EMPTY },
+-
+-	{ "modem-check-time", MODEM_CHECK_TIME, CT_INT, C_PRESET },
+-	{ "rings", 1, CT_INT, C_PRESET },
+-	{ "get-cnd-chat", 0, CT_CHAT, C_EMPTY },
+-	{ "answer-chat", 0, CT_CHAT, C_EMPTY },
+-	{ "answer-chat-timeout", 80, CT_INT, C_PRESET },
+-	{ "autobauding", FALSE, CT_BOOL, C_PRESET },
+-
+-	{ "ringback", FALSE, CT_BOOL, C_PRESET },
+-	{ "ringback-time", 30, CT_INT, C_PRESET },
+-
+-	{ "issue-file", (int)"/etc/issue", CT_STRING, C_PRESET },
+-	{ "prompt-waittime", 500, CT_INT, C_PRESET },
+-	{ "login-prompt", (int) LOGIN_PROMPT, CT_STRING, C_PRESET },
++	{ "toggle-dtr", {TRUE}, CT_BOOL, C_PRESET },
++	{ "toggle-dtr-waittime", {500}, CT_INT, C_PRESET },
++	{ "data-only", {FALSE}, CT_BOOL, C_PRESET },
++	{ "fax-only", {FALSE}, CT_BOOL, C_PRESET },
++	{ "modem-type", {p: DEFAULT_MODEMTYPE}, CT_STRING, C_PRESET },
++	{ "init-chat", {0}, CT_CHAT, C_EMPTY },
++
++	{ "modem-check-time", {MODEM_CHECK_TIME}, CT_INT, C_PRESET },
++	{ "rings", {1}, CT_INT, C_PRESET },
++	{ "get-cnd-chat", {0}, CT_CHAT, C_EMPTY },
++	{ "answer-chat", {0}, CT_CHAT, C_EMPTY },
++	{ "answer-chat-timeout", {80}, CT_INT, C_PRESET },
++	{ "autobauding", {FALSE}, CT_BOOL, C_PRESET },
++
++	{ "ringback", {FALSE}, CT_BOOL, C_PRESET },
++	{ "ringback-time", {30}, CT_INT, C_PRESET },
++
++	{ "issue-file", {p: "/etc/issue"}, CT_STRING, C_PRESET },
++	{ "prompt-waittime", {500}, CT_INT, C_PRESET },
++	{ "login-prompt", {p: LOGIN_PROMPT}, CT_STRING, C_PRESET },
+ #ifdef MAX_LOGIN_TIME			/*!!! hmmm? */
+-	{ "login-time", MAX_LOGIN_TIME, CT_INT, C_PRESET },
++	{ "login-time", {MAX_LOGIN_TIME}, CT_INT, C_PRESET },
+ #else
+-	{ "login-time", 0, CT_INT, C_EMPTY },
++	{ "login-time", {0}, CT_INT, C_EMPTY },
+ #endif
+-	{ "fax-id", (int)FAX_STATION_ID, CT_STRING, C_PRESET },
+-	{ "fax-server-file", 0, CT_STRING, C_EMPTY },
+-	{ "diskspace", MINFREESPACE, CT_INT, C_PRESET },
++	{ "fax-id", {p: FAX_STATION_ID}, CT_STRING, C_PRESET },
++	{ "fax-server-file", {0}, CT_STRING, C_EMPTY },
++	{ "diskspace", {MINFREESPACE}, CT_INT, C_PRESET },
+ #ifdef MAIL_TO
+-	{ "notify", (int)MAIL_TO, CT_STRING, C_PRESET },
++	{ "notify", {p: MAIL_TO}, CT_STRING, C_PRESET },
+ #else
+-	{ "notify", 0, CT_STRING, C_EMPTY },
++	{ "notify", {p: 0}, {CT_STRING}, C_EMPTY },
+ #endif
+-	{ "fax-owner", (int)FAX_IN_OWNER, CT_STRING, C_PRESET },
++	{ "fax-owner", {p: FAX_IN_OWNER}, CT_STRING, C_PRESET },
+ #ifdef FAX_IN_GROUP
+-	{ "fax-group", (int)FAX_IN_GROUP, CT_STRING, C_PRESET },
++	{ "fax-group", {p: FAX_IN_GROUP}, CT_STRING, C_PRESET },
+ #else
+-	{ "fax-group", 0, CT_STRING, C_EMPTY },
++	{ "fax-group", {p: 0}, CT_STRING, C_EMPTY },
+ #endif
+-	{ "fax-mode", FAX_FILE_MODE, CT_INT, C_PRESET },
++	{ "fax-mode", {FAX_FILE_MODE}, CT_INT, C_PRESET },
+ 
+-	{ "debug", LOG_LEVEL, CT_INT, C_PRESET },
++	{ "debug", {LOG_LEVEL}, CT_INT, C_PRESET },
+ 	
+-	{ "statistics-chat", 0, CT_CHAT, C_EMPTY },
+-	{ "statistics-file", 0, CT_STRING, C_EMPTY },
+-	{ "gettydefs", (int)GETTYDEFS_DEFAULT_TAG, CT_STRING, C_PRESET },
+-	{ "term", 0, CT_STRING, C_EMPTY },
++	{ "statistics-chat", {0}, CT_CHAT, C_EMPTY },
++	{ "statistics-file", {0}, CT_STRING, C_EMPTY },
++	{ "gettydefs", {p: GETTYDEFS_DEFAULT_TAG}, CT_STRING, C_PRESET },
++	{ "term", {0}, CT_STRING, C_EMPTY },
+ 
+-	{ NULL, 0, CT_STRING, C_EMPTY }};
++	{ NULL, {0}, CT_STRING, C_EMPTY }
++};
+ 
+ /*
+  *	exit_usage() - exit with usage display
+diff -urN mgetty-0.98/conf_sf.c mgetty-0.98axp/conf_sf.c
+--- mgetty-0.98/conf_sf.c	Wed Aug 30 03:42:18 1995
++++ mgetty-0.98axp/conf_sf.c	Mon Jun  3 15:13:09 1996
+@@ -25,29 +25,29 @@
+ #endif
+ 
+ struct conf_data_sendfax c = {
+-	{ "fax-devices", 0, CT_STRING, C_EMPTY },
+-	{ "fax-devices", 0, CT_STRING, C_IGNORE },
+-	{ "modem-init", 0, CT_STRING, C_EMPTY },
++	{ "fax-devices", {0}, CT_STRING, C_EMPTY },
++	{ "fax-devices", {0}, CT_STRING, C_IGNORE },
++	{ "modem-init", {0}, CT_STRING, C_EMPTY },
+ #ifdef FAX_MODEM_HANDSHAKE
+-	{ "modem-handshake", (int) FAX_MODEM_HANDSHAKE, CT_STRING, C_PRESET },
++	{ "modem-handshake", {p:FAX_MODEM_HANDSHAKE}, CT_STRING, C_PRESET },
+ #else
+-	{ "modem-handshake", 0, CT_STRING, C_EMPTY },
++	{ "modem-handshake", {p:0}, CT_STRING, C_EMPTY },
+ #endif
+-	{ "modem-type", (int) DEFAULT_MODEMTYPE, CT_STRING, C_PRESET },
+-	{ "max-tries", FAX_SEND_MAX_TRIES, CT_INT, C_PRESET },
+-	{ "max-tries-continue", TRUE, CT_BOOL, C_PRESET },
+-	{ "speed", FAX_SEND_BAUD, CT_INT, C_PRESET },
+-	{ "switchbd", FAX_SEND_SWITCHBD, CT_INT, C_PRESET },
+-	{ "dial-prefix", (int) FAX_DIAL_PREFIX, CT_STRING, C_PRESET },
+-	{ "fax-id", (int)FAX_STATION_ID, CT_STRING, C_PRESET },
+-	{ "poll-dir", (int)".", CT_STRING, C_PRESET },
+-	{ "normal-res", 0, CT_BOOL, C_PRESET },
+-	{ "debug", LOG_LEVEL, CT_INT, C_PRESET },
+-	{ "verbose", FALSE, CT_BOOL, C_PRESET },
+-	{ "" /* polling */, FALSE, CT_BOOL, C_PRESET },
+-	{ "page-header", 0, CT_STRING, C_EMPTY },
+-	{ "" /* stdin */, FALSE, CT_BOOL, C_PRESET },
+-	{ NULL, 0, CT_STRING, C_EMPTY }};
++	{ "modem-type", {p:DEFAULT_MODEMTYPE}, CT_STRING, C_PRESET },
++	{ "max-tries", {FAX_SEND_MAX_TRIES}, CT_INT, C_PRESET },
++	{ "max-tries-continue", {TRUE}, CT_BOOL, C_PRESET },
++	{ "speed", {FAX_SEND_BAUD}, CT_INT, C_PRESET },
++	{ "switchbd", {FAX_SEND_SWITCHBD}, CT_INT, C_PRESET },
++	{ "dial-prefix", {p:FAX_DIAL_PREFIX}, CT_STRING, C_PRESET },
++	{ "fax-id", {p:FAX_STATION_ID}, CT_STRING, C_PRESET },
++	{ "poll-dir", {p:"."}, CT_STRING, C_PRESET },
++	{ "normal-res", {0}, CT_BOOL, C_PRESET },
++	{ "debug", {LOG_LEVEL}, CT_INT, C_PRESET },
++	{ "verbose", {FALSE}, CT_BOOL, C_PRESET },
++	{ "" /* polling */, {FALSE}, CT_BOOL, C_PRESET },
++	{ "page-header", {0}, CT_STRING, C_EMPTY },
++	{ "" /* stdin */, {FALSE}, CT_BOOL, C_PRESET },
++	{ NULL, {0}, CT_STRING, C_EMPTY }};
+ 
+ int sendfax_parse_args _P2( (argc,argv), int argc, char ** argv )
+ {
+diff -urN mgetty-0.98/config.c mgetty-0.98axp/config.c
+--- mgetty-0.98/config.c	Wed Aug 30 03:42:12 1995
++++ mgetty-0.98axp/config.c	Mon Jun  3 14:54:50 1996
+@@ -8,13 +8,11 @@
+  * Read and parse config file(s), see conf_*.[ch] for example use
+  */
+ 
++#include &lt;errno.h&gt;
+ #include &lt;stdio.h&gt;
+ #include "syslibs.h"
+ #include &lt;ctype.h&gt;
+ #include &lt;string.h&gt;
+-#ifndef ENOENT
+-#include &lt;errno.h&gt;
+-#endif
+ 
+ #include "mgetty.h"
+ #include "config.h"
+diff -urN mgetty-0.98/do_chat.c mgetty-0.98axp/do_chat.c
+--- mgetty-0.98/do_chat.c	Wed Aug 30 03:41:30 1995
++++ mgetty-0.98axp/do_chat.c	Mon Jun  3 14:53:41 1996
+@@ -5,6 +5,7 @@
+  * This module handles all the non-fax talk with the modem
+  */
+ 
++#include &lt;errno.h&gt;
+ #include &lt;stdio.h&gt;
+ #include "syslibs.h"
+ #include &lt;unistd.h&gt;
+diff -urN mgetty-0.98/logname.c mgetty-0.98axp/logname.c
+--- mgetty-0.98/logname.c	Wed Aug 30 03:41:58 1995
++++ mgetty-0.98axp/logname.c	Mon Jun  3 14:54:02 1996
+@@ -1,5 +1,6 @@
+ #ident "@(#)logname.c	3.1 95/08/30 Copyright (c) Gert Doering"
+ 
++#include &lt;errno.h&gt;
+ #include &lt;stdio.h&gt;
+ #include "syslibs.h"
+ #include &lt;unistd.h&gt;
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0022.html">Chad Woolf: "Postgres95"</a>
+<li> <b>Previous message:</b> <a href="0020.html">Brian Wood: "gcc question"</a>
+<li> <b>Maybe in reply to:</b> <a href="0020.html">Brian Wood: "gcc question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0039.html">David Mosberger-Tang: "Re: gcc question"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

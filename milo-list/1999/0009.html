@@ -1,0 +1,254 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Milo List: Re: milo sources?</TITLE>
+<META NAME="Author" CONTENT="Nikita Schmidt (cetus@net-cs.ucd.ie)">
+<META NAME="Subject" CONTENT="Re: milo sources?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: milo sources?</H1>
+<HR>
+<P>
+<!-- received="Mon Jun 28 20:22:46 1999" -->
+<!-- isoreceived="19990629032246" -->
+<!-- sent="Thu, 24 Jun 1999 15:32:23 +0100" -->
+<!-- isosent="19990624143223" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@net-cs.ucd.ie" -->
+<!-- subject="Re: milo sources?" -->
+<!-- id="19990624153222.A31253@snowball.ucd.ie" -->
+<!-- inreplyto="37718524.918348E7@pobox.com" -->
+<STRONG>Subject: </STRONG>Re: milo sources?<BR>
+<STRONG>From: </STRONG>Nikita Schmidt (<EM>cetus@net-cs.ucd.ie</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jun 24 1999 - 07:32:23 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#9">[ date ]</A>
+<A HREF="index.html#9">[ thread ]</A>
+<A HREF="subject.html#9">[ subject ]</A>
+<A HREF="author.html#9">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0010.html">Jeff Garzik: "Re: Milo * bootp"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0008.html">Jeff Garzik: "Re: milo sources?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">Jeff Garzik: "Re: milo sources?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Nikita Schmidt: "Re: milo sources?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wednesday, 23 Jun, Jeff Garzik wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The x86emu project is promising.  Has there been other work as well?  It
+</EM><BR>
+<EM>&gt; will take some work to merge the BIOS emulator back into MILO but the
+</EM><BR>
+<EM>&gt; x86emu emulator has some worthwhile updates (32-bit insn support for
+</EM><BR>
+<EM>&gt; one).
+</EM><BR>
+<P>GRUB is also worth looking into.  At least the filesystem code is much
+<BR>
+cleaner than what we have in MILO.  Perhaps some user interface might be
+<BR>
+useful as well?  GRUB is supposed to be user-friendly, but I never saw
+<BR>
+how it actually works.
+<BR>
+<P><EM>&gt; It would be nice to be able to have something _stable_ and flashable
+</EM><BR>
+<EM>&gt; into firmware.  Flashing MILO has not been supported for a long time
+</EM><BR>
+<EM>&gt; (Jay E. outlined the reasons a couple times on axp-list)
+</EM><BR>
+<P>That may take too much effort for keeping in sync with all Alpha system
+<BR>
+varieties.  It might be feasible, though, if SRM and AlphaBIOS sources
+<BR>
+were open.
+<BR>
+<P>Here is, briefly, what I have in mind to do with MILO.
+<BR>
+<P>General
+<BR>
+-------
+<BR>
+<P>1. Logically separate the UI, filesystems and kernel bootstrap from the
+<BR>
+rest so that they can be linked against kernel drivers for a full-blown
+<BR>
+MILO as well as against SRM callbacks to provide an aboot-like thing
+<BR>
+with MILO interface for consistency.
+<BR>
+<P>2. Put kernel driver compiling under MILO's control: this way MILO will
+<BR>
+only require kernel sources, which is, I believe, a reasonable
+<BR>
+requirement.  Kernel configuration will also be controlled by MILO.
+<BR>
+I have already modified MILO configuration scripts to include kernel
+<BR>
+configuration for this &quot;new generation&quot; MILO, but couldn't do much more
+<BR>
+than that due to serios lack of time.
+<BR>
+<P>3. Separate platform-dependent and platform-independent files.  By
+<BR>
+&quot;platform-dependent&quot; I mean those with #ifdef CONFIG_ALPHA_...; it is a
+<BR>
+good idea to reduce the number of such files as much as possible.
+<BR>
+<P>It is a question whether the target platform is a configuration option
+<BR>
+or not.  I would rather see it not belonging to the configuration, for
+<BR>
+it would make building distributions easier: configure once, build as
+<BR>
+many times as necessary for different platforms.
+<BR>
+<P>It would be nice to not have to re-compile anything when the target
+<BR>
+platform changes, just by giving appropriate objects to the linker.
+<BR>
+The code generated will be generic, not using BWX and stuff, but that
+<BR>
+does not really seem important.
+<BR>
+<P>Should the kernel drivers be compiled as generic or a separate set for
+<BR>
+each system?  I tend to prefer them being generic to simplify the
+<BR>
+process.
+<BR>
+<P>New features
+<BR>
+------------
+<BR>
+<P>1. The wtint PALcall, which is missing in MILO, although required by the
+<BR>
+Digital UNIX PALcode specification.  It is a nice power-saving facility.
+<BR>
+I implanted it into my MILO as an experimental feature by
+<BR>
+reverse-engineering from the SRM PALcode, and this immediately reduced
+<BR>
+the CPU fan noise while the machine is idle.  (The kernel needs
+<BR>
+modifications to use wtint, though.)  The problem is that it seems to be
+<BR>
+highly platform-specific and I did not see any documentation how to
+<BR>
+enter low power mode except for the 21066 family CPUs.
+<BR>
+<P>We can at least provide a stub to facilitate the use of wtint in the
+<BR>
+mainstream kernel.  Those who boot from SRM will benefit from it.
+<BR>
+<P>2. Some nice things from the console specification, such as console
+<BR>
+print routines for early kernel panic diagnostics, and correct reaction
+<BR>
+to the CPU restart flags in HWRPB to distinguish between halt, cold
+<BR>
+reboot and warm reboot.
+<BR>
+<P>3. Ability to run programs under MILO.  This will be useful for various
+<BR>
+console tools such as diagnostic and tuning routines, which we don't
+<BR>
+want to keep inside MILO.
+<BR>
+<P>Technical reorganisation
+<BR>
+------------------------
+<BR>
+<P>At the moment, nearly everything is in a wrong place.  Files should be
+<BR>
+rearranged to make maintenance easier.  Memory layouts should be less
+<BR>
+dependent on Makefile settings and driven by linker scripts.
+<BR>
+<P>I'm thinking of integrating linload.exe into MILO: its code will then
+<BR>
+shrink to a trivial swppal.  This can be arranged as a 512-byte preamble
+<BR>
+containing the ARC COFF header and a small code segment.  SRM will be
+<BR>
+able to easily skip the preamble as it is exactly one sector long.
+<BR>
+<P>I intend to move MILO to lower physical addresses; then both the
+<BR>
+compressed and uncompressed images will fit below the kernel, making
+<BR>
+MILO memory management easier and the kernel's page map less fragmented.
+<BR>
+I don't know if this will bring us any benefit, though.
+<BR>
+<P>Memory sizing is easy to implement by querying core logic chipset
+<BR>
+rather than doing silly things like relying on SRM or AlphaBIOS or PAL
+<BR>
+impure area to provide the information.
+<BR>
+<P>There is also a lot of things to do to streamline MILO startup and
+<BR>
+general logic (what goes after what, when to build HWRPB, how to manage
+<BR>
+environment etc.)
+<BR>
+<P>Speaking of environment, I propose to replace the current MILO reboot
+<BR>
+block with an environment block which would preserve MILO variables
+<BR>
+across kernel bootstrap/halt.  On systems equipped with NVRAM that MILO
+<BR>
+can read, environments will be merged.  Stuff like the boot command,
+<BR>
+which is currently kept in the reboot block, will always go to the RAM
+<BR>
+portion.  An initial RAM environment block will reside inside the MILO
+<BR>
+image and will be configurable by tools like miloctl - this is useful
+<BR>
+for systems without NVRAM.  Variables can control which device to be
+<BR>
+used as the console terminal (VGA or serial), verbosity level, default
+<BR>
+bootstrap command, timeouts etc.
+<BR>
+<P>OK.  I have more concrete details on most of the topics discussed, but I
+<BR>
+think that would be just too much for the first time.
+<BR>
+<P>Comments, opinions, suggestions anyone?
+<BR>
+<P>Nikita
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0010.html">Jeff Garzik: "Re: Milo * bootp"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0008.html">Jeff Garzik: "Re: milo sources?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">Jeff Garzik: "Re: milo sources?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Nikita Schmidt: "Re: milo sources?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

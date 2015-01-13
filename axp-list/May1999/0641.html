@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Converting time (since 01-01-1970) to Epoch</TITLE>
+<META NAME="Author" CONTENT="Dr . David Alan Gilbert (dg@px.uk.com)">
+<META NAME="Subject" CONTENT="Re: Converting time (since 01-01-1970) to Epoch">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Converting time (since 01-01-1970) to Epoch</H1>
+<HR>
+<P>
+<!-- received="Wed May 19 10:02:27 1999" -->
+<!-- isoreceived="19990519170227" -->
+<!-- sent="Wed, 19 May 1999 10:23:29 +0100" -->
+<!-- isosent="19990519092329" -->
+<!-- name="Dr . David Alan Gilbert" -->
+<!-- email="dg@px.uk.com" -->
+<!-- subject="Re: Converting time (since 01-01-1970) to Epoch" -->
+<!-- id="3.0.6.32.19990519102329.00d4d970@proxy.px.uk.com" -->
+<!-- inreplyto="9905190951.ZM11753@dns.rgn.it" -->
+<STRONG>Subject: </STRONG>Re: Converting time (since 01-01-1970) to Epoch<BR>
+<STRONG>From: </STRONG>Dr . David Alan Gilbert (<EM>dg@px.uk.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 19 1999 - 02:23:29 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#641">[ date ]</A>
+<A HREF="index.html#641">[ thread ]</A>
+<A HREF="subject.html#641">[ subject ]</A>
+<A HREF="author.html#641">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0642.html">Phil Carmody: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0640.html">Paul Jakma: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0637.html">Franco Tassone: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0642.html">Phil Carmody: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0637.html">Dr . David Alan Gilbert: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+At 09:51 19/05/99 +0000, Franco Tassone wrote:
+<BR>
+<P><EM>&gt;I have a binary file with record fixed lenght, it has been written on an SGI
+</EM><BR>
+<EM>&gt;box (Irix 6.2) using the following structure:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;(/usr/include/rpcsvc/rusers.h)
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;struct rusers_utmp {
+</EM><BR>
+<EM>&gt;	char    ut_line[8];             /* tty name */
+</EM><BR>
+<EM>&gt;	char    ut_name[8];             /* user id */
+</EM><BR>
+<EM>&gt;	char    ut_host[16];            /* host name, if remote */
+</EM><BR>
+<EM>&gt;	long    ut_time;                /* time on */
+</EM><BR>
+<EM>&gt;};
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;For the SGI box, sizeof(long) = 4.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;So I've converted the file, rewriting all the records on an Alpha-Linux box
+</EM><BR>
+<EM>&gt;(kernel 2.2.7) using the following structure:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;(/usr/include/rpcsvc/rusers.h)
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;struct ru_utmp {
+</EM><BR>
+<EM>&gt;        char    ut_line[8];             /* tty name */
+</EM><BR>
+<EM>&gt;        char    ut_name[8];             /* user id */
+</EM><BR>
+<EM>&gt;        char    ut_host[16];            /* host name, if remote */
+</EM><BR>
+<EM>&gt;        long    ut_time;                /* time on */
+</EM><BR>
+<EM>&gt;};
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;For Alpha-Linux box, sizeof(long) = 8.
+</EM><BR>
+<EM>&gt;My conversion program does only a field's level assignments, and rewrites the
+</EM><BR>
+<EM>&gt;new file, due to different sizeof(long).
+</EM><BR>
+<EM>&gt;The resulting dates (ut_time in ru_utmp) are all garbled.
+</EM><BR>
+<EM>&gt;Any ideas ?
+</EM><BR>
+<P><P>I suggest the problem is not length; but is actually an endian problem.
+<BR>
+SGI's are big endian (i.e. the first byte is the most significant), where as
+<BR>
+Linux/Alpha runs as little endian (i.e. the first byte is the least
+<BR>
+significant).
+<BR>
+<P>I'd have something like:
+<BR>
+<P>struct fromsgi_rusers {
+<BR>
+&nbsp;&nbsp;char ut_line[8];
+<BR>
+&nbsp;&nbsp;char ut_name[8];
+<BR>
+&nbsp;&nbsp;char ut_host[16];
+<BR>
+&nbsp;&nbsp;char ut_time_hack[4];
+<BR>
+}
+<BR>
+<P>use that to read it in and then make:
+<BR>
+<P>myru_utmp.ut_time=fromsg.ut_time_hack[3] | (fromsg.ut_time_hack[2]&lt;&lt;8) .....
+<BR>
+<P>Dave
+<BR>
+<P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0642.html">Phil Carmody: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0640.html">Paul Jakma: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0637.html">Franco Tassone: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0642.html">Phil Carmody: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0637.html">Dr . David Alan Gilbert: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:24 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

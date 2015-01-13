@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: problem with unaligned access on Alpha</TITLE>
+<META NAME="Author" CONTENT="Maciej W. Rozycki (macro@ds2.pg.gda.pl)">
+<META NAME="Subject" CONTENT="Re: problem with unaligned access on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: problem with unaligned access on Alpha</H1>
+<HR>
+<P>
+<!-- received="Fri Jun 25 21:26:44 1999" -->
+<!-- isoreceived="19990626042644" -->
+<!-- sent="Fri, 25 Jun 1999 22:21:06 +0200 (MET DST)" -->
+<!-- isosent="19990625202106" -->
+<!-- name="Maciej W. Rozycki" -->
+<!-- email="macro@ds2.pg.gda.pl" -->
+<!-- subject="Re: problem with unaligned access on Alpha" -->
+<!-- id="Pine.GSO.3.96.990625213135.9467A-100000@delta.private.ds2.pg.gda.pl" -->
+<!-- inreplyto="199906240702.BAA06113@ellpspace.math.ualberta.ca" -->
+<STRONG>Subject: </STRONG>Re: problem with unaligned access on Alpha<BR>
+<STRONG>From: </STRONG>Maciej W. Rozycki (<EM>macro@ds2.pg.gda.pl</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jun 25 1999 - 13:21:06 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#557">[ date ]</A>
+<A HREF="index.html#557">[ thread ]</A>
+<A HREF="subject.html#557">[ subject ]</A>
+<A HREF="author.html#557">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0558.html">Alvin Starr: "Linux-alpha,Java,Sun and licencing(related to the bashing)."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0556.html">Jeff Garzik: "Re: network booting a Multia?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0505.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0483.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0505.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 24 Jun 1999, Michal Jaegermann wrote:
+<BR>
+<P><EM>&gt; &gt;  Let me give you a real example.  I have a stream of compressed data
+</EM><BR>
+<EM>&gt; &gt; created on a 16-bit machine.  It is a mixture of 8-bit and 16-bit
+</EM><BR>
+<EM>&gt; &gt; unsigned quantities.  How would you handle it most efficiently?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Looking at a generated assembler it seems to me that an efficiency of
+</EM><BR>
+<EM>&gt; reading that as a stream of unsigned bytes and composing required 16-bit
+</EM><BR>
+<EM>&gt; values by &quot;shift and add&quot; is grossly underestimated. :-) I grant that
+</EM><BR>
+<P>&nbsp;Well, I suppose it's architecture-dependent.  I don't know all
+<BR>
+architectures. ;-)  At least on i386 merging bytes to a doubleword is
+<BR>
+at least about four times slower than fetching unaligned data directly
+<BR>
+(also depending on the particular CPU model).
+<BR>
+<P><EM>&gt; there are tougher cases than that.  OTOH Intel processors also take a
+</EM><BR>
+<EM>&gt; performance hit for unaligned acceses although, I understand, this
+</EM><BR>
+<EM>&gt; overhead is quite a bit smaller in an Intel case and they are also quiet
+</EM><BR>
+<EM>&gt; about it.
+</EM><BR>
+<P>&nbsp;You need an extra bus cycle anyway.  I386 does it transparently and the
+<BR>
+performance hit should be the smallest possible as it consists of the
+<BR>
+cycle only.  At least some RISC processors can take the advantage of the
+<BR>
+smallest possible performance hit of a single extra bus cycle but in their
+<BR>
+case it needs special handling, i.e. using a sequence of two special
+<BR>
+opcodes that deal with unaligned data as opposed to a single opcode that
+<BR>
+deals with aligned data.  Compilers usually generate the latter as they
+<BR>
+are unaware of run-time misalignment possibilities and in most cases the
+<BR>
+100% performance hit is undesired.
+<BR>
+<P>&nbsp;One can make i386 report unaligned accesses in a mannes RISCs do, BTW. 
+<BR>
+Linux even configures the CPU in such a way it's up to the process to
+<BR>
+choose between standard operation and misalignment trapping.  I tried to
+<BR>
+enable this feature in one of my test programs but it turned out that
+<BR>
+glibc is not alignment-clean on this arch and no useful results could be
+<BR>
+achieved. :-(
+<BR>
+<P><EM>&gt; &gt; or use &quot;((uint16_s *)&amp;(x))-&gt;v&quot; cast (where &quot;uint16_s&quot; is
+</EM><BR>
+<EM>&gt; &gt; defined as &quot;typedef struct { uint16_t v __attribute__((packed)); }
+</EM><BR>
+<EM>&gt; &gt; uint16_s;&quot;) to access 16-bit ones.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Hm, I never thought about &quot;__attribute__((packed))&quot; trick.  This would
+</EM><BR>
+<EM>&gt; make code, obviosly, quite gcc specific but likely this can be hidden
+</EM><BR>
+<EM>&gt; in some reasonably looking macros defined differently for gcc and
+</EM><BR>
+<EM>&gt; others.  But did you look at what happens on an assembler level
+</EM><BR>
+<EM>&gt; (I did not - for your examples); &quot;packed&quot; is not coming for free.
+</EM><BR>
+<P>&nbsp;I am told the case of a packed struct that contains the single field is
+<BR>
+treated specially as of egcs 1.1 (see
+<BR>
+'linux/include/asm-alpha/unaligned.h').  Look at the semantics of &quot;packed&quot; 
+<BR>
+-- it makes perfectly no sense for single-member structs, apart from
+<BR>
+signalling a potential misalignment.
+<BR>
+<P>&nbsp;I think using this feature is better than inventing own portable
+<BR>
+solutions.  &quot;Packed&quot; enables the compiler to use the best known solution
+<BR>
+known for the target arch -- see my note on opcodes for unaligned accesses
+<BR>
+above.  It may even be completely ignored for archs that support unaligned
+<BR>
+accesses in hardware, which is a true win -- no arch dependent
+<BR>
+conditionals are needed (I do not even know how to fetch information about
+<BR>
+alignment needed for a particular target -- &quot;alignof&quot; is useless here and
+<BR>
+it's not portable, anyway). 
+<BR>
+<P>&nbsp;I don't have appropriate code available at the moment; I'll check it next
+<BR>
+week.  I don't expect anything but changing a single opcode into two ones,
+<BR>
+e.g. &quot;load&quot; on MIPS would be changed to a pair of &quot;load unaligned left&quot;
+<BR>
+and &quot;load unaligned right&quot; (I don't remember names of the relevant
+<BR>
+opcodes) -- two cycles instead of one.
+<BR>
+<P>&nbsp;And gcc/egcs is free so a portability is almost non-issue.  Even if one
+<BR>
+insists on using a different compiler, there is always autoconf available
+<BR>
+for the task of source configuration. 
+<BR>
+<P><EM>&gt; &gt; One can use &quot;uint8_t&quot; fetches with appropriate shifting and ORing
+</EM><BR>
+<EM>&gt; &gt; (it's still necessary on different-endian machines even though some
+</EM><BR>
+<EM>&gt; &gt; archs have explicit support for most common endianness convertions)
+</EM><BR>
+<EM>&gt; &gt; but this wastes a lot of unnecessary cycles. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I bet that a lot less than an unaligned trap. :-)  C Standard is also
+</EM><BR>
+<P>&nbsp;Of course it is, but for archs that support unaligned bus accesses it
+<BR>
+becames a noticeable loss. ;-) 
+<BR>
+<P><EM>&gt; full of dire warnings about mixing different pointer types (or using
+</EM><BR>
+<EM>&gt; casts to hide that practice).  I guess that this is not without a reason
+</EM><BR>
+<EM>&gt; even if sounds like anal in places.
+</EM><BR>
+<P>&nbsp;Well, that's why I like &quot;packed&quot; described above -- at least it's
+<BR>
+well-defined.
+<BR>
+<P><EM>&gt; Somebody send me a while ago samples of a code which were supposedly
+</EM><BR>
+<EM>&gt; showing up an aliasing bug of egcs-1.1.2.  I did not try them on Intel
+</EM><BR>
+<EM>&gt; but there was not a trace of bad results on Alpha.  Maybe one needs much
+</EM><BR>
+<EM>&gt; more of a register presure before bad things will start to happen?  I do
+</EM><BR>
+<EM>&gt; not know.  Out of sheer curiosity I rewrote one example to use unions
+</EM><BR>
+<EM>&gt; instead of playing &quot;efficient&quot; pointer games.  Resulting assembler was
+</EM><BR>
+<EM>&gt; smaller and better for union approach as opposed to the &quot;efficient&quot; one.
+</EM><BR>
+<EM>&gt; In this case everything was aligned anyway as variables were defined on
+</EM><BR>
+<EM>&gt; stack.  But this IS a food for though.
+</EM><BR>
+<P>&nbsp;Using unions is good when you are sure all data is aligned.  If that's
+<BR>
+not the case, the problem remains.  The &quot;packed&quot; approach is reasonable
+<BR>
+but not necessarily the best.  As C is relatively low-level language (some
+<BR>
+people call it &quot;a portable assembler&quot;) I wouldn't mind if some way of
+<BR>
+alignment hinting became standard one day.
+<BR>
+<P><PRE>
+-- 
++  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
++--------------------------------------------------------------+
++        e-mail: macro@ds2.pg.gda.pl, PGP key available        +
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0558.html">Alvin Starr: "Linux-alpha,Java,Sun and licencing(related to the bashing)."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0556.html">Jeff Garzik: "Re: network booting a Multia?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0505.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0483.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0505.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

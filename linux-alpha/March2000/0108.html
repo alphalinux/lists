@@ -1,0 +1,655 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: 2.3.99-2-2 axp smp irq affinity</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="2.3.99-2-2 axp smp irq affinity">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.3.99-2-2 axp smp irq affinity</H1>
+<HR>
+<P>
+<!-- received="Fri Mar 17 15:36:58 2000" -->
+<!-- isoreceived="20000317233658" -->
+<!-- sent="Thu, 16 Mar 2000 23:53:10 -0800" -->
+<!-- isosent="20000317075310" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="2.3.99-2-2 axp smp irq affinity" -->
+<!-- id="200003170753.XAA00689@fidel.cygnus.com" -->
+<STRONG>Subject: </STRONG>2.3.99-2-2 axp smp irq affinity<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@cygnus.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Mar 16 2000 - 23:53:10 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#108">[ date ]</A>
+<A HREF="index.html#108">[ thread ]</A>
+<A HREF="subject.html#108">[ subject ]</A>
+<A HREF="author.html#108">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0109.html">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0107.html">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Unless the user gives us an affinity mask, statically spread
+<BR>
+the interrupts across the active processors.
+<BR>
+<P><P>r~
+<BR>
+<P>diff -rup linux/arch/alpha/kernel/irq.c 2.3.99-2-2/arch/alpha/kernel/irq.c
+<BR>
+--- linux/arch/alpha/kernel/irq.c	Thu Mar 16 22:26:06 2000
+<BR>
++++ 2.3.99-2-2/arch/alpha/kernel/irq.c	Thu Mar 16 23:25:00 2000
+<BR>
+@@ -219,15 +219,33 @@ setup_irq(unsigned int irq, struct irqac
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(&amp;desc-&gt;lock,flags);
+<BR>
+&nbsp;
+<BR>
+-	register_irq_proc(irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static struct proc_dir_entry * root_irq_dir;
+<BR>
+-static struct proc_dir_entry * irq_dir [NR_IRQS];
+<BR>
+-static struct proc_dir_entry * smp_affinity_entry [NR_IRQS];
+<BR>
++static struct proc_dir_entry * irq_dir[NR_IRQS];
+<BR>
+&nbsp;
+<BR>
+-static unsigned long irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = ~0UL };
+<BR>
++#ifdef CONFIG_SMP
+<BR>
++static struct proc_dir_entry * smp_affinity_entry[NR_IRQS];
+<BR>
++static char irq_user_affinity[NR_IRQS];
+<BR>
++static unsigned long irq_affinity[NR_IRQS] = { [0 ... NR_IRQS-1] = ~0UL };
+<BR>
++
+<BR>
++static void
+<BR>
++select_smp_affinity(int irq)
+<BR>
++{
+<BR>
++	static int last_cpu;
+<BR>
++	int cpu = last_cpu + 1;
+<BR>
++
+<BR>
++	if (! irq_desc[irq].handler-&gt;set_affinity || irq_user_affinity[irq])
+<BR>
++		return;
+<BR>
++
+<BR>
++	while (((cpu_present_mask &gt;&gt; cpu) &amp; 1) == 0)
+<BR>
++		cpu = (cpu &lt; NR_CPUS ? cpu + 1 : 0);
+<BR>
++	last_cpu = cpu;
+<BR>
++
+<BR>
++	irq_affinity[irq] = 1UL &lt;&lt; cpu;
+<BR>
++	irq_desc[irq].handler-&gt;set_affinity(irq, 1UL &lt;&lt; cpu);
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define HEX_DIGITS 16
+<BR>
+&nbsp;
+<BR>
+@@ -290,18 +308,22 @@ irq_affinity_write_proc(struct file *fil
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;err = parse_hex_value(buffer, count, &amp;new_value);
+<BR>
+&nbsp;
+<BR>
+-#if CONFIG_SMP
+<BR>
+-	/*
+<BR>
+-	 * Do not allow disabling IRQs completely - it's a too easy
+<BR>
+-	 * way to make the system unusable accidentally :-) At least
+<BR>
+-	 * one online CPU still has to be targeted.
+<BR>
+-	 */
+<BR>
+-	if (!(new_value &amp; cpu_present_mask))
+<BR>
++	/* The special value 0 means release control of the
+<BR>
++	   affinity to kernel.  */
+<BR>
++	if (new_value == 0) {
+<BR>
++		irq_user_affinity[irq] = 0;
+<BR>
++		select_smp_affinity(irq);
+<BR>
++	}
+<BR>
++	/* Do not allow disabling IRQs completely - it's a too easy
+<BR>
++	   way to make the system unusable accidentally :-) At least
+<BR>
++	   one online CPU still has to be targeted.  */
+<BR>
++	else if (!(new_value &amp; cpu_present_mask))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EINVAL;
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-	irq_affinity[irq] = new_value;
+<BR>
+-	irq_desc[irq].handler-&gt;set_affinity(irq, new_value);
+<BR>
++	else {
+<BR>
++		irq_affinity[irq] = new_value;
+<BR>
++		irq_user_affinity[irq] = 1;
+<BR>
++		irq_desc[irq].handler-&gt;set_affinity(irq, new_value);
+<BR>
++	}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return full_count;
+<BR>
+&nbsp;}
+<BR>
+@@ -313,7 +335,7 @@ prof_cpu_mask_read_proc(char *page, char
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *mask = (unsigned long *) data;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (count &lt; HEX_DIGITS+1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EINVAL;
+<BR>
+-	return sprintf (page, &quot;%08lx\n&quot;, *mask);
+<BR>
++	return sprintf (page, &quot;%016lx\n&quot;, *mask);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int
+<BR>
+@@ -330,6 +352,7 @@ prof_cpu_mask_write_proc(struct file *fi
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*mask = new_value;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return full_count;
+<BR>
+&nbsp;}
+<BR>
++#endif /* CONFIG_SMP */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define MAX_NAMELEN 10
+<BR>
+&nbsp;
+<BR>
+@@ -348,6 +371,7 @@ register_irq_proc (unsigned int irq)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* create /proc/irq/1234 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_dir[irq] = proc_mkdir(name, root_irq_dir);
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_SMP
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* create /proc/irq/1234/smp_affinity */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry = create_proc_entry(&quot;smp_affinity&quot;, 0700, irq_dir[irq]);
+<BR>
+&nbsp;
+<BR>
+@@ -357,6 +381,7 @@ register_irq_proc (unsigned int irq)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;write_proc = irq_affinity_write_proc;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_affinity_entry[irq] = entry;
+<BR>
++#endif
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;unsigned long prof_cpu_mask = ~0UL;
+<BR>
+@@ -370,6 +395,7 @@ init_irq_proc (void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* create /proc/irq */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;root_irq_dir = proc_mkdir(&quot;irq&quot;, 0);
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_SMP
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* create /proc/irq/prof_cpu_mask */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry = create_proc_entry(&quot;prof_cpu_mask&quot;, 0700, root_irq_dir);
+<BR>
+&nbsp;
+<BR>
+@@ -377,6 +403,7 @@ init_irq_proc (void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;data = (void *)&amp;prof_cpu_mask;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;read_proc = prof_cpu_mask_read_proc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;write_proc = prof_cpu_mask_write_proc;
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create entries for all existing IRQs.
+<BR>
+@@ -426,6 +453,10 @@ request_irq(unsigned int irq, void (*han
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action-&gt;next = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action-&gt;dev_id = dev_id;
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_SMP
+<BR>
++	select_smp_affinity(irq);
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retval = setup_irq(irq, action);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (retval)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kfree(action);
+<BR>
+@@ -522,10 +553,10 @@ get_irq_list(char *buf)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*p++ = '\n';
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;#if CONFIG_SMP
+<BR>
+-	p += sprintf(p, &quot;LOC: &quot;);
+<BR>
++	p += sprintf(p, &quot;IPI: &quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; smp_num_cpus; j++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;%10lu &quot;,
+<BR>
+-			     cpu_data[cpu_logical_map(j)].smp_local_irq_count);
+<BR>
++			     cpu_data[cpu_logical_map(j)].ipi_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;\n&quot;);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;ERR: %10lu\n&quot;, irq_err_count);
+<BR>
+diff -rup linux/arch/alpha/kernel/irq_alpha.c 2.3.99-2-2/arch/alpha/kernel/irq_alpha.c
+<BR>
+--- linux/arch/alpha/kernel/irq_alpha.c	Thu Mar 16 22:26:06 2000
+<BR>
++++ 2.3.99-2-2/arch/alpha/kernel/irq_alpha.c	Thu Mar 16 23:09:17 2000
+<BR>
+@@ -6,6 +6,7 @@
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/sched.h&gt;
+<BR>
+&nbsp;#include &lt;linux/irq.h&gt;
+<BR>
++#include &lt;linux/kernel_stat.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
+@@ -69,14 +70,22 @@ do_entInt(unsigned long type, unsigned l
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 1:
+<BR>
+&nbsp;#ifdef CONFIG_SMP
+<BR>
+-		cpu_data[smp_processor_id()].smp_local_irq_count++;
+<BR>
++	  {
+<BR>
++		long cpu;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_percpu_timer_interrupt(&amp;regs);
+<BR>
+-		if (smp_processor_id() == boot_cpuid)
+<BR>
+-#endif
+<BR>
++		cpu = smp_processor_id();
+<BR>
++		if (cpu != boot_cpuid) {
+<BR>
++		        irq_attempt(cpu, RTC_IRQ)++;
+<BR>
++		        kstat.irqs[cpu][RTC_IRQ]++;
+<BR>
++		} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_irq(RTC_IRQ, &amp;regs);
+<BR>
++		}
+<BR>
++	  }
+<BR>
++#else
+<BR>
++		handle_irq(RTC_IRQ, &amp;regs);
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 2:
+<BR>
+-		irq_err_count++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.machine_check(vector, la_ptr, &amp;regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 3:
+<BR>
+diff -rup linux/arch/alpha/kernel/setup.c 2.3.99-2-2/arch/alpha/kernel/setup.c
+<BR>
+--- linux/arch/alpha/kernel/setup.c	Thu Mar 16 19:30:37 2000
+<BR>
++++ 2.3.99-2-2/arch/alpha/kernel/setup.c	Thu Mar 16 23:00:22 2000
+<BR>
+@@ -846,6 +846,22 @@ platform_string(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static int
+<BR>
++get_nr_processors(struct percpu_struct *cpubase, unsigned long num)
+<BR>
++{
+<BR>
++	struct percpu_struct *cpu;
+<BR>
++	int i, count = 0;
+<BR>
++
+<BR>
++	for (i = 0; i &lt; num; i++) {
+<BR>
++		cpu = (struct percpu_struct *)
+<BR>
++			((char *)cpubase + i*hwrpb-&gt;processor_size);
+<BR>
++		if ((cpu-&gt;flags &amp; 0x1cc) == 0x1cc)
+<BR>
++			count++;
+<BR>
++	}
+<BR>
++	return count;
+<BR>
++}
+<BR>
++
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* BUFFER is PAGE_SIZE bytes long.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+@@ -865,7 +881,7 @@ int get_cpuinfo(char *buffer)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *cpu_name;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *systype_name;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *sysvariation_name;
+<BR>
+-	int len;
+<BR>
++	int len, nr_processors;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb-&gt;processor_offset);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_index = (unsigned) (cpu-&gt;type - 1);
+<BR>
+@@ -876,6 +892,8 @@ int get_cpuinfo(char *buffer)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;get_sysnames(hwrpb-&gt;sys_type, hwrpb-&gt;sys_variation,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;systype_name, &amp;sysvariation_name);
+<BR>
+&nbsp;
+<BR>
++	nr_processors = get_nr_processors(cpu, hwrpb-&gt;nr_processors);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;len = sprintf(buffer,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;cpu\t\t\t: Alpha\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;cpu model\t\t: %s\n&quot;
+<BR>
+@@ -894,7 +912,8 @@ int get_cpuinfo(char *buffer)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;BogoMIPS\t\t: %lu.%02lu\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;kernel unaligned acc\t: %ld (pc=%lx,va=%lx)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;user unaligned acc\t: %ld (pc=%lx,va=%lx)\n&quot;
+<BR>
+-		      &quot;platform string\t\t: %s\n&quot;,
+<BR>
++		      &quot;platform string\t\t: %s\n&quot;
+<BR>
++		      &quot;cpus detected\t\t: %d\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_name, cpu-&gt;variation, cpu-&gt;revision,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(char*)cpu-&gt;serial_no,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;systype_name, sysvariation_name, hwrpb-&gt;sys_revision,
+<BR>
+@@ -909,7 +928,7 @@ int get_cpuinfo(char *buffer)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loops_per_sec / 500000, (loops_per_sec / 5000) % 100,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unaligned[0].count, unaligned[0].pc, unaligned[0].va,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unaligned[1].count, unaligned[1].pc, unaligned[1].va,
+<BR>
+-		       platform_string());
+<BR>
++		       platform_string(), nr_processors);
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;len += smp_info(buffer+len);
+<BR>
+diff -rup linux/arch/alpha/kernel/smp.c 2.3.99-2-2/arch/alpha/kernel/smp.c
+<BR>
+--- linux/arch/alpha/kernel/smp.c	Thu Mar 16 19:30:37 2000
+<BR>
++++ 2.3.99-2-2/arch/alpha/kernel/smp.c	Thu Mar 16 23:21:15 2000
+<BR>
+@@ -1003,15 +1003,11 @@ flush_icache_page(struct vm_area_struct 
+<BR>
+&nbsp;int
+<BR>
+&nbsp;smp_info(char *buffer)
+<BR>
+&nbsp;{
+<BR>
+-	long i;
+<BR>
+-	unsigned long sum = 0;
+<BR>
+-	for (i = 0; i &lt; NR_CPUS; i++)
+<BR>
+-		sum += cpu_data[i].ipi_count;
+<BR>
+-
+<BR>
+-	return sprintf(buffer, &quot;CPUs probed %d active %d map 0x%lx IPIs %ld\n&quot;,
+<BR>
+-		       smp_num_probed, smp_num_cpus, cpu_present_mask, sum);
+<BR>
++	return sprintf(buffer,
+<BR>
++		       &quot;cpus active\t\t: %d\n&quot;
+<BR>
++		       &quot;cpu active mask\t\t: %016lx\n&quot;,
+<BR>
++		       smp_num_cpus, cpu_present_mask);
+<BR>
+&nbsp;}
+<BR>
+-
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if DEBUG_SPINLOCK
+<BR>
+&nbsp;void
+<BR>
+diff -rup linux/include/asm-alpha/delay.h 2.3.99-2-2/include/asm-alpha/delay.h
+<BR>
+--- linux/include/asm-alpha/delay.h	Thu Mar 16 22:26:31 2000
+<BR>
++++ 2.3.99-2-2/include/asm-alpha/delay.h	Thu Mar 16 23:32:20 2000
+<BR>
+@@ -40,7 +40,7 @@ __udelay(unsigned long usecs, unsigned l
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;#define udelay(u)  __udelay((u), cpu_data[smp_processor_id()].loops_per_sec)
+<BR>
+&nbsp;#else
+<BR>
+-#define udelay(u)  __udelay((u), loops_per_sec);
+<BR>
++#define udelay(u)  __udelay((u), loops_per_sec)
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* defined(__ALPHA_DELAY_H) */
+<BR>
+diff -rup linux/include/asm-alpha/smp.h 2.3.99-2-2/include/asm-alpha/smp.h
+<BR>
+--- linux/include/asm-alpha/smp.h	Thu Mar 16 19:30:38 2000
+<BR>
++++ 2.3.99-2-2/include/asm-alpha/smp.h	Thu Mar 16 23:31:55 2000
+<BR>
+@@ -30,7 +30,6 @@ struct cpuinfo_alpha {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long pgtable_cache_sz;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long ipi_count;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long irq_attempt[NR_IRQS];
+<BR>
+-	unsigned long smp_local_irq_count;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long prof_multiplier;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long prof_counter;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int irq_count, bh_count;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0109.html">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0107.html">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

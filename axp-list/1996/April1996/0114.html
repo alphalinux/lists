@@ -1,0 +1,130 @@
+<!-- received="Sun Apr  7 21:30:48 1996 " -->
+<!-- sent="Sun, 7 Apr 1996 21:30:48 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="ipfwadm for Alpha" -->
+<!-- id="199604080430.VAA01272@koala.azstarnet.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>ipfwadm for Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>ipfwadm for Alpha</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Sun, 7 Apr 1996 21:30:48 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#114">[ date ]</a><a href="index.html#114">[ thread ]</a><a href="subject.html#114">[ subject ]</a><a href="author.html#114">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0115.html">James R. Leu: "Which Alpha main board to buy?"</a>
+<li> <b>Previous message:</b> <a href="0113.html">Mikael Nykvist: "Re: Microway's SC164/300"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0128.html">Jos Vos: "Re: ipfwadm for Alpha"</a>
+<li> <b>Reply:</b> <a href="0128.html">Jos Vos: "Re: ipfwadm for Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here is a tiny patch relative to ipfwadm-2.0beta2 that makes ipfwadm<br>
+work under Linux/Alpha.  I was able to get IP masquerading working by<br>
+running the following command on the PPP-connected host with IP<br>
+forwarding and masquerading enabled (this was with kernel 1.3.84, but<br>
+any recent kernel should do):<br>
+<p>
+	ipfwadm -F -a masquerade -S &lt;local-eth-net-addr&gt; -D 0/0<br>
+<p>
+In my case, &lt;local-eth-net-addr&gt; is 192.168.1.0/24, but this obviously<br>
+depends on the specific setup of the network.  For more info on<br>
+masquerading, see the IP masquerading FAQ available at ftp.eves.com in<br>
+/pub/masq.<br>
+<p>
+Jos, would you mind integrating this patch into your sources?  While I<br>
+haven't tested it on an x86, there should be nothing that breaks the<br>
+x86 case.<br>
+<p>
+	--david<br>
+<p>
+diff -urN ipfwadm-2.0beta2/ipfwadm.c ipfwadm-2.0beta2-axp/ipfwadm.c<br>
+--- ipfwadm-2.0beta2/ipfwadm.c	Sat Feb 17 07:55:36 1996<br>
++++ ipfwadm-2.0beta2-axp/ipfwadm.c	Sun Apr  7 20:23:26 1996<br>
+@@ -894,7 +899,7 @@<br>
+ {<br>
+ 	int i;<br>
+ 	static char buf[20];<br>
+-	unsigned long maskaddr, bits;<br>
++	__u32 maskaddr, bits;<br>
+ <br>
+ 	maskaddr = ntohl(mask-&gt;s_addr);<br>
+ <br>
+@@ -1399,13 +1404,13 @@<br>
+ <br>
+ 	for (nread = 0; nread &lt; nfwlist; nread++) {<br>
+ 		fw = &amp;fwlist[nread];<br>
+-		if ((n = fscanf(fp, "%lX/%lX-&gt;%lX/%lX %16s %lX %hX %hu %hu %lu %lu",<br>
+-				(unsigned long *) &amp;fw-&gt;fw_src.s_addr,<br>
+-				(unsigned long *) &amp;fw-&gt;fw_smsk.s_addr, <br>
+-				(unsigned long *) &amp;fw-&gt;fw_dst.s_addr,<br>
+-				(unsigned long *) &amp;fw-&gt;fw_dmsk.s_addr, <br>
++		if ((n = fscanf(fp, "%X/%X-&gt;%X/%X %16s %X %hX %hu %hu %lu %lu",<br>
++				&amp;fw-&gt;fw_src.s_addr,<br>
++				&amp;fw-&gt;fw_smsk.s_addr, <br>
++				&amp;fw-&gt;fw_dst.s_addr,<br>
++				&amp;fw-&gt;fw_dmsk.s_addr, <br>
+ 				fw-&gt;fw_vianame,<br>
+-				(unsigned long *) &amp;fw-&gt;fw_via.s_addr,<br>
++				&amp;fw-&gt;fw_via.s_addr,<br>
+ 				&amp;fw-&gt;fw_flg, &amp;fw-&gt;fw_nsp, &amp;fw-&gt;fw_ndp,<br>
+ 				&amp;fw-&gt;fw_pcnt, &amp;fw-&gt;fw_bcnt)) == -1)<br>
+ 			return nread;<br>
+@@ -1442,10 +1447,10 @@<br>
+ <br>
+ 	for (nread = 0; nread &lt; nmslist; nread++) {<br>
+ 		ms = &amp;mslist[nread];<br>
+-		if ((n = fscanf(fp, " %s %lX:%hX %lX:%hX %hX %lX %hd %hd %lu",<br>
++		if ((n = fscanf(fp, " %s %X:%hX %X:%hX %hX %lX %hd %hd %lu",<br>
+ 				buf,<br>
+-				(unsigned long *) &amp;ms-&gt;src.s_addr, &amp;ms-&gt;sport,<br>
+-				(unsigned long *) &amp;ms-&gt;dst.s_addr, &amp;ms-&gt;dport,<br>
++				&amp;ms-&gt;src.s_addr, &amp;ms-&gt;sport,<br>
++				&amp;ms-&gt;dst.s_addr, &amp;ms-&gt;dport,<br>
+ 				&amp;ms-&gt;mport, &amp;ms-&gt;initseq, &amp;ms-&gt;delta,<br>
+ 				&amp;ms-&gt;pdelta, &amp;ms-&gt;expires)) == -1)<br>
+ 			return nread;<br>
+@@ -1480,7 +1485,7 @@<br>
+ 	iph = &amp;ipfwp.fwp_iph;<br>
+ <br>
+ 	iph-&gt;version = IP_VERSION;<br>
+-	iph-&gt;ihl = sizeof(struct iphdr) / sizeof(unsigned long);<br>
++	iph-&gt;ihl = sizeof(struct iphdr) / 4;<br>
+ 	iph-&gt;frag_off &amp;= htons(~IP_OFFSET);<br>
+ <br>
+ 	iph-&gt;saddr = fw-&gt;fw_src.s_addr;<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0115.html">James R. Leu: "Which Alpha main board to buy?"</a>
+<li> <b>Previous message:</b> <a href="0113.html">Mikael Nykvist: "Re: Microway's SC164/300"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0128.html">Jos Vos: "Re: ipfwadm for Alpha"</a>
+<li> <b>Reply:</b> <a href="0128.html">Jos Vos: "Re: ipfwadm for Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

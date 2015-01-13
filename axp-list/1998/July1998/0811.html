@@ -1,0 +1,122 @@
+<!-- received="Tue Jul 28 13:05:42 1998 " -->
+<!-- sent="Mon, 27 Jul 1998 12:31:51 -0400 (EDT)" -->
+<!-- name="Tim Rowley" -->
+<!-- email="tor@cs.brown.edu" -->
+<!-- subject="24-plane TGA console patch for 2.1.111" -->
+<!-- id="199807271631.MAA14631@boojum.cs.brown.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>24-plane TGA console patch for 2.1.111</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>24-plane TGA console patch for 2.1.111</h2>
+
+<b>Tim Rowley</b> (<a href="mailto:tor@cs.brown.edu"><i>tor@cs.brown.edu</i></a>)<br>
+<i>Mon, 27 Jul 1998 12:31:51 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#811">[ date ]</a><a href="index.html#811">[ thread ]</a><a href="subject.html#811">[ subject ]</a><a href="author.html#811">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0812.html">Quant-X Alpha Linux Support: "Re: 20 year problem with Alpha"</a>
+<li> <b>Previous message:</b> <a href="0810.html">Brian E.W. Wood: "RE: HotJava1.1.4 Browser success"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+People wanting to run 2.1.111 on 24-plane TGA cards can use this<br>
+patch, which changes the following:<br>
+<p>
+       * config adds CFB32 automatically if TGA is enabled<br>
+<p>
+       * turns off hardware cursor, which is otherwise left<br>
+         hanging wherever MILO left it<br>
+<p>
+       * enable blanking<br>
+<p>
+I'm also sending this to Geert Uytterhoeven for inclusion in the<br>
+official kernel source.<br>
+<p>
+-tor<br>
+<p>
+diff -u linux-2.1.111-orig/drivers/video/Config.in linux-2.1.111/drivers/video/Config.in<br>
+--- linux-2.1.111-orig/drivers/video/Config.in	Tue Jul 21 13:28:24 1998<br>
++++ linux-2.1.111/drivers/video/Config.in	Sun Jul 26 18:37:21 1998<br>
+@@ -157,11 +157,13 @@<br>
+       fi<br>
+     fi<br>
+     if [ "$CONFIG_FB_ATARI" = "y" -o "$CONFIG_FB_ATY" = "y" -o \<br>
+-	 "$CONFIG_FB_VESA" = "y" -o "$CONFIG_FB_VIRTUAL" = "y" ]; then<br>
++	 "$CONFIG_FB_TGA" = "y" -o "$CONFIG_FB_VESA" = "y" -o \<br>
++	 "$CONFIG_FB_VIRTUAL" = "y" ]; then<br>
+       define_bool CONFIG_FBCON_CFB32 y<br>
+     else<br>
+       if [ "$CONFIG_FB_ATARI" = "m" -o "$CONFIG_FB_ATY" = "m" -o \<br>
+-	   "$CONFIG_FB_VESA" = "m" -o "$CONFIG_FB_VIRTUAL" = "m" ]; then<br>
++	   "$CONFIG_FB_TGA" = "m" -o "$CONFIG_FB_VESA" = "m" -o \<br>
++	   "$CONFIG_FB_VIRTUAL" = "m" ]; then<br>
+ 	define_bool CONFIG_FBCON_CFB32 m<br>
+       fi<br>
+     fi<br>
+diff -u linux-2.1.111-orig/drivers/video/tgafb.c linux-2.1.111/drivers/video/tgafb.c<br>
+--- linux-2.1.111-orig/drivers/video/tgafb.c	Wed Jul 22 16:40:04 1998<br>
++++ linux-2.1.111/drivers/video/tgafb.c	Sun Jul 26 19:42:23 1998<br>
+@@ -682,9 +682,9 @@<br>
+ 	TGA_WRITE_REG(temp &amp; 0x000fffff, TGA_CURSOR_BASE_REG);<br>
+     }<br>
+ <br>
+-    /* finally, enable video scan &amp; cursor<br>
++    /* finally, enable video scan<br>
+        (and pray for the monitor... :-) */<br>
+-    TGA_WRITE_REG(0x05, TGA_VALID_REG); /* SCANNING and CURSOR */<br>
++    TGA_WRITE_REG(0x01, TGA_VALID_REG); /* SCANNING */<br>
+ <br>
+     fb_var.xres = fb_var.xres_virtual = 640;<br>
+     fb_var.yres = fb_var.yres_virtual = 480;<br>
+@@ -805,7 +805,13 @@<br>
+ <br>
+ static void tgafbcon_blank(int blank, struct fb_info *info)<br>
+ {<br>
+-    /* Nothing */<br>
++    /* Should also do stuff here for vesa blanking  -tor */<br>
++<br>
++    if (blank &gt; 0) {<br>
++	TGA_WRITE_REG(0x03, TGA_VALID_REG); /* SCANNING and BLANK */<br>
++    } else {<br>
++	TGA_WRITE_REG(0x01, TGA_VALID_REG); /* SCANNING */<br>
++    }<br>
+ }<br>
+ <br>
+     /*<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0812.html">Quant-X Alpha Linux Support: "Re: 20 year problem with Alpha"</a>
+<li> <b>Previous message:</b> <a href="0810.html">Brian E.W. Wood: "RE: HotJava1.1.4 Browser success"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

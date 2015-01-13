@@ -1,0 +1,129 @@
+<!-- received="Tue Mar 26 23:51:34 1996 " -->
+<!-- sent="Tue, 26 Mar 96 23:51:34 -0500" -->
+<!-- name="Jay Estabrook - Alpha Migration Tools - LINUX Project" -->
+<!-- email="jestabro@brillig.amt.tay1.dec.com" -->
+<!-- subject="Re: EB164 libraries and hardware access" -->
+<!-- id="9603270451.AA00439@brillig.amt.tay1.dec.com" -->
+<!-- inreplyto="199603271128.LAA26141@moondance.np.ac.sg" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: EB164 libraries and hardware access</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: EB164 libraries and hardware access</h2>
+
+<b>Jay Estabrook - Alpha Migration Tools - LINUX Project</b> (<a href="mailto:jestabro@brillig.amt.tay1.dec.com"><i>jestabro@brillig.amt.tay1.dec.com</i></a>)<br>
+<i>Tue, 26 Mar 96 23:51:34 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#258">[ date ]</a><a href="index.html#258">[ thread ]</a><a href="subject.html#258">[ subject ]</a><a href="author.html#258">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0259.html">Ka'plaagh  27-Mar-1996 0745 +0000: "RE: 1.3.77 &amp; 1.3.78 Keyboard Problems"</a>
+<li> <b>Previous message:</b> <a href="0257.html">David Mosberger-Tang: "Re: EB164 libraries and hardware access"</a>
+<li> <b>In reply to:</b> <a href="0255.html">Robert Allen Barker: "EB164 libraries and hardware access"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; 	3. Other axp software in redhat 2.1 that needs hardware access </i><br>
+<i>&gt; 	   doesn't run and causes memory violations. This includes</i><br>
+<i>&gt; 	   the graphics libraries, programs compiled with the graphics</i><br>
+<i>&gt; 	   libraries, and even the io portion of libc.a (with _inb() etc).</i><br>
+<i>&gt; 	   </i><br>
+<i>&gt; 	4. This is due to the libraries not yet being ported to the</i><br>
+<i>&gt; 	   EB164 hardware environment?????</i><br>
+<p>
+Yes, you're correct; the current LIBC implementation of _inb/_outb and<br>
+siblings, supports most of the Alpha platforms but not all, namely the<br>
+EB164 and JENSEN.<br>
+<p>
+There is development going on to port GNU LIBC to the Alphas; this port<br>
+*WILL* adapt its implementation of _inb/_outb to the platform on which<br>
+it is running. The same will be true of the Xservers, as they will use<br>
+that GNU LIBC, and use a similar technique to that employed by GNU LIBC,<br>
+to mmap bus memory (frame buffers) appropriately for the given platform.<br>
+<p>
+But neither are ready yet... :-(<br>
+<p>
+<p>
+<i>&gt; 	Any help greatly appreciated.</i><br>
+<p>
+Have patience, or start hacking... :-)<br>
+<p>
+To the latter end, you could try this for tailoring _inb/_outb to the EB164:<br>
+<p>
+FIRST MAKE A COPY OF THE APP YOU WILL BE PATCHING!!!!<br>
+<p>
+Then, using GDB, load the unstripped app, and do:<br>
+<p>
+	gdb&gt; set write on     &lt;--------- to allow writing to the image<br>
+	gdb&gt; exec app         &lt;--------- app is the name of the executable<br>
+	gdb&gt; x/i ioperm+204   &lt;--------- examine 1 instruction at ioperm+204<br>
+<p>
+this will dump an instruction which should be:<br>
+<p>
+	lda a5,4103           &lt;---------- in hex, 22bf1007<br>
+<p>
+along with the address of that instruction, something *like* 0x120214814.<br>
+<p>
+Now, change the value of the short at the above address (which was 0x1007),<br>
+like so:<br>
+<p>
+	gdb&gt; set {short}0x120214814 = 0x1216<br>
+<p>
+Now, when you quit gracefully from GDB, the executable will have been<br>
+patched. Try running it to see if it now works on the EB164.<br>
+<p>
+WARNING!!! This will only make _inb/_outb and siblings do the right thing<br>
+on the EB164 for that app, and it will no longer work on any other machine!<br>
+<p>
+WARNING!!! This will *NOT* make bus memory space accesses work, like trying<br>
+to read VGA BIOS ROM, or dump things directly into the VGA memory aperture<br>
+at 0xA0000 through 0xBFFFF, as I fear "svgalib" may attempt. These must be<br>
+solved via source code mods, which I won't go into here; Email me privately<br>
+if you wish more details.<br>
+<p>
+If you've done everything right, and only _inb/_outb are required by the<br>
+app for correct operation, it *should* work; that's how I did the EV5 versions<br>
+of the S3 and TGA Xservers (with 4-5 additional patches only)... :-)<br>
+<p>
+Good luck...<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools<br>
+Mailstop: TAY1-2                        (DTN) 227-4202<br>
+Digital Equipment Corp.                 (external) (508) 952-4202<br>
+151 Taylor Street                       enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0259.html">Ka'plaagh  27-Mar-1996 0745 +0000: "RE: 1.3.77 &amp; 1.3.78 Keyboard Problems"</a>
+<li> <b>Previous message:</b> <a href="0257.html">David Mosberger-Tang: "Re: EB164 libraries and hardware access"</a>
+<li> <b>In reply to:</b> <a href="0255.html">Robert Allen Barker: "EB164 libraries and hardware access"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

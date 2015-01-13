@@ -1,0 +1,130 @@
+<!-- received="Thu May 29 21:16:55 1997 " -->
+<!-- sent="Thu, 29 May 1997 13:51:58 -0700" -->
+<!-- name="Tom Quinn" -->
+<!-- email="trq@hermes.astro.washington.edu" -->
+<!-- subject="Oops in shrink_mmap()" -->
+<!-- id="199705292051.NAA27330@hermes.astro.washington.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Oops in shrink_mmap()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Oops in shrink_mmap()</h2>
+
+<b>Tom Quinn</b> (<a href="mailto:trq@hermes.astro.washington.edu"><i>trq@hermes.astro.washington.edu</i></a>)<br>
+<i>Thu, 29 May 1997 13:51:58 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#843">[ date ]</a><a href="index.html#843">[ thread ]</a><a href="subject.html#843">[ subject ]</a><a href="author.html#843">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0844.html">Francois Jaccard: "PC164 CIA machine check!"</a>
+<li> <b>Previous message:</b> <a href="0842.html">Thomas Pornin: "quake, as always"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I'm getting the following Oops on my alpha running RedHat linux 4.2:<br>
+<p>
+May 29 08:55:13 shapley4 kernel: Unable to handle kernel paging request at virtual address 0000000001833a17<br>
+May 29 08:55:13 shapley4 kernel: kswapd(3): Oops 0<br>
+May 29 08:55:13 shapley4 kernel: pc = [&lt;fffffc000032e720&gt;] ps = 0000<br>
+May 29 08:55:13 shapley4 kernel: rp = [&lt;fffffc0000334e90&gt;] sp = fffffc00007dbde0<br>
+May 29 08:55:13 shapley4 kernel: r0=1 r1=18339ef r2=2769 r3=18339ef<br>
+May 29 08:55:13 shapley4 kernel: r8=0<br>
+May 29 08:55:13 shapley4 kernel: r16=6 r17=0 r18=0 r19=0<br>
+May 29 08:55:13 shapley4 kernel: r20=1555d7cff90 r21=0 r22=0 r23=1<br>
+May 29 08:55:13 shapley4 kernel: r24=4000000000000000 r25=1 r26=fffffc0000334e90 r27=fffffc000032e648<br>
+May 29 08:55:13 shapley4 kernel: r28=0 r29=fffffc000045bfa8 r30=fffffc00007dbde0<br>
+May 29 08:55:13 shapley4 kernel: Code: e4200016  44210403  41259404 &lt;a0230028&gt; 48209781  40651402  e020000c  a8c30028  44c21001 <br>
+<p>
+The PC is in shrink_mmap(), called from try_to_free_page().  Here is<br>
+the top of that function.  I've indicated the line where the PC is.<br>
+<p>
+int shrink_mmap(int priority, int dma)<br>
+{<br>
+	static int clock = 0;<br>
+	struct page * page;<br>
+	unsigned long limit = MAP_NR(high_memory);<br>
+	struct buffer_head *tmp, *bh;<br>
+	int count_max, count_min;<br>
+<p>
+	count_max = (limit&lt;&lt;1) &gt;&gt; (priority&gt;&gt;1);<br>
+	count_min = (limit&lt;&lt;1) &gt;&gt; (priority);<br>
+<p>
+	page = mem_map + clock;<br>
+	do {<br>
+		count_max--;<br>
+		if (page-&gt;inode || page-&gt;buffers)<br>
+			count_min--;<br>
+<p>
+		if (PageLocked(page))<br>
+			goto next;<br>
+		if (dma &amp;&amp; !PageDMA(page))<br>
+			goto next;<br>
+		/* First of all, regenerate the page's referenced bit<br>
+                   from any buffers in the page */<br>
+		bh = page-&gt;buffers;<br>
+		if (bh) {<br>
+			tmp = bh;<br>
+			do {<br>
+dies here&gt;&gt;&gt;&gt;&gt;&gt;&gt;		if (buffer_touched(tmp)) {<br>
+					clear_bit(BH_Touched, &amp;tmp-&gt;b_state);<br>
+					set_bit(PG_referenced, &amp;page-&gt;flags);<br>
+				}<br>
+				tmp = tmp-&gt;b_this_page;<br>
+			} while (tmp != bh);<br>
+		}<br>
+<p>
+It looks like page-&gt;buffers contains garbage (0x00000000018339ef).<br>
+<p>
+My system is a PC164 (enorex) with 256Meg RAM, IDE drive, SMC 9332<br>
+ethernet controller running at 100Mb/s, and a Matrox millenium video<br>
+card.  I'm using the RedHat 4.2 2.0.30 kernel, except for version 0.76<br>
+of the tulip ethernet driver with COPY_BREAK set to a large number to<br>
+avoid unaligned traps.<br>
+<p>
+The crash happens reliably if I run a program that 1) does a lot of<br>
+ethernet traffic (MPI), then 2) allocates and uses most of the<br>
+memory.  The Oops happens just as the free memory drops to zero.<br>
+<p>
+Any help or hints on tracking down the problem would be appreciated.<br>
+<p>
+<pre>
+-- 
+Tom Quinn	Astronomy, University of Washington
+Internet:	<a href="mailto:trq@astro.washington.edu">trq@astro.washington.edu</a>
+Phone:		206-685-9009
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0844.html">Francois Jaccard: "PC164 CIA machine check!"</a>
+<li> <b>Previous message:</b> <a href="0842.html">Thomas Pornin: "quake, as always"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

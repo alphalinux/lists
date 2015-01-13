@@ -1,0 +1,240 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>AXP-List Hypermail Archive: Re: Alpha Raid Tools</TITLE>
+<META NAME="Author" CONTENT="axp@amazing.ch (axp@amazing.ch)">
+<META NAME="Subject" CONTENT="Re: Alpha Raid Tools">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alpha Raid Tools</H1>
+<HR>
+<P>
+<!-- received="Mon Nov 16 18:57:09 1998 AKST" -->
+<!-- sent="Tue, 17 Nov 1998 04:56:00 GMT" -->
+<!-- name="axp@amazing.ch" -->
+<!-- email="axp@amazing.ch" -->
+<!-- subject="Re: Alpha Raid Tools" -->
+<!-- id="2744c303.u10t12e.2c120-dworz@amazing.ch" -->
+<!-- inreplyto="19981116221945.10248.rocketmail@send203.yahoomail.com" -->
+<A HREF="mailto:axp@amazing.ch?subject=Re:%20Alpha%20Raid%20Tools"><EM>axp@amazing.ch</EM></A><BR>
+<EM>Tue, 17 Nov 1998 04:56:00 GMT</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#182">[ date ]</A>
+<A HREF="index.html#182">[ thread ]</A>
+<A HREF="subject.html#182">[ subject ]</A>
+<A HREF="author.html#182">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0183.html">peter petrakis: "need help compiling 2.1.128"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0181.html">Scott Lewis: "Re: DU Assembly Book in PS Format"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0180.html">Jeff DeMaagd: "Re: DU Assembly Book in PS Format"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0221.html">Jacek Perry: "Re: Alpha Raid Tools"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Nov 16 Jacek Perry (<A HREF="mailto:chrobry@yahoo.com?subject=Re:%20Alpha%20Raid%20Tools">chrobry@yahoo.com</A>) wrote:
+<BR>
+<P><EM>&gt; Now my question is how do I compile the raid tool, and do I have to
+</EM><BR>
+<EM>&gt; get specific ones for alpha (I am running LX164)?
+</EM><BR>
+<P>About a month ago I wrote to this list (does the listarchive
+<BR>
+at Redhat work now?):
+<BR>
+<P>Hi
+<BR>
+<P>Yesterday I added one more disk to my Alpha and
+<BR>
+I used the opportunity to create some raid-arrays.
+<BR>
+<P>As I had some troubles to get it working, I thought,
+<BR>
+I'd share my findings with you:
+<BR>
+<P><P>I got &quot;raidtools-0_51beta9&quot; and &quot;raid0145-19980913-2_0_35&quot;
+<BR>
+from ftp.kernel.org/pub/linux/kernel/deamons (or
+<BR>
+something very similar).
+<BR>
+<P>I have RH5.1, Kernel 2.0.35 from RH (without any
+<BR>
+patches), egcs1.1a on a PC164.
+<BR>
+<P><P>The Raid-patches for the Kernel applied cleanly
+<BR>
+(beside one patch to asm-i386/irq.h (I think)).
+<BR>
+<P><P>To compile the Tools I needed to make the
+<BR>
+following changes:
+<BR>
+<P>In &quot;/usr/src/linux/include/asm-alpha/bitops.h&quot; I added
+<BR>
+--------------------------------------------------
+<BR>
+extern inline int ffs(int word)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int result = ffz(~word);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return word ? result+1 : 0;
+<BR>
+}
+<BR>
+--------------------------------------------------
+<BR>
+right after the definition of ffz (took that one from
+<BR>
+a 2.1.xxx Kernel)
+<BR>
+<P><P>&quot;/usr/src/linux/include/linux/raid/md.h&quot; was missing
+<BR>
+a &quot;#include &lt;asm/segment.h&gt;&quot;.
+<BR>
+<P>I think, that was all I changed.
+<BR>
+<P><P><P>As the doc is a bit unclear (no comment), here a
+<BR>
+short rundown on hot to use it:
+<BR>
+<P>1. make a new kernel with:
+<BR>
+--------------------------------------------------
+<BR>
+&nbsp;CONFIG_BLK_DEV_MD=y
+<BR>
+&nbsp;CONFIG_AUTODETECT_RAID=y
+<BR>
+&nbsp;CONFIG_MD_LINEAR=y
+<BR>
+&nbsp;CONFIG_MD_STRIPED=y
+<BR>
+&nbsp;CONFIG_MD_MIRRORING=y
+<BR>
+&nbsp;CONFIG_MD_RAID5=y
+<BR>
+--------------------------------------------------
+<BR>
+(you don't need all raid-levels if you don't want
+<BR>
+to...)
+<BR>
+<P><P>2. compile and install the tools:
+<BR>
+&quot;cd raidtools;./configure;make;make install&quot;
+<BR>
+<P><P>3. create &quot;/etc/raidtab&quot;. mine looks like this:
+<BR>
+--------------------------------------------------
+<BR>
+raiddev /dev/md0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-level                0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;nr-raid-disks             3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;nr-spare-disks            0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;chunk-size                16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;persistent-superblock     1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;device                    /dev/sdc2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-disk                 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;device                    /dev/sde2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-disk                 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;device                    /dev/sdf2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-disk                 2
+<BR>
+<P>raiddev /dev/md1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-level                0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;nr-raid-disks             2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;nr-spare-disks            0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;chunk-size                16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;persistent-superblock     1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;device                    /dev/sdd1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-disk                 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;device                    /dev/sdf1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;raid-disk                 1
+<BR>
+--------------------------------------------------
+<BR>
+(The persistent-superblock isn't documented anywhere,
+<BR>
+but it's needed for normal operation. also the
+<BR>
+chunk-size entry is mandatory).
+<BR>
+<P><P>4. use &quot;fdisk&quot; to set the partitiontype to &quot;86&quot; for all
+<BR>
+the future raid-partitions (needed for autodetection
+<BR>
+on the next reboot (you can even put the root on a
+<BR>
+raid-partition, but of course you need to keep the
+<BR>
+kernel on a non-raid-partition).
+<BR>
+<P><P>5. &quot;mkraid -a&quot;
+<BR>
+<P><P>6. &quot;mke2fs /dev/md0&quot; and &quot;mke2fs /dev/md1&quot;
+<BR>
+<P><P>7. make entries in your &quot;/etc/fstab&quot;.
+<BR>
+<P><P>8. mount them and use them :)
+<BR>
+<P><P>Hope I didn't forget anything. It works for me (so
+<BR>
+far). No warranty....
+<BR>
+<P><P>Bye
+<BR>
+&nbsp;dworz
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Alpha%20Raid%20Tools">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Alpha%20Raid%20Tools">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0183.html">peter petrakis: "need help compiling 2.1.128"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0181.html">Scott Lewis: "Re: DU Assembly Book in PS Format"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0180.html">Jeff DeMaagd: "Re: DU Assembly Book in PS Format"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0221.html">Jacek Perry: "Re: Alpha Raid Tools"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Nov 16 1998 - 18:57:10 AKST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

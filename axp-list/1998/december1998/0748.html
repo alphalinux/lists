@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: 21164 speed definitive answer</TITLE>
+<META NAME="Author" CONTENT="Robert Harley (Robert.Harley@inria.fr)">
+<META NAME="Subject" CONTENT="21164 speed definitive answer">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>21164 speed definitive answer</H1>
+<HR>
+<P>
+<!-- received="Thu Dec 17 13:16:35 1998 PST" -->
+<!-- sent="Thu, 17 Dec 1998 14:12:28 +0100 (MET)" -->
+<!-- name="Robert Harley" -->
+<!-- email="Robert.Harley@inria.fr" -->
+<!-- subject="21164 speed definitive answer" -->
+<!-- id="199812171312.OAA30693@pauillac.inria.fr" -->
+<!-- inreplyto="" -->
+<STRONG>Robert Harley</STRONG> (<A HREF="mailto:Robert.Harley@inria.fr?subject=Re:%2021164%20speed%20definitive%20answer"><EM>Robert.Harley@inria.fr</EM></A>)<BR>
+<EM>Thu, 17 Dec 1998 14:12:28 +0100 (MET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#748">[ date ]</A>
+<A HREF="index.html#748">[ thread ]</A>
+<A HREF="subject.html#748">[ subject ]</A>
+<A HREF="author.html#748">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0749.html">Matti Aarnio: "Re: 21164 speed definitive answer"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0747.html">Sascha Ziemann: "Re: silly 2.0.36 compilation question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0749.html">Matti Aarnio: "Re: 21164 speed definitive answer"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thorsten Koch (<A HREF="mailto:koch@zib.de?subject=Re:%2021164%20speed%20definitive%20answer">koch@zib.de</A>) wrote:
+<BR>
+<EM>&gt;Hello,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;thanks for the answers to my question. In fact I had allready 
+</EM><BR>
+<EM>&gt;read the documentation, but measuring with the rpcc failed to find a 
+</EM><BR>
+<EM>&gt;instruction sequence that needed less than 1 cycle/instruction.
+</EM><BR>
+<P>Try this:
+<BR>
+<P>==============================================================================
+<BR>
+<P>#ifndef __alpha
+<BR>
+#error Use an Alpha!
+<BR>
+#endif
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+<P>typedef unsigned int u32;
+<BR>
+typedef unsigned long u64;
+<BR>
+<P>/*-- main ------------------------------------------------------------------*/
+<BR>
+<P>#define BLA() \
+<BR>
+&nbsp;&nbsp;&nbsp;asm volatile ( \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;addt %2,%3,%0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$2,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult %4,%5,%1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $4,$5,$6&quot; \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=f&quot;(f3), &quot;=f&quot;(f6) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;f&quot;(f1), &quot;f&quot;(f2), &quot;f&quot;(f4), &quot;f&quot;(f5) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;$1&quot;, &quot;$2&quot;, &quot;$3&quot;, &quot;$4&quot;, &quot;$5&quot;, &quot;$6&quot; \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
+<BR>
+<P>#define ITERS (1000UL)
+<BR>
+<P>int main(int argc, char *argv[]) {
+<BR>
+&nbsp;&nbsp;u32 cycles, minimum;
+<BR>
+&nbsp;&nbsp;u64 c0, c1, i, total;
+<BR>
+&nbsp;&nbsp;double f1,f2,f3,f4,f5,f6;
+<BR>
+<P>&nbsp;&nbsp;minimum = -1U;
+<BR>
+&nbsp;&nbsp;total = 0UL;
+<BR>
+&nbsp;&nbsp;f1 = f2 = f4 = f5 = 0.0;
+<BR>
+&nbsp;&nbsp;for (i = 0UL; i &lt; ITERS; ++i) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;asm volatile (&quot;.align 4; rpcc %0&quot; : &quot;=r&quot;(c0));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;BLA();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;BLA();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;BLA();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;BLA();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;asm volatile (&quot;rpcc %0&quot; : &quot;=r&quot;(c1));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;cycles = (u32)(c1-c0+(c1&gt;&gt;32)-(c0&gt;&gt;32));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (cycles &lt; minimum) minimum = cycles;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;total += (u64)cycles;
+<BR>
+&nbsp;&nbsp;} /* end for */
+<BR>
+&nbsp;&nbsp;printf( &quot;Average cycles = %g, minimum = %u.\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;, (double)total/(double)ITERS, minimum
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;);
+<BR>
+<P>&nbsp;&nbsp;return 0;
+<BR>
+} /* end main */
+<BR>
+<P>==============================================================================
+<BR>
+<P><P>I get:
+<BR>
+<P>&nbsp;&nbsp;corton.inria.fr-bla/221 &gt; egcs -O3 bla.c
+<BR>
+&nbsp;&nbsp;corton.inria.fr-bla/222 &gt; ./a.out
+<BR>
+&nbsp;&nbsp;Average cycles = 4.024, minimum = 4.
+<BR>
+<P><P>The code looks like:
+<BR>
+<P>&nbsp;&nbsp;corton.inria.fr-bla/223 &gt; egcs -O3 bla.c -S
+<BR>
+&nbsp;&nbsp;corton.inria.fr-bla/224 &gt; cat bla.s
+<BR>
+&nbsp;&nbsp;[...]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4; rpcc $8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt $f12,$f13,$f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$2,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult $f14,$f15,$f11
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $4,$5,$6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt $f12,$f13,$f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$2,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult $f14,$f15,$f11
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $4,$5,$6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt $f12,$f13,$f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$2,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult $f14,$f15,$f11
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $4,$5,$6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt $f12,$f13,$f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $1,$2,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult $f14,$f15,$f11
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $4,$5,$6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rpcc $7
+<BR>
+&nbsp;&nbsp;[...]
+<BR>
+<P><P>Bye,
+<BR>
+&nbsp;&nbsp;Rob.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%2021164%20speed%20definitive%20answer">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%2021164%20speed%20definitive%20answer">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0749.html">Matti Aarnio: "Re: 21164 speed definitive answer"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0747.html">Sascha Ziemann: "Re: silly 2.0.36 compilation question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0749.html">Matti Aarnio: "Re: 21164 speed definitive answer"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Dec 17 1998 - 07:00:21 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

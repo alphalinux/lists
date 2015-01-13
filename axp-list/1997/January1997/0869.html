@@ -1,0 +1,140 @@
+<!-- received="Mon Jan 27 17:21:02 1997 " -->
+<!-- sent="Mon, 27 Jan 1997 17:15:38 -0500" -->
+<!-- name="Przemek Klosowski" -->
+<!-- email="przemek@rrdjazz.nist.gov" -->
+<!-- subject="Re: compiler efficency" -->
+<!-- id="199701272215.RAA01003@rrdjazz.nist.gov" -->
+<!-- inreplyto="compiler efficency" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiler efficency</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiler efficency</h2>
+
+<b>Przemek Klosowski</b> (<a href="mailto:przemek@rrdjazz.nist.gov"><i>przemek@rrdjazz.nist.gov</i></a>)<br>
+<i>Mon, 27 Jan 1997 17:15:38 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#869">[ date ]</a><a href="index.html#869">[ thread ]</a><a href="subject.html#869">[ subject ]</a><a href="author.html#869">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0870.html">Ishan: "Major compiling problems with Kernel 2.0.18 and UDB [ audio/sound]"</a>
+<li> <b>Previous message:</b> <a href="0868.html">Toon Moene: "Re: compiler efficency"</a>
+<li> <b>Maybe in reply to:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0872.html">Michal Jaegermann: "Re: compiler efficency"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Claus wrote:<br>
+<p>
+   for (i = 2; i &lt;= i__1; ++i) {<br>
+	   gam += 1. / (doublereal) i;<br>
+   }<br>
+<p>
+   Now, the Fortran-program compiled with the Digital Unix (f77) compiler executes<br>
+   TWICE as fast as the gcc executable (I found this factor also in other<br>
+<p>
+I took a look at machine code from gcc and DEC cc. I had a good laugh<br>
+when GCC optimized away the loop entirely with -O2 (initially I didn't<br>
+use the computed value of gam).  Here is a test case:<br>
+<p>
+typedef double doublereal;<br>
+double<br>
+x () {<br>
+   int i, i__1 = 9999;<br>
+   double gam = 0;<br>
+   for (i = 2; i &lt;= i__1; ++i) {<br>
+      gam += 1. / (doublereal) i;<br>
+   }<br>
+   return gam;<br>
+}<br>
+<p>
+and here is DEC cc -O2 code                            and GCC -O2 code<br>
+<p>
+ #    5    double gam = 0;		               cpys $f31,$f31,$f0     <br>
+        cpys    $f31, $f31, $f1		               bis $31,2,$2           <br>
+        .loc    2 6			               ldt $f10,0($1)         <br>
+ #    6    for (i = 2; i &lt;= i__1; ++i) {               .align 5               <br>
+        ldil    $16, 2			       $43:                           <br>
+        ldit    $f0, 1.			               stq $2,0($30)          <br>
+        .align  3			               ldt $f11,0($30)        <br>
+$32:					               cvtqt $f11,$f1         <br>
+        .loc    2 6			               divt $f10,$f1,$f1      <br>
+					               addl $2,1,$2           <br>
+        .loc    2 7			               cmple $2,$3,$1         <br>
+ #    7       gam += 1. / (doublereal) i;              addt $f0,$f1,$f0       <br>
+        stq     $16, 0($sp)		               bne $1,$43             <br>
+        ldt     $f10, 0($sp)		               addq $30,16,$30        <br>
+        cvtqt   $f10, $f11		               ret $31,($26),1        <br>
+        divt    $f0, $f11, $f12		               .end x                 <br>
+        addt    $f1, $f12, $f1<br>
+        addl    $16, 1, $16<br>
+        cmplt   $0, $16, $1<br>
+        beq     $1, $32<br>
+ #    8    }<br>
+        cpys    $f1, $f1, $f0<br>
+        lda     $sp, 16($sp)<br>
+        ret     $31, ($26), 1<br>
+        .end    x<br>
+<p>
+As you can see, not much difference, except that DEC cc probably does<br>
+better scheduling so that 21164 can multiple-issue, but still, a 2x<br>
+difference is more than I expected.<br>
+<p>
+I would guess that most of the difference comes from naive translation<br>
+by f2c, in which case g77 should do better. Also, are you sure you<br>
+compiled with optimizations turned on?<br>
+<p>
+			przemek klosowski &lt;przemek@nist.gov&gt;  (301) 975-6249<br>
+			Reactor Division (bldg. 235), E111 <br>
+			National Institute of Standards and Technology<br>
+			Gaithersburg, MD 20899,      USA<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0870.html">Ishan: "Major compiling problems with Kernel 2.0.18 and UDB [ audio/sound]"</a>
+<li> <b>Previous message:</b> <a href="0868.html">Toon Moene: "Re: compiler efficency"</a>
+<li> <b>Maybe in reply to:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0872.html">Michal Jaegermann: "Re: compiler efficency"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

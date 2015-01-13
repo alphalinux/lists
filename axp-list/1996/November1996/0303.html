@@ -1,0 +1,141 @@
+<!-- received="Wed Nov  6 10:17:06 1996 " -->
+<!-- sent="Wed, 6 Nov 1996 07:20:27 -0500 (EST)" -->
+<!-- name="Jim Nance" -->
+<!-- email="jlnance@avanticorp.com" -->
+<!-- subject="Re: 64 Bits from Larry McVoy" -->
+<!-- id="9611061220.AA06870@scooter" -->
+<!-- inreplyto="Pine.LNX.3.93.961105175237.464A-100000@darkstar.chrigi.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 64 Bits from Larry McVoy</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 64 Bits from Larry McVoy</h2>
+
+<b>Jim Nance</b> (<a href="mailto:jlnance@avanticorp.com"><i>jlnance@avanticorp.com</i></a>)<br>
+<i>Wed, 6 Nov 1996 07:20:27 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#303">[ date ]</a><a href="index.html#303">[ thread ]</a><a href="subject.html#303">[ subject ]</a><a href="author.html#303">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0304.html">jestabro@amt.tay1.dec.com: "Re: UDB video modes"</a>
+<li> <b>Previous message:</b> <a href="0302.html">Wilson Northrup: "RE: 3.5 inch drive"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0313.html">Philip Blundell: "Re: 64 Bits from Larry McVoy"</a>
+<li> <b>Reply:</b> <a href="0313.html">Philip Blundell: "Re: 64 Bits from Larry McVoy"</a>
+<li> <b>Reply:</b> <a href="0375.html">Christian Hardmeier: "Re: 64 Bits from Larry McVoy"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; I patched the program to use _llseek, and to specify a correct mode on</i><br>
+<i>&gt; open ;-).</i><br>
+<i>&gt; I never got a nice printk() from ext2fs. But from a certain file length on</i><br>
+<i>&gt; (I didn't check but I figure it's when 32 bit can't hold the offset any</i><br>
+<i>&gt; more) write fails with EFBIG: File too large. Very normal, controlled</i><br>
+<i>&gt; behaviour...</i><br>
+<p>
+First I want to thank all the people who pointed out that I don't know how<br>
+to use open().  I have patched the program call it correctly, and have<br>
+included the errors I am seeing.  Also, I am running on an Alpha, not an<br>
+intel machine.  I would expect compleatly different behavior on an intel<br>
+since the longs are only 32 bits.  Here is the program:<br>
+<p>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;sys/types.h&gt;<br>
+#include &lt;sys/stat.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+<p>
+#define GB ((long)2*(1024*1024*1024)/2)<br>
+#define NG (20L)<br>
+<p>
+int main()<br>
+{<br>
+    off_t offset;<br>
+    int fd = open("bigfile", O_CREAT|O_TRUNC|O_WRONLY, 0666);<br>
+<p>
+    if(fd&lt;0) {perror("open:"); exit(1);}<br>
+<p>
+    for(offset=0; offset&lt;=NG*GB; offset += GB) {<br>
+	int   num;<br>
+        off_t pos = lseek(fd, offset, SEEK_SET);<br>
+	if(pos!=offset) {perror("lseek:"); exit(1);}<br>
+	num=write(fd,"x",1);<br>
+	if(num!=1) {perror("write:"); exit(1);}<br>
+    }<br>
+<p>
+printf("Done!\n");<br>
+return 0;<br>
+}<br>
+<p>
+When I run it I get this nice message:<br>
+<p>
+scooter&gt; ./a.out<br>
+EXT2-fs warning (device 08:18): ext2_getblk: block &gt; big<br>
+write:: Input/output error<br>
+<p>
+Now it does make a file:<br>
+scooter&gt; ls -l<br>
+total 66<br>
+-rwxrwxrwx   1 jlnance  users       14317 Nov  5 06:53 a.out*<br>
+-rw-rw-rw-   1 jlnance  users         555 Nov  5 06:53 big.c<br>
+-rw-rw-rw-   1 jlnance  users    18253611008 Nov  5 06:57 bigfile<br>
+<p>
+This file is much larger than 2G.  I think its about 18G.  The really<br>
+interesting thing is that sometimes it will spontaneously truncate itself:<br>
+<p>
+scooter&gt; dd bs=1k count=10 if=bigfile of=/dev/null<br>
+10+0 records in<br>
+10+0 records out<br>
+scooter&gt; ls -l<br>
+total 66<br>
+-rwxrwxrwx   1 jlnance  users       14317 Nov  5 06:53 a.out*<br>
+-rw-rw-rw-   1 jlnance  users         555 Nov  5 06:53 big.c<br>
+-rw-rw-rw-   1 jlnance  users    1073741824 Nov  5 06:57 bigfile<br>
+<p>
+Now its a 1G file :-(  I can not always force it to truncate by accessing it,<br>
+but it will always eventually truncate itself if you leave it around for<br>
+long enough and read from it enough.<br>
+<p>
+For anyone who is interested in trying to reproduce this, I used the 2.0.18<br>
+kernel supplied with RedHat 4.0, recompiled with the RedHat 4.0 compiler.<br>
+I am running on an Alphastation 200 4/166 with the SRM console.<br>
+<p>
+Thanks,<br>
+<p>
+Jim<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0304.html">jestabro@amt.tay1.dec.com: "Re: UDB video modes"</a>
+<li> <b>Previous message:</b> <a href="0302.html">Wilson Northrup: "RE: 3.5 inch drive"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0313.html">Philip Blundell: "Re: 64 Bits from Larry McVoy"</a>
+<li> <b>Reply:</b> <a href="0313.html">Philip Blundell: "Re: 64 Bits from Larry McVoy"</a>
+<li> <b>Reply:</b> <a href="0375.html">Christian Hardmeier: "Re: 64 Bits from Larry McVoy"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

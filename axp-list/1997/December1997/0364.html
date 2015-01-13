@@ -1,0 +1,144 @@
+<!-- received="Wed Dec 10 22:37:48 1997 " -->
+<!-- sent="Thu, 11 Dec 1997 01:45:12 +0100" -->
+<!-- name="Andreas Trottmann" -->
+<!-- email="andreas.trottmann@aart.ch" -->
+<!-- subject="Re: non-DMA CMD646 driver" -->
+<!-- id="199712102233.AAA10415@kaarne.cs.tut.fi" -->
+<!-- inreplyto="348EC044.4487@i6.informatik.rwth-aachen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: non-DMA CMD646 driver</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: non-DMA CMD646 driver</h2>
+
+<b>Andreas Trottmann</b> (<a href="mailto:andreas.trottmann@aart.ch"><i>andreas.trottmann@aart.ch</i></a>)<br>
+<i>Thu, 11 Dec 1997 01:45:12 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#364">[ date ]</a><a href="index.html#364">[ thread ]</a><a href="subject.html#364">[ subject ]</a><a href="author.html#364">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0365.html">Andreas Trottmann: "Re: non-DMA CMD646 driver"</a>
+<li> <b>Previous message:</b> <a href="0363.html">Mika Kortelainen: "2.1.72 and sound?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, Dec 10, 1997 at 05:16:04PM +0100, Kai Schuetz wrote:<br>
+<p>
+<i>&gt; I've hacked together suppot of the CMD 646 and CMD643 chips PIO-Mode</i><br>
+<i>&gt; tweaking which is especially useful for owners of PC164, SX164 or LX164</i><br>
+<i>&gt; Alpha-Boards.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Linear-Read transfer speed rose from 1.5Mb/s to ~5Mb/s !</i><br>
+<p>
+I tried it on my Miata (Personal Workstation 433a). It *did* boost <br>
+performance (hdparm went up from 800 KB/sec to &gt;6 MB/sec), but after I <br>
+put on some IDE load it seemed to lock up something quite heavily:<br>
+<p>
+This is what I did:<br>
+<p>
+    tar -cf - /mnt/cd &gt;/dev/null &amp;<br>
+    tar -cf - /usr/local/spare &gt;/dev/null &amp;<br>
+<p>
+(where the CD-ROM is an ATAPI one on /dev/hdb and /usr/local/spare is on <br>
+some a Maxtor 71260 AT disk on /dev/hdc). It worked for half a minute, <br>
+but then started to cause some trouble:<br>
+<p>
+Dec 11 01:19:02 clockwork kernel: hdc: irq timeout: status=0xd0 { Busy }<br>
+Dec 11 01:19:32 clockwork kernel: ide1: reset timed-out, status=0xd0<br>
+Dec 11 01:19:32 clockwork kernel: hdc: status timeout: status=0xd0 { Busy }<br>
+Dec 11 01:19:32 clockwork kernel: hdc: drive not ready for command<br>
+Dec 11 01:20:02 clockwork kernel: ide1: reset timed-out, status=0xd0<br>
+Dec 11 01:20:02 clockwork kernel: hdc: status timeout: status=0xd0 { Busy }<br>
+Dec 11 01:20:02 clockwork kernel: end_request: I/O error, dev 16:05, <br>
+sector 32786<br>
+Dec 11 01:20:02 clockwork kernel: hdc: drive not ready for command<br>
+Dec 11 01:20:02 clockwork kernel: hdc: status timeout: status=0xd0 { Busy }<br>
+<p>
+... then, it went on a bit like this...<br>
+<p>
+Dec 11 01:31:04 clockwork kernel: ide1: reset: master: error (0x00?)<br>
+Dec 11 01:31:04 clockwork kernel: hdc: status error: status=0x58 { <br>
+DriveReady SeekComplete DataRequest }<br>
+Dec 11 01:31:04 clockwork kernel: hdc: drive not ready for command<br>
+Dec 11 01:31:04 clockwork kernel: hdc: set_geometry_intr: status=0x80 { <br>
+Busy }<br>
+Dec 11 01:31:13 clockwork kernel: ide1: reset: success<br>
+<p>
+... here, the HD made some quite frightening sound :-) ...<br>
+<p>
+Dec 11 01:31:23 clockwork kernel: hdc: irq timeout: status=0xd0 { Busy }<br>
+Dec 11 01:31:53 clockwork kernel: ide1: reset timed-out, status=0xd0<br>
+Dec 11 01:31:53 clockwork kernel: hdc: status timeout: status=0xd0 { Busy }<br>
+Dec 11 01:31:53 clockwork kernel: hdc: drive not ready for command<br>
+<p>
+Both tar processes hung with status D (which means "uninterruptable<br>
+sleep", IIRC), but after ten minutes or so, I was able to kill them. Both <br>
+devices are still not accessible, and it still seems to be constantly <br>
+resetting the dive.<br>
+<p>
+I think I'll reboot and look if the HD is still OK :-))<br>
+<p>
+<i>&gt; hdparm -m16 -c1 -p5 /dev/hda</i><br>
+<i>&gt; hdparm -p9 /dev/hda</i><br>
+<i>&gt; hdparm -p7 /dev/hda</i><br>
+<p>
+That's exactly what I did.<br>
+<p>
+<i>&gt; Just take a 2.1.* kernel (I took linux-2.1.67-BEFORE-MEGAMERGE.tar.gz</i><br>
+<i>&gt; from David Mosberger Tang) and apply the attached diff to cmd640.c in</i><br>
+<i>&gt; drivers/block.</i><br>
+<p>
+Oops... I didn't even read this before trying it! I just patched it into <br>
+my 2.0.32 kernel (Linus' 2.0.32 sources plus Jay's <br>
+alpha-patches-2.0.32-0.1) and got only one reject concerning the <br>
+changement from "cmd640" to "cmd%s" in the kprintf()s, so I thought it was <br>
+safe... could this be causing the problems?<br>
+<p>
+<i>&gt; Please also not I feel not responsible for any loss of data/problems</i><br>
+<i>&gt; due to the patch,</i><br>
+<p>
+Of course! And don't take this mail as a flame -- I just tried your patch <br>
+and am reporting a problem, hoping it can be of help to you. Also, I'd <br>
+really like to see my IDE sped up a bit.<br>
+<p>
+If you miss any details in this report (it's getting late and I want to <br>
+have more sleep this night than the two hours I had last night...) don't <br>
+hesitate to ask.<br>
+<p>
+<pre>
+-- 
+Andreas Trottmann &lt;<a href="mailto:andreas.trottmann@aart.ch">andreas.trottmann@aart.ch</a>&gt;
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0365.html">Andreas Trottmann: "Re: non-DMA CMD646 driver"</a>
+<li> <b>Previous message:</b> <a href="0363.html">Mika Kortelainen: "2.1.72 and sound?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

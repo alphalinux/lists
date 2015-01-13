@@ -1,0 +1,610 @@
+<!-- received="Tue Jun 18 08:20:04 1996 " -->
+<!-- sent="Tue, 18 Jun 1996 08:20:04 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: ioperm() and iopl()" -->
+<!-- id="199606181520.IAA01121@koala.azstarnet.com" -->
+<!-- inreplyto="ioperm() and iopl()" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ioperm() and iopl()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ioperm() and iopl()</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Tue, 18 Jun 1996 08:20:04 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#216">[ date ]</a><a href="index.html#216">[ thread ]</a><a href="subject.html#216">[ subject ]</a><a href="author.html#216">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0217.html">Lance Ware: "Installing via NFS"</a>
+<li> <b>Previous message:</b> <a href="0215.html">Linda Dodd: "Re: from ECOFF to ELF"</a>
+<li> <b>Maybe in reply to:</b> <a href="0191.html">Martin Ostermann: "ioperm() and iopl()"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Tue, 18 Jun 1996 14:24:19 +0200, Martin Ostermann &lt;<a href="mailto:ost@comnets.rwth-aachen.de">ost@comnets.rwth-aachen.de</a>&gt; said:</i><br>
+<p>
+  Martin&gt; Well, it contains a line like<br>
+<p>
+  Martin&gt; 	system type : Jensen<br>
+<p>
+  Martin&gt; as David suggested below.<br>
+<p>
+Can you find find out why it doesn't work with /proc/cpuinfo?  All you<br>
+should have to do is link with -lg and then set a breakpoint in<br>
+init_iosys.<br>
+<p>
+  Martin&gt; Ok, so I have to do some calculations were ports are located<br>
+  Martin&gt; in sparse memory by myself, but that shouldn't be a problem.<br>
+<p>
+I'm not sure what you mean here.  The libc i/o emulation should give<br>
+you access to any port in the range 0..65535 whether it's a Jensen or<br>
+any other Alpha PC.  The Jensen does have some devices on strange<br>
+addresses, but other than that, it should work.<br>
+<p>
+  Martin&gt; Hmm, /proc/cpuinfo is available and contains such a line. I<br>
+  Martin&gt; nevertheless made the link (You really meant this: a link<br>
+  Martin&gt; pointing to a (possibly nonexisting) file name Jensen? --<br>
+  Martin&gt; not a file containing a line "Jensen?") and the message<br>
+  Martin&gt; disappeared. However, iopl() returns non-zero, which<br>
+  Martin&gt; indicates failure, and I still get segmentation faults upon<br>
+  Martin&gt; using the ports.<br>
+<p>
+What exactly does your program do? Some caveats:<br>
+<p>
+	o the i/o privilege level has to be &gt; 3 to gain access to all<br>
+	  ports<br>
+<p>
+	o only root can access the i/o ports<br>
+<p>
+If it still fails, please tell us what "errno" is set to afterwards.<br>
+For your information, I appended the corresponding file from glibc.<br>
+Except for minor changes, the version in the Red Hat libc should be<br>
+identical.<br>
+<p>
+	--david<br>
+<pre>
+---
+/* Copyright (C) 1992 Free Software Foundation, Inc.
+This file is part of the GNU C Library.
+Contributed by David Mosberger.
+<p>
+The GNU C Library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Library General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+<p>
+The GNU C Library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Library General Public License for more details.
+<p>
+You should have received a copy of the GNU Library General Public
+License along with the GNU C Library; see the file COPYING.LIB.  If
+not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+Cambridge, MA 02139, USA.  */
+<p>
+/* I/O access is restricted to ISA port space (ports 0..65535).
+Modern devices hopefully are sane enough not to put any performance
+critical registers in i/o space.
+<p>
+On the first call to ioperm() or _sethae(), the entire (E)ISA port
+space is mapped into the virtual address space at address io.base.
+mprotect() calls are then used to enable/disable access to ports.  Per
+page, there are PAGE_SIZE&gt;&gt;IO_SHIFT I/O ports (e.g., 256 ports on a
+Low Cost Alpha based system using 8KB pages).
+<p>
+Keep in mind that this code should be able to run in a 32bit address
+space.  It is therefore unreasonable to expect mmap'ing the entire
+sparse address space would work (e.g., the Low Cost Alpha chip has an
+I/O address space that's 512MB large!).  */
+<p>
+#include &lt;errno.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+<p>
+#include &lt;sys/types.h&gt;
+#include &lt;sys/mman.h&gt;
+<p>
+#include &lt;asm/page.h&gt;
+#include &lt;asm/system.h&gt;
+<p>
+#define PATH_ALPHA_SYSTYPE	"/etc/alpha_systype"
+#define PATH_CPUINFO		"/proc/cpuinfo"
+<p>
+#define MAX_PORT	0x10000
+#define vuip		volatile unsigned int *
+<p>
+#define JENSEN_IO_BASE		(0xfffffc0300000000UL)
+#define JENSEN_MEM		(0xfffffc0200000000UL)	/* sparse!! */
+<p>
+/*
+ * With respect to the I/O architecture, APECS and LCA are identical,
+ * so the following defines apply to LCA as well.
+ */
+#define APECS_IO_BASE		(0xfffffc01c0000000UL)
+#define APECS_DENSE_MEM		(0xfffffc0300000000UL)
+<p>
+#define ALCOR_IO_BASE		(0xfffffc8580000000UL)
+#define ALCOR_DENSE_MEM		(0xfffffc8600000000UL)
+<p>
+<p>
+enum {
+  IOSYS_JENSEN = 0, IOSYS_APECS = 1, IOSYS_ALCOR = 2
+} iosys_t;
+<p>
+struct ioswtch {
+  void		(*sethae)(unsigned long addr);
+  void		(*outb)(unsigned char b, unsigned long port);
+  void		(*outw)(unsigned short b, unsigned long port);
+  void		(*outl)(unsigned int b, unsigned long port);
+  unsigned int	(*inb)(unsigned long port);
+  unsigned int	(*inw)(unsigned long port);
+  unsigned int	(*inl)(unsigned long port);
+};
+<p>
+static struct platform {
+  const char	*name;
+  int		io_sys;
+  unsigned long	bus_memory_base;
+} platform[] = {
+  {"Alcor",	IOSYS_ALCOR,	ALCOR_DENSE_MEM},
+  {"Avanti",	IOSYS_APECS,	APECS_DENSE_MEM},
+  {"Cabriolet",	IOSYS_APECS,	APECS_DENSE_MEM},
+  {"EB164",	IOSYS_ALCOR,	ALCOR_DENSE_MEM},
+  {"EB64+",	IOSYS_APECS,	APECS_DENSE_MEM},
+  {"EB66",	IOSYS_APECS,	APECS_DENSE_MEM},	/* LCA same as APECS */
+  {"EB66P",	IOSYS_APECS,	APECS_DENSE_MEM},	/* LCA same as APECS */
+  {"Jensen",	IOSYS_JENSEN,	JENSEN_MEM},
+  {"Mustang",	IOSYS_APECS,	APECS_DENSE_MEM},
+  {"Noname",	IOSYS_APECS,	APECS_DENSE_MEM},	/* LCA same as APECS */
+};
+<p>
+<p>
+static struct {
+  struct hae {
+    unsigned long	cache;
+    unsigned long *	reg;
+  } hae;
+  unsigned long		base;
+  struct ioswtch *	swp;
+  int			sys;
+} io;
+<p>
+static unsigned long bus_memory_base = -1;
+<p>
+extern void __sethae (unsigned long);	/* we can't use asm/io.h */
+<p>
+<p>
+static inline unsigned long
+port_to_cpu_addr (unsigned long port, int iosys, int size)
+{
+  if (iosys == IOSYS_JENSEN)
+    {
+      return (port &lt;&lt; 7) + ((size - 1) &lt;&lt; 4) + io.base;
+    }
+  else
+    {
+      return (port &lt;&lt; 5) + ((size - 1) &lt;&lt; 3) + io.base;
+    }
+}
+<p>
+<p>
+static inline void
+inline_sethae (unsigned long addr, int iosys)
+{
+  if (iosys == IOSYS_JENSEN)
+    {
+      /* hae on the Jensen is bits 31:25 shifted right */
+      addr &gt;&gt;= 25;
+      if (addr != io.hae.cache)
+	{
+	  __sethae (addr);
+	  io.hae.cache = addr;
+	}
+    }
+  else
+    {
+      unsigned long msb;
+<p>
+      /* no need to set hae if msb is 0: */
+      msb = addr &amp; 0xf8000000;
+      if (msb &amp;&amp; msb != io.hae.cache)
+	{
+	  __sethae (msb);
+	  io.hae.cache = msb;
+	}
+    }
+}
+<p>
+<p>
+static inline void
+inline_outb (unsigned char b, unsigned long port, int iosys)
+{
+  unsigned int w;
+  unsigned long addr = port_to_cpu_addr (port, iosys, 1);
+<p>
+  inline_sethae (0, iosys);
+  asm ("insbl %2,%1,%0" : "r=" (w) : "ri" (port &amp; 0x3), "r" (b));
+  *(vuip)addr = w;
+  mb ();
+}
+<p>
+<p>
+static inline void
+inline_outw (unsigned short b, unsigned long port, int iosys)
+{
+  unsigned int w;
+  unsigned long addr = port_to_cpu_addr (port, iosys, 2);
+<p>
+  inline_sethae (0, iosys);
+  asm ("inswl %2,%1,%0" : "r=" (w) : "ri" (port &amp; 0x3), "r" (b));
+  *(vuip)addr = w;
+  mb ();
+}
+<p>
+<p>
+static inline void
+inline_outl (unsigned int b, unsigned long port, int iosys)
+{
+  unsigned long addr = port_to_cpu_addr (port, iosys, 4);
+<p>
+  if (port &gt;= MAX_PORT)
+    return;
+<p>
+  inline_sethae (0, iosys);
+  *(vuip)addr = b;
+  mb ();
+}
+<p>
+<p>
+static inline unsigned int
+inline_inb (unsigned long port, int iosys)
+{
+  unsigned long result, addr = port_to_cpu_addr (port, iosys, 1);
+<p>
+  inline_sethae (0, iosys);
+  result = *(vuip) addr;
+  result &gt;&gt;= (port &amp; 3) * 8;
+  return 0xffUL &amp; result;
+}
+<p>
+<p>
+static inline unsigned int
+inline_inw (unsigned long port, int iosys)
+{
+  unsigned long result, addr = port_to_cpu_addr (port, iosys, 2);
+<p>
+  inline_sethae (0, iosys);
+  result = *(vuip) addr;
+  result &gt;&gt;= (port &amp; 3) * 8;
+  return 0xffffUL &amp; result;
+}
+<p>
+<p>
+static inline unsigned int
+inline_inl (unsigned long port, int iosys)
+{
+  unsigned long addr = port_to_cpu_addr (port, iosys, 4);
+<p>
+  inline_sethae (0, iosys);
+  return *(vuip) addr;
+}
+<p>
+<p>
+#define DCL_SETHAE(name, iosys)			\
+static void						\
+name##_sethae (unsigned long addr)			\
+{							\
+  inline_sethae (addr, IOSYS_##iosys);			\
+}
+<p>
+#define DCL_OUT(name, func, type, iosys)		\
+static void						\
+name##_##func (unsigned type b, unsigned long addr)	\
+{							\
+  inline_##func (b, addr, IOSYS_##iosys);		\
+}
+<p>
+<p>
+#define DCL_IN(name, func, iosys)			\
+static unsigned int					\
+name##_##func (unsigned long addr)			\
+{							\
+  return inline_##func (addr, IOSYS_##iosys);		\
+}
+<p>
+<p>
+DCL_SETHAE(jensen, JENSEN)
+DCL_OUT(jensen, outb, char,  JENSEN)
+DCL_OUT(jensen, outw, short, JENSEN)
+DCL_OUT(jensen, outl, int,   JENSEN)
+DCL_IN(jensen, inb, JENSEN)
+DCL_IN(jensen, inw, JENSEN)
+DCL_IN(jensen, inl, JENSEN)
+<p>
+/* The APECS functions are also used for ALCOR since they are
+   identical.  */
+<p>
+DCL_SETHAE(apecs, APECS)
+DCL_OUT(apecs, outb, char,  APECS)
+DCL_OUT(apecs, outw, short, APECS)
+DCL_OUT(apecs, outl, int,   APECS)
+DCL_IN(apecs, inb, APECS)
+DCL_IN(apecs, inw, APECS)
+DCL_IN(apecs, inl, APECS)
+<p>
+struct ioswtch ioswtch[] = {
+  {
+    jensen_sethae,
+    jensen_outb, jensen_outw, jensen_outl,
+    jensen_inb, jensen_inw, jensen_inl
+  },
+  {
+    apecs_sethae,
+    apecs_outb, apecs_outw, apecs_outl,
+    apecs_inb, apecs_inw, apecs_inl
+  }
+};
+<p>
+<p>
+/*
+ * Initialize I/O system.  To determine what I/O system we're dealing
+ * with, we first try to read the value of symlink PATH_ALPHA_SYSTYPE,
+ * if that fails, we lookup the "system type" field in /proc/cpuinfo.
+ * If that fails as well, we give up.
+ */
+static int
+init_iosys (void)
+{
+  char systype[256];
+  int i, n;
+<p>
+  n = readlink(PATH_ALPHA_SYSTYPE, systype, sizeof(systype) - 1);
+  if (n &gt; 0)
+    {
+      systype[n] = '\0';
+    }
+  else
+    {
+      char name[256];
+      FILE * fp;
+<p>
+      fp = fopen (PATH_CPUINFO, "r");
+      if (!fp)
+	return -1;
+      while ((n = fscanf (fp, "%256[^:]: %256[^\n]\n", name, systype)) != EOF)
+	{
+	  if (n == 2 &amp;&amp; strncmp (name, "system type", 11) == 0) {
+	    break;
+	  }
+	}
+      fclose(fp);
+<p>
+      if (n == EOF)
+	{
+	  /* this can happen if the format of /proc/cpuinfo changes...  */
+	  fprintf(stderr,
+		  "ioperm.init_iosys(): Unable to determine system type.\n"
+		  "\t(May need " PATH_ALPHA_SYSTYPE " symlink?)\n");
+	  errno = ENODEV;
+	  return -1;
+	}
+    }
+<p>
+  /* translate systype name into i/o system: */
+  for (i = 0; i &lt; sizeof (platform) / sizeof (platform[0]); ++i)
+    {
+      if (strcmp (platform[i].name, systype) == 0)
+	{
+	  bus_memory_base = platform[i].bus_memory_base;
+	  io.sys = platform[i].io_sys;
+	  if (io.sys == IOSYS_JENSEN)
+	    io.swp = &amp;ioswtch[0];
+	  else
+	    io.swp = &amp;ioswtch[1];
+	  return 0;
+	}
+    }
+<p>
+  /* systype is not a know platform name... */
+  errno = EINVAL;
+  return -1;
+}
+<p>
+<p>
+int
+_ioperm (unsigned long from, unsigned long num, int turn_on)
+{
+  unsigned long addr, len;
+  int prot;
+<p>
+  if (!io.swp &amp;&amp; init_iosys () &lt; 0)
+    return -1;
+<p>
+  /* this test isn't as silly as it may look like; consider overflows! */
+  if (from &gt;= MAX_PORT || from + num &gt; MAX_PORT)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+<p>
+  if (turn_on)
+    {
+      if (!io.base)
+	{
+	  unsigned long base;
+	  int fd;
+<p>
+	  io.hae.reg   = 0;		/* not used in user-level */
+	  io.hae.cache = 0;
+	  __sethae (io.hae.cache);	/* synchronize with hw */
+<p>
+	  fd = open ("/dev/mem", O_RDWR);
+	  if (fd &lt; 0)
+	    return fd;
+<p>
+	  switch (io.sys)
+	    {
+	    case IOSYS_JENSEN:	base = JENSEN_IO_BASE; break;
+	    case IOSYS_APECS:	base = APECS_IO_BASE; break;
+	    case IOSYS_ALCOR:	base = ALCOR_IO_BASE; break;
+	    default:
+	      errno = ENODEV;
+	      return -1;
+	    }
+	  addr  = port_to_cpu_addr (from, io.sys, 1);
+	  addr &amp;= PAGE_MASK;
+	  len = port_to_cpu_addr (MAX_PORT, io.sys, 1) - addr;
+	  io.base =
+	    (unsigned long) __mmap (0, len, PROT_NONE, MAP_SHARED, fd, base);
+	  close (fd);
+	  if ((long) io.base == -1)
+	    return -1;
+	}
+      prot = PROT_READ | PROT_WRITE;
+    }
+  else
+    {
+      if (!io.base)
+	return 0;	/* never was turned on... */
+<p>
+      /* turnoff access to relevant pages: */
+      prot = PROT_NONE;
+    }
+  addr  = port_to_cpu_addr (from, io.sys, 1);
+  addr &amp;= PAGE_MASK;
+  len = port_to_cpu_addr (from + num, io.sys, 1) - addr;
+  return mprotect ((void *) addr, len, prot);
+}
+<p>
+<p>
+int
+_iopl (unsigned int level)
+{
+    if (level &gt; 3)
+      {
+	errno = EINVAL;
+	return -1;
+      }
+    if (level)
+      {
+	return _ioperm (0, MAX_PORT, 1);
+      }
+    return 0;
+}
+<p>
+<p>
+void
+_sethae (unsigned long addr)
+{
+  if (!io.swp &amp;&amp; init_iosys () &lt; 0)
+    return;
+<p>
+  io.swp-&gt;sethae (addr);
+}
+<p>
+<p>
+void
+_outb (unsigned char b, unsigned long port)
+{
+  if (port &gt;= MAX_PORT)
+    return;
+<p>
+  io.swp-&gt;outb (b, port);
+}
+<p>
+<p>
+void
+_outw (unsigned short b, unsigned long port)
+{
+  if (port &gt;= MAX_PORT)
+    return;
+<p>
+  io.swp-&gt;outw (b, port);
+}
+<p>
+<p>
+void
+_outl (unsigned int b, unsigned long port)
+{
+  if (port &gt;= MAX_PORT)
+    return;
+<p>
+  io.swp-&gt;outl (b, port);
+}
+<p>
+<p>
+unsigned int
+_inb (unsigned long port)
+{
+  return io.swp-&gt;inb (port);
+}
+<p>
+<p>
+unsigned int
+_inw (unsigned long port)
+{
+  return io.swp-&gt;inw (port);
+}
+<p>
+<p>
+unsigned int
+_inl (unsigned long port)
+{
+  return io.swp-&gt;inl (port);
+}
+<p>
+<p>
+unsigned long
+_bus_base(void)
+{
+  if (!io.swp &amp;&amp; init_iosys () &lt; 0)
+    return -1;
+  return bus_memory_base;
+}
+<p>
+weak_alias (_sethae, sethae);
+weak_alias (_ioperm, ioperm);
+weak_alias (_iopl, iopl);
+weak_alias (_inb, inb);
+weak_alias (_inw, inw);
+weak_alias (_inl, inl);
+weak_alias (_outb, outb);
+weak_alias (_outw, outw);
+weak_alias (_outl, outl);
+weak_alias (_bus_base, bus_base);
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0217.html">Lance Ware: "Installing via NFS"</a>
+<li> <b>Previous message:</b> <a href="0215.html">Linda Dodd: "Re: from ECOFF to ELF"</a>
+<li> <b>Maybe in reply to:</b> <a href="0191.html">Martin Ostermann: "ioperm() and iopl()"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

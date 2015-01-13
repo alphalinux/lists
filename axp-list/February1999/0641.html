@@ -1,0 +1,819 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: [patch] 2.2.2pre5-axp-quickfix</TITLE>
+<META NAME="Author" CONTENT="Daniel J. Frasnelli (dfrasnel@csee.wvu.edu)">
+<META NAME="Subject" CONTENT="[patch] 2.2.2pre5-axp-quickfix">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] 2.2.2pre5-axp-quickfix</H1>
+<HR>
+<P>
+<!-- received="Mon Feb 22 02:40:07 1999 PST" -->
+<!-- sent="Sun, 21 Feb 1999 19:15:35 -0500" -->
+<!-- name="Daniel J. Frasnelli" -->
+<!-- email="dfrasnel@csee.wvu.edu" -->
+<!-- subject="[patch] 2.2.2pre5-axp-quickfix" -->
+<!-- id="19990221191535.O29970@csee.wvu.edu" -->
+<!-- inreplyto="" -->
+<STRONG>Daniel J. Frasnelli</STRONG> (<A HREF="mailto:dfrasnel@csee.wvu.edu?subject=Re:%20[patch]%202.2.2pre5-axp-quickfix"><EM>dfrasnel@csee.wvu.edu</EM></A>)<BR>
+<EM>Sun, 21 Feb 1999 19:15:35 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#641">[ date ]</A>
+<A HREF="index.html#641">[ thread ]</A>
+<A HREF="subject.html#641">[ subject ]</A>
+<A HREF="author.html#641">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0642.html">Tharin: "Re: ?? Booting Redhat from ARC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0640.html">James Hamilton: "?? Booting Redhat from ARC"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For public consumption, the 2.2.2pre5-axp-quickfix patch.
+<BR>
+The pre5 patch introduced several x86-centric modifications into the
+<BR>
+code and prevent a clean compile on the Alpha platform.  This patch fixes
+<BR>
+them by a &quot;retro&quot; attempt by backing the problematic code to pre4.  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is not meant a comprehensive fix, but it identifies where
+<BR>
+the problem code exists in 2.2.2pre5.  I have tested this myself, and am 
+<BR>
+running a kernel built by it right now.  Let me know of any problems you run 
+<BR>
+into.
+<BR>
+Thanks,
+<BR>
+Daniel
+<BR>
+<PRE>
+-- 
+<P><P>
+--- linux-pre5/kernel/ksyms.c	Sun Feb 21 16:52:31 1999
++++ linux-pre4/kernel/ksyms.c	Sun Feb 21 16:59:49 1999
+@@ -61,7 +61,7 @@
+ extern void free_dma(unsigned int dmanr);
+ extern spinlock_t dma_spin_lock;
+ 
+-#ifdef CONFIG_MODVERSIONS
++#ifdef MODVERSIONS
+ const struct module_symbol __export_Using_Versions
+ __attribute__((section(&quot;__ksymtab&quot;))) = {
+ 	1 /* Version version */, &quot;Using_Versions&quot;
+@@ -322,8 +322,6 @@
+ EXPORT_SYMBOL(sprintf);
+ EXPORT_SYMBOL(vsprintf);
+ EXPORT_SYMBOL(kdevname);
+-EXPORT_SYMBOL(bdevname);
+-EXPORT_SYMBOL(cdevname);
+ EXPORT_SYMBOL(simple_strtoul);
+ EXPORT_SYMBOL(system_utsname);	/* UTS data */
+ EXPORT_SYMBOL(uts_sem);		/* UTS semaphore */
+@@ -372,7 +370,6 @@
+ EXPORT_SYMBOL(event);
+ EXPORT_SYMBOL(__down);
+ EXPORT_SYMBOL(__down_interruptible);
+-EXPORT_SYMBOL(__down_trylock);
+ EXPORT_SYMBOL(__up);
+ EXPORT_SYMBOL(brw_page);
+ 
+--- linux-pre4/kernel/sched.c	Sun Feb 21 16:59:49 1999
++++ linux-pre5/kernel/sched.c	Sun Feb 21 16:52:31 1999
+@@ -36,6 +36,7 @@
+ #include &lt;asm/uaccess.h&gt;
+ #include &lt;asm/pgtable.h&gt;
+ #include &lt;asm/mmu_context.h&gt;
++#include &lt;asm/semaphore-helper.h&gt;
+ 
+ #include &lt;linux/timex.h&gt;
+ 
+@@ -863,30 +864,28 @@
+ 	struct task_struct *tsk = current;	\
+ 	struct wait_queue wait = { tsk, NULL };
+ 
+-#define DOWN_HEAD(task_state)						 \
+-									 \
+-									 \
+-	tsk-&gt;state = (task_state);					 \
+-	add_wait_queue(&amp;sem-&gt;wait, &amp;wait);				 \
+-									 \
+-	/*								 \
+-	 * Ok, we're set up.  sem-&gt;count is known to be less than zero	 \
+-	 * so we must wait.						 \
+-	 *								 \
+-	 * We can let go the lock for purposes of waiting.		 \
+-	 * We re-acquire it after awaking so as to protect		 \
+-	 * all semaphore operations.					 \
+-	 *								 \
+-	 * If &quot;up()&quot; is called before we call waking_non_zero() then	 \
+-	 * we will catch it right away.  If it is called later then	 \
+-	 * we will have to go through a wakeup cycle to catch it.	 \
+-	 *								 \
+-	 * Multiple waiters contend for the semaphore lock to see	 \
+-	 * who gets to gate through and who has to wait some more.	 \
+-	 */								 \
+-	for (;;) {							 \
+-		if (waking_non_zero(sem, tsk))	/* are we waking up?  */ \
+-			break;			/* yes, exit loop */
++#define DOWN_HEAD(task_state)						\
++									\
++									\
++	tsk-&gt;state = (task_state);					\
++	add_wait_queue(&amp;sem-&gt;wait, &amp;wait);				\
++									\
++	/*								\
++	 * Ok, we're set up.  sem-&gt;count is known to be less than zero	\
++	 * so we must wait.						\
++	 *								\
++	 * We can let go the lock for purposes of waiting.		\
++	 * We re-acquire it after awaking so as to protect		\
++	 * all semaphore operations.					\
++	 *								\
++	 * If &quot;up()&quot; is called before we call waking_non_zero() then	\
++	 * we will catch it right away.  If it is called later then	\
++	 * we will have to go through a wakeup cycle to catch it.	\
++	 *								\
++	 * Multiple waiters contend for the semaphore lock to see	\
++	 * who gets to gate through and who has to wait some more.	\
++	 */								\
++	for (;;) {
+ 
+ #define DOWN_TAIL(task_state)			\
+ 		tsk-&gt;state = (task_state);	\
+@@ -898,6 +897,8 @@
+ {
+ 	DOWN_VAR
+ 	DOWN_HEAD(TASK_UNINTERRUPTIBLE)
++	if (waking_non_zero(sem))
++		break;
+ 	schedule();
+ 	DOWN_TAIL(TASK_UNINTERRUPTIBLE)
+ }
+@@ -907,15 +908,23 @@
+ 	DOWN_VAR
+ 	int ret = 0;
+ 	DOWN_HEAD(TASK_INTERRUPTIBLE)
+-	if (signal_pending(tsk))
++
++	ret = waking_non_zero_interruptible(sem, tsk);
++	if (ret)
+ 	{
+-		ret = -EINTR;			/* interrupted */
+-		atomic_inc(&amp;sem-&gt;count);	/* give up on down operation */
++		if (ret == 1)
++			/* ret != 0 only if we get interrupted -arca */
++			ret = 0;
+ 		break;
+ 	}
+ 	schedule();
+ 	DOWN_TAIL(TASK_INTERRUPTIBLE)
+ 	return ret;
++}
++
++int __down_trylock(struct semaphore * sem)
++{
++	return waking_non_zero_trylock(sem);
+ }
+ 
+ #define	SLEEP_ON_VAR				\
+--- linux-pre4/include/net/sock.h	Thu Jan 28 15:43:16 1999
++++ linux-pre5/include/net/sock.h	Sun Feb 21 18:35:28 1999
+@@ -453,8 +453,7 @@
+ 
+ #ifdef CONFIG_FILTER
+ 	/* Socket Filtering Instructions */
+-	int			filter;
+-	struct sock_filter      *filter_data;
++	struct sk_filter      	*filter;
+ #endif /* CONFIG_FILTER */
+ 
+ 	/* This is where all the private (optional) areas that don't
+@@ -790,11 +789,11 @@
+  * sk_run_filter. If pkt_len is 0 we toss packet. If skb-&gt;len is smaller
+  * than pkt_len we keep whole skb-&gt;data.
+  */
+-extern __inline__ int sk_filter(struct sk_buff *skb, struct sock_filter *filter, int flen)
++extern __inline__ int sk_filter(struct sk_buff *skb, struct sk_filter *filter)
+ {
+ 	int pkt_len;
+ 
+-        pkt_len = sk_run_filter(skb-&gt;data, skb-&gt;len, filter, flen);
++        pkt_len = sk_run_filter(skb, filter-&gt;insns, filter-&gt;len);
+         if(!pkt_len)
+                 return 1;	/* Toss Packet */
+         else
+@@ -802,6 +801,23 @@
+ 
+ 	return 0;
+ }
++
++extern __inline__ void sk_filter_release(struct sock *sk, struct sk_filter *fp)
++{
++	unsigned int size = sk_filter_len(fp);
++
++	atomic_sub(size, &amp;sk-&gt;omem_alloc);
++
++	if (atomic_dec_and_test(&amp;fp-&gt;refcnt))
++		kfree_s(fp, size);
++}
++
++extern __inline__ void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
++{
++	atomic_inc(&amp;fp-&gt;refcnt);
++	atomic_add(sk_filter_len(fp), &amp;sk-&gt;omem_alloc);
++}
++
+ #endif /* CONFIG_FILTER */
+ 
+ /*
+@@ -837,11 +853,8 @@
+                 return -ENOMEM;
+ 
+ #ifdef CONFIG_FILTER
+-	if (sk-&gt;filter)
+-	{
+-		if (sk_filter(skb, sk-&gt;filter_data, sk-&gt;filter))
+-			return -EPERM;	/* Toss packet */
+-	}
++	if (sk-&gt;filter &amp;&amp; sk_filter(skb, sk-&gt;filter))
++		return -EPERM;	/* Toss packet */
+ #endif /* CONFIG_FILTER */
+ 
+ 	skb_set_owner_r(skb, sk);
+--- linux-pre4/net/core/filter.c	Mon Jan 12 18:28:25 1998
++++ linux-pre5/net/core/filter.c	Sun Feb 21 16:52:31 1999
+@@ -11,6 +11,8 @@
+  * modify it under the terms of the GNU General Public License
+  * as published by the Free Software Foundation; either version
+  * 2 of the License, or (at your option) any later version.
++ *
++ * Andi Kleen - Fix a few bad bugs and races.
+  */
+ 
+ #include &lt;linux/config.h&gt;
+@@ -36,6 +38,22 @@
+ #include &lt;asm/uaccess.h&gt;
+ #include &lt;linux/filter.h&gt;
+ 
++/* No hurry in this branch */
++
++static u8 *load_pointer(struct sk_buff *skb, int k)
++{
++	u8 *ptr = NULL;
++
++	if (k&gt;=SKF_NET_OFF)
++		ptr = skb-&gt;nh.raw + k - SKF_NET_OFF;
++	else if (k&gt;=SKF_LL_OFF)
++		ptr = skb-&gt;mac.raw + k - SKF_LL_OFF;
++
++	if (ptr&lt;skb-&gt;head &amp;&amp; ptr &lt; skb-&gt;tail)
++		return ptr;
++	return NULL;
++}
++
+ /*
+  * Decode and apply filter instructions to the skb-&gt;data.
+  * Return length to keep, 0 for none. skb is the data we are
+@@ -43,15 +61,19 @@
+  * len is the number of filter blocks in the array.
+  */
+  
+-int sk_run_filter(unsigned char *data, int len, struct sock_filter *filter, int flen)
++int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen)
+ {
++	unsigned char *data = skb-&gt;data;
++	/* len is UNSIGNED. Byte wide insns relies only on implicit
++	   type casts to prevent reading arbitrary memory locations.
++	 */
++	unsigned int len = skb-&gt;len;
+ 	struct sock_filter *fentry;	/* We walk down these */
+ 	u32 A = 0;	   		/* Accumulator */
+ 	u32 X = 0;   			/* Index Register */
+ 	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
+ 	int k;
+ 	int pc;
+-	int *t;
+ 
+ 	/*
+ 	 * Process array of filter instructions.
+@@ -60,53 +82,75 @@
+ 	for(pc = 0; pc &lt; flen; pc++)
+ 	{
+ 		fentry = &amp;filter[pc];
+-		if(fentry-&gt;code &amp; BPF_X)
+-			t=&amp;X;
+-		else
+-			t=&amp;fentry-&gt;k;
+ 			
+ 		switch(fentry-&gt;code)
+ 		{
+ 			case BPF_ALU|BPF_ADD|BPF_X:
++				A += X;
++				continue;
++
+ 			case BPF_ALU|BPF_ADD|BPF_K:
+-				A += *t;
++				A += fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_SUB|BPF_X:
++				A -= X;
++				continue;
++
+ 			case BPF_ALU|BPF_SUB|BPF_K:
+-				A -= *t;
++				A -= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_MUL|BPF_X:
++				A *= X;
++				continue;
++
+ 			case BPF_ALU|BPF_MUL|BPF_K:
+-				A *= *t;
++				A *= X;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_DIV|BPF_X:
++				if(X == 0)
++					return (0);
++				A /= X;
++				continue;
++
+ 			case BPF_ALU|BPF_DIV|BPF_K:
+-				if(*t == 0)
++				if(fentry-&gt;k == 0)
+ 					return (0);
+-				A /= *t;
++				A /= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_AND|BPF_X:
++				A &amp;= X;
++				continue;
++
+ 			case BPF_ALU|BPF_AND|BPF_K:
+-				A &amp;= *t;
++				A &amp;= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_OR|BPF_X:
++				A |= X;
++				continue;
++
+ 			case BPF_ALU|BPF_OR|BPF_K:
+-				A |= *t;
++				A |= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_LSH|BPF_X:
++				A &lt;&lt;= X;
++				continue;
++
+ 			case BPF_ALU|BPF_LSH|BPF_K:
+-				A &lt;&lt;= *t;
++				A &lt;&lt;= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_RSH|BPF_X:
++				A &gt;&gt;= X;
++				continue;
++
+ 			case BPF_ALU|BPF_RSH|BPF_K:
+-				A &gt;&gt;= *t;
++				A &gt;&gt;= fentry-&gt;k;
+ 				continue;
+ 
+ 			case BPF_ALU|BPF_NEG:
+@@ -148,26 +192,62 @@
+ 			case BPF_JMP|BPF_JSET|BPF_X:
+ 				pc += (A &amp; X) ? fentry-&gt;jt : fentry-&gt;jf;
+ 				continue;
++
+ 			case BPF_LD|BPF_W|BPF_ABS:
+ 				k = fentry-&gt;k;
+-				if(k + sizeof(long) &gt; len)
+-					return (0);
+-				A = ntohl(*(long*)&amp;data[k]);
+-				continue;
++load_w:
++				if(k+sizeof(u32) &lt;= len) {
++					A = ntohl(*(u32*)&amp;data[k]);
++					continue;
++				}
++				if (k&lt;0) {
++					u8 *ptr;
++
++					if (k&gt;=SKF_AD_OFF)
++						break;
++					if ((ptr = load_pointer(skb, k)) != NULL) {
++						A = ntohl(*(u32*)ptr);
++						continue;
++					}
++				}
++				return 0;
+ 
+ 			case BPF_LD|BPF_H|BPF_ABS:
+ 				k = fentry-&gt;k;
+-				if(k + sizeof(short) &gt; len)
+-					return (0);
+-				A = ntohs(*(short*)&amp;data[k]);
+-				continue;
++load_h:
++				if(k + sizeof(u16) &lt;= len) {
++					A = ntohs(*(u16*)&amp;data[k]);
++					continue;
++				}
++				if (k&lt;0) {
++					u8 *ptr;
++
++					if (k&gt;=SKF_AD_OFF)
++						break;
++					if ((ptr = load_pointer(skb, k)) != NULL) {
++						A = ntohs(*(u16*)ptr);
++						continue;
++					}
++				}
++				return 0;
+ 
+ 			case BPF_LD|BPF_B|BPF_ABS:
+ 				k = fentry-&gt;k;
+-				if(k &gt;= len)
+-					return (0);
+-				A = data[k];
+-				continue;
++load_b:
++				if(k &lt; len) {
++					A = data[k];
++					continue;
++				}
++				if (k&lt;0) {
++					u8 *ptr;
++
++					if (k&gt;=SKF_AD_OFF)
++						break;
++					if ((ptr = load_pointer(skb, k)) != NULL) {
++						A = *ptr;
++						continue;
++					}
++				}
+ 
+ 			case BPF_LD|BPF_W|BPF_LEN:
+ 				A = len;
+@@ -177,35 +257,23 @@
+ 				X = len;
+ 				continue;
+ 
+-                      case BPF_LD|BPF_W|BPF_IND:
++			case BPF_LD|BPF_W|BPF_IND:
+ 				k = X + fentry-&gt;k;
+-				if(k + sizeof(u32) &gt; len)
+-					return (0);
+-                                A = ntohl(*(u32 *)&amp;data[k]);
+-				continue;
++				goto load_w;
+ 
+                        case BPF_LD|BPF_H|BPF_IND:
+ 				k = X + fentry-&gt;k;
+-				if(k + sizeof(u16) &gt; len)
+-					return (0);
+-				A = ntohs(*(u16*)&amp;data[k]);
+-				continue;
++				goto load_h;
+ 
+                        case BPF_LD|BPF_B|BPF_IND:
+ 				k = X + fentry-&gt;k;
+-				if(k &gt;= len)
+-					return (0);
+-				A = data[k];
+-				continue;
++				goto load_b;
+ 
+ 			case BPF_LDX|BPF_B|BPF_MSH:
+-				/*
+-				 *	Hack for BPF to handle TOS etc
+-				 */
+ 				k = fentry-&gt;k;
+ 				if(k &gt;= len)
+ 					return (0);
+-				X = (data[fentry-&gt;k] &amp; 0xf) &lt;&lt; 2;
++				X = (data[k] &amp; 0xf) &lt;&lt; 2;
+ 				continue;
+ 
+ 			case BPF_LD|BPF_IMM:
+@@ -216,7 +284,7 @@
+ 				X = fentry-&gt;k;
+ 				continue;
+ 
+-                       case BPF_LD|BPF_MEM:
++			case BPF_LD|BPF_MEM:
+ 				A = mem[fentry-&gt;k];
+ 				continue;
+ 
+@@ -246,15 +314,29 @@
+ 				mem[fentry-&gt;k] = X;
+ 				continue;
+ 
+-
+-
+ 			default:
+ 				/* Invalid instruction counts as RET */
+ 				return (0);
+ 		}
++
++		/* Handle ancillary data, which are impossible
++		   (or very difficult) to get parsing packet contents.
++		 */
++		switch (k-SKF_AD_OFF) {
++		case SKF_AD_PROTOCOL:
++			A = htons(skb-&gt;protocol);
++			continue;
++		case SKF_AD_PKTTYPE:
++			A = skb-&gt;pkt_type;
++			continue;
++		case SKF_AD_IFINDEX:
++			A = skb-&gt;dev-&gt;ifindex;
++			continue;
++		default:
++			return 0;
++		}
+ 	}
+ 
+-	printk(KERN_ERR &quot;Filter ruleset ran off the end.\n&quot;);
+ 	return (0);
+ }
+ 
+@@ -279,13 +361,17 @@
+                  
+                 ftest = &amp;filter[pc];
+ 		if(BPF_CLASS(ftest-&gt;code) == BPF_JMP)
+-		{	
++		{
+ 			/*
+ 			 *	But they mustn't jump off the end.
+ 			 */
+ 			if(BPF_OP(ftest-&gt;code) == BPF_JA)
+ 			{
+-				if(pc + ftest-&gt;k + 1&gt;= (unsigned)flen)
++				/* Note, the large ftest-&gt;k might cause
++				   loops. Compare this with conditional
++				   jumps below, where offsets are limited. --ANK (981016)
++				 */
++				if (ftest-&gt;k &gt;= (unsigned)(flen-pc-1))
+ 					return (-EINVAL);
+ 			}
+                         else
+@@ -302,17 +388,18 @@
+                  *	Check that memory operations use valid addresses.
+                  */
+                  
+-                if(ftest-&gt;k &lt;0 || ftest-&gt;k &gt;= BPF_MEMWORDS)
++                if (ftest-&gt;k &gt;= BPF_MEMWORDS)
+                 {
+                 	/*
+                 	 *	But it might not be a memory operation...
+                 	 */
+-                	 
+-                	if (BPF_CLASS(ftest-&gt;code) == BPF_ST)
++			switch (ftest-&gt;code) {
++			case BPF_ST:	
++			case BPF_STX:	
++			case BPF_LD|BPF_MEM:	
++			case BPF_LDX|BPF_MEM:	
+                 		return -EINVAL;
+-			if((BPF_CLASS(ftest-&gt;code) == BPF_LD) &amp;&amp; 
+-				(BPF_MODE(ftest-&gt;code) == BPF_MEM))
+-	                        	return (-EINVAL);
++			}
+ 		}
+         }
+ 
+@@ -332,34 +419,35 @@
+ 
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+-	struct sock_filter *fp, *old_filter; 
+-	int fsize = sizeof(struct sock_filter) * fprog-&gt;len;
++	struct sk_filter *fp; 
++	unsigned int fsize = sizeof(struct sock_filter) * fprog-&gt;len;
+ 	int err;
+ 
+ 	/* Make sure new filter is there and in the right amounts. */
+-        if(fprog-&gt;filter == NULL || fprog-&gt;len == 0 || fsize &gt; BPF_MAXINSNS)
++        if (fprog-&gt;filter == NULL || fprog-&gt;len &gt; BPF_MAXINSNS)
+                 return (-EINVAL);
+ 
+-	if((err = sk_chk_filter(fprog-&gt;filter, fprog-&gt;len))==0)
+-	{
+-		/* If existing filter, remove it first */
+-		if(sk-&gt;filter)
+-		{
+-			old_filter = sk-&gt;filter_data;
+-			kfree_s(old_filter, (sizeof(old_filter) * sk-&gt;filter));
+-			sk-&gt;filter_data = NULL;
+-		}
+-
+-		fp = (struct sock_filter *)kmalloc(fsize, GFP_KERNEL);
+-		if(fp == NULL)
+-			return (-ENOMEM);
++	fp = (struct sk_filter *)sock_kmalloc(sk, fsize+sizeof(*fp), GFP_KERNEL);
++	if(fp == NULL)
++		return (-ENOMEM);
++
++	if (copy_from_user(fp-&gt;insns, fprog-&gt;filter, fsize)) {
++		sock_kfree_s(sk, fp, fsize+sizeof(*fp)); 
++		return -EFAULT;
++	}
+ 
+-		memset(fp,0,sizeof(*fp));
+-		memcpy(fp, fprog-&gt;filter, fsize);	/* Copy instructions */
++	atomic_set(&amp;fp-&gt;refcnt, 1);
++	fp-&gt;len = fprog-&gt;len;
+ 
+-		sk-&gt;filter = fprog-&gt;len;	/* Number of filter blocks */
+-		sk-&gt;filter_data = fp;		/* Filter instructions */
++	if ((err = sk_chk_filter(fp-&gt;insns, fp-&gt;len))==0) {
++		struct sk_filter *old_fp = sk-&gt;filter;
++		sk-&gt;filter = fp;
++		wmb();
++		fp = old_fp;
+ 	}
++
++	if (fp)
++		sk_filter_release(sk, fp);
+ 
+ 	return (err);
+ }
+--- linux-pre4/net/ipv4/tcp_ipv4.c	Sun Feb 21 16:59:49 1999
++++ linux-pre5/net/ipv4/tcp_ipv4.c	Sun Feb 21 16:52:32 1999
+@@ -1323,6 +1323,10 @@
+ 		newsk-&gt;pair = NULL;
+ 		skb_queue_head_init(&amp;newsk-&gt;back_log);
+ 		skb_queue_head_init(&amp;newsk-&gt;error_queue);
++#ifdef CONFIG_FILTER
++		if (newsk-&gt;filter)
++			sk_filter_charge(newsk, newsk-&gt;filter);
++#endif
+ 
+ 		/* Now setup tcp_opt */
+ 		newtp = &amp;(newsk-&gt;tp_pinfo.af_tcp);
+@@ -1553,12 +1557,10 @@
+ 
+ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ {
++
+ #ifdef CONFIG_FILTER
+-	if (sk-&gt;filter)
+-	{
+-		if (sk_filter(skb, sk-&gt;filter_data, sk-&gt;filter))
+-			goto discard;
+-	}
++	if (sk-&gt;filter &amp;&amp; sk_filter(skb, sk-&gt;filter))
++		goto discard;
+ #endif /* CONFIG_FILTER */
+ 
+ 	/* 
+--- linux-pre4/net/core/sock.c	Sat Nov  7 14:00:32 1998
++++ linux-pre5/net/core/sock.c	Sun Feb 21 16:52:31 1999
+@@ -155,10 +155,6 @@
+ 	int err;
+ 	struct linger ling;
+ 	int ret = 0;
+-
+-#ifdef CONFIG_FILTER
+-	struct sock_fprog fprog;
+-#endif
+ 	
+ 	/*
+ 	 *	Options without arguments
+@@ -256,12 +252,13 @@
+ 
+ 		case SO_PRIORITY:
+ 			if (val &gt;= 0 &amp;&amp; val &lt;= 7) 
++			{
++				if(val==7 &amp;&amp; !capable(CAP_NET_ADMIN))
++					return -EPERM;
+ 				sk-&gt;priority = val;
+-			else
+-				return(-EINVAL);
++			}			
+ 			break;
+ 
+-
+ 		case SO_LINGER:
+ 			if(optlen&lt;sizeof(ling))
+ 				return -EINVAL;	/* 1003.1g */
+@@ -310,10 +307,12 @@
+ 				if (optlen &gt; IFNAMSIZ) 
+ 					optlen = IFNAMSIZ; 
+ 				if (copy_from_user(devname, optval, optlen))
+-				    return -EFAULT;
+-				    
++					return -EFAULT;
++
+ 				/* Remove any cached route for this socket. */
++				lock_sock(sk);
+ 				dst_release(xchg(&amp;sk-&gt;dst_cache, NULL));
++				release_sock(sk);
+ 
+ 				if (devname[0] == '\0') {
+ 					sk-&gt;bound_dev_if = 0;
+@@ -331,30 +330,32 @@
+ 
+ #ifdef CONFIG_FILTER
+ 		case SO_ATTACH_FILTER:
+-			if(optlen &lt; sizeof(struct sock_fprog))
+-				return -EINVAL;
++			ret = -EINVAL;
++			if (optlen == sizeof(struct sock_fprog)) {
++				struct sock_fprog fprog;
+ 
+-			if(copy_from_user(&amp;fprog, optval, sizeof(fprog)))
+-			{
+ 				ret = -EFAULT;
+-				break;
+-			}
++				if (copy_from_user(&amp;fprog, optval, sizeof(fprog)))
++					break;
+ 
+-			ret = sk_attach_filter(&amp;fprog, sk);
++				ret = sk_attach_filter(&amp;fprog, sk);
++			}
+ 			break;
+ 
+ 		case SO_DETACH_FILTER:
+-                        if(sk-&gt;filter)
+-			{
+-				fprog.filter = sk-&gt;filter_data;
+-				kfree_s(fprog.filter, (sizeof(fprog.filter) * sk-&gt;filter));
+-				sk-&gt;filter_data = NULL;
+-				sk-&gt;filter = 0;
++                        if(sk-&gt;filter) {
++				struct sk_filter *filter;
++
++				filter = sk-&gt;filter;
++
++				sk-&gt;filter = NULL;
++				wmb();
++				
++				if (filter)
++					sk_filter_release(sk, filter);
+ 				return 0;
+ 			}
+-			else
+-				return -EINVAL;
+-			break;
++			return -ENOENT;
+ #endif
+ 		/* We implement the SO_SNDLOWAT etc to
+ 		   not be settable (1003.1g 5.3) */
+@@ -503,6 +504,16 @@
+ {
+ 	if (sk-&gt;destruct)
+ 		sk-&gt;destruct(sk);
++
++#ifdef CONFIG_FILTER
++	if (sk-&gt;filter) {
++		sk_filter_release(sk, sk-&gt;filter);
++		sk-&gt;filter = NULL;
++	}
++#endif
++
++	if (atomic_read(&amp;sk-&gt;omem_alloc))
++		printk(KERN_DEBUG &quot;sk_free: optmem leakage (%d bytes) detected.\n&quot;, atomic_read(&amp;sk-&gt;omem_alloc));
+ 
+ 	kmem_cache_free(sk_cachep, sk);
+ }
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20[patch]%202.2.2pre5-axp-quickfix">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20[patch]%202.2.2pre5-axp-quickfix">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0642.html">Tharin: "Re: ?? Booting Redhat from ARC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0640.html">James Hamilton: "?? Booting Redhat from ARC"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Feb 21 1999 - 19:00:07 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

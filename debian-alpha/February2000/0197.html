@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Workaround for Alpha libstc++ unaligned acce</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@eradicator.org)">
+<META NAME="Subject" CONTENT="Workaround for Alpha libstc++ unaligned access problem">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Workaround for Alpha libstc++ unaligned access problem</H1>
+<HR>
+<P>
+<!-- received="Mon Feb 21 20:48:18 2000" -->
+<!-- isoreceived="20000222044818" -->
+<!-- sent="21 Feb 2000 15:33:20 -0500" -->
+<!-- isosent="20000221203320" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@eradicator.org" -->
+<!-- subject="Workaround for Alpha libstc++ unaligned access problem" -->
+<!-- id="873dqm5m9b.fsf@blood-axp.eradicator.org" -->
+<STRONG>Subject: </STRONG>Workaround for Alpha libstc++ unaligned access problem<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@eradicator.org</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Feb 21 2000 - 12:33:20 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#197">[ date ]</A>
+<A HREF="index.html#197">[ thread ]</A>
+<A HREF="subject.html#197">[ subject ]</A>
+<A HREF="author.html#197">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0198.html">Miquel van Smoorenburg: "Re: upgrade troubles with nis"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0196.html">Chmouel Boudjnah: "Re: RAID and booting an initrd"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Christopher C. Chimelis: "Re: Workaround for Alpha libstc++ unaligned access problem"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>After staring at the exception handling code in the C runtime
+<BR>
+environment a bit harder I have decided that, until the issues of the
+<BR>
+DWARF2 frame info format can be resolved in gcc (which they will have
+<BR>
+to be eventually - think IA-64), the only way to deal with this
+<BR>
+problem is simply to have ld.so on the Alpha treat RELATIVE
+<BR>
+relocations as potentially unaligned.
+<BR>
+<P>If you look at the exception handling code in the runtime environment
+<BR>
+(in gcc/frame.c in the gcc source) you'll notice that it's already
+<BR>
+assumed that any data in the DWARF2 frame info is potentially
+<BR>
+unaligned ... I've been searching in vain for a reference to this
+<BR>
+particular data structure in the DWARF2 spec but it's entirely
+<BR>
+possible that it's just broken by design.
+<BR>
+<P>So, I just stole the code that gcc uses and stuck it in the dynamic
+<BR>
+linker.  We don't need to do this for any other kind of relocations,
+<BR>
+because the __EXCEPTION_TABLE__ pointer in the DWARF2 info is always
+<BR>
+going to be a RELATIVE relocation.  I've tested this fix on my Alphas
+<BR>
+and it does indeed solve the problem.  I don't think we really have to
+<BR>
+worry about the loss in efficiency since the relocation is only done
+<BR>
+once for each frame info, at process startup time.
+<BR>
+<P>Without further ado here is the patch:
+<BR>
+<P>--- glibc-2.1.3/sysdeps/alpha/dl-machine.h~	Sat Feb 20 13:20:58 1999
+<BR>
++++ glibc-2.1.3/sysdeps/alpha/dl-machine.h	Mon Feb 21 14:10:15 2000
+<BR>
+@@ -424,6 +424,20 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef RESOLVE
+<BR>
+&nbsp;
+<BR>
++/* Stolen from gcc - quite obviously gcc-specific */
+<BR>
++union unaligned {
+<BR>
++  void *p;
+<BR>
++  unsigned b2 __attribute__ ((mode (HI)));
+<BR>
++  unsigned b4 __attribute__ ((mode (SI)));
+<BR>
++  unsigned b8 __attribute__ ((mode (DI)));
+<BR>
++} __attribute__ ((packed));
+<BR>
++static inline unsigned long
+<BR>
++read_8byte (void *p)
+<BR>
++{ union unaligned *up = p; return up-&gt;b8; }
+<BR>
++static inline void
+<BR>
++write_8byte (void *p, unsigned long val)
+<BR>
++{ union unaligned *up = p; up-&gt;b8 = val; }
+<BR>
++
+<BR>
+&nbsp;/* Perform the relocation specified by RELOC and SYM (which is fully resolved).
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;MAP is the object containing the reloc.  */
+<BR>
+&nbsp;static inline void
+<BR>
+@@ -453,7 +467,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Already done in dynamic linker.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (map != &amp;_dl_rtld_map)
+<BR>
+&nbsp;#endif
+<BR>
+-	*reloc_addr += map-&gt;l_addr;
+<BR>
++	{
+<BR>
++	  /* Because DWARF2 exception handling is broken by design,
+<BR>
++             these are often unaligned. */
+<BR>
++	  Elf64_Addr tmp = read_8byte(reloc_addr);
+<BR>
++	  tmp += map-&gt;l_addr;
+<BR>
++	  write_8byte(reloc_addr, tmp);
+<BR>
++	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;else if (r_type == R_ALPHA_NONE)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0198.html">Miquel van Smoorenburg: "Re: upgrade troubles with nis"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0196.html">Chmouel Boudjnah: "Re: RAID and booting an initrd"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Christopher C. Chimelis: "Re: Workaround for Alpha libstc++ unaligned access problem"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 16:00:06 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

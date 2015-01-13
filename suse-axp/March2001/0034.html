@@ -1,0 +1,303 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: [suse-axp] Re: Unsuccessful kernel compile (2.4.3)</TITLE>
+<META NAME="Author" CONTENT="Sven Koch (haegar@sdinet.de)">
+<META NAME="Subject" CONTENT="[suse-axp] Re: Unsuccessful kernel compile (2.4.3)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[suse-axp] Re: Unsuccessful kernel compile (2.4.3)</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 06 16:28:04 2001" -->
+<!-- isoreceived="20010406232804" -->
+<!-- sent="Fri, 6 Apr 2001 01:58:24 +0200 (CEST)" -->
+<!-- isosent="20010405235824" -->
+<!-- name="Sven Koch" -->
+<!-- email="haegar@sdinet.de" -->
+<!-- subject="[suse-axp] Re: Unsuccessful kernel compile (2.4.3)" -->
+<!-- id="Pine.LNX.4.33.0104060157050.7577-100000@space.comunit.de" -->
+<!-- inreplyto="Pine.LNX.4.30.0104052105120.26840-100000@glutus.hemmet.chalmers.se" -->
+<STRONG>Subject: </STRONG>[suse-axp] Re: Unsuccessful kernel compile (2.4.3)<BR>
+<STRONG>From: </STRONG>Sven Koch (<EM>haegar@sdinet.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 05 2001 - 16:58:24 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#34">[ date ]</A>
+<A HREF="index.html#34">[ thread ]</A>
+<A HREF="subject.html#34">[ subject ]</A>
+<A HREF="author.html#34">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">Michael Galloway: "[suse-axp] couple packaging issue with 7.1 beta"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">Mattias Hermansson: "[suse-axp] Unsuccessful kernel compile (2.4.3)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0033.html">Mattias Hermansson: "[suse-axp] Unsuccessful kernel compile (2.4.3)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0033.html">Sven Koch: "[suse-axp] Re: Unsuccessful kernel compile (2.4.3)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 5 Apr 2001, Mattias Hermansson wrote:
+<BR>
+<P><EM>&gt; I've tried to compile the latest kernel on my 7.1-beta machine, but
+</EM><BR>
+<EM>&gt; doesn't seem to succeed. Has anyone tried and had success? Is there
+</EM><BR>
+<EM>&gt; some known bug that prevents it from compiling, or is it just me that has
+</EM><BR>
+<EM>&gt; brokened it...
+</EM><BR>
+<P>This is a known bug in kernel 2.4.3 - the following patch has been posted
+<BR>
+to linux-kernel@vger.kernel.org (did not try it for myself)
+<BR>
+<P>c'ya
+<BR>
+sven
+<BR>
+<P><P><EM>&gt;From ink@jurassic.park.msu.ru Fri Apr  6 01:54:56 2001
+</EM><BR>
+From: Ivan Kokshaysky &lt;ink@jurassic.park.msu.ru&gt;
+<BR>
+To: Alan Cox &lt;alan@lxorguk.ukuu.org.uk&gt;
+<BR>
+Cc: linux-kernel@vger.kernel.org
+<BR>
+Date: Wed, 4 Apr 2001 15:10:52 +0400
+<BR>
+Subject: [patch] 2.4.3-ac2 alpha fixes
+<BR>
+<P>- Yet another pte/pmd update; interface has been changed again
+<BR>
+&nbsp;&nbsp;between 2.4.3-pre8 and 2.4.3-final...
+<BR>
+- drivers/pci/setup-bus.c was not in sync with Linus' tree
+<BR>
+&nbsp;&nbsp;for a long time (since -test12, I believe). Thus -ac patches
+<BR>
+&nbsp;&nbsp;discard the fix for alpha noritake boot.
+<BR>
+<P>Ivan.
+<BR>
+<P>--- 2.4.3-ac2/include/asm-alpha/pgalloc.h	Wed Apr  4 13:37:42 2001
+<BR>
++++ linux/include/asm-alpha/pgalloc.h	Wed Apr  4 13:41:39 2001
+<BR>
+@@ -241,8 +241,8 @@ extern struct pgtable_cache_struct {
+<BR>
+&nbsp;#define pte_quicklist (quicklists.pte_cache)
+<BR>
+&nbsp;#define pgtable_cache_size (quicklists.pgtable_cache_sz)
+<BR>
+<P>-#define pmd_populate(pmd, pte)	pmd_set(pmd, pte)
+<BR>
+-#define pgd_populate(pgd, pmd)	pgd_set(pgd, pmd)
+<BR>
++#define pmd_populate(mm, pmd, pte)	pmd_set(pmd, pte)
+<BR>
++#define pgd_populate(mm, pgd, pmd)	pgd_set(pgd, pmd)
+<BR>
+<P>&nbsp;extern pgd_t *get_pgd_slow(void);
+<BR>
+<P>@@ -271,7 +271,7 @@ static inline void free_pgd_slow(pgd_t *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free_page((unsigned long)pgd);
+<BR>
+&nbsp;}
+<BR>
+<P>-static inline pmd_t *pmd_alloc_one(void)
+<BR>
++static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long address)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pmd_t *ret = (pmd_t *)__get_free_page(GFP_KERNEL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ret)
+<BR>
+@@ -279,7 +279,7 @@ static inline pmd_t *pmd_alloc_one(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+&nbsp;}
+<BR>
+<P>-static inline pmd_t *pmd_alloc_one_fast(void)
+<BR>
++static inline pmd_t *pmd_alloc_one_fast(struct mm_struct *mm, unsigned long address)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *ret;
+<BR>
+<P>@@ -303,7 +303,7 @@ static inline void pmd_free_slow(pmd_t *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free_page((unsigned long)pmd);
+<BR>
+&nbsp;}
+<BR>
+<P>-static inline pte_t *pte_alloc_one(unsigned long address)
+<BR>
++static inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pte_t *pte = (pte_t *)__get_free_page(GFP_KERNEL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pte)
+<BR>
+@@ -311,7 +311,7 @@ static inline pte_t *pte_alloc_one(unsig
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return pte;
+<BR>
+&nbsp;}
+<BR>
+<P>-static inline pte_t *pte_alloc_one_fast(unsigned long address)
+<BR>
++static inline pte_t *pte_alloc_one_fast(struct mm_struct *mm, unsigned long address)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *ret;
+<BR>
+<P>--- 2.4.3-ac2/drivers/pci/setup-bus.c	Wed Apr  4 13:37:26 2001
+<BR>
++++ linux/drivers/pci/setup-bus.c	Tue Dec 12 00:46:26 2000
+<BR>
+@@ -45,24 +45,28 @@ pbus_assign_resources_sorted(struct pci_
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;head_io.next = head_mem.next = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (ln=bus-&gt;devices.next; ln != &amp;bus-&gt;devices; ln=ln-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev *dev = pci_dev_b(ln);
+<BR>
++		u16 class = dev-&gt;class &gt;&gt; 8;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u16 cmd;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* First, disable the device to avoid side
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;effects of possibly overlapping I/O and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memory ranges.
+<BR>
+-		   Except the VGA - for obvious reason. :-)  */
+<BR>
+-		if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_DISPLAY_VGA)
+<BR>
++		   Leave VGA enabled - for obvious reason. :-)
+<BR>
++		   Same with all sorts of bridges - they may
+<BR>
++		   have VGA behind them.  */
+<BR>
++		if (class == PCI_CLASS_DISPLAY_VGA
+<BR>
++				|| class == PCI_CLASS_NOT_DEFINED_VGA)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;found_vga = 1;
+<BR>
+-		else {
+<BR>
++		else if (class &gt;&gt; 8 != PCI_BASE_CLASS_BRIDGE) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_read_config_word(dev, PCI_COMMAND, &amp;cmd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmd &amp;= ~(PCI_COMMAND_IO | PCI_COMMAND_MEMORY
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| PCI_COMMAND_MASTER);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_write_config_word(dev, PCI_COMMAND, cmd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Reserve some resources for CardBus.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Are these values reasonable? */
+<BR>
+-		if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_BRIDGE_CARDBUS) {
+<BR>
++		if (class == PCI_CLASS_BRIDGE_CARDBUS) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;io_reserved += 8*1024;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mem_reserved += 32*1024*1024;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+--- 2.4.3-ac2/arch/alpha/mm/init.c	Wed Apr  4 13:37:06 2001
+<BR>
++++ linux/arch/alpha/mm/init.c	Wed Apr  4 13:46:42 2001
+<BR>
+@@ -79,11 +79,11 @@ int do_check_pgt_cache(int low, int high
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;freed++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(pmd_quicklist) {
+<BR>
+-				pmd_free_slow(pmd_alloc_one_fast());
+<BR>
++				pmd_free_slow(pmd_alloc_one_fast(NULL, 0));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;freed++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(pte_quicklist) {
+<BR>
+-				pte_free_slow(pte_alloc_one_fast(0));
+<BR>
++				pte_free_slow(pte_alloc_one_fast(NULL, 0));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;freed++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while(pgtable_cache_size &gt; low);
+<BR>
+-
+<BR>
+To unsubscribe from this list: send the line &quot;unsubscribe linux-kernel&quot; in
+<BR>
+the body of a message to majordomo@vger.kernel.org
+<BR>
+More majordomo info at  <A HREF="http://vger.kernel.org/majordomo-info.html">http://vger.kernel.org/majordomo-info.html</A>
+<BR>
+Please read the FAQ at  <A HREF="http://www.tux.org/lkml/">http://www.tux.org/lkml/</A>
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">Michael Galloway: "[suse-axp] couple packaging issue with 7.1 beta"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">Mattias Hermansson: "[suse-axp] Unsuccessful kernel compile (2.4.3)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0033.html">Mattias Hermansson: "[suse-axp] Unsuccessful kernel compile (2.4.3)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0033.html">Sven Koch: "[suse-axp] Re: Unsuccessful kernel compile (2.4.3)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Apr 10 2001 - 10:35:39 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

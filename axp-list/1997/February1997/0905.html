@@ -1,0 +1,150 @@
+<!-- received="Thu Feb 27 21:00:39 1997 " -->
+<!-- sent="Thu, 27 Feb 97 11:52:16 EST" -->
+<!-- name="Franklin.Hooker@hlo.mts.dec.com" -->
+<!-- email=""Franklin.Hooker@hlo.mts.dec.com"" -->
+<!-- subject="RE: how to use milo bootopt command" -->
+<!-- id="9702271649.AA20241@easynet.crl.dec.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RE: how to use milo bootopt command</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RE: how to use milo bootopt command</h2>
+
+<b>Franklin.Hooker@hlo.mts.dec.com</b> (<a href="mailto:"Franklin.Hooker@hlo.mts.dec.com""><i>"Franklin.Hooker@hlo.mts.dec.com"</i></a>)<br>
+<i>Thu, 27 Feb 97 11:52:16 EST</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#905">[ date ]</a><a href="index.html#905">[ thread ]</a><a href="subject.html#905">[ subject ]</a><a href="author.html#905">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0906.html">Richard Henderson: "Re: modutils 2.0??"</a>
+<li> <b>Previous message:</b> <a href="0904.html">Rui-Tao Dong ~{6-HpLN~}: "Re: udb xserver"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt; I got milo installed into the flash on a PC164.  The fmu list command shows</i><br>
+<i>&gt;&gt; blocks used as follows:</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; 0:U 1:U 2:U 3:WNT 4:WNT 5:WNT 6:WNT 7:WNT 8:MILO </i><br>
+<i>&gt;&gt; 9:MILO 10:MILO 11:MILO 12:MILO 13:U 14:MILO 15:WNT</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; 1) I appear not to have anything in blocks 0, 1, and 2.  My board was</i><br>
+<i>&gt;&gt; shipped this way.  Shouldn't I have had DBM in those blocks?</i><br>
+<p>
+The AlphaPC164 incorporates a 1MB flash.  The standard configuration is<br>
+for the first 64KB block to contain the fail-safe booter.  The next 14<br>
+64KB blocks (896KB) are allocated to the primary firmware.  The last block<br>
+is allocated for storing any environment variables that the firmware needs<br>
+to save.<br>
+<p>
+                +-------------------------+<br>
+<i>                | Environment Space 64KB  | Block 15</i><br>
+                +-------------------------+<br>
+<i>                |                         |</i><br>
+<i>                |                         |</i><br>
+<i>                |                         |</i><br>
+<i>                | Primary Firmware 896KB  |</i><br>
+<i>                |                         |</i><br>
+<i>                |                         |</i><br>
+<i>                |                         |</i><br>
+                +-------------------------+<br>
+<i>                | Fail-safe Booter 64KB   | Block 0</i><br>
+                +-------------------------+<br>
+<p>
+The primary firmware shipped with the boards is Windows NT ARC Firmware.<br>
+If a user desires to run another firmware they must replace their primary<br>
+firmware.  Our standard Firmware Update Utility (fwupdate.exe) and the<br>
+Debug Monitor available for these boards both understand this flash<br>
+allocation.  The fail-safe booter is provided for emergency flash<br>
+recovery when the primary image is corrupted.<br>
+<p>
+<p>
+<i>&gt;&gt; 2) I can't find any variation of milo's or fmu's bootopt command which</i><br>
+<i>&gt;&gt; bypasses WNT.  I.e.  setting bootopt to 129, 130, 131, etc. or the </i><br>
+<i>&gt;&gt; firmware ID of MILO (which I now forget) simply reboot into WNT.  I tried</i><br>
+<i>&gt;&gt; inserting the bootopt jumper (CF7) on the system board, but the system</i><br>
+<i>&gt;&gt; won't boot at all with that jumper in place.  </i><br>
+<p>
+One of the changes necessary to implement this new flash usage strategy was<br>
+to discontinue use the the NVRAM in the TOY clock to identify the default<br>
+firmware to boot when the system is powered up.  Rather than use a memory<br>
+location in the TOY clock to select between any number of different firmware<br>
+images, a jumper will be used to select between either the primary firmware<br>
+or the fail-safe booter as the first image. <br>
+<p>
+        - Modified the SROM to ignore the toy setting and boot<br>
+          the first or second image based on jumper (CF7).<br>
+        - Remove the "bootopt" command from the PC164 Debug Monitor.<br>
+<p>
+As it turns out the SRM console still relies upon the NVRAM setting to<br>
+determine how to interpret the time and date read from the TOY clock.<br>
+This is because different operating systems store the date differently<br>
+in the TOY clock.<br>
+<p>
+<i>&gt;&gt; This seems to say that bootopt setting is irrelevant for the PC164.  Further,</i><br>
+<i>&gt;&gt; it says that if I take out the jumper MILO, being the second image should</i><br>
+<i>&gt;&gt; be loaded.  So why doesn't it?  I get the beep code 123 which according to</i><br>
+<i>&gt;&gt; the PC164 Motherboard manual, means I've fallen into the failsafe booter.</i><br>
+<i>&gt;&gt; Additionally, the manual says this happens because "the primary firmware</i><br>
+<i>&gt;&gt; image is unavailable".  Well, why is it "unavailable?".</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt; 3)  If I were to put DBM into the first 3 sectors, would that make it </i><br>
+<i>&gt;&gt; forever impossible to boot the third flash image (since the hardware</i><br>
+<i>&gt;&gt; jumper can only select the first or second image).</i><br>
+<p>
+The PC164 Debug Monitor no longer fits into three segments.  It<br>
+requires four.  But the answer is yes.  The SROM will never boot the<br>
+third image.<br>
+<p>
+<i>&gt;&gt; 4)  When I run the fmu (from the MILO package) I get about a hundred CIA</i><br>
+<i>&gt;&gt; machine checks before it finishes initializing.  Then it appears to work</i><br>
+<i>&gt;&gt; just fine.  Are these machine checks normal?</i><br>
+<p>
+I can't honestly speak for MILO but I suspect it is reporting "expected<br>
+machine checks" taken while probing the PCI bus to see what is out there.<br>
+<p>
+<i>&gt;&gt; 5) Finally, why is Digital putting in these arbitrary limitations?</i><br>
+<p>
+It was never intended to be a limitation.  The problem is that the sizes of<br>
+our various firmware images (Windows NT Firmware, SRM Console, and Debug<br>
+Monitor) has been growing as features are added.  It has reached a point<br>
+where we could no longer squeeze them all into the flash simultaneously.<br>
+Therefore, it was decided that we modify our strategy beginning with the<br>
+AlphaPC 164 to support only the scheme described above.<br>
+<p>
+====================================================================<br>
+Franklin Hooker, EBSDK Project Leader, Digital Equipment Corporation<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0906.html">Richard Henderson: "Re: modutils 2.0??"</a>
+<li> <b>Previous message:</b> <a href="0904.html">Rui-Tao Dong ~{6-HpLN~}: "Re: udb xserver"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

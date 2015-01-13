@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Binary search speed in Alpha</TITLE>
+<META NAME="Author" CONTENT="Jaap Schellekens (schj@geo.vu.nl)">
+<META NAME="Subject" CONTENT="Binary search speed in Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Binary search speed in Alpha</H1>
+<HR>
+<P>
+<!-- received="Fri Nov 27 10:08:04 1998 PST" -->
+<!-- sent="Fri, 27 Nov 1998 11:07:37 +0100 (MET)" -->
+<!-- name="Jaap Schellekens" -->
+<!-- email="schj@geo.vu.nl" -->
+<!-- subject="Binary search speed in Alpha" -->
+<!-- id="13918.31089.348053.439622@flow.geo.vu.nl" -->
+<!-- inreplyto="" -->
+<STRONG>Jaap Schellekens</STRONG> (<A HREF="mailto:schj@geo.vu.nl?subject=Re:%20Binary%20search%20speed%20in%20Alpha"><EM>schj@geo.vu.nl</EM></A>)<BR>
+<EM>Fri, 27 Nov 1998 11:07:37 +0100 (MET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#654">[ date ]</A>
+<A HREF="index.html#654">[ thread ]</A>
+<A HREF="subject.html#654">[ subject ]</A>
+<A HREF="author.html#654">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0655.html">Norbert Paschedag: "New Netgear 100Mbit cards : How ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0653.html">Bob Taylor: "Re: Multia MILO Disk"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0656.html">Matti Aarnio: "Re: Binary search speed in Alpha"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello all,
+<BR>
+<P>I have a model of unsaturated flow which I try to optimize
+<BR>
+speedwise. I'm asking you this becuase we are in the process
+<BR>
+of getting one ore two new workstation for modelling and I would
+<BR>
+love to get an Alpha. 
+<BR>
+<P><EM>&gt;From profiling I concluded that most of the time is not spend
+</EM><BR>
+in the matrix solving, but in the functions to construct the matrix.
+<BR>
+Basically I'm now looking at a method for searching a sorted table
+<BR>
+that has a better performance on an Alpha. I suspect the 
+<BR>
+memory access pattern of the binary search I use does not
+<BR>
+favour the Alpha architecture a lot. Some numbers (seconds):
+<BR>
+<P>Arch				TimeA	     TimeB    TimeC
+<BR>
+----------------------------------------------------------
+<BR>
+pentium 293MMX (used to be 233):  19.1       37.1       -
+<BR>
+Alpha XL300:			  19.4	     100.7     26.1
+<BR>
+SPARC Ultra 170:		  30.3	     91.5       -
+<BR>
+<P>TimeA: run time with look-up tables 
+<BR>
+TimeB: run time original function 
+<BR>
+TimeB: run time original function using libfm and libffm
+<BR>
+<P><P><EM>&gt;From this i conclude:
+</EM><BR>
+&nbsp;1) libfm  and libffm are a Good Thing Indeed!!
+<BR>
+&nbsp;2) Somehow the binary search is not well optimized
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for the Alpha architecture
+<BR>
+<P><P>I have tried several things, including changing the size of the look up
+<BR>
+tables but that has very little influence on the results. The same for
+<BR>
+changing the type of the tables from double to float.
+<BR>
+<P>Any suggestions (also pointers to books on this subject) are welcome,
+<BR>
+<P><P>Jaap
+<BR>
+<P><P>The code (based on an old -- freeware -- pascal version of numerical recipies):
+<BR>
+<P>double getval_short(TBL *tab, double xval)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long index,mid,lo,up,n;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int ascnd;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double top,bott,rico;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* first check high and low points */	
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xval &lt;= tab-&gt;x[0])
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return tab-&gt;y[0];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else if (xval &gt;= tab-&gt;x[(tab-&gt;points) - 1])
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return tab-&gt;y[(tab-&gt;points) - 1];
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Find position in array: x[index] &lt; xval &lt; x[index +1]*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = tab-&gt;points;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lo = -1; up = n;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ascnd = (tab-&gt;x[n - 1] &gt;= tab-&gt;x[0]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (up - lo &gt; 1){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mid = (up + lo) &gt;&gt; 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (xval &gt;= tab-&gt;x[mid] == ascnd)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lo = mid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;up = mid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ( xval == tab-&gt;x[0])  index = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else if (xval == tab-&gt;x[n-1]) index =  n - 2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else index = lo;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* linear interpolation */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;top = (tab-&gt;y[index + 1] - tab-&gt;y[index]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bott = (tab-&gt;x[index + 1] - tab-&gt;x[index]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rico =  top/bott;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (rico * (xval - tab-&gt;x[index])) + tab-&gt;y[index];
+<BR>
+}
+<BR>
+<P><PRE>
+-- 
+--------------------------------------------------------------
+Jaap Schellekens                E-mail:         <A HREF="mailto:schj@geo.vu.nl?subject=Re:%20Binary%20search%20speed%20in%20Alpha">schj@geo.vu.nl</A>
+Hydro(geo)logy Dept.            Fax:            ++31 20 6462457
+Inst. of Earth Sc.              Voice:          ++31 20 4447287
+Vrije Universiteit
+De Boelelaan 1085               use finger <A HREF="mailto:schj@flow.geo.vu.nl?subject=Re:%20Binary%20search%20speed%20in%20Alpha">schj@flow.geo.vu.nl</A>
+                                for extra information
+1081 HV Amsterdam NL            See also:   <A HREF="http://flow.geo.vu.nl">http://flow.geo.vu.nl</A>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Binary%20search%20speed%20in%20Alpha">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Binary%20search%20speed%20in%20Alpha">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0655.html">Norbert Paschedag: "New Netgear 100Mbit cards : How ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0653.html">Bob Taylor: "Re: Multia MILO Disk"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0656.html">Matti Aarnio: "Re: Binary search speed in Alpha"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Fri Nov 27 1998 - 05:57:44 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: gdb cannot read core dumps on newer kernels</TITLE>
+<META NAME="Author" CONTENT="Christian Groessler (cpg@aladdin.de)">
+<META NAME="Subject" CONTENT="Re: gdb cannot read core dumps on newer kernels">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: gdb cannot read core dumps on newer kernels</H1>
+<HR>
+<P>
+<!-- received="Sat Jan 02 11:06:05 1999 PST" -->
+<!-- sent="Sat, 2 Jan 1999 12:05:32 +0100" -->
+<!-- name="Christian Groessler" -->
+<!-- email="cpg@aladdin.de" -->
+<!-- subject="Re: gdb cannot read core dumps on newer kernels" -->
+<!-- id="412566ED.003D4FF8.00@saturn.aladdin.de" -->
+<!-- inreplyto="gdb cannot read core dumps on newer kernels" -->
+<STRONG>Christian Groessler</STRONG> (<A HREF="mailto:cpg@aladdin.de?subject=Re:%20gdb%20cannot%20read%20core%20dumps%20on%20newer%20kernels"><EM>cpg@aladdin.de</EM></A>)<BR>
+<EM>Sat, 2 Jan 1999 12:05:32 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#142">[ date ]</A>
+<A HREF="index.html#142">[ thread ]</A>
+<A HREF="subject.html#142">[ subject ]</A>
+<A HREF="author.html#142">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0143.html">Matthew Geier: "Noname link failure on 2.2.0pre3"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0141.html">mlarocque@home.com: "Re: 2.2.0-pre2 experiences (was Re: 2.2 kernel sites)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.html">Peter Petrakis: "Re: 2.2.0-pre2 experiences (was Re: 2.2 kernel sites)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Richard Henderson: "Re: gdb cannot read core dumps on newer kernels"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thanks for the hints, Richard, especially that the struct timeval has
+<BR>
+changed.
+<BR>
+<P>So my initial assumption that some data structures have changed in newer
+<BR>
+kernels was right, but my try to fix it with a simple recompile of gdb
+<BR>
+didn' work.
+<BR>
+<P>The recompilataion (on RH 5.2) used also the old definition of struct
+<BR>
+timeval
+<BR>
+(with int members) instead of the new (with long members), because (I found
+<BR>
+out
+<BR>
+that) there are 2 types of struct timeval on the system: The C lib's and
+<BR>
+the kernel's.
+<BR>
+<P>The C lib's which was used by the compilation had the int members, whereas
+<BR>
+the core dump contains a elf_prstatus with a struct with long members.
+<BR>
+<P>I managed with a quick hack to build a gdb which understands the new core
+<BR>
+dumps. (I simply copied /usr/include/sys/procfs.h to the gdb directory,
+<BR>
+modified
+<BR>
+it to have the big timevals, and changed bfd/elfcore.h to use this file).
+<BR>
+<P>I'm a little bit scared that there are 2 different definitions of struct
+<BR>
+timeval.
+<BR>
+I followed the select() call, as it uses a struct timeval parameter, but it
+<BR>
+works, because the lib doesn't use the native linux select() syscall, but
+<BR>
+the
+<BR>
+OSF compatibility syscall (which needs a small (int members) timeval).
+<BR>
+I don't know of other syscalls using struct timeval, if someone knows one,
+<BR>
+please tell me, I want to check this out.
+<BR>
+<P><P>So gdb should be modified to understand old and new core dumps
+<BR>
+simultaneously.
+<BR>
+But I have to admit, I couldn't quite follow your instructions on what to
+<BR>
+change, Richard:
+<BR>
+<P><P>On 31/12/98 23:26:30 Richard Henderson  wrote:
+<BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;On Thu, Dec 31, 1998 at 05:43:22PM -0000, Peter Rye wrote:
+</EM><BR>
+<EM>&gt;&gt; I presume that this is a relatively easy thing to fix if you have a few
+</EM><BR>
+<EM>&gt;&gt; more clues about programming development tools than I do. If possible, I
+</EM><BR>
+<EM>&gt;&gt; wonder if you would mind expanding a little on which files need to be
+</EM><BR>
+<EM>&gt;&gt; patched etc.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;You'll be modifying elf_backend_data in bfd/elf-bfd.h, and elfxx-target.h
+</EM><BR>
+<EM>&gt;to make what is currently elfcore_grok_prstatus switched on the target.
+</EM><BR>
+<P>I assume you mean changing one of the functions in elf_backend_data (Which
+<BR>
+one?).
+<BR>
+Or adding a new one?
+<BR>
+And I didn't find &quot;elfcore_grok_prstatus&quot; anywhere....
+<BR>
+<P><EM>&gt;
+</EM><BR>
+<EM>&gt;You'll copy that function to elf64-alpha.c and tweek it to handle two
+</EM><BR>
+<EM>&gt;different prstatus_t layouts.
+</EM><BR>
+<P>How would I distinguish between the two?
+<BR>
+<P>regards,
+<BR>
+chris
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20gdb%20cannot%20read%20core%20dumps%20on%20newer%20kernels">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20gdb%20cannot%20read%20core%20dumps%20on%20newer%20kernels">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0143.html">Matthew Geier: "Noname link failure on 2.2.0pre3"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0141.html">mlarocque@home.com: "Re: 2.2.0-pre2 experiences (was Re: 2.2 kernel sites)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.html">Peter Petrakis: "Re: 2.2.0-pre2 experiences (was Re: 2.2 kernel sites)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Richard Henderson: "Re: gdb cannot read core dumps on newer kernels"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:46 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

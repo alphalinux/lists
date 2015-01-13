@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: libgtk1.2 is broken</TITLE>
+<META NAME="Author" CONTENT="ian (ian.q@usa.net)">
+<META NAME="Subject" CONTENT="libgtk1.2 is broken">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>libgtk1.2 is broken</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 23 06:24:46 2001" -->
+<!-- isoreceived="20010223142446" -->
+<!-- sent="22 Feb 2001 21:48:23 PST" -->
+<!-- isosent="20010223054823" -->
+<!-- name="ian" -->
+<!-- email="ian.q@usa.net" -->
+<!-- subject="libgtk1.2 is broken" -->
+<!-- id="20010223054823.20904.qmail@nwcst320.netaddress.usa.net" -->
+<STRONG>Subject: </STRONG>libgtk1.2 is broken<BR>
+<STRONG>From: </STRONG>ian (<EM>ian.q@usa.net</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 22 2001 - 21:48:23 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#361">[ date ]</A>
+<A HREF="index.html#361">[ thread ]</A>
+<A HREF="subject.html#361">[ subject ]</A>
+<A HREF="author.html#361">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0362.html">Christopher C. Chimelis: "Re: libgtk1.2 is broken"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0360.html">Christopher C. Chimelis: "Re: sshd problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0362.html">Christopher C. Chimelis: "Re: libgtk1.2 is broken"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+The libgtk1.2 package from unstable, libgtk1.2_1.2.8-3.0.1, is unusable:
+<BR>
+<P>&nbsp;&nbsp;error while loading shared libraries:
+<BR>
+&nbsp;&nbsp;/usr/lib/libgtk-1.2.so.0: undefined symbol: lstat
+<BR>
+<P>This problem will prevent ANY program dynamically linked with GTK+
+<BR>
+from running.
+<BR>
+<P>Here's a relevant quote from /usr/include/sys/stat.h
+<BR>
+(packaged in libc6.1-dev_2.2.1-1):
+<BR>
+<P>/* To allow the `struct stat' structure and the file type `mode_t'
+<BR>
+&nbsp;&nbsp;&nbsp;bits to vary without changing shared library major version number,
+<BR>
+&nbsp;&nbsp;&nbsp;the `stat' family of functions and `mknod' are in fact inline
+<BR>
+&nbsp;&nbsp;&nbsp;wrappers around calls to `xstat', `fxstat', `lxstat', and `xmknod',
+<BR>
+&nbsp;&nbsp;&nbsp;which all take a leading version-number argument designating the
+<BR>
+&nbsp;&nbsp;&nbsp;data structure and bits used.  &lt;bits/stat.h&gt; defines _STAT_VER with
+<BR>
+&nbsp;&nbsp;&nbsp;the version number corresponding to `struct stat' as defined in
+<BR>
+&nbsp;&nbsp;&nbsp;that file; and _MKNOD_VER with the version number corresponding to
+<BR>
+&nbsp;&nbsp;&nbsp;the S_IF* macros defined therein.  It is arranged that when not
+<BR>
+&nbsp;&nbsp;&nbsp;inlined these function are always statically linked; that way a
+<BR>
+&nbsp;&nbsp;&nbsp;dynamically-linked executable always encodes the version number
+<BR>
+&nbsp;&nbsp;&nbsp;corresponding to the data structures it uses, so the `x' functions
+<BR>
+&nbsp;&nbsp;&nbsp;in the shared library can adapt without needing to recompile all
+<BR>
+&nbsp;&nbsp;&nbsp;callers.  */
+<BR>
+<P>Further inspection of this header file reveals that lstat() is an
+<BR>
+external reference only under the following conditions:
+<BR>
+<P>#if defined __USE_BSD || defined __USE_XOPEN_EXTENDED
+<BR>
+# ifndef __USE_FILE_OFFSET64
+<BR>
+/* Get file attributes about FILE and put them in BUF.
+<BR>
+&nbsp;&nbsp;&nbsp;If FILE is a symbolic link, do not follow it.  */
+<BR>
+extern int lstat (__const char *__restrict __file,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct stat *__restrict __buf) __THROW;
+<BR>
+# else
+<BR>
+...
+<BR>
+# endif
+<BR>
+...
+<BR>
+#endif
+<BR>
+<P>The library libc-2.2.1.so does not contain the symbol lstat, but does
+<BR>
+define the symbols __lxstat and __lxstat64, as suggested by the header
+<BR>
+file.  I'm not sure exactly what's going on here, but clearly
+<BR>
+something is wrong. It looks like it might be related to the large
+<BR>
+file (&gt;4GB) support in glibc-2.2.
+<BR>
+<P>Hasn't anyone else had this problem?
+<BR>
+<P><P>Ian Bruce
+<BR>
+<P><P>____________________________________________________________________
+<BR>
+Get free email and a permanent address at <A HREF="http://www.netaddress.com/?N=1">http://www.netaddress.com/?N=1</A>
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0362.html">Christopher C. Chimelis: "Re: libgtk1.2 is broken"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0360.html">Christopher C. Chimelis: "Re: sshd problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0362.html">Christopher C. Chimelis: "Re: libgtk1.2 is broken"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:02 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

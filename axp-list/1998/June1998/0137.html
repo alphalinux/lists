@@ -1,0 +1,236 @@
+<!-- received="Sun Jun 28 03:26:26 1998 " -->
+<!-- sent="Sun, 28 Jun 1998 02:05:02 +0100 (BST)" -->
+<!-- name="Dave Gilbert" -->
+<!-- email="gilbertd@treblig.org" -->
+<!-- subject="More X patches" -->
+<!-- id="9806251421.AB24810@monolith.bellcore.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-l!" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>More X patches</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>More X patches</h2>
+
+<b>Dave Gilbert</b> (<a href="mailto:gilbertd@treblig.org"><i>gilbertd@treblig.org</i></a>)<br>
+<i>Sun, 28 Jun 1998 02:05:02 +0100 (BST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#137">[ date ]</a><a href="index.html#137">[ thread ]</a><a href="subject.html#137">[ subject ]</a><a href="author.html#137">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Steve Frampton: "5.1: MILO image not recognized"</a>
+<li> <b>Previous message:</b> <a href="0136.html">Ken Hansen: "Re: LSL AXP GPL CD?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0366.html">David Alan Gilbert: "Re: More X patches"</a>
+<li> <b>Maybe reply:</b> <a href="0366.html">David Alan Gilbert: "Re: More X patches"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+  (NOTE: Please reply to me as <a href="mailto:dg@treblig.demon.co.uk">dg@treblig.demon.co.uk</a> - my<br>
+main address is broken over this weekend)<br>
+<p>
+Included are some more X server patches for the Alpha; with<br>
+these the server doesn't crash after receiving 25 or so connections;<br>
+however it is still not servicing clients on those connections.<br>
+I get the feeling the equivalent of my 'ffsl' would be a useful <br>
+addition to the C library (since there is an ffs and this is the point of<br>
+it!).<br>
+<p>
+Dave<br>
+<p>
+--- ./include/Xpoll.h.predag	Sat Jun 27 23:46:31 1998<br>
++++ ./include/Xpoll.h	Sat Jun 27 23:47:02 1998<br>
+@@ -90,13 +90,13 @@<br>
+ #endif<br>
+ <br>
+ #ifndef FD_SET<br>
+-#define FD_SET(n, p)    ((p)-&gt;fds_bits[(n)/NFDBITS] |= (1 &lt;&lt; ((n) % NFDBITS)))<br>
++#define FD_SET(n, p)    ((p)-&gt;fds_bits[(n)/NFDBITS] |= (1L &lt;&lt; ((n) % NFDBITS)))<br>
+ #endif<br>
+ #ifndef FD_CLR<br>
+-#define FD_CLR(n, p)    ((p)-&gt;fds_bits[(n)/NFDBITS] &amp;= ~(1 &lt;&lt; ((n) % NFDBITS)))<br>
++#define FD_CLR(n, p)    ((p)-&gt;fds_bits[(n)/NFDBITS] &amp;= ~(1L &lt;&lt; ((n) % NFDBITS)))<br>
+ #endif<br>
+ #ifndef FD_ISSET<br>
+-#define FD_ISSET(n, p)  ((p)-&gt;fds_bits[(n)/NFDBITS] &amp; (1 &lt;&lt; ((n) % NFDBITS)))<br>
++#define FD_ISSET(n, p)  ((p)-&gt;fds_bits[(n)/NFDBITS] &amp; (1L &lt;&lt; ((n) % NFDBITS)))<br>
+ #endif<br>
+ #ifndef FD_ZERO<br>
+ #define FD_ZERO(p)      bzero((char *)(p), sizeof(*(p)))<br>
+./programs/Xserver/dix/Makefile.predag<br>
+--- ./programs/Xserver/dix/Makefile.predag	Sun Jun 28 00:23:10 1998<br>
++++ ./programs/Xserver/dix/Makefile	Sun Jun 28 00:22:35 1998<br>
+@@ -638,9 +638,9 @@<br>
+ XPSRC = xpstubs.c<br>
+ XPOBJ = xpstubs.o<br>
+ <br>
+-SRCS = atom.c colormap.c cursor.c devices.c dispatch.c dixutils.c events.c 	extension.c gc.c globals.c glyphcurs.c grabs.c 	main.c property.c resource.c swaprep.c swapreq.c 	tables.c window.c initatoms.c dixfonts.c privates.c pixmap.c $(FFS_SRC)<br>
++SRCS = atom.c colormap.c cursor.c devices.c dispatch.c dixutils.c events.c 	extension.c gc.c globals.c glyphcurs.c grabs.c 	main.c property.c resource.c swaprep.c swapreq.c 	tables.c window.c initatoms.c dixfonts.c privates.c pixmap.c ffsl.c $(FFS_SRC)<br>
+ <br>
+-OBJS = atom.o colormap.o cursor.o devices.o dispatch.o dixutils.o events.o 	extension.o gc.o globals.o glyphcurs.o grabs.o 	main.o property.o resource.o swaprep.o swapreq.o 	tables.o window.o initatoms.o dixfonts.o privates.o pixmap.o $(FFS_OBJ)<br>
++OBJS = atom.o colormap.o cursor.o devices.o dispatch.o dixutils.o events.o 	extension.o gc.o globals.o glyphcurs.o grabs.o 	main.o property.o resource.o swaprep.o swapreq.o 	tables.o window.o initatoms.o dixfonts.o privates.o pixmap.o ffsl.o $(FFS_OBJ)<br>
+ <br>
+     INCLUDES = -I../include -I$(XINCLUDESRC) -I$(FONTINCSRC) -I$(EXTINCSRC)<br>
+     LINTLIBS = ../os/llib-los.ln<br>
+./programs/Xserver/dix/ffsl.c.predag<br>
+--- ./programs/Xserver/dix/ffsl.c.predag	Sun Jun 28 00:23:20 1998<br>
++++ ./programs/Xserver/dix/ffsl.c	Sun Jun 28 01:18:37 1998<br>
+@@ -0,0 +1,39 @@<br>
++/* $XConsortium: ffs.c /main/1 1996/12/02 10:20:11 lehors $ */<br>
++/*<br>
++<br>
++Copyright (C) 1996 X Consortium<br>
++<br>
++Permission is hereby granted, free of charge, to any person obtaining a<br>
++copy of this software and associated documentation files (the "Soft-<br>
++ware"), to deal in the Software without restriction, including without<br>
++limitation the rights to use, copy, modify, merge, publish, distribute,<br>
++sublicense, and/or sell copies of the Software, and to permit persons to<br>
++whom the Software is furnished to do so, subject to the following condi-<br>
++tions:<br>
++<br>
++The above copyright notice and this permission notice shall be included<br>
++in all copies or substantial portions of the Software.<br>
++<br>
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS<br>
++OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABIL-<br>
++ITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT<br>
++SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABIL-<br>
++ITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,<br>
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS<br>
++IN THE SOFTWARE.<br>
++<br>
++Except as contained in this notice, the name of the X Consortium shall<br>
++not be used in advertising or otherwise to promote the sale, use or<br>
++other dealings in this Software without prior written authorization from<br>
++the X Consortium.<br>
++<br>
++*/<br>
++<br>
++int<br>
++ffsl(long i)<br>
++{<br>
++    int j;<br>
++    for (j = 1; (i &amp; 1L) == 0; j++)<br>
++	i &gt;&gt;= 1;<br>
++    return j;<br>
++}<br>
+./programs/Xserver/include/dix.h.predag<br>
+--- ./programs/Xserver/include/dix.h.predag	Sun Jun 28 00:27:10 1998<br>
++++ ./programs/Xserver/include/dix.h	Sun Jun 28 00:27:39 1998<br>
+@@ -1100,4 +1100,10 @@<br>
+     int count;<br>
+ } DeviceEventInfoRec;<br>
+ <br>
++extern int ffsl(<br>
++#if NeedFunctionPrototypes<br>
++    long<br>
++#endif<br>
++);<br>
++<br>
+ #endif /* DIX_H */<br>
+./programs/Xserver/os/connection.c.predag<br>
+--- ./programs/Xserver/os/connection.c.predag	Sat Jun 27 22:22:40 1998<br>
++++ ./programs/Xserver/os/connection.c	Sun Jun 28 01:35:28 1998<br>
+@@ -810,8 +810,8 @@<br>
+ 	int status;<br>
+ <br>
+ #ifndef WIN32<br>
+-	curconn = ffs (readyconnections) - 1;<br>
+-	readyconnections &amp;= ~(1 &lt;&lt; curconn);<br>
++	curconn = ffsl (readyconnections) - 1;<br>
++	readyconnections &amp;= ~(1L &lt;&lt; curconn);<br>
+ #else<br>
+ 	curconn = XFD_FD(&amp;readyconnections, i);<br>
+ #endif<br>
+@@ -977,14 +977,14 @@<br>
+ 	mask = AllClients.fds_bits[i];<br>
+         while (mask)<br>
+     	{<br>
+-	    curoff = ffs (mask) - 1;<br>
++	    curoff = ffsl (mask) - 1;<br>
+  	    curclient = curoff + (i &lt;&lt; 5);<br>
+             FD_ZERO(&amp;tmask);<br>
+             FD_SET(curclient, &amp;tmask);<br>
+             r = Select (curclient + 1, &amp;tmask, NULL, NULL, &amp;notime);<br>
+             if (r &lt; 0)<br>
+ 		CloseDownClient(clients[ConnectionTranslation[curclient]]);<br>
+-	    mask &amp;= ~(1 &lt;&lt; curoff);<br>
++	    mask &amp;= ~(1L &lt;&lt; curoff);<br>
+ 	}<br>
+     }	<br>
+ #else<br>
+./programs/Xserver/os/WaitFor.c.predag<br>
+--- ./programs/Xserver/os/WaitFor.c.predag	Sun Jun 28 00:25:44 1998<br>
++++ ./programs/Xserver/os/WaitFor.c	Sun Jun 28 01:35:16 1998<br>
+@@ -418,7 +418,7 @@<br>
+ 	    {<br>
+ 	        int client_priority, client_index;<br>
+ <br>
+-		curclient = ffs (clientsReadable.fds_bits[i]) - 1;<br>
++		curclient = ffsl (clientsReadable.fds_bits[i]) - 1;<br>
+ 		client_index = ConnectionTranslation[curclient + (i &lt;&lt; 5)];<br>
+ #else<br>
+ 	int highest_priority;<br>
+@@ -531,7 +531,7 @@<br>
+ 		while (clientsReadable[i]) {<br>
+ 		    int client_priority, curclient, client_index;<br>
+ <br>
+-		    curclient = ffs (clientsReadable[i]) - 1;<br>
++		    curclient = ffsl (clientsReadable[i]) - 1;<br>
+ 		    client_index = ConnectionTranslation[curclient + (i &lt;&lt; 5)];<br>
+ 		    dbprintf(("%d has input\n", curclient));<br>
+ #ifdef XSYNC<br>
+./programs/Xserver/Makefile.predag<br>
+--- ./programs/Xserver/Makefile.predag	Sun Jun 28 01:04:12 1998<br>
++++ ./programs/Xserver/Makefile	Sun Jun 28 01:04:13 1998<br>
+@@ -1125,7 +1125,7 @@<br>
+ XNESTOBJS =<br>
+ <br>
+ XNEST = hw/xnest/libxnest.a<br>
+-XNESTLIBS = $(DIX) $(OS) $(FONT) $(XPDDX) $(XNEST) $(XPFBLIBS) $(MI) $(EXTENSIONS) $(XNEST)<br>
++XNESTLIBS = $(DIX) $(OS) $(FONT) $(XPDDX) $(XNEST) $(XPFBLIBS) $(MI) $(EXTENSIONS) $(DIX) $(XNEST)<br>
+ XNESTSYSLIBS = $(LDPRELIBS) $(XLIB) $(SYSLIBS)<br>
+ <br>
+ $(XNESTOBJS) $(XNESTLIBS) $(XNESTSYSLIBS):: $(XNESTDIRS)<br>
+<p>
+<p>
+ --------------------------------------------------------------------<br>
+/ Dr. David Alan Gilbert      | Running Linux on Alpha &amp; ARM         \ <br>
+\   gro.gilbert @ treblig.org | ------- Happy in hex -------         /<br>
+ \____________________________|___ <a href="http://www.treblig.demon.co.uk">http://www.treblig.demon.co.uk</a> __/<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Steve Frampton: "5.1: MILO image not recognized"</a>
+<li> <b>Previous message:</b> <a href="0136.html">Ken Hansen: "Re: LSL AXP GPL CD?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0366.html">David Alan Gilbert: "Re: More X patches"</a>
+<li> <b>Maybe reply:</b> <a href="0366.html">David Alan Gilbert: "Re: More X patches"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

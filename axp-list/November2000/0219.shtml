@@ -1,0 +1,289 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Turning off 'unaligned trap' logging</H1> 
+	
+<!-- received="Thu Nov 09 06:46:31 2000" -->
+<!-- isoreceived="20001109144631" -->
+<!-- sent="Wed, 8 Nov 2000 22:51:07 -0500" -->
+<!-- isosent="20001109035107" -->
+<!-- name="Jay Estabrook" -->
+<!-- email="Jay.Estabrook@compaq.com" -->
+<!-- subject="Re: Turning off 'unaligned trap' logging" -->
+<!-- id="20001108225107.A3021@linux04.mro.cpqcorp.net" -->
+<!-- inreplyto="4.2.0.58.20001106095341.016c4c10@pop.Pppl.GOV" -->
+<STRONG>Subject: </STRONG>Re: Turning off 'unaligned trap' logging<BR>
+<STRONG>From: </STRONG>Jay Estabrook (<EM>Jay.Estabrook@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Nov  8 19:51:07 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#219">[ date ]</A>
+<A HREF="index.shtml#219">[ thread ]</A>
+<A HREF="subject.shtml#219">[ subject ]</A>
+<A HREF="author.shtml#219">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0220.shtml">Jay Estabrook: "Re: IRQ's (was Re: Linux Driver)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0218.shtml">Eddie Tay: "Please remove me from the axp-list :) thx"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0098.shtml">Lew Randerson: "Turning off 'unaligned trap' logging"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0098.shtml">Jay Estabrook: "Re: Turning off 'unaligned trap' logging"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, Nov 06, 2000 at 10:10:04AM -0500, Lew Randerson wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; How do we turn off printing of the unaligned trap messages to
+</EM><BR>
+<EM>&gt; /var/log/messages? There's an implication in the kernel code
+</EM><BR>
+<EM>&gt; that this is a user option. The alignment problem itself is
+</EM><BR>
+<EM>&gt; probably in our 'mpich-1.2.0' package but until that is resolved
+</EM><BR>
+<EM>&gt; we need to turn of the printing since particularly on our Red Hat
+</EM><BR>
+<EM>&gt; 6.2 system it is causing a big load on syslogd.
+</EM><BR>
+<P>Find attached to the end a posting by Michal last May that includes a
+<BR>
+potentially useful code snippet (after modification) for controlling
+<BR>
+the printing of those messages, along with some reasonable explication
+<BR>
+re: cause/cure of unaligned accesses.
+<BR>
+<P>Sure, you can make the *messages* go away, but your program's
+<BR>
+performance is going to continue to be terrible, as the traps into the
+<BR>
+kernel to handle the unaligned access will still be happening.
+<BR>
+<P>Take Matt's suggestion and go for the fix as well.
+<BR>
+<P>Good luck.
+<BR>
+<P>--Jay++
+<BR>
+<P>-----------------------------------------------------------------------------
+<BR>
+Jay A Estabrook                            Alpha Engineering - LINUX Project
+<BR>
+Compaq Computer Corp. - MRO1-2/K20         (508) 467-2080
+<BR>
+200 Forest Street, Marlboro MA 01752       Jay.Estabrook@compaq.com
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P>From: Michal Jaegermann &lt;michal@ellpspace.math.ualberta.ca&gt;
+<BR>
+Subject: Re: Fixing &quot;unaligned trap&quot; errors
+<BR>
+To: axp-list@redhat.com
+<BR>
+Date: Sat, 20 May 2000 11:41:42 -0600 (MDT)
+<BR>
+In-Reply-To: &lt;87g0re2zui.fsf@linuxcare.com&gt; from &quot;David Huggins-Daines&quot; at May 19, 2000 01:51:01 PM
+<BR>
+<P>David Huggins-Daines posted a very informative archive on the &quot;unaligned
+<BR>
+trap&quot; problem which explains what it is in a much greater detail than
+<BR>
+FAQ entry on www.alphalinux.org. :-)
+<BR>
+<P>I still have some commments.  First, it looks like that one again it is
+<BR>
+a time for a &quot;periodic posting&quot; (it was posted on this list in the past
+<BR>
+more than once) of a program which is of a great help if one is hunting
+<BR>
+for troublesome spots.  An advantage of it is that you will get a bomb
+<BR>
+instead of a trap and a message so you can catch its location in a
+<BR>
+debugger like gdb.  Here it goes:
+<BR>
+<P>/****
+<BR>
+&nbsp;From: &quot;Christian Groessler&quot; &lt;cpg@aladdin.de&gt;
+<BR>
+&nbsp;To: axp-list@redhat.com
+<BR>
+&nbsp;Date: Thu, 19 Aug 1999 10:52:55 +0100
+<BR>
+&nbsp;Subject: Re: Unaligned traps et al
+<BR>
+<P><P>&nbsp;The following program creates a subshell and all programs
+<BR>
+&nbsp;started from therein will SIGBUS on unaligned accesses.
+<BR>
+***/
+<BR>
+/* 28-May-98, chris */
+<BR>
+<P><P>#ifndef __linux__
+<BR>
+#include &lt;sys/sysinfo.h&gt;
+<BR>
+#else
+<BR>
+#include &lt;asm/sysinfo.h&gt;
+<BR>
+#include &lt;asm/unistd.h&gt;
+<BR>
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P>void trap_unaligned(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+}
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+<P>int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;trap_unaligned();
+<BR>
+&nbsp;&nbsp;printf(&quot;creating subshell with SIGBUS setting!\n&quot;);
+<BR>
+&nbsp;&nbsp;execl(&quot;/bin/bash&quot;,&quot;/bin/bash&quot;,(char *)0);
+<BR>
+&nbsp;&nbsp;return(0); /* not reached */
+<BR>
+}
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; /* sizeof(struct foo) == 12 */
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Don't bet on it!!!
+<BR>
+<EM>&gt; struct foo {
+</EM><BR>
+<EM>&gt;         int a, b, c;
+</EM><BR>
+<EM>&gt; };
+</EM><BR>
+<P><P>A C compiler, by its definition, is free to allocate a structure with
+<BR>
+&quot;holes&quot; so sizeof(struct foo) __may__ turn out to be, say, 24 even if
+<BR>
+sum of sizes of this structure elements are 12.  In this particular case
+<BR>
+you can, probably, assume that a compiler is relatively &quot;sane&quot; and that
+<BR>
+sizeof(struct foo) is indeed 12 even without checking but I have seen
+<BR>
+problems caused by similar, if not so blatant, assumptions.  The problem
+<BR>
+is compounded by the fact that C does not really provide a good portable
+<BR>
+way out of this bind (save, possibly, of making this into an array of
+<BR>
+bytes).  gcc has for such occasions , mentioned by David, '__attribute__
+<BR>
+((packed))' construct but this is a compiler specific extension.
+<BR>
+<P>If you peek inside Linux kernel headers (NOT glibc headers) then
+<BR>
+you will find multiple instances where '__attribute__ ((packed))'
+<BR>
+was used as a layout of many structures has to be tightly controlled.
+<BR>
+<P>A code generated by gcc to access structure elements may not be the
+<BR>
+same in an absence or presence of '__attribute__ ((packed))' - even
+<BR>
+if a structure layout in memory happens to be identical.  In the later
+<BR>
+case you will not see &quot;unaligned access&quot; messages - if your code
+<BR>
+was otherwise correct. :-)  If a code is meant to be used with
+<BR>
+some other compiler you may use a preprocessor to hide conditionally
+<BR>
+such bits (define a macro which expands to __attribute__ ((packed))
+<BR>
+or to nothing - depending on a compiler used) but what other compiler
+<BR>
+will do with your structures and a code cannot be predicted in advance.
+<BR>
+<P>Last, but not least, I encountered cases when &quot;unaligned accesses&quot;
+<BR>
+were side-effects of real bugs.  For example, trying to store
+<BR>
+long in a space which was allocated for int, or an attempt to
+<BR>
+access a wrong location on a stack, __may__ end up with an
+<BR>
+unaligned trap.  OTOH it may not, so do not take that for a reliable
+<BR>
+indicator, but problems of that sort are worth of an investigation
+<BR>
+not only for a performance reasons.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0220.shtml">Jay Estabrook: "Re: IRQ's (was Re: Linux Driver)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0218.shtml">Eddie Tay: "Please remove me from the axp-list :) thx"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0098.shtml">Lew Randerson: "Turning off 'unaligned trap' logging"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0098.shtml">Jay Estabrook: "Re: Turning off 'unaligned trap' logging"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Fri Dec  1 08:00:07 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

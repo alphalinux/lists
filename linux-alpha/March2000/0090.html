@@ -1,0 +1,426 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [patch] preemptive kernel, preemptive-2.3</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: [patch] preemptive kernel, preemptive-2.3.52-A7">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patch] preemptive kernel, preemptive-2.3.52-A7</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 15 13:15:11 2000" -->
+<!-- isoreceived="20000315211511" -->
+<!-- sent="Tue, 14 Mar 2000 04:30:21 +0100 (CET)" -->
+<!-- isosent="20000314033021" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: [patch] preemptive kernel, preemptive-2.3.52-A7" -->
+<!-- id="Pine.LNX.4.21.0003140426500.16893-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.21.0003140215360.15250-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: [patch] preemptive kernel, preemptive-2.3.52-A7<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 19:30:21 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#90">[ date ]</A>
+<A HREF="index.html#90">[ thread ]</A>
+<A HREF="subject.html#90">[ subject ]</A>
+<A HREF="author.html#90">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0091.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0089.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0062.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 14 Mar 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt;I think yes.
+</EM><BR>
+<P>This is one possible implementation against 2.3.52pre1:
+<BR>
+<P>diff -urN 2.3.52pre1/arch/i386/kernel/entry.S p/arch/i386/kernel/entry.S
+<BR>
+--- 2.3.52pre1/arch/i386/kernel/entry.S	Sun Feb 27 06:19:41 2000
+<BR>
++++ p/arch/i386/kernel/entry.S	Tue Mar 14 04:09:57 2000
+<BR>
+@@ -76,7 +76,8 @@
+<BR>
+&nbsp;addr_limit	= 12
+<BR>
+&nbsp;exec_domain	= 16
+<BR>
+&nbsp;need_resched	= 20
+<BR>
+-processor	= 56
+<BR>
++preempt_depth	= 24
+<BR>
++processor	= 60
+<BR>
+&nbsp;
+<BR>
+&nbsp;ENOSYS = 38
+<BR>
+&nbsp;
+<BR>
+@@ -276,11 +277,27 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN
+<BR>
+&nbsp;ret_from_intr:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GET_CURRENT(%ebx)
+<BR>
++	cmpl $0,preempt_depth(%ebx)
+<BR>
++	jne ret_with_kernel_preempt
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;movl EFLAGS(%esp),%eax		# mix EFLAGS and CS
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;movb CS(%esp),%al
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;testl $(VM_MASK | 3),%eax	# return to VM86 mode or non-supervisor?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jne ret_with_reschedule
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jmp restore_all
+<BR>
++
+<BR>
++ret_with_kernel_preempt:
+<BR>
++#ifdef __SMP__
+<BR>
++	movl processor(%ebx),%eax
+<BR>
++	shll $5,%eax
+<BR>
++	movl SYMBOL_NAME(irq_stat)(,%eax),%ecx
+<BR>
++	orl SYMBOL_NAME(irq_stat)+4(,%eax),%ecx
+<BR>
++#else
+<BR>
++	movl SYMBOL_NAME(irq_stat),%ecx
+<BR>
++	orl SYMBOL_NAME(irq_stat)+4,%ecx
+<BR>
++#endif
+<BR>
++	cmpl $0,%ecx
+<BR>
++	jne restore_all
+<BR>
++	jmp ret_with_reschedule
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN
+<BR>
+&nbsp;handle_softirq:
+<BR>
+diff -urN 2.3.52pre1/arch/i386/lib/usercopy.c p/arch/i386/lib/usercopy.c
+<BR>
+--- 2.3.52pre1/arch/i386/lib/usercopy.c	Sun Nov 21 03:20:23 1999
+<BR>
++++ p/arch/i386/lib/usercopy.c	Tue Mar 14 03:14:29 2000
+<BR>
+@@ -64,6 +64,7 @@
+<BR>
+&nbsp;#define __do_strncpy_from_user(dst,src,count,res)			   \
+<BR>
+&nbsp;do {									   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1, __d2;						   \
+<BR>
++	preempt_open();							   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	testl %1,%1\n&quot;					   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	jz 2f\n&quot;					   \
+<BR>
+@@ -87,6 +88,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;=&amp;D&quot; (__d2)						   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;i&quot;(-EFAULT), &quot;0&quot;(count), &quot;1&quot;(count), &quot;3&quot;(src), &quot;4&quot;(dst) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;memory&quot;);						   \
+<BR>
++	preempt_close();						   \
+<BR>
+&nbsp;} while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;long
+<BR>
+@@ -114,6 +116,7 @@
+<BR>
+&nbsp;#define __do_clear_user(addr,size)					\
+<BR>
+&nbsp;do {									\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0;							\
+<BR>
++	preempt_open();							\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; stosl\n&quot;					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	movl %2,%0\n&quot;					\
+<BR>
+@@ -130,6 +133,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=&amp;c&quot;(size), &quot;=&amp;D&quot; (__d0)				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;r&quot;(size &amp; 3), &quot;0&quot;(size / 4), &quot;1&quot;(addr), &quot;a&quot;(0));	\
+<BR>
++	preempt_close();						\
+<BR>
+&nbsp;} while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;unsigned long
+<BR>
+@@ -158,6 +162,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long mask = -__addr_ok(s);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long res, tmp;
+<BR>
+&nbsp;
+<BR>
++	preempt_open();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	andl %0,%%ecx\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	repne; scasb\n&quot;
+<BR>
+@@ -176,5 +181,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;=r&quot; (n), &quot;=D&quot; (s), &quot;=a&quot; (res), &quot;=c&quot; (tmp)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;0&quot; (n), &quot;1&quot; (s), &quot;2&quot; (0), &quot;3&quot; (mask)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;cc&quot;);
+<BR>
++	preempt_close();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return res &amp; mask;
+<BR>
+&nbsp;}
+<BR>
+diff -urN 2.3.52pre1/include/asm-i386/hardirq.h p/include/asm-i386/hardirq.h
+<BR>
+--- 2.3.52pre1/include/asm-i386/hardirq.h	Tue Mar 14 03:39:47 2000
+<BR>
++++ p/include/asm-i386/hardirq.h	Tue Mar 14 04:17:57 2000
+<BR>
+@@ -4,6 +4,10 @@
+<BR>
+&nbsp;#include &lt;linux/threads.h&gt;
+<BR>
+&nbsp;#include &lt;linux/irq.h&gt;
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * This struct can't be changed without updating arch/i386/kernel/entry.S
+<BR>
++ * ret_with_kernel_preempt path.
+<BR>
++ */
+<BR>
+&nbsp;typedef struct {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int __local_irq_count;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int __local_bh_count;
+<BR>
+diff -urN 2.3.52pre1/include/asm-i386/uaccess.h p/include/asm-i386/uaccess.h
+<BR>
+--- 2.3.52pre1/include/asm-i386/uaccess.h	Tue Mar 14 04:20:08 2000
+<BR>
++++ p/include/asm-i386/uaccess.h	Tue Mar 14 04:20:09 2000
+<BR>
+@@ -253,6 +253,7 @@
+<BR>
+&nbsp;#define __copy_user(to,from,size)					\
+<BR>
+&nbsp;do {									\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;							\
+<BR>
++	preempt_open();							\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	movl %3,%0\n&quot;					\
+<BR>
+@@ -270,11 +271,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=&amp;c&quot;(size), &quot;=&amp;D&quot; (__d0), &quot;=&amp;S&quot; (__d1)		\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;r&quot;(size &amp; 3), &quot;0&quot;(size / 4), &quot;1&quot;(to), &quot;2&quot;(from)	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;memory&quot;);						\
+<BR>
++	preempt_close();						\
+<BR>
+&nbsp;} while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __copy_user_zeroing(to,from,size)				\
+<BR>
+&nbsp;do {									\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;							\
+<BR>
++	preempt_open();							\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	movl %3,%0\n&quot;					\
+<BR>
+@@ -298,6 +301,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=&amp;c&quot;(size), &quot;=&amp;D&quot; (__d0), &quot;=&amp;S&quot; (__d1)		\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;r&quot;(size &amp; 3), &quot;0&quot;(size / 4), &quot;1&quot;(to), &quot;2&quot;(from)	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;memory&quot;);						\
+<BR>
++	preempt_close();						\
+<BR>
+&nbsp;} while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* We let the __ versions of copy_from/to_user inline, because they're often
+<BR>
+diff -urN 2.3.52pre1/include/linux/sched.h p/include/linux/sched.h
+<BR>
+--- 2.3.52pre1/include/linux/sched.h	Sat Mar  4 19:59:20 2000
+<BR>
++++ p/include/linux/sched.h	Tue Mar 14 04:20:09 2000
+<BR>
+@@ -268,6 +268,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct exec_domain *exec_domain;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;volatile long need_resched;
+<BR>
++	long preempt_depth;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycles_t avg_slice;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int lock_depth;		/* Lock depth. We can context switch in and out of holding a syscall kernel lock... */	
+<BR>
+@@ -857,6 +858,13 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;up(&amp;p-&gt;exit_sem);
+<BR>
+&nbsp;}
+<BR>
++
+<BR>
++#if 1
+<BR>
++#define preempt_open()	do { current-&gt;preempt_depth++; } while(0)
+<BR>
++#else
+<BR>
++#define preempt_open()	do { if (!current-&gt;preempt_depth++ - current-&gt;need_resched &lt; 0) schedule(); } while(0)
+<BR>
++#endif
+<BR>
++#define preempt_close()	do { current-&gt;preempt_depth--; } while(0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* __KERNEL__ */
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.52pre1/mm/memory.c p/mm/memory.c
+<BR>
+--- 2.3.52pre1/mm/memory.c	Sat Mar 11 20:02:33 2000
+<BR>
++++ p/mm/memory.c	Tue Mar 14 03:28:35 2000
+<BR>
+@@ -1073,7 +1073,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (PageHighMem(page))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;high = 1;
+<BR>
++		preempt_open();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clear_highpage(page);
+<BR>
++		preempt_close();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry = pte_mkwrite(pte_mkdirty(mk_pte(page, vma-&gt;vm_page_prot)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vma-&gt;vm_mm-&gt;rss++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tsk-&gt;min_flt++;
+<BR>
+<P><P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0091.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0089.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0062.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

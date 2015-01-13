@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: [patches] patch-2.2.2-nonx86,patch-2.2.2-filter</TITLE>
+<META NAME="Author" CONTENT="Robert Bowles (rbowles@op.net)">
+<META NAME="Subject" CONTENT="Re: [patches] patch-2.2.2-nonx86,patch-2.2.2-filter">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patches] patch-2.2.2-nonx86,patch-2.2.2-filter</H1>
+<HR>
+<P>
+<!-- received="Wed Feb 24 04:58:00 1999 PST" -->
+<!-- sent="Wed, 24 Feb 1999 00:10:55 -0500" -->
+<!-- name="Robert Bowles" -->
+<!-- email="rbowles@op.net" -->
+<!-- subject="Re: [patches] patch-2.2.2-nonx86,patch-2.2.2-filter" -->
+<!-- id="19990224001055.D927@op.net" -->
+<!-- inreplyto="19990223211716.B18379@csee.wvu.edu" -->
+<STRONG>Robert Bowles</STRONG> (<A HREF="mailto:rbowles@op.net?subject=Re:%20[patches]%20patch-2.2.2-nonx86,patch-2.2.2-filter"><EM>rbowles@op.net</EM></A>)<BR>
+<EM>Wed, 24 Feb 1999 00:10:55 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#708">[ date ]</A>
+<A HREF="index.html#708">[ thread ]</A>
+<A HREF="subject.html#708">[ subject ]</A>
+<A HREF="author.html#708">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0709.html">Randy Carpenter: "Re: Good deal on a PWS 433a spotted"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0707.html">Daniel J. Frasnelli: "Good deal on a PWS 433a spotted"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thanks again for the pointers.
+<BR>
+I think I got a &quot;roll-forward&quot; patch partly thrown together...
+<BR>
+<P>Changes/Observations
+<BR>
+- Socket Filtering Code
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This alone should be a showstopper.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I don't see where this could work on any platform.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'struct sk_filter' is referenced but not defined _anywhere_.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The only solution is to build w/o socket filtering code.
+<BR>
+- Semaphore Code
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;All seems well, except for the whole new
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'__down_trylock() / waking_non_zero_trylock()' bit.
+<BR>
+<P>Attached is a patch that does compile without too much weirdness.
+<BR>
+On the plus side, no rollbacks of x86 code. (someone test this)
+<BR>
+On the minus, I'm not certain about the semaphore code...
+<BR>
+On the minus, socket filtering is broken.
+<BR>
+<P>Good Luck,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Bob
+<BR>
+<PRE>
+--
+I found my brain and it hurts.
+<P>On Tue, Feb 23, 1999 at 09:17:16PM -0500, Daniel J. Frasnelli wrote:
+&gt; 	So I pointed my browser over to www.alphalinux.org earlier today,
+&gt; and found this little item near the top:
+&gt;    * February 23rd 1999
+&gt;      The good news is that kernel 2.2.2 has been released. The bad news
+&gt;    is that it does not compile on Alpha.                                        
+&gt; 
+&gt; 	Ah, how sad it was indeed.
+&gt; Maybe the two attached patches will brighten your day.  The first patch
+&gt; (nonx86) should take care of those nasty x86 semaphores like __down_trylock, 
+&gt; and the second (filter) should take care of, well, broken filter code. 
+&gt; I've had 2.2.2 running for approximately 7+ hours total today, so
+&gt; the patch appears to be safe. 
+&gt; 	Note that it is not a comprehensive solution.  The final &quot;fix&quot;
+&gt; for this problem will be bringing semaphores on axp up to where x86 is
+&gt; right now.  We're working on that as well, but in the meantime this
+&gt; should allow building of 2.2.2.
+&gt; 	I've tested this on my Alpha, but it should work for any non-x86
+&gt; platform.  I am currently compiling the 2.2.2ac1 kernel with the
+&gt; non-x86 patch applied, so I assume the patch fixes that one as well.
+&gt; 
+&gt; Enjoy,
+&gt; Daniel
+&gt; -- 
+&lt;- snip -&gt;
+<P><P>
+diff -u --recursive linux-2.2.2-dist/include/asm-alpha/semaphore.h linux-2.2.2/include/asm-alpha/semaphore.h
+--- linux-2.2.2-dist/include/asm-alpha/semaphore.h	Fri Jan 22 05:27:21 1999
++++ linux-2.2.2/include/asm-alpha/semaphore.h	Tue Feb 23 23:37:40 1999
+@@ -42,6 +42,10 @@
+ 
+ extern void __down(struct semaphore * sem);
+ extern int  __down_interruptible(struct semaphore * sem);
++#ifndef __alpha__
++extern int  __down_trylock(struct semaphore * sem);
++#endif
++
+ extern void __up(struct semaphore * sem);
+ 
+ /* All three have custom assembly linkages.  */
+diff -u --recursive linux-2.2.2-dist/include/linux/filter.h linux-2.2.2/include/linux/filter.h
+--- linux-2.2.2-dist/include/linux/filter.h	Sun Dec 21 20:41:24 1997
++++ linux-2.2.2/include/linux/filter.h	Tue Feb 23 23:08:05 1999
+@@ -100,7 +100,14 @@
+ #define BPF_MEMWORDS 16
+ 
+ #ifdef __KERNEL__
++/* doing this for an axp-fix, but this seems right period
++ * as per net/core/filter.c
++ */
++#if 1
++extern int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen);
++#else
+ extern int sk_run_filter(unsigned char *data, int len, struct sock_filter *filter, int flen);
++#endif
+ extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+ #endif /* __KERNEL__ */
+ 
+diff -u --recursive linux-2.2.2-dist/include/net/sock.h linux-2.2.2/include/net/sock.h
+--- linux-2.2.2-dist/include/net/sock.h	Mon Feb 22 23:22:47 1999
++++ linux-2.2.2/include/net/sock.h	Tue Feb 23 23:38:56 1999
+@@ -793,7 +793,7 @@
+ {
+ 	int pkt_len;
+ 
+-        pkt_len = sk_run_filter(skb, filter-&gt;insns, filter-&gt;len);
++        pkt_len = sk_run_filter(skb, &amp;(filter-&gt;insns), filter-&gt;len);
+         if(!pkt_len)
+                 return 1;	/* Toss Packet */
+         else
+@@ -801,6 +801,10 @@
+ 
+ 	return 0;
+ }
++
++#ifdef __alpha__
++#define sk_filter_len(filt) filt-&gt;len
++#endif
+ 
+ extern __inline__ void sk_filter_release(struct sock *sk, struct sk_filter *fp)
+ {
+diff -u --recursive linux-2.2.2-dist/kernel/ksyms.c linux-2.2.2/kernel/ksyms.c
+--- linux-2.2.2-dist/kernel/ksyms.c	Tue Feb 23 22:27:42 1999
++++ linux-2.2.2/kernel/ksyms.c	Tue Feb 23 23:37:09 1999
+@@ -61,7 +61,7 @@
+ extern void free_dma(unsigned int dmanr);
+ extern spinlock_t dma_spin_lock;
+ 
+-#ifdef CONFIG_MODVERSIONS
++#ifdef MODVERSIONS
+ const struct module_symbol __export_Using_Versions
+ __attribute__((section(&quot;__ksymtab&quot;))) = {
+ 	1 /* Version version */, &quot;Using_Versions&quot;
+@@ -322,8 +322,10 @@
+ EXPORT_SYMBOL(sprintf);
+ EXPORT_SYMBOL(vsprintf);
+ EXPORT_SYMBOL(kdevname);
++#ifndef __alpha__
+ EXPORT_SYMBOL(bdevname);
+ EXPORT_SYMBOL(cdevname);
++#endif
+ EXPORT_SYMBOL(simple_strtoul);
+ EXPORT_SYMBOL(system_utsname);	/* UTS data */
+ EXPORT_SYMBOL(uts_sem);		/* UTS semaphore */
+@@ -372,7 +370,9 @@
+ EXPORT_SYMBOL(event);
+ EXPORT_SYMBOL(__down);
+ EXPORT_SYMBOL(__down_interruptible);
++#ifndef __alpha__
+ EXPORT_SYMBOL(__down_trylock);
++#endif
+ EXPORT_SYMBOL(__up);
+ EXPORT_SYMBOL(brw_page);
+ 
+diff -u --recursive linux-2.2.2-dist/kernel/sched.c linux-2.2.2/kernel/sched.c
+--- linux-2.2.2-dist/kernel/sched.c	Tue Feb 23 07:12:51 1999
++++ linux-2.2.2/kernel/sched.c	Tue Feb 23 23:36:47 1999
+@@ -36,7 +36,9 @@
+ #include &lt;asm/uaccess.h&gt;
+ #include &lt;asm/pgtable.h&gt;
+ #include &lt;asm/mmu_context.h&gt;
++#ifndef __alpha__
+ #include &lt;asm/semaphore-helper.h&gt;
++#endif
+ 
+ #include &lt;linux/timex.h&gt;
+ 
+@@ -906,7 +908,11 @@
+ {
+ 	DOWN_VAR
+ 	DOWN_HEAD(TASK_UNINTERRUPTIBLE)
++#ifdef __alpha__
++	if (waking_non_zero(sem,tsk))
++#else
+ 	if (waking_non_zero(sem))
++#endif
+ 		break;
+ 	schedule();
+ 	DOWN_TAIL(TASK_UNINTERRUPTIBLE)
+@@ -918,7 +924,9 @@
+ 	int ret = 0;
+ 	DOWN_HEAD(TASK_INTERRUPTIBLE)
+ 
++#ifndef __alpha__
+ 	ret = waking_non_zero_interruptible(sem, tsk);
++#endif
+ 	if (ret)
+ 	{
+ 		if (ret == 1)
+@@ -931,10 +939,12 @@
+ 	return ret;
+ }
+ 
++#ifndef __alpha__
+ int __down_trylock(struct semaphore * sem)
+ {
+ 	return waking_non_zero_trylock(sem);
+ }
++#endif
+ 
+ #define	SLEEP_ON_VAR				\
+ 	unsigned long flags;			\
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20[patches]%20patch-2.2.2-nonx86,patch-2.2.2-filter">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20[patches]%20patch-2.2.2-nonx86,patch-2.2.2-filter">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0709.html">Randy Carpenter: "Re: Good deal on a PWS 433a spotted"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0707.html">Daniel J. Frasnelli: "Good deal on a PWS 433a spotted"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Feb 23 1999 - 21:00:25 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

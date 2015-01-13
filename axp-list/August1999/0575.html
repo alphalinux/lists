@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Problems with SX164 IDE in recent 2.3</TITLE>
+<META NAME="Author" CONTENT="Ivan Kokshaysky (ink@jurassic.park.msu.ru)">
+<META NAME="Subject" CONTENT="Re: Problems with SX164 IDE in recent 2.3">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Problems with SX164 IDE in recent 2.3</H1>
+<HR>
+<P>
+<!-- received="Wed Aug 25 13:13:55 1999" -->
+<!-- isoreceived="19990825201355" -->
+<!-- sent="Wed, 25 Aug 1999 15:39:58 +0400" -->
+<!-- isosent="19990825113958" -->
+<!-- name="Ivan Kokshaysky" -->
+<!-- email="ink@jurassic.park.msu.ru" -->
+<!-- subject="Re: Problems with SX164 IDE in recent 2.3" -->
+<!-- id="19990825153958.A1989@jurassic.park.msu.ru" -->
+<!-- inreplyto="19990824232932.A21308@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: Problems with SX164 IDE in recent 2.3<BR>
+<STRONG>From: </STRONG>Ivan Kokshaysky (<EM>ink@jurassic.park.msu.ru</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Aug 25 1999 - 04:39:58 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#575">[ date ]</A>
+<A HREF="index.html#575">[ thread ]</A>
+<A HREF="subject.html#575">[ subject ]</A>
+<A HREF="author.html#575">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0576.html">Darin Walters: "HP 9000 w/linux?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0574.html">Izaak Bozof: "Re: multia woes"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0567.html">Richard Henderson: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0600.html">Mitchell Blank Jr: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0567.html">Ivan Kokshaysky: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, Aug 24, 1999 at 11:29:32PM -0700, Richard Henderson wrote:
+<BR>
+<EM>&gt; The correct place to poke things is in arch/alpha/kernel/bios32.c,
+</EM><BR>
+<EM>&gt; in function layout_device.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>Well, it seems like BASE0 and BASE1 (IDE ports) left initialized
+<BR>
+to all ones after Cypress IDE check. I think moving this check
+<BR>
+to the beginning of the cycle should help.
+<BR>
+<P>Ivan.
+<BR>
+<P>--- bios32.c.orig	Fri Aug 13 22:53:50 1999
+<BR>
++++ bios32.c	Wed Aug 25 15:32:54 1999
+<BR>
+@@ -481,6 +481,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_read_config_word(bus-&gt;number, dev-&gt;devfn, PCI_COMMAND, &amp;cmd);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (idx = 0; idx &lt;= 5; idx++) {
+<BR>
++		/* We don't want to disturb normal IDE functions, so
+<BR>
++		   we don't touch the first two I/O ports on the
+<BR>
++		   Cypress.  */
+<BR>
++		if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ
+<BR>
++		    &amp;&amp; dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693
+<BR>
++		    &amp;&amp; dev-&gt;devfn &lt; 3
+<BR>
++		    &amp;&amp; idx &lt; 2) {
+<BR>
++			continue;
+<BR>
++		}
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;off = PCI_BASE_ADDRESS_0 + 4*idx;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Figure out how much space and of what type this
+<BR>
+@@ -516,15 +526,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;base &amp;= PCI_BASE_ADDRESS_IO_MASK;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = (~base &lt;&lt; 1) | 0x1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size = (mask &amp; base) &amp; 0xffffffff;
+<BR>
+-
+<BR>
+-			/* We don't want to disturb normal IDE functions, so
+<BR>
+-			   we don't touch the first two I/O ports on the
+<BR>
+-			   Cypress.  */
+<BR>
+-			if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ
+<BR>
+-			    &amp;&amp; dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693
+<BR>
+-			    &amp;&amp; idx &lt; 2) {
+<BR>
+-				continue;
+<BR>
+-			}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Aligning to 0x800 rather than the minimum base of
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0576.html">Darin Walters: "HP 9000 w/linux?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0574.html">Izaak Bozof: "Re: multia woes"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0567.html">Richard Henderson: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0600.html">Mitchell Blank Jr: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0567.html">Ivan Kokshaysky: "Re: Problems with SX164 IDE in recent 2.3"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:03 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

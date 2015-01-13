@@ -1,0 +1,128 @@
+<!-- received="Fri Jun 13 11:47:02 1997 " -->
+<!-- sent="Fri, 13 Jun 1997 17:28:51 +0200 (MEST)" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="Re: procinfo AXP" -->
+<!-- id="199706131528.RAA01034@alpha.franken.de" -->
+<!-- inreplyto="Pine.LNX.3.95.970613082848.16924A-100000@balintrc.ppp.udayton.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: procinfo AXP</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: procinfo AXP</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Fri, 13 Jun 1997 17:28:51 +0200 (MEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#401">[ date ]</a><a href="index.html#401">[ thread ]</a><a href="subject.html#401">[ subject ]</a><a href="author.html#401">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0402.html">Wolfgang Dreyer: "RE: UW-scsi w RH4.2?"</a>
+<li> <b>Previous message:</b> <a href="0400.html">Michal Jaegermann: "Re: Compiler speed for floating point applications."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0403.html">Woodstock: "Re: procinfo AXP"</a>
+<li> <b>Reply:</b> <a href="0403.html">Woodstock: "Re: procinfo AXP"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Out of everything, I believe only the uptime is correct. I compiled the</i><br>
+<i>&gt; GIMP overnight on it, but it didn't take 15.75 hours to do it!  And the</i><br>
+<i>&gt; idle time is just an outright lie! :)</i><br>
+<p>
+try the patch below, it's against procinfo-0.11. I've already sent this<br>
+patch to the author of procinfo, and will probably show up in the next<br>
+release.<br>
+<p>
+Thomas.<br>
+<p>
+diff -ru orig/procinfo-0.11/procinfo.c procinfo-0.11/procinfo.c<br>
+--- orig/procinfo-0.11/procinfo.c	Wed May 28 14:21:50 1997<br>
++++ procinfo-0.11/procinfo.c	Thu May 29 23:10:17 1997<br>
+@@ -94,7 +94,7 @@<br>
+     fclose (uptimefp); uptimefp = myfopen (PROC_DIR "uptime");<br>
+ #endif<br>
+     fgets (line, sizeof (line), uptimefp);<br>
+-    new.uptime = (long) (atof (strtok (line, " ")) * 100.0);<br>
++    new.uptime = (long) (atof (strtok (line, " ")) * HZ);<br>
+ <br>
+ /*=== /proc/meminfo ===*/<br>
+ <br>
+@@ -264,13 +264,16 @@<br>
+ <br>
+     elapsed = new.uptime;<br>
+ <br>
++#ifndef __alpha__<br>
+     if (irq_array) {<br>
+ 	if (fs &amp;&amp; old.uptime)<br>
+ 	    elapsed = DIFF (intr[0]);<br>
+-    } else {<br>
++    } else <br>
++#endif<br>
++    {<br>
+ 	if (fs &amp;&amp; old.uptime)<br>
+ 	   /* This won't be exact... */<br>
+-	    elapsed = 100 * sl;<br>
++	    elapsed = DIFF (uptime);<br>
+     }<br>
+ <br>
+     printf ("user  : %s %s",<br>
+diff -ru orig/procinfo-0.11/routines.c procinfo-0.11/routines.c<br>
+--- orig/procinfo-0.11/routines.c	Wed May 28 14:21:53 1997<br>
++++ procinfo-0.11/routines.c	Thu May 29 23:14:53 1997<br>
+@@ -25,6 +25,7 @@<br>
+ #include &lt;unistd.h&gt;<br>
+ #include &lt;termios.h&gt;<br>
+ #include &lt;termcap.h&gt;<br>
++#include &lt;sys/param.h.h&gt;<br>
+ #include &lt;errno.h&gt;<br>
+ #include &lt;stdlib.h&gt;<br>
+ #include &lt;sys/ioctl.h&gt;<br>
+@@ -57,6 +58,7 @@<br>
+     int d, h, m, s;<br>
+     static char buf[22];<br>
+ <br>
++    t = t * 100 / HZ;<br>
+     d = (int) (t / 8640000);<br>
+     t = t - (long) (d * 8640000);<br>
+     h = (int) (t / 360000);<br>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0402.html">Wolfgang Dreyer: "RE: UW-scsi w RH4.2?"</a>
+<li> <b>Previous message:</b> <a href="0400.html">Michal Jaegermann: "Re: Compiler speed for floating point applications."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0403.html">Woodstock: "Re: procinfo AXP"</a>
+<li> <b>Reply:</b> <a href="0403.html">Woodstock: "Re: procinfo AXP"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

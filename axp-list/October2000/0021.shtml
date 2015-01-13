@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Kernel performance patch (completed)</H1> 
+	
+<!-- received="Wed Oct 04 01:54:27 2000" -->
+<!-- isoreceived="20001004085427" -->
+<!-- sent="Mon, 2 Oct 2000 08:32:22 -0400 " -->
+<!-- isosent="20001002123222" -->
+<!-- name="Rick Gorton" -->
+<!-- email="Rick.Gorton@alpha-processor.com" -->
+<!-- subject="Kernel performance patch (completed)" -->
+<!-- id="051DFF3BBA73D3119A5800A0C95BD021642E6E@barracuda.api-networks.com" -->
+<STRONG>Subject: </STRONG>Kernel performance patch (completed)<BR>
+<STRONG>From: </STRONG>Rick Gorton (<EM>Rick.Gorton@alpha-processor.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Oct  2 05:32:22 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#21">[ date ]</A>
+<A HREF="index.shtml#21">[ thread ]</A>
+<A HREF="subject.shtml#21">[ subject ]</A>
+<A HREF="author.shtml#21">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.shtml">W Bauske: "Re: Alpha memory problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.shtml">Jeff Sturm: "Re: mem leaks in RH6.0 on Alpha?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0091.shtml">Speedracer: "RH 7.0"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I've finally completed (and characterized) an ev6-specific set of Linux
+<BR>
+kernel
+<BR>
+performance improving code.  The changes are in tarball form at:
+<BR>
+<A HREF="http://www.alpha-processor.com/products/downloads/developer_support/">http://www.alpha-processor.com/products/downloads/developer_support/</A>
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kernelperf.tar.gz
+<BR>
+<P>This is a set of replacement routines for code in:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linux-2.4.0-test6/arch/alpha/lib
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linux-2.4.0-test6/include/asm-alpha
+<BR>
+<P>These routines have not been back-ported to the 2.2 kernel - is there anyone
+<BR>
+out there interested and willing to undertake that?
+<BR>
+<P>Performance summary: Using these patches results in a _system_ time speedup
+<BR>
+of
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;40% when doing kernel builds, and 15% to 20% when doing gcc builds.
+<BR>
+<P>Technical summary: The code changes can be described as:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) Stall prevention - reschedule the existing 21164 tuned code to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;run well on 21264, minimizing processor stalls
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) Use 21264-specific features where relevant (wh64, cttz)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Re-write some code sequences into slightly
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;faster versions (byte swapping, ip checksums)
+<BR>
+<P>Enjoy,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rick Gorton
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rick.gorton@alpha-processor.com
+<BR>
+<P>The performance data details:
+<BR>
+<P>The system:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UP1000, 700 Mhz 21264 w/128 Mb of memory.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RedHat 6.2 installed; 2.4.0-test6 kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;All compiles were performed with egcs-2.91.66, with the output
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;writes all going to local disk.
+<BR>
+<P>Characterization:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Test loads: 5 runs each of
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) make boot of the 2.4.0-test6 kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) make -j 2 boot of the 2.4.0-test6 kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) make -j 4 boot of the 2.4.0-test6 kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) make -j 8 boot of the 2.4.0-test6 kernel
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5) make of gcc-2.95.2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6) make -j 2 of gcc-2.95.2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7) make -j 4 of gcc-2.95.2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8) make -j 8 of gcc-2.95.2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Measurement comparison:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System time was compared for each test load (/usr/bin/time -p),
+<BR>
+while running
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a) an 'straight-up' kernel (2.4.0-test6) without the performance
+<BR>
+changes
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b) a patched kernel (again, 2.4.0-test6) with all of these changes.
+<BR>
+<P>The data:
+<BR>
+<P>Kernel	boot			-j 2 boot		-j 4 boot
+<BR>
+-j 8 boot
+<BR>
+-------	--------------	--------------	--------------	--------------
+<BR>
+Patched	18,18,18,18,18	19,18,18,18,18	19,18,18,19
+<BR>
+25,25,26,26,26
+<BR>
+Base		25,25,25,25		26,26,25,25,26	26,26,26,26,27
+<BR>
+34,33,37,37,34
+<BR>
+Speedup	38%			44%			~40%
+<BR>
+~40%
+<BR>
+<P>gcc 		make			make -j 2		make -j 4
+<BR>
+make -j 8
+<BR>
+-------	--------------	--------------	--------------	--------------
+<BR>
+Patched	63,64,64,64,63	46,47,47,48,48	53,52,52,51		63,61,60
+<BR>
+Base		75,74,73,73,74	59,58,57,57,57	62,63,62,61
+<BR>
+69,74
+<BR>
+Speedup	19%			23%			19%
+<BR>
+~16%
+<BR>
+<P>Notes: gcc make -j 4 fails occasionally;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gcc make -j 8 fails nearly 50% of the time
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.shtml">W Bauske: "Re: Alpha memory problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.shtml">Jeff Sturm: "Re: mem leaks in RH6.0 on Alpha?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0091.shtml">Speedracer: "RH 7.0"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Nov  2 08:06:26 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

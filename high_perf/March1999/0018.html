@@ -1,0 +1,205 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance List: Force calculation with neighbourlist</TITLE>
+<META NAME="Author" CONTENT="Erik Lindahl (erik@theophys.kth.se)">
+<META NAME="Subject" CONTENT="Force calculation with neighbourlist">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Force calculation with neighbourlist</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 04 20:20:31 1999 PST" -->
+<!-- sent="Thu, 04 Mar 1999 20:43:57 +0100" -->
+<!-- name="Erik Lindahl" -->
+<!-- email="erik@theophys.kth.se" -->
+<!-- subject="Force calculation with neighbourlist" -->
+<!-- id="36DEE27D.C293552A@theophys.kth.se" -->
+<!-- inreplyto="" -->
+<STRONG>Erik Lindahl</STRONG> (<A HREF="mailto:erik@theophys.kth.se?subject=Re:%20Force%20calculation%20with%20neighbourlist"><EM>erik@theophys.kth.se</EM></A>)<BR>
+<EM>Thu, 04 Mar 1999 20:43:57 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#18">[ date ]</A>
+<A HREF="index.html#18">[ thread ]</A>
+<A HREF="subject.html#18">[ subject ]</A>
+<A HREF="author.html#18">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0019.html">Erik Lindahl: "Force calculation again..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0017.html">Joachim Wesner: "Re: sqrt performance, further comment."</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I said the other day that I'd share a piece of code with you -
+<BR>
+I'd be thrilled if you could come up with any ideas to speed it up :-)
+<BR>
+<P>The routine below is an inner loop in a molecular dynamics program.
+<BR>
+It is called from C (that's why some indices might be one unit off) with
+<BR>
+<P>vectors of coordinates and charges and a list of indices (&quot;neighbours&quot;)
+<BR>
+for which we want to calculate the coulomb interaction.
+<BR>
+<P>This code is called once for each atom every timestep. A typical
+<BR>
+system might contain 30000 atoms and each particle has a couple of
+<BR>
+hundred of the others as neighbours.
+<BR>
+(But if A is a neigbour of B, B is not one of A)
+<BR>
+The routine uses a table-driven inverse square root routine
+<BR>
+(more or less the same algorithm as Goto's). One idea might be to
+<BR>
+implement the whole routine in assembly to avoid loading/unloading
+<BR>
+the table. Or should I store values in an array and call a vectorized
+<BR>
+sqrti?
+<BR>
+<P>Looking forward to any comments!
+<BR>
+<P>Regards,
+<BR>
+<P>Erik
+<BR>
+<P>Parameters:
+<BR>
+ix,iy,iz and qi is the position and charge of &quot;this&quot; particle.
+<BR>
+pos and charge are the vectors with all positions and charges.
+<BR>
+jjnr is the list of neighbours, and nj the size of it.
+<BR>
+faction,fip and Vc is the reaction force, &quot;this&quot; force and total
+<BR>
+potential.
+<BR>
+<P>----code----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subroutine FORCOUL(ix,iy,iz,qi,pos,nj,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$     jjnr,charge,faction,fip,Vc)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      ix,iy,iz,qi,Vc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      pos(*),charge(*),faction(*),fip(3)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer*4 nj,jjnr(*)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer   k,jnr,j3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      invsqrt
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      fX,fY,fZ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      rijX,rijY,rijZ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      fijscal,rsq,vijcoul,vctot
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      rinv1,rinv2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      fjx,fjy,fjz
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real      tx,ty,tz
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fX    = 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fY    = 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fZ    = 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vctot = 0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do k=1,nj
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jnr         = jjnr(k)+1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;j3          = 3*jnr-2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fjx         = faction(j3)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fjy         = faction(j3+1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fjz         = faction(j3+2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rijX        = ix - pos(j3)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rijY        = iy - pos(j3+1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rijZ        = iz - pos(j3+2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rsq         = (rijX*rijX)+(rijY*rijY)+(rijZ*rijZ)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rinv1       = invsqrt(rsq)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vijcoul     = qi*charge(jnr)*rinv1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rinv2       = rinv1*rinv1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vctot       = vctot+vijcoul
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fijscal     = vijcoul*rinv2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tx       = rijX*fijscal
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ty       = rijY*fijscal
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tz       = rijZ*fijscal
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fX       = fX+tx
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fY       = fY+ty
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fZ       = fZ+tz
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;faction(j3)   = fjx-tx
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;faction(j3+1) = fjy-ty
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;faction(j3+2) = fjz-tz
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end do
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fip(1) = fX
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fip(2) = fY
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fip(3) = fZ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Vc     = Vc+vctot
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end
+<BR>
+----end code----
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0019.html">Erik Lindahl: "Force calculation again..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0017.html">Joachim Wesner: "Re: sqrt performance, further comment."</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Mar 04 1999 - 13:00:15 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

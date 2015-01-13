@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> copy_from_user() kills RH 6.1 kernel</H1> 
+	
+<!-- received="Thu Mar 30 19:57:27 2000" -->
+<!-- isoreceived="20000331035727" -->
+<!-- sent="Thu, 30 Mar 2000 20:36:20 +0100" -->
+<!-- isosent="20000330193620" -->
+<!-- name="David Addison" -->
+<!-- email="addy@quadrics.com" -->
+<!-- subject="copy_from_user() kills RH 6.1 kernel" -->
+<!-- id="38E3ACB4.600D5878@quadrics.com" -->
+<STRONG>Subject: </STRONG>copy_from_user() kills RH 6.1 kernel<BR>
+<STRONG>From: </STRONG>David Addison (<EM>addy@quadrics.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Mar 30 11:36:20 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#607">[ date ]</A>
+<A HREF="index.shtml#607">[ thread ]</A>
+<A HREF="subject.shtml#607">[ subject ]</A>
+<A HREF="author.shtml#607">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0608.shtml">Donald Maner: "RE: Disklabel issues"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0606.shtml">Thomas Leitner: "Re: Disklabel issues"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi, this one is driving me mad. We've
+<BR>
+built a module that has its own
+<BR>
+syscalls,
+<BR>
+some of which use copy_from_user() to
+<BR>
+bring in the arguments.
+<BR>
+However we have found that passing in a
+<BR>
+rogue address to these system
+<BR>
+calls will kill the kernel.
+<BR>
+<P>Indeed we have written a very simple
+<BR>
+module that just does the following;
+<BR>
+<P>int
+<BR>
+init_module(void)
+<BR>
+{
+<BR>
+&nbsp;ulong a[6];
+<BR>
+<P>&nbsp;printk(&quot;Copying to %p from 0\n&quot;, a);
+<BR>
+<P>&nbsp;if (copy_from_user(a, (ulong *)0,
+<BR>
+sizeof(ulong)*6) &gt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;testsyscall: bad arg\n&quot;);
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;testsyscall: Copied it\n&quot;);
+<BR>
+<P>&nbsp;return 0;
+<BR>
+}
+<BR>
+<P>modprobing this on a stock RH6.1
+<BR>
+2.2.13-0.9smp kernel kills the kernel;
+<BR>
+<P>Copying to fffffc001c993df8 from 0
+<BR>
+Unable to handle kernel paging request
+<BR>
+at virtual address 0000000000000000
+<BR>
+CPU 1 insmod(664): Oops 0
+<BR>
+pc = [&lt;fffffc00004b6bc0&gt;]  ra =
+<BR>
+[&lt;fffffe00000681c0&gt;]  ps = 0000
+<BR>
+v0 = 0000000000000030  t0 =
+<BR>
+0000000000000000  t1 = 0000000000000001
+<BR>
+t2 = 0000000000000000  t3 =
+<BR>
+0000000000000030  t4 = 0000000100000000
+<BR>
+t5 = fffffc001c993df8  t6 =
+<BR>
+0000000000000000  t7 = fffffc001c990000
+<BR>
+s0 = 0000000000000004  s1 =
+<BR>
+fffffe0000068000  s2 = fffffc001d45e000
+<BR>
+s3 = 0000000000000004  s4 =
+<BR>
+ffffffffffffffea  s5 = fffffe0000068090
+<BR>
+s6 = fffffc001c993f00  a0 =
+<BR>
+000000000000001f  a1 = 0000000000000000
+<BR>
+a2 = 0000000000000115  a3 =
+<BR>
+fffffffffffffffe  a4 = fffffc000053fe00
+<BR>
+a5 = fffffc000059bc9c  t8 =
+<BR>
+0000000000000001  t9 = fffffc00004f8000
+<BR>
+t10= fffffc00005bd5c8  t11=
+<BR>
+0000000000000002  pv = fffffc00004b6ac0
+<BR>
+at = fffffe00000681e8&lt;4&gt;sched.c:30
+<BR>
+spinlock stuck in klogd at
+<BR>
+fffffc000032cc64(0) owner insmod at
+<BR>
+fffffc0000334a20(1) module.c:43
+<BR>
+&nbsp;&nbsp;gp = fffffc00005a0ed8  sp =
+<BR>
+fffffc001c993de8
+<BR>
+Code:
+<BR>
+&nbsp;f41ffff5  bge v0,.-40
+<BR>
+&nbsp;c3e00013  br .+80
+<BR>
+&nbsp;e480000a  blt t3,.+44
+<BR>
+&nbsp;2fe00000  ldq_u zero,0(v0)
+<BR>
+&nbsp;47ff041f  or zero,zero,zero
+<BR>
+&nbsp;2fe00000  ldq_u zero,0(v0)
+<BR>
+*a4270000  ldq t0,0(t6)
+<BR>
+&nbsp;40811524  subq t3,8,t3
+<BR>
+Trace: 335078 310d38
+<BR>
+<P><P>The failing pc is in the __copy_user()
+<BR>
+code where is it reading from the user
+<BR>
+source pointer. However, this
+<BR>
+instruction is supposedly protected by
+<BR>
+the EXI() macro which should insert the
+<BR>
+pc into the _ex_table section. So for
+<BR>
+some reason traps in __copy_user() are
+<BR>
+not being found and fixed by the
+<BR>
+search_exception_table() code.
+<BR>
+The first problem I found with this code
+<BR>
+was that the #ifndef is wrong in that it
+<BR>
+should say CONFIG_MODULES &lt;- note the
+<BR>
+'S' on the end. So it has only ever been
+<BR>
+scanning the kernel ex_table. However as
+<BR>
+__copy_user() lives in the kernel this
+<BR>
+doesn't fix my problem.
+<BR>
+<P>I've dumped out the whole of the kernel
+<BR>
+ex_table and looked for the failing pc's
+<BR>
+address (offset from the kernel gp) but
+<BR>
+the ex_table gp offsets seem to stop
+<BR>
+short of the __copy_user()  kernel
+<BR>
+address. I've checked that the size of
+<BR>
+the __ex_table section in vmlinux
+<BR>
+matches the kernel's ex_table size and
+<BR>
+I've also experimented with removing
+<BR>
+some of the EX() from copy_user.S to
+<BR>
+check they are actually being included
+<BR>
+in the vmlunix section.
+<BR>
+So my best guess is that the linkage of
+<BR>
+these assembler modules is going wrong
+<BR>
+and generating incorrect gp offsets ??
+<BR>
+<P>Has anyone got any clues on finding this
+<BR>
+bug ?
+<BR>
+<P>Cheers,
+<BR>
+Addy.
+<BR>
+<P><P><P><P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0608.shtml">Donald Maner: "RE: Disklabel issues"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0606.shtml">Thomas Leitner: "Re: Disklabel issues"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:01 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

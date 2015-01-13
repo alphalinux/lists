@@ -1,0 +1,178 @@
+<!-- received="Tue Sep  3 23:04:20 1996 " -->
+<!-- sent="Wed, 4 Sep 1996 06:55:33 +0800 (SST)" -->
+<!-- name="Robert Allen Barker" -->
+<!-- email="rab@np.ac.sg" -->
+<!-- subject="Re: interesting benchmarks" -->
+<!-- id="199609040648.GAA22339@moondance.np.ac.sg" -->
+<!-- inreplyto="qtkWcFAFGBLyEw+Q@fgel.demon.co.uk" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: interesting benchmarks</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: interesting benchmarks</h2>
+
+<b>Robert Allen Barker</b> (<a href="mailto:rab@np.ac.sg"><i>rab@np.ac.sg</i></a>)<br>
+<i>Wed, 4 Sep 1996 06:55:33 +0800 (SST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#27">[ date ]</a><a href="index.html#27">[ thread ]</a><a href="subject.html#27">[ subject ]</a><a href="author.html#27">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0028.html">Robert Allen Barker: "FAST interesting benchmarks"</a>
+<li> <b>Previous message:</b> <a href="0026.html">Thunderhawk Alpha: "Re: axp-diffs-2.0.16.gz"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Nigel,<br>
+<p>
+Optimizing the code for Alpha I get the following:<br>
+<p>
+<p>
+                      pentium-166   21164-500  Alpha MFLOPS<br>
+                      -----------   ---------  ------------<br>
+initial version          22.3        12.15        66<br>
+RISC version             28.0         1.70       470<br>
+RISC with multiply       28.0	      1.11       720<br>
+<p>
+<p>
+There are two primary reasons for the apparent 'slowness' of the Alpha<br>
+chip. 1) Alpha pays a heavy penalty for converting from int to double <br>
+because, although it can do the conversion quickly, the floating point<br>
+register must be stored in memory and then retrieved into an integer <br>
+register. 2) the code has not been tailored to a RISC environment taking<br>
+advantage of the pipelining.<br>
+<p>
+I tried rewriting the floating point version removing the conversion, <br>
+putting everything into registers, and unrolling the loop a bit to four<br>
+calculations per loop instead of one. I also made four seperate results<br>
+c0 .. c3 to prevent the pipes from stalling while waiting for previous<br>
+results. (these changes are quite common to RISC and 'super computer'<br>
+loops) The difference between Alpha and intel becomes clear with the<br>
+Alpha achieving 470 of its theoretical 500 MFLOPS for this code. In the<br>
+last test I replaced the calculation with '*' instead of '-' which<br>
+allows the Alpha to dual issue the floating point operations because<br>
+they are now a mix of '*' and '-'. Alas, none of these optimizations can<br>
+help the poor old pentium.<br>
+<p>
+This benchmark is an excellent example of the difference between a RISC<br>
+processor and an intel type machine. Perhaps the best way to compare two<br>
+different architectures is to optimize the code for each individually.  <br>
+<p>
+<p>
+<p>
+-------------------------------------------------------------------------<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+<p>
+#define MAXI 100<br>
+#define MAXJ 1000<br>
+#define MAXK 500<br>
+#define MAXKF 100<br>
+/*------------------------------------------------------------------------*/<br>
+main()<br>
+{<br>
+	benchf();<br>
+	benchf2();<br>
+	/*benchi();*/<br>
+}<br>
+/*------------------------------------------------------------------------*/<br>
+<p>
+benchi()<br>
+{<br>
+  int i, j, k;<br>
+  int a, b, c;<br>
+<p>
+  for (i=0;i&lt;MAXI;i++) {<br>
+    a = i;<br>
+    for (j=MAXJ;j&gt;-MAXJ;j--) {<br>
+      b = a*j;<br>
+      for (k=MAXK;k&gt;-MAXK;k--) {<br>
+        c = b + k;<br>
+      }<br>
+    }<br>
+  }<br>
+  printf("%d %d %d\n",a ,b, c);<br>
+}<br>
+/*------------------------------------------------------------------------*/<br>
+benchf()<br>
+{<br>
+  int i, j, k;<br>
+  double a, b, c;<br>
+<p>
+  for (i=0;i&lt;MAXI;i++) {<br>
+    a = (double)i;<br>
+    for (j=MAXJ;j&gt;-MAXJ;j--) {<br>
+      b = a*(double)j;<br>
+	for (k=MAXKF;k&gt;-MAXKF;k--) {<br>
+        c = b + (double)k;<br>
+      }<br>
+    }<br>
+  }<br>
+  printf("%f %f %f\n",a ,b, c);<br>
+}<br>
+/*------------------------------------------------------------------------*/<br>
+benchf2()<br>
+{<br>
+  int i, j,k;<br>
+  double a, b, c0,c1,c2,c3;<br>
+  double kf0,kf1,kf2,kf3,one,four;<br>
+    <br>
+    one=1.00;four=4.0;<br>
+<p>
+    for (i=0;i&lt;MAXI;i++) {<br>
+    a = (double)i;<br>
+    for (j=MAXJ;j&gt;-MAXJ;j--) {<br>
+      b = a*(double)j;<br>
+      kf0=MAXKF;<br>
+      kf1=kf0-one;<br>
+      kf2=kf1-one;<br>
+      kf3=kf2-one;<br>
+      for (k=MAXKF;k&gt;-MAXKF;k-=4) {<br>
+        c0 = b + kf0;<br>
+	kf0=kf0-four;<br>
+        c1 = b + kf1;<br>
+	kf1=kf1-four;<br>
+        c2 = b + kf2;<br>
+	kf2=kf2-four;<br>
+        c3 = b + kf3;<br>
+	kf3=kf3-four;<br>
+       }<br>
+    }<br>
+  }<br>
+  printf("%f %f %f\n",a ,b, c0+c1+c2+c3);<br>
+  /* I must print all 4 cxs or else the optimizer will remove some of the <br>
+   inner loop*/<br>
+}<br>
+/*------------------------------------------------------------------------*/<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0028.html">Robert Allen Barker: "FAST interesting benchmarks"</a>
+<li> <b>Previous message:</b> <a href="0026.html">Thunderhawk Alpha: "Re: axp-diffs-2.0.16.gz"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

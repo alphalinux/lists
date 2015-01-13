@@ -1,0 +1,131 @@
+<!-- received="Fri Nov 22 10:19:38 1996 " -->
+<!-- sent="Fri, 22 Nov 1996 16:06:47 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="Bug and Fix for wu-ftpd-2.4.2b11-8" -->
+<!-- id="9611221606.ZM8802@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Bug and Fix for wu-ftpd-2.4.2b11-8</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Bug and Fix for wu-ftpd-2.4.2b11-8</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 22 Nov 1996 16:06:47 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#952">[ date ]</a><a href="index.html#952">[ thread ]</a><a href="subject.html#952">[ subject ]</a><a href="author.html#952">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0953.html">David Mosberger: "use of axp-list [was: Re: Windows NT Compiler]"</a>
+<li> <b>Previous message:</b> <a href="0951.html">Erik Troan: "Re: AVI viewer?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Playing around with the ftpd-config files i found another bug in<br>
+the wu-ftpd-2.4.2b11-8.rpm.<br>
+<p>
+Access restrictions given in /etc/ftpaccess do never apply to REAL users.<br>
+I think this is also introduced by the pam - patch, and shows up in<br>
+the axp and in the i386 version ( i have no sparc ;-(  ).<br>
+<p>
+This is my patch to fix this ( including my first patch posted yesterday ).<br>
+<p>
+--- ftpd.bad	Fri Nov 22 13:43:13 1996<br>
++++ ftpd.c	Fri Nov 22 13:45:18 1996<br>
+@@ -1124,6 +1124,15 @@<br>
+   if (use_accessfile)		/* see above.  _H*/<br>
+     guest = acl_guestgroup(pw);<br>
+ <br>
++    if (access_ok(530) &lt; 1) {<br>
++        reply(530, "User %s access denied....", name);<br>
++        syslog(LOG_NOTICE, "FTP LOGIN REFUSED (access denied) FROM %s [%s], %s",<br>
++               remotehost, remoteaddr, name);<br>
++        return;<br>
++    } else<br>
++	if (use_accessfile)		/* see above.  _H*/<br>
++            acl_setfunctions();<br>
++<br>
+ #ifdef USE_PAM<br>
+   /* Validate the user authentication with PAM */<br>
+   pam_user (name);<br>
+@@ -1425,7 +1434,7 @@<br>
+ 		 remotehost, remoteaddr);<br>
+ 	  exit(0);<br>
+ 	}<br>
+-	return;<br>
++	return 0;<br>
+       }<br>
+ <br>
+       if (!valid) {<br>
+@@ -1433,21 +1442,22 @@<br>
+ 	lreply(230,<br>
+ 	       "Next time please use your e-mail address as your password");<br>
+ 	lreply(230, "        for example: %s@%s",<br>
+-	       authenticated ? authuser : "joe", remotehost);<br>
++	       authenticated ? authuser : "Stan_Laurel", remotehost);<br>
++	<br>
+       }<br>
+     }<br>
+ <br>
+   if (!*passwd) {<br>
+     strcpy(guestpw, "[none_given]");<br>
+-    return;<br>
+-  }<br>
+-<br>
+-  cnt = sizeof(guestpw) - 2;<br>
+-  for (pwin = passwd, pwout = guestpw; *pwin &amp;&amp; cnt--; pwin++)<br>
++  } else {<br>
++    cnt = sizeof(guestpw) - 2;<br>
++    for (pwin = passwd, pwout = guestpw; *pwin &amp;&amp; cnt--; pwin++)<br>
+     if (!isgraph(*pwin))<br>
+       *pwout++ = '_';<br>
+     else<br>
+       *pwout++ = *pwin;<br>
++  }<br>
++  return 1;<br>
+ }<br>
+ <br>
+ int<br>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0953.html">David Mosberger: "use of axp-list [was: Re: Windows NT Compiler]"</a>
+<li> <b>Previous message:</b> <a href="0951.html">Erik Troan: "Re: AVI viewer?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

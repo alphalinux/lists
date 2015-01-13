@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: libgtk1.2 is broken</TITLE>
+<META NAME="Author" CONTENT="ian (ian.q@usa.net)">
+<META NAME="Subject" CONTENT="Re: libgtk1.2 is broken">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: libgtk1.2 is broken</H1>
+<HR>
+<P>
+<!-- received="Sat Feb 24 18:43:37 2001" -->
+<!-- isoreceived="20010225024337" -->
+<!-- sent="24 Feb 2001 06:32:40 PST" -->
+<!-- isosent="20010224143240" -->
+<!-- name="ian" -->
+<!-- email="ian.q@usa.net" -->
+<!-- subject="Re: libgtk1.2 is broken" -->
+<!-- id="20010224143240.15842.qmail@nwcst322.netaddress.usa.net" -->
+<!-- inreplyto="libgtk1.2 is broken" -->
+<STRONG>Subject: </STRONG>Re: libgtk1.2 is broken<BR>
+<STRONG>From: </STRONG>ian (<EM>ian.q@usa.net</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Feb 24 2001 - 06:32:40 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#390">[ date ]</A>
+<A HREF="index.html#390">[ thread ]</A>
+<A HREF="subject.html#390">[ subject ]</A>
+<A HREF="author.html#390">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0391.html">Andrei A. Dergatchev: "Looking for Debian Alpha fpu_control.h file"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0389.html">Paul Slootman: "Re: more xdm weirdness"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0361.html">ian: "libgtk1.2 is broken"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0361.html">ian: "Re: libgtk1.2 is broken"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I found out where lstat is supposed to come from:
+<BR>
+<P>$ cat /usr/lib/libc.so
+<BR>
+/* GNU ld script
+<BR>
+&nbsp;&nbsp;&nbsp;Use the shared library, but some functions are only in
+<BR>
+&nbsp;&nbsp;&nbsp;the static library, so try that secondarily.  */
+<BR>
+GROUP ( /lib/libc.so.6.1 /usr/lib/libc_nonshared.a )
+<BR>
+$
+<BR>
+$ objdump --syms /usr/lib/libc_nonshared.a
+<BR>
+...
+<BR>
+lstat.oS:     file format elf64-alpha
+<BR>
+<P>SYMBOL TABLE:
+<BR>
+0000000000000000 l    d  .text  0000000000000000 
+<BR>
+0000000000000000 l    d  .data  0000000000000000 
+<BR>
+0000000000000000 l    d  .bss   0000000000000000 
+<BR>
+0000000000000000 l       *ABS*  0000000000000000 *ABS*
+<BR>
+0000000000000000 l    d  .comment       0000000000000000 
+<BR>
+0000000000000000  w    F .text  0000000000000038 0x88 lstat
+<BR>
+0000000000000000 g     F .text  0000000000000038 0x88 __lstat
+<BR>
+0000000000000000         *UND*  0000000000000000 __lxstat
+<BR>
+...
+<BR>
+$
+<BR>
+$ objdump --dynamic-syms /lib/libc.so.6.1 | grep __lxstat
+<BR>
+00000000000f89a0 g DF .text 0000000000000250 GLIBC_2.0 0x88 __lxstat
+<BR>
+00000000000f89a0 g DF .text 0000000000000250 GLIBC_2.1 0x88 __lxstat64
+<BR>
+<P>As far as I can tell, what this means is that when the linker
+<BR>
+processes an object module that wants to call lstat(), the lstat.oS
+<BR>
+module is supposed to be statically linked to the emitted binary. The
+<BR>
+lstat() code calls __lxstat(), which the dynamic loader gets at
+<BR>
+runtime from libc.so.6.1 .
+<BR>
+<P>Apparently, for reasons unknown, the lstat.oS module is not getting
+<BR>
+attached to either the libgtk1.2 shared library or the executable
+<BR>
+binaries dynamically linked against it. Which of these two
+<BR>
+possibilities is supposed to occur, I don't know.
+<BR>
+<P>I still don't understand why I'm the only one having this
+<BR>
+problem. Chris, could you please try the following and report the
+<BR>
+results:
+<BR>
+<P>$ which gimp
+<BR>
+/usr/bin/X11/gimp
+<BR>
+$ 
+<BR>
+$ ldd /usr/bin/X11/gimp | grep -e libc -e libgtk
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;libgtk-1.2.so.0 =&gt; /usr/lib/libgtk-1.2.so.0 (0x0000020000032000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x0000020000738000)
+<BR>
+$ 
+<BR>
+$ objdump --syms /usr/bin/X11/gimp | grep lstat\$
+<BR>
+objdump: /usr/bin/X11/gimp: no symbols
+<BR>
+$ objdump --dynamic-syms /usr/bin/X11/gimp | grep lstat\$
+<BR>
+$ 
+<BR>
+$ objdump --syms /lib/libc.so.6.1 | grep lstat\$
+<BR>
+$ objdump --dynamic-syms /lib/libc.so.6.1 | grep lstat\$
+<BR>
+$ 
+<BR>
+$ objdump --syms /usr/lib/libgtk-1.2.so.0 | grep lstat\$
+<BR>
+objdump: /usr/lib/libgtk-1.2.so.0: no symbols
+<BR>
+$ objdump --dynamic-syms /usr/lib/libgtk-1.2.so.0 | grep lstat\$
+<BR>
+0000000000000000      DF *UND*  0000000000000038            0x88 lstat
+<BR>
+<P>There's the unresolved reference. Since it works OK for you, your
+<BR>
+results should be different. If happens that there are no hits, try it
+<BR>
+again on unstripped versions of the same files (the &quot;no symbols&quot; error
+<BR>
+means that the file is stripped and statically linked symbols are
+<BR>
+lost).
+<BR>
+<P>Hopefully we can clear this up. Thanks again for your help.
+<BR>
+<P><P>Ian Bruce
+<BR>
+<P><P>____________________________________________________________________
+<BR>
+Get free email and a permanent address at <A HREF="http://www.netaddress.com/?N=1">http://www.netaddress.com/?N=1</A>
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0391.html">Andrei A. Dergatchev: "Looking for Debian Alpha fpu_control.h file"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0389.html">Paul Slootman: "Re: more xdm weirdness"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0361.html">ian: "libgtk1.2 is broken"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0361.html">ian: "Re: libgtk1.2 is broken"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:02 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

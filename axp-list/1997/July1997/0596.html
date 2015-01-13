@@ -1,0 +1,215 @@
+<!-- received="Fri Jul 25 16:33:23 1997 " -->
+<!-- sent="Fri, 25 Jul 1997 23:28:48 +0300 (EET DST)" -->
+<!-- name="Iso-H" -->
+<!-- email="jd@ray.fi" -->
+<!-- subject="Re: 4D40 &amp; 433a" -->
+<!-- id="Pine.LNX.3.95q.970725230733.27981F-100000@linray.ts.ray.fi" -->
+<!-- inreplyto="199706241555.LAA01023@linux03.amt.tay1.dec.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 4D40 &amp; 433a</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 4D40 &amp; 433a</h2>
+
+<b>Iso-H</b> (<a href="mailto:jd@ray.fi"><i>jd@ray.fi</i></a>)<br>
+<i>Fri, 25 Jul 1997 23:28:48 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#596">[ date ]</a><a href="index.html#596">[ thread ]</a><a href="subject.html#596">[ subject ]</a><a href="author.html#596">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0597.html">Steven N. Hirsch: "Re: Memory Problems on a UDB"</a>
+<li> <b>Previous message:</b> <a href="0595.html">Rick Windham: "Re: Memory Problems on a UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 24 Jun 1997 <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a> wrote:<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; &gt;&gt;&gt; Iso-H said:</i><br>
+<i>&gt; &gt; &gt; &gt;   MILO works just Ok, but when "real" kernel boots up console won't print</i><br>
+<i>&gt; &gt; &gt; &gt;   anything (except blinking cursor) anymore! So what is this what kernel</i><br>
+<i>&gt; &gt; &gt; &gt;   can't do but MILO can? </i><br>
+<i>&gt; </i><br>
+<i>&gt; This confuses me, too, but here's my theory on what's happening:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 1. assume that the 4D40 does NOT identify itself as a DISPLAY device</i><br>
+<i>&gt;    correctly, WRT its class and the following code from bios32.c:</i><br>
+<i>&gt; </i><br>
+<i>&gt;         if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_NOT_DEFINED ||</i><br>
+<i>&gt;             dev-&gt;class &gt;&gt; 8 == PCI_CLASS_NOT_DEFINED_VGA ||</i><br>
+<i>&gt;             dev-&gt;class &gt;&gt; 8 == PCI_CLASS_STORAGE_IDE ||</i><br>
+<i>&gt;             dev-&gt;class &gt;&gt; 8 == PCI_CLASS_DISPLAY_VGA ||</i><br>
+<i>&gt;             dev-&gt;class &gt;&gt; 8 == PCI_CLASS_DISPLAY_XGA)</i><br>
+<i>&gt;         {</i><br>
+<i>&gt;                 /*</i><br>
+<i>&gt;                  * All of these (may) have I/O scattered all around</i><br>
+<i>&gt;                  * and may not use i/o-base address registers at all.</i><br>
+<i>&gt;                  * So we just have to always enable I/O to these</i><br>
+<i>&gt;                  * devices.</i><br>
+<i>&gt;                  */</i><br>
+<i>&gt;                 cmd |= PCI_COMMAND_IO;</i><br>
+<i>&gt;         }</i><br>
+<i>&gt; </i><br>
+<i>&gt;    So, this code will NOT enable IO space registers for the card, and the VGA</i><br>
+<i>&gt;    registers will not respond, </i><br>
+<i>&gt; </i><br>
+<i>&gt; 2. MILO code inits the PCI bus devices first, and then calls BIOS emulation</i><br>
+<i>&gt;    to init any VGA on the bus. Since the PCI bus init code is shared with the</i><br>
+<i>&gt;    kernel, we assume it disables the 4D40 for IO space. However, the BIOS</i><br>
+<i>&gt;    emulator code scans the PCI bus as well, and *may* detect the VGA on the</i><br>
+<i>&gt;    card, and do the *right* thing by enabling IO space accesses. Thus during</i><br>
+<i>&gt;    MILO operation the VGA works correctly.</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt;  I have also 433a with Accel2000 and there everything </i><br>
+<i>&gt; &gt;  (except LAN) works fine when I use exactly same MILO </i><br>
+<i>&gt; &gt;  and kernel. Only drawback with Accel2000 is that there</i><br>
+<i>&gt; &gt;  is no X-server available for it :~(</i><br>
+<i>&gt; </i><br>
+<i>&gt; Now, same MILO and kernel, my theory above suggests that the Accel2000 DOES</i><br>
+<i>&gt; identify it self successfully to the above code, thus enabling IO space</i><br>
+<i>&gt; accesses, and everybody is happy...</i><br>
+<i>&gt; </i><br>
+<i>&gt; Now one way to further investigate: the 4D40 prolly has a jumper on it that</i><br>
+<i>&gt; can be used to enable/disable the VGA; if poossible, stick another VGA in</i><br>
+<i>&gt; that box after diabling the VGA on the 4D40, boot up, and see how the 4D40</i><br>
+<i>&gt; device identifies itself (ie cat /proc/pci should give an indication).</i><br>
+<i>&gt; </i><br>
+<i>&gt; Good luck, and let me know what you find out...</i><br>
+<p>
+  I had to first remove piggypack Cirrus 5440 because <br>
+  display card (== I used Trio64 for testing) have to be<br>
+  on primary PCI-slot and there is only two primary slots<br>
+  and (of course) 4D40 reserves both.<br>
+<p>
+  I tried to put Trio64 to secondary slots also, <br>
+  but linload.exe hangs the machine after printing:<br>
+<p>
+    "Swapping to PALcode at 0x80000"<br>
+<p>
+<p>
+  My machine is now:<br>
+<p>
+    433a, 192M, 2M cache, 4D40<br>
+<p>
+  And I have used these files/packages:<br>
+<p>
+  <a href="ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/miata-milo.img">ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/miata-milo.img</a><br>
+  <a href="ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/miata-kernel-2030-test.gz">ftp://gatekeeper.dec.com/pub/DEC/Linux-Alpha/Kernels/miata-kernel-2030-test.gz</a><br>
+  <a href="ftp://ftp.redhat.com/pub/redhat/redhat-4.2/alpha/images/ramdisk.img">ftp://ftp.redhat.com/pub/redhat/redhat-4.2/alpha/images/ramdisk.img</a><br>
+<p>
+  ... and of course redhat 4.2<br>
+<p>
+<p>
+ Finally, here is what /proc/pci told:<br>
+<p>
+ ===========================================================<br>
+ PCI devices found:<br>
+<p>
+  Bus  1, device   9, function  0:<br>
+    SCSI storage controller: Adaptec AIC-7881U (rev 0).<br>
+      Medium devsel.  Fast back-to-back capable.  IRQ 40.<br>
+         Master Capable.  Latency=32.  Min Gnt=8.Max Lat=8.<br>
+      I/O at 0xc000.<br>
+      Non-prefetchable 32 bit memory at 0x9900000.<br>
+<p>
+  Bus  0, device  20, function  0:<br>
+    PCI bridge: DEC DC21152 (rev 1).<br>
+      Medium devsel.  Fast back-to-back capable.<br>
+         Master Capable.  Latency=32.  Min Gnt=4.Max Lat=4.<br>
+      Non-prefetchable 32 bit memory at 0x10100.<br>
+      I/O at 0x2280c1c0.<br>
+      Non-prefetchable 32 bit memory at 0x9900990.<br>
+      I/O at 0x1fff0.<br>
+<p>
+  Bus  0, device  12, function  0:<br>
+    VGA compatible controller: S3 Inc. Trio32/Trio64 (rev 0).<br>
+      Medium devsel.  IRQ 32.<br>
+      Non-prefetchable 32 bit memory at 0x9000000.<br>
+<p>
+  Bus  0, device  11, function  0:<br>
+    Display controller: Unknown vendor Unknown device (rev 0).<br>
+      Vendor id=1091. Device id=e2.<br>
+      Medium devsel.  Fast back-to-back capable.  IRQ 28.<br>
+         Master Capable.  Latency=16.<br>
+      Non-prefetchable 32 bit memory at 0x9800000.<br>
+<p>
+  Bus  0, device   7, function  0:<br>
+    Non-VGA device: Intel 82378IB (rev 67).<br>
+      Medium devsel.  Master Capable.  No bursts.<br>
+<p>
+  Bus  0, device   4, function  0:<br>
+    IDE interface: CMD 646 (rev 1).<br>
+      Medium devsel.  Fast back-to-back capable.<br>
+        Master Capable.  Latency=32.  Min Gnt=2.Max Lat=4.<br>
+      I/O at 0xb000.<br>
+<p>
+  Bus  0, device   3, function  0:<br>
+    Ethernet controller: DEC DC21142 (rev 48).<br>
+      Medium devsel.  Fast back-to-back capable.  IRQ 24.<br>
+        Master Capable.  Latency=32.  Min Gnt=20.Max Lat=40.<br>
+      I/O at 0xb400.<br>
+      Non-prefetchable 32 bit memory at 0x9808000.<br>
+<p>
+  ===========================================================<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; --Jay++</i><br>
+<i>&gt; </i><br>
+<i>&gt; -------------------------------------------------------------------------------</i><br>
+<i>&gt;   American Non Sequitur Society: we don't make sense, but we do like pizza...</i><br>
+<i>&gt; </i><br>
+<i>&gt; Jay A Estabrook                         Alpha Migration Tools - LINUX Project</i><br>
+<i>&gt; Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202</i><br>
+<i>&gt; 151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a></i><br>
+<i>&gt; Littleton, MA 01460-1407                decnet: tallis::jestabro</i><br>
+<i>&gt; -------------------------------------------------------------------------------</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; --</i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+Iso-H<br>
+<p>
+<pre>
+--
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0597.html">Steven N. Hirsch: "Re: Memory Problems on a UDB"</a>
+<li> <b>Previous message:</b> <a href="0595.html">Rick Windham: "Re: Memory Problems on a UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

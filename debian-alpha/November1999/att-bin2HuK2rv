@@ -1,0 +1,88 @@
+diff -uNr boot-floppies-cvs.orig/Makefile boot-floppies/Makefile
+--- boot-floppies-cvs.orig/Makefile	Thu Nov 25 20:01:14 1999
++++ boot-floppies/Makefile	Thu Nov 25 22:09:51 1999
+@@ -69,7 +69,7 @@
+     kver	:= 2.2.10
+ else
+ ifeq ($(architecture), alpha)
+-    kver	:= 2.0.35
++    kver	:= 2.2.13
+ endif
+ endif    
+ endif
+@@ -101,9 +101,10 @@
+ 
+ #### alpha part
+ kernelalpha		:= ../kernel-image-$(kver)-
+-alpha_arches		:= avanti xl xlt cabriolet eb66 eb66p eb64p eb164 pc164 \
+-      lx164 sx164 jensen noname takara mikasa noritake alcor \
+-      miata miata-s sable sable-g book1 ruffian 
++# alpha_arches		:= avanti xl xlt cabriolet eb66 eb66p eb64p eb164 pc164 \
++#       lx164 sx164 jensen noname takara mikasa noritake alcor \
++#       miata miata-s sable sable-g book1 ruffian 
++alpha_arches		:= generic
+ alpha_rescue_targets	:= $(alpha_arches:%=resc1440_%.bin)
+ alpha_drivers_targets	:= $(alpha_arches:%=drv1440_%.bin)
+ 
+@@ -320,7 +321,9 @@
+ 			root.tar.gz
+ else
+ ifeq ($(architecture), alpha)
+-	$(MAKE) $(alpha_rescue_targets) $(alpha_drivers_targets) root1440.bin
++#	$(MAKE) $(alpha_rescue_targets) $(alpha_drivers_targets) root1440.bin
++	$(MAKE) $(alpha_rescue_targets) $(alpha_drivers_targets)
++#  we can not make root1444.bin for now, because of too large root.bin.
+ else
+ 	echo unsupported architecture: $(architecture); false
+ endif
+@@ -953,10 +956,9 @@
+ #------------------------------------------------------------------------
+ 
+ #### alpha part
+-$(alpha_drivers_targets) : drv1440_%.bin: modulesalpha_%.tgz drivers.sh Makefile \
++$(alpha_drivers_targets) : drv1440_%.bin: modulesalpha_%.tgz driverdisks.sh Makefile \
+ 		$(shell find scripts/drivers -type f )
+-	./drivers.sh alpha_$* 1440 modulesalpha_$*.tgz modcontalpha_$* $(archive)
+-	mv drv1440alpha_$*.bin $@
++	./driverdisks.sh "alpha_$*" modulesalpha_$*.tgz modcontalpha_$* $(archive)
+ 
+ 
+ #### i386 part
+@@ -1024,7 +1026,12 @@
+ 		$(arch_rootdisk_deps) \
+ 		rootdisk.sh common.sh Makefile keymaps.tgz \
+ 		utilities/dbootstrap/dbootstrap
+-		./rootdisk.sh "" $(archive) 3200 $(debianversion) "" $(LINGUA) "$(FONT)" $(SFONT)
++	case $(architecture) in \
++	alpha)	./rootdisk.sh "" $(archive) 5400 $(debianversion) "" $(LINGUA) "$(FONT)" $(SFONT)\
++		;;\
++	*)	./rootdisk.sh "" $(archive) 3200 $(debianversion) "" $(LINGUA) "$(FONT)" $(SFONT)\
++		;;\
++	esac
+ 
+ root-graphical.bin:	$(shell find scripts/rootdisk -type f ) \
+ 		$(shell find utilities -type f ) \
+diff -uNr boot-floppies-cvs.orig/basedisks.sh boot-floppies/basedisks.sh
+--- boot-floppies-cvs.orig/basedisks.sh	Thu Nov 25 20:01:14 1999
++++ boot-floppies/basedisks.sh	Thu Nov 25 20:26:06 1999
+@@ -122,6 +122,8 @@
+ # any architecture-dependant devices
+ case "$arch" in
+ 	alpha)
++		(cd $B/dev && /dev/MAKEDEV loop std hdc hdd hde hdf hdg hdh sdc sdd sde sdf sdg sdh )
++		testexit
+ 		;;
+ 	i386)
+ 		(cd $B/dev && /sbin/MAKEDEV isdn-io eda edb sonycd mcd mcdx cdu535 lmscd sbpcd aztcd bpcd dac960)
+diff -uNr boot-floppies-cvs.orig/rescue.sh boot-floppies/rescue.sh
+--- boot-floppies-cvs.orig/rescue.sh	Thu Nov 25 20:01:17 1999
++++ boot-floppies/rescue.sh	Thu Nov 25 20:57:25 1999
+@@ -262,6 +262,7 @@
+ case "$arch" in
+     alpha)
+           case $SUBARCH in
++          generic|\
+           cabriolet|jensen|noritake|sable*|\
+             mikasa|book1|miata-s)
+                   mke2fs -F $loopdevice $blocks
+

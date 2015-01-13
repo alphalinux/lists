@@ -1,0 +1,5015 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [patch] alpha port 2.3.29pre3</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="[patch] alpha port 2.3.29pre3">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] alpha port 2.3.29pre3</H1>
+<HR>
+<P>
+<!-- received="Tue Nov 23 18:20:07 1999" -->
+<!-- isoreceived="19991124022007" -->
+<!-- sent="Tue, 23 Nov 1999 16:11:01 +0100 (CET)" -->
+<!-- isosent="19991123151101" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="[patch] alpha port 2.3.29pre3" -->
+<!-- id="Pine.LNX.4.10.9911231526100.588-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>[patch] alpha port 2.3.29pre3<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Nov 23 1999 - 07:11:01 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#25">[ date ]</A>
+<A HREF="index.html#25">[ thread ]</A>
+<A HREF="subject.html#25">[ subject ]</A>
+<A HREF="author.html#25">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0026.html">Brian Hall: "Problems running DEC OSF binaries under Alpha Linux"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0024.html">Zygo Blaxell: "Re: More Multia questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0028.html">Richard Henderson: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+The common code changes I did are these:
+<BR>
+<P>1)	I need an hook (resource_fixup()) in the middle of
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;find_resource() because on Alpha some magic
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alignment on the PCI base addresses must be enforced
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(or there's no way to boot).
+<BR>
+<P>2)	in the pci code the sysdata must be copied on
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;all PCI devices and bridges before playing with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the device. This also allowed me to simplify
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the alpha code that was taking the sysdata stored in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;an ugly static variable to handle the first pcibios opeartions
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(probing_hose). (on i386 this make no difference
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;as the sysdata is NULL there)
+<BR>
+<P>3)	pci_claim_resource() must be called with the resource
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;set just with the secondary pci offsets or
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_find_parent_resource() will have no way to find
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the right root in first place.
+<BR>
+<P>4)	On 64 bit arch the top of the bus space must be set to ~0UL so
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;we'll have a chance to open the pci window correctly.
+<BR>
+<P>5)	after we'll find the right pci window of the pci bus
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in pbus_set_ranges() we must convert the 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;phsical address to the bus address and this is done
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with a per arch hook called pcibios_fixup_ranges().
+<BR>
+<P>6)	the releasing of the initrd memory is buggy in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.3.29pre3 since the addition of the bootmem allocator.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I fixed this on both i386 and Alpha (never tried this
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;initrd stuff though but looks ok now ;)
+<BR>
+<P>Of course tell me if you don't agree on some of the above points.
+<BR>
+<P>Everything else is alpha related and basically does:
+<BR>
+<P>o	PCI updates
+<BR>
+o	bootmem initialization
+<BR>
+o	highmem pte/VM stuff
+<BR>
+<P>This is the patch I did to make Alpha working fine (here ;) on 2.3.29pre3:
+<BR>
+<P>diff -urN 2.3.29pre3/arch/alpha/boot/bootp.c alpha/arch/alpha/boot/bootp.c
+<BR>
+--- 2.3.29pre3/arch/alpha/boot/bootp.c	Tue Jul 13 02:02:03 1999
+<BR>
++++ alpha/arch/alpha/boot/bootp.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -200,11 +200,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;load(START_ADDR+(4*KERNEL_SIZE), KERNEL_ORIGIN, KERNEL_SIZE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;load(START_ADDR, START_ADDR+(4*KERNEL_SIZE), KERNEL_SIZE);
+<BR>
+&nbsp;
+<BR>
+-	memset((char*)ZERO_PAGE(0), 0, PAGE_SIZE);
+<BR>
+-	strcpy((char*)ZERO_PAGE(0), envval);
+<BR>
++	memset((char*)ZERO_PGE, 0, PAGE_SIZE);
+<BR>
++	strcpy((char*)ZERO_PGE, envval);
+<BR>
+&nbsp;#ifdef INITRD_SIZE
+<BR>
+-	((long *)(ZERO_PAGE(0)+256))[0] = initrd_start;
+<BR>
+-	((long *)(ZERO_PAGE(0)+256))[1] = INITRD_SIZE;
+<BR>
++	((long *)(ZERO_PGE+256))[0] = initrd_start;
+<BR>
++	((long *)(ZERO_PGE+256))[1] = INITRD_SIZE;
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;runkernel();
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/boot/main.c alpha/arch/alpha/boot/main.c
+<BR>
+--- 2.3.29pre3/arch/alpha/boot/main.c	Tue Jul 13 02:02:03 1999
+<BR>
++++ alpha/arch/alpha/boot/main.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -182,7 +182,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nbytes = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;envval[nbytes] = '\0';
+<BR>
+-	strcpy((char*)ZERO_PAGE(0), envval);
+<BR>
++	strcpy((char*)ZERO_PGE, envval);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srm_printk(&quot; Ok\nNow booting the kernel\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;runkernel();
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/alpha_ksyms.c alpha/arch/alpha/kernel/alpha_ksyms.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/alpha_ksyms.c	Sun Nov 21 03:20:16 1999
+<BR>
++++ alpha/arch/alpha/kernel/alpha_ksyms.c	Tue Nov 23 14:31:19 1999
+<BR>
+@@ -27,7 +27,7 @@
+<BR>
+&nbsp;#include &lt;asm/fpu.h&gt;
+<BR>
+&nbsp;#include &lt;asm/irq.h&gt;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+-#include &lt;asm/pgtable.h&gt;
+<BR>
++#include &lt;asm/pgalloc.h&gt;
+<BR>
+&nbsp;#include &lt;asm/semaphore.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __KERNEL_SYSCALLS__
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_apecs.c alpha/arch/alpha/kernel/core_apecs.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_apecs.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_apecs.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -357,7 +357,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-apecs_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++apecs_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;
+<BR>
+@@ -386,7 +386,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = APECS_CONF;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_cia.c alpha/arch/alpha/kernel/core_cia.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_cia.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_cia.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -315,7 +315,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-cia_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++cia_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct resource *hae_mem;
+<BR>
+@@ -424,8 +424,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
+-	hae_mem = alloc_resource(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
++	hae_mem = alloc_resource();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = hae_mem;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_lca.c alpha/arch/alpha/kernel/core_lca.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_lca.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_lca.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -279,7 +279,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-lca_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++lca_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;
+<BR>
+@@ -307,7 +307,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = LCA_CONF;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_mcpcia.c alpha/arch/alpha/kernel/core_mcpcia.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_mcpcia.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_mcpcia.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -205,7 +205,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_byte(struct pci_dev *dev, int where, u8 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr, w;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -221,7 +221,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_word(struct pci_dev *dev, int where, u16 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr, w;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -237,7 +237,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_dword(struct pci_dev *dev, int where, u32 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -252,7 +252,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_write_config(struct pci_dev *dev, int where, u32 value, long mask)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -327,16 +327,16 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void __init
+<BR>
+-mcpcia_new_hose(unsigned long *mem_start, int h)
+<BR>
++mcpcia_new_hose(int h)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct resource *io, *mem, *hae_mem;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int mid = hose2mid(h);
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
+-	io = alloc_resource(mem_start);
+<BR>
+-	mem = alloc_resource(mem_start);
+<BR>
+-	hae_mem = alloc_resource(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
++	io = alloc_resource();
+<BR>
++	mem = alloc_resource();
+<BR>
++	hae_mem = alloc_resource();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = io;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = hae_mem;
+<BR>
+@@ -420,7 +420,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-mcpcia_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++mcpcia_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extern asmlinkage void entInt(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+@@ -437,7 +437,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* First, find how many hoses we have.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (h = 0; h &lt; MCPCIA_MAX_HOSES; ++h) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (mcpcia_probe_hose(h)) {
+<BR>
+-			mcpcia_new_hose(mem_start, h);
+<BR>
++			mcpcia_new_hose(h);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose_count++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_polaris.c alpha/arch/alpha/kernel/core_polaris.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_polaris.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_polaris.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -176,7 +176,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-polaris_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++polaris_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;
+<BR>
+@@ -192,7 +192,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = POLARIS_DENSE_CONFIG_BASE;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_pyxis.c alpha/arch/alpha/kernel/core_pyxis.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_pyxis.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_pyxis.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -285,7 +285,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-pyxis_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++pyxis_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int temp;
+<BR>
+@@ -379,7 +379,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = PYXIS_CONF;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_t2.c alpha/arch/alpha/kernel/core_t2.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_t2.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_t2.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -322,7 +322,7 @@
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-t2_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++t2_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int i;
+<BR>
+@@ -384,7 +384,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = T2_CONF;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/core_tsunami.c alpha/arch/alpha/kernel/core_tsunami.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/core_tsunami.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/core_tsunami.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -84,7 +84,7 @@
+<BR>
+&nbsp;mk_conf_addr(struct pci_dev *dev, int where, unsigned long *pci_addr,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *type1)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 bus = dev-&gt;bus-&gt;number;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 device_fn = dev-&gt;devfn;
+<BR>
+@@ -154,6 +154,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_DEVICE_NOT_FOUND;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__kernel_stb(value, *(vucp)addr);
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_SUCCESSFUL;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -167,6 +168,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_DEVICE_NOT_FOUND;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__kernel_stw(value, *(vusp)addr);
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_SUCCESSFUL;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -180,6 +182,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_DEVICE_NOT_FOUND;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)addr = value;
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return PCIBIOS_SUCCESSFUL;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -243,31 +246,37 @@
+<BR>
+&nbsp;#define FN __FUNCTION__
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void __init
+<BR>
+-tsunami_init_one_pchip(tsunami_pchip *pchip, int index,
+<BR>
+-		       unsigned long *mem_start)
+<BR>
++tsunami_init_one_pchip(tsunami_pchip *pchip, int index)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (tsunami_probe_read(&amp;pchip-&gt;pctl.csr) == 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
+-	hose-&gt;io_space = alloc_resource(mem_start);
+<BR>
+-	hose-&gt;mem_space = alloc_resource(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
++	hose-&gt;io_space = alloc_resource();
+<BR>
++	hose-&gt;mem_space = alloc_resource();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = TSUNAMI_CONF(index);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;index = index;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space-&gt;start = TSUNAMI_IO(index) - TSUNAMI_IO_BIAS;
+<BR>
+-	hose-&gt;io_space-&gt;end = hose-&gt;io_space-&gt;start + 0xffff;
+<BR>
++	hose-&gt;io_space-&gt;end = hose-&gt;io_space-&gt;start + TSUNAMI_IO_SPACE;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space-&gt;name = pci_io_names[index];
+<BR>
++	hose-&gt;io_space-&gt;flags = IORESOURCE_IO;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space-&gt;start = TSUNAMI_MEM(index) - TSUNAMI_MEM_BIAS;
+<BR>
++	/* the IOMEM address space is larger than 32bit but most pci
+<BR>
++	   cars doesn't support 64bit address space so we stick with
+<BR>
++	   32bit here (see the TSUNAMI_MEM_SPACE define). */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space-&gt;end = hose-&gt;mem_space-&gt;start + 0xffffffff;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space-&gt;name = pci_mem_names[index];
+<BR>
++	hose-&gt;mem_space-&gt;flags = IORESOURCE_MEM;
+<BR>
+&nbsp;
+<BR>
+-	request_resource(&amp;ioport_resource, hose-&gt;io_space);
+<BR>
+-	request_resource(&amp;iomem_resource, hose-&gt;mem_space);
+<BR>
++	if (request_resource(&amp;ioport_resource, hose-&gt;io_space) &lt; 0)
+<BR>
++		printk(KERN_ERR &quot;failed to request IO on hose %d&quot;, index);
+<BR>
++	if (request_resource(&amp;iomem_resource, hose-&gt;mem_space) &lt; 0)
+<BR>
++		printk(KERN_ERR &quot;failed to request IOMEM on hose %d&quot;, index);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the PCI-&gt;physical memory translation windows.
+<BR>
+@@ -294,7 +303,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+-tsunami_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++tsunami_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;#ifdef NXM_MACHINE_CHECKS_ON_TSUNAMI
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extern asmlinkage void entInt(void);
+<BR>
+@@ -338,9 +347,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Find how many hoses we have, and initialize them.  TSUNAMI
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and TYPHOON can have 2, but might only have 1 (DS10).  */
+<BR>
+&nbsp;
+<BR>
+-	tsunami_init_one_pchip(TSUNAMI_pchip0, 0, mem_start);
+<BR>
++	tsunami_init_one_pchip(TSUNAMI_pchip0, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (TSUNAMI_cchip-&gt;csc.csr &amp; 1L&lt;&lt;14)
+<BR>
+-		tsunami_init_one_pchip(TSUNAMI_pchip1, 1, mem_start);
+<BR>
++		tsunami_init_one_pchip(TSUNAMI_pchip1, 1);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/machvec_impl.h alpha/arch/alpha/kernel/machvec_impl.h
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/machvec_impl.h	Tue Nov 23 00:11:55 1999
+<BR>
++++ alpha/arch/alpha/kernel/machvec_impl.h	Tue Nov 23 04:17:20 1999
+<BR>
+@@ -7,6 +7,7 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
++#include &lt;asm/pgalloc.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Whee.  Both TSUNAMI and POLARIS don't have an HAE.  Fix things up for
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;the GENERIC kernel by defining the HAE address to be that of the cache.
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/pci.c alpha/arch/alpha/kernel/pci.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/pci.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/pci.c	Tue Nov 23 14:55:12 1999
+<BR>
+@@ -6,10 +6,14 @@
+<BR>
+&nbsp;&nbsp;*	David Mosberger (davidm@cs.arizona.edu)
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++/* 2.3.x PCI/resources, 1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
+&nbsp;#include &lt;linux/string.h&gt;
+<BR>
+&nbsp;#include &lt;linux/pci.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/ioport.h&gt;
+<BR>
++#include &lt;linux/kernel.h&gt;
+<BR>
++#include &lt;linux/bootmem.h&gt;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+@@ -36,7 +40,6 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct pci_controler *hose_head, **hose_tail = &amp;hose_head;
+<BR>
+-struct pci_controler *probing_hose;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Quirks.
+<BR>
+@@ -62,24 +65,93 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ 0 }
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
++#define MAX(val1, val2)		((val1) &gt; (val2) ? (val1) : (val2))
+<BR>
++#define ALIGN(val,align)	(((val) + ((align) - 1)) &amp; ~((align) - 1))
+<BR>
++#define KB			1024
+<BR>
++#define MB			(1024*KB)
+<BR>
++#define GB			(1024*MB)
+<BR>
++unsigned long resource_fixup(struct pci_dev * dev, struct resource * res,
+<BR>
++			     unsigned long start, unsigned long size)
+<BR>
++{
+<BR>
++	unsigned long alignto;
+<BR>
++
+<BR>
++	if (res-&gt;flags &amp; IORESOURCE_IO)
+<BR>
++	{
+<BR>
++		/*
+<BR>
++		 * Aligning to 0x800 rather than the minimum base of
+<BR>
++		 * 0x400 is an attempt to avoid having devices in 
+<BR>
++		 * any 0x?C?? range, which is where the de4x5 driver
+<BR>
++		 * probes for EISA cards.
+<BR>
++		 *
+<BR>
++		 * Adaptecs, especially, resent such intrusions.
+<BR>
++		 */
+<BR>
++		alignto = MAX(0x800, size);
+<BR>
++		start = ALIGN(start, alignto);
+<BR>
++	}
+<BR>
++	else if	(res-&gt;flags &amp; IORESOURCE_MEM)
+<BR>
++	{
+<BR>
++		/*
+<BR>
++		 * The following holds at least for the Low Cost
+<BR>
++		 * Alpha implementation of the PCI interface:
+<BR>
++		 *
+<BR>
++		 * In sparse memory address space, the first
+<BR>
++		 * octant (16MB) of every 128MB segment is
+<BR>
++		 * aliased to the very first 16 MB of the
+<BR>
++		 * address space (i.e., it aliases the ISA
+<BR>
++		 * memory address space).  Thus, we try to
+<BR>
++		 * avoid allocating PCI devices in that range.
+<BR>
++		 * Can be allocated in 2nd-7th octant only.
+<BR>
++		 * Devices that need more than 112MB of
+<BR>
++		 * address space must be accessed through
+<BR>
++		 * dense memory space only!
+<BR>
++		 */
+<BR>
++		/* align to multiple of size of minimum base */
+<BR>
++		alignto = MAX(0x1000, size);
+<BR>
++		start = ALIGN(start, alignto);
+<BR>
++		if (size &gt; 7 * 16*MB)
+<BR>
++			printk(KERN_WARNING &quot;PCI: dev %s &quot;
+<BR>
++			       &quot;requests %ld bytes of contiguous &quot;
+<BR>
++			       &quot;address space---don't use sparse &quot;
+<BR>
++			       &quot;memory accesses on this device!\n&quot;,
+<BR>
++			       dev-&gt;name, size);
+<BR>
++		else
+<BR>
++		{
+<BR>
++			if (((start / (16*MB)) &amp; 0x7) == 0) {
+<BR>
++				start &amp;= ~(128*MB - 1);
+<BR>
++				start += 16*MB;
+<BR>
++				start  = ALIGN(start, alignto);
+<BR>
++			}
+<BR>
++			if (start/(128*MB) != (start + size)/(128*MB)) {
+<BR>
++				start &amp;= ~(128*MB - 1);
+<BR>
++				start += (128 + 16)*MB;
+<BR>
++				start  = ALIGN(start, alignto);
+<BR>
++			}
+<BR>
++		}
+<BR>
++	}
+<BR>
++
+<BR>
++	return start;
+<BR>
++}
+<BR>
++#undef MAX
+<BR>
++#undef ALIGN
+<BR>
++#undef KB
+<BR>
++#undef MB
+<BR>
++#undef GB
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* 
+<BR>
+&nbsp;&nbsp;* Pre-layout host-independant device initialization.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void __init
+<BR>
+-pcibios_assign_special(void)
+<BR>
++pcibios_assign_special(struct pci_dev * dev)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_dev *dev;
+<BR>
+-	int i;
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* The first three resources of an IDE controler are often magic, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;so leave them unchanged.  This is true, for instance, of the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contaq 82C693 as seen on SX164 and DP264.  */
+<BR>
+&nbsp;
+<BR>
+-	for (dev = pci_devices; dev; dev = dev-&gt;next) {
+<BR>
+-		if (dev-&gt;class &gt;&gt; 8 != PCI_CLASS_STORAGE_IDE)
+<BR>
+-			continue;
+<BR>
++	if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_STORAGE_IDE)
+<BR>
++	{
+<BR>
++		int i;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Resource 1 of IDE controller is the address of HD_CMD
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register which actually occupies a single byte (0x3f6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for ide0) in reported 0x3f4-3f7 range. We have to fix
+<BR>
+@@ -87,10 +159,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;controller. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;resource[1].start += 2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;resource[1].end = dev-&gt;resource[1].start;
+<BR>
+-	        for (i = 0; i &lt; PCI_NUM_RESOURCES; i++) {
+<BR>
+-			if (dev-&gt;resource[i].flags)
+<BR>
++		for (i = 0; i &lt; PCI_NUM_RESOURCES; i++)
+<BR>
++			if (dev-&gt;resource[i].flags &amp;&amp; dev-&gt;resource[i].start)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_claim_resource(dev, i);
+<BR>
+-		}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -110,31 +181,63 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
++pcibios_fixup_resource(struct resource *res, struct resource *root)
+<BR>
++{
+<BR>
++	res-&gt;start += root-&gt;start;
+<BR>
++	res-&gt;end += root-&gt;start;
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
++pcibios_fixup_device_resources(struct pci_dev *dev, struct pci_bus *bus)
+<BR>
++{
+<BR>
++	/* Update device resources.  */
+<BR>
++
+<BR>
++	int i;
+<BR>
++
+<BR>
++	for (i = 0; i &lt; PCI_NUM_RESOURCES; i++) {
+<BR>
++		if (!dev-&gt;resource[i].start)
+<BR>
++			continue;
+<BR>
++		if (dev-&gt;resource[i].flags &amp; IORESOURCE_IO)
+<BR>
++			pcibios_fixup_resource(&amp;dev-&gt;resource[i],
+<BR>
++					       bus-&gt;resource[0]);
+<BR>
++		else if (dev-&gt;resource[i].flags &amp; IORESOURCE_MEM)
+<BR>
++			pcibios_fixup_resource(&amp;dev-&gt;resource[i],
+<BR>
++					       bus-&gt;resource[1]);
+<BR>
++	}
+<BR>
++	pcibios_assign_special(dev);
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
+&nbsp;pcibios_fixup_bus(struct pci_bus *bus)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Propogate hose info into the subordinate devices.  */
+<BR>
+&nbsp;
+<BR>
+-	struct pci_controler *hose = probing_hose;
+<BR>
++	struct pci_controler *hose = (struct pci_controler *) bus-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev *dev;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus-&gt;resource[0] = hose-&gt;io_space;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus-&gt;resource[1] = hose-&gt;mem_space;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (dev = bus-&gt;devices; dev; dev = dev-&gt;sibling)
+<BR>
+-		dev-&gt;sysdata = hose;
+<BR>
++		if ((dev-&gt;class &gt;&gt; 8) != PCI_CLASS_BRIDGE_PCI)
+<BR>
++			pcibios_fixup_device_resources(dev, bus);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+&nbsp;pcibios_update_resource(struct pci_dev *dev, struct resource *root,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct resource *res, int resource)
+<BR>
+&nbsp;{
+<BR>
+-        unsigned long where, size;
+<BR>
+-        u32 reg;
+<BR>
++	int where;
+<BR>
++	u32 reg;
+<BR>
+&nbsp;
+<BR>
+-        where = PCI_BASE_ADDRESS_0 + (resource * 4);
+<BR>
+-        size = res-&gt;end - res-&gt;start;
+<BR>
+-        pci_read_config_dword(dev, where, &amp;reg);
+<BR>
+-        reg = (reg &amp; size) | (((u32)(res-&gt;start - root-&gt;start)) &amp; ~size);
+<BR>
+-        pci_write_config_dword(dev, where, reg);
+<BR>
++	where = PCI_BASE_ADDRESS_0 + (resource * 4);
+<BR>
++	reg = (res-&gt;start - root-&gt;start) | (res-&gt;flags &amp; 0xf);
+<BR>
++	pci_write_config_dword(dev, where, reg);
+<BR>
++	if ((res-&gt;flags &amp; (PCI_BASE_ADDRESS_SPACE | PCI_BASE_ADDRESS_MEM_TYPE_MASK))
+<BR>
++	    == (PCI_BASE_ADDRESS_SPACE_MEMORY | PCI_BASE_ADDRESS_MEM_TYPE_64))
+<BR>
++	{
+<BR>
++		pci_write_config_dword(dev, where+4, 0);
+<BR>
++		printk(KERN_WARNING &quot;PCI: dev %s type 64-bit\n&quot;, dev-&gt;name);
+<BR>
++	}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* ??? FIXME -- record old value for shutdown.  */
+<BR>
+&nbsp;}
+<BR>
+@@ -170,6 +273,15 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
++pcibios_fixup_pbus_ranges(struct pci_bus * bus, struct pbus_set_ranges_data * ranges)
+<BR>
++{
+<BR>
++	ranges-&gt;io_start -= bus-&gt;resource[0]-&gt;start;
+<BR>
++	ranges-&gt;io_end -= bus-&gt;resource[0]-&gt;start;
+<BR>
++	ranges-&gt;mem_start -= bus-&gt;resource[1]-&gt;start;
+<BR>
++	ranges-&gt;mem_end -= bus-&gt;resource[1]-&gt;start;
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
+&nbsp;common_init_pci(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+@@ -180,15 +292,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (next_busno = 0, hose = hose_head; hose; hose = hose-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;first_busno = next_busno;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;last_busno = 0xff;
+<BR>
+-		probing_hose = hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus = pci_scan_bus(next_busno, alpha_mv.pci_ops, hose);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;bus = bus;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next_busno = hose-&gt;last_busno = bus-&gt;subordinate;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next_busno += 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	probing_hose = NULL;
+<BR>
+&nbsp;
+<BR>
+-	pcibios_assign_special();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_assign_unassigned_resources(alpha_mv.min_io_address,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.min_mem_address);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_fixup_irqs(alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
+<BR>
+@@ -197,17 +306,11 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct pci_controler * __init
+<BR>
+-alloc_pci_controler(unsigned long *mem_start)
+<BR>
++alloc_pci_controler(void)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long start = *mem_start;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+-	if (start &amp; 31)
+<BR>
+-		start = (start | 31) + 1;
+<BR>
+-	hose = (void *) start;
+<BR>
+-	start = (unsigned long) (hose + 1);
+<BR>
+-	*mem_start = start;
+<BR>
+&nbsp;
+<BR>
+-	memset(hose, 0, sizeof(*hose));
+<BR>
++	hose = alloc_bootmem(sizeof(*hose));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*hose_tail = hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose_tail = &amp;hose-&gt;next;
+<BR>
+@@ -216,17 +319,11 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct resource * __init
+<BR>
+-alloc_resource(unsigned long *mem_start)
+<BR>
++alloc_resource(void)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long start = *mem_start;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct resource *res;
+<BR>
+-	if (start &amp; 31)
+<BR>
+-		start = (start | 31) + 1;
+<BR>
+-	res = (void *) start;
+<BR>
+-	start = (unsigned long) (res + 1);
+<BR>
+-	*mem_start = start;
+<BR>
+&nbsp;
+<BR>
+-	memset(res, 0, sizeof(*res));
+<BR>
++	res = alloc_bootmem(sizeof(*res));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return res;
+<BR>
+&nbsp;}
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/pci_impl.h alpha/arch/alpha/kernel/pci_impl.h
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/pci_impl.h	Tue Sep 14 14:35:30 1999
+<BR>
++++ alpha/arch/alpha/kernel/pci_impl.h	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -125,12 +125,11 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* The hose list.  */
+<BR>
+&nbsp;extern struct pci_controler *hose_head, **hose_tail;
+<BR>
+-extern struct pci_controler *probing_hose;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void common_init_pci(void);
+<BR>
+&nbsp;extern u8 common_swizzle(struct pci_dev *, u8 *);
+<BR>
+-extern struct pci_controler *alloc_pci_controler(unsigned long *);
+<BR>
+-extern struct resource *alloc_resource(unsigned long *);
+<BR>
++extern struct pci_controler *alloc_pci_controler(void);
+<BR>
++extern struct resource *alloc_resource(void);
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern const char *const pci_io_names[];
+<BR>
+&nbsp;extern const char *const pci_mem_names[];
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/proto.h alpha/arch/alpha/kernel/proto.h
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/proto.h	Sun Nov 21 17:47:42 1999
+<BR>
++++ alpha/arch/alpha/kernel/proto.h	Tue Nov 23 00:11:42 1999
+<BR>
+@@ -12,43 +12,43 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_apecs.c */
+<BR>
+&nbsp;extern struct pci_ops apecs_pci_ops;
+<BR>
+-extern void apecs_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void apecs_init_arch(void);
+<BR>
+&nbsp;extern void apecs_pci_clr_err(void);
+<BR>
+&nbsp;extern void apecs_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_cia.c */
+<BR>
+&nbsp;extern struct pci_ops cia_pci_ops;
+<BR>
+-extern void cia_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void cia_init_arch(void);
+<BR>
+&nbsp;extern void cia_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_lca.c */
+<BR>
+&nbsp;extern struct pci_ops lca_pci_ops;
+<BR>
+-extern void lca_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void lca_init_arch(void);
+<BR>
+&nbsp;extern void lca_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_mcpcia.c */
+<BR>
+&nbsp;extern struct pci_ops mcpcia_pci_ops;
+<BR>
+-extern void mcpcia_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void mcpcia_init_arch(void);
+<BR>
+&nbsp;extern void mcpcia_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_polaris.c */
+<BR>
+&nbsp;extern struct pci_ops polaris_pci_ops;
+<BR>
+-extern void polaris_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void polaris_init_arch(void);
+<BR>
+&nbsp;extern void polaris_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_pyxis.c */
+<BR>
+&nbsp;extern struct pci_ops pyxis_pci_ops;
+<BR>
+-extern void pyxis_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void pyxis_init_arch(void);
+<BR>
+&nbsp;extern void pyxis_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_t2.c */
+<BR>
+&nbsp;extern struct pci_ops t2_pci_ops;
+<BR>
+-extern void t2_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void t2_init_arch(void);
+<BR>
+&nbsp;extern void t2_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_tsunami.c */
+<BR>
+&nbsp;extern struct pci_ops tsunami_pci_ops;
+<BR>
+-extern void tsunami_init_arch(unsigned long *, unsigned long *);
+<BR>
++extern void tsunami_init_arch(void);
+<BR>
+&nbsp;extern void tsunami_machine_check(u64, u64, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* setup.c */
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/setup.c alpha/arch/alpha/kernel/setup.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/setup.c	Tue Oct 12 02:40:34 1999
+<BR>
++++ alpha/arch/alpha/kernel/setup.c	Tue Nov 23 15:15:26 1999
+<BR>
+@@ -4,6 +4,8 @@
+<BR>
+&nbsp;&nbsp;*  Copyright (C) 1995  Linus Torvalds
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++/* 2.3.x bootmem, 1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Bootup setup stuff.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+@@ -26,6 +28,7 @@
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/string.h&gt;
+<BR>
+&nbsp;#include &lt;linux/ioport.h&gt;
+<BR>
++#include &lt;linux/bootmem.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef CONFIG_RTC
+<BR>
+&nbsp;#include &lt;linux/timex.h&gt;
+<BR>
+@@ -40,6 +43,8 @@
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
++#include &lt;asm/pci.h&gt;
+<BR>
++#include &lt;asm/mmu_context.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+@@ -57,7 +62,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define N(a) (sizeof(a)/sizeof(a[0]))
+<BR>
+&nbsp;
+<BR>
+-static unsigned long find_end_memory(void);
+<BR>
+&nbsp;static struct alpha_machine_vector *get_sysvec(long, long, long);
+<BR>
+&nbsp;static struct alpha_machine_vector *get_sysvec_byname(const char *);
+<BR>
+&nbsp;static void get_sysnames(long, long, char **, char **);
+<BR>
+@@ -68,7 +72,7 @@
+<BR>
+&nbsp;&nbsp;* initialized, we need to copy things out into a more permanent
+<BR>
+&nbsp;&nbsp;* place.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-#define PARAM			ZERO_PAGE(0)
+<BR>
++#define PARAM			ZERO_PGE
+<BR>
+&nbsp;#define COMMAND_LINE		((char*)(PARAM + 0x0000))
+<BR>
+&nbsp;#define COMMAND_LINE_SIZE	256
+<BR>
+&nbsp;#define INITRD_START		(*(unsigned long *) (PARAM+0x100))
+<BR>
+@@ -181,12 +185,105 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_resource(io, standard_io_resources+i);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-void __init
+<BR>
+-setup_arch(char **cmdline_p, unsigned long * memory_start_p,
+<BR>
+-	   unsigned long * memory_end_p)
+<BR>
++#define PFN_UP(x)	(((x) + PAGE_SIZE-1) &gt;&gt; PAGE_SHIFT)
+<BR>
++#define PFN_DOWN(x)	((x) &gt;&gt; PAGE_SHIFT)
+<BR>
++#define PFN_PHYS(x)	((x) &lt;&lt; PAGE_SHIFT)
+<BR>
++#define PFN_MAX		PFN_DOWN(0x80000000)
+<BR>
++static void __init setup_memory(void)
+<BR>
+&nbsp;{
+<BR>
++	struct memclust_struct * cluster;
+<BR>
++	struct memdesc_struct * memdesc;
+<BR>
++	unsigned long start_pfn, bootmap_size;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extern char _end[];
+<BR>
++	int i;
+<BR>
++
+<BR>
++	/* alloc the bootmem after the kernel */
+<BR>
++	start_pfn = PFN_UP(virt_to_phys(_end));
+<BR>
++	SRM_printf(&quot;_end %p\n&quot;, _end);
+<BR>
++
+<BR>
++	/* find free clusters, and init and free the bootmem accordingly */
+<BR>
++	memdesc = (struct memdesc_struct *) (hwrpb-&gt;mddt_offset + (unsigned long) hwrpb);
+<BR>
++
+<BR>
++	for (cluster = memdesc-&gt;cluster, i = memdesc-&gt;numclusters;
+<BR>
++	     i &gt; 0; i--, cluster++)
+<BR>
++	{
+<BR>
++		unsigned long end;
+<BR>
++
+<BR>
++		printk(&quot;memcluster %d, usage %02lx, start %8lu, end %8lu\n&quot;,
+<BR>
++		       i, cluster-&gt;usage, cluster-&gt;start_pfn,
+<BR>
++		       cluster-&gt;numpages);
+<BR>
++
+<BR>
++		/* Bit 0 is console/PALcode reserved.  Bit 1 is
+<BR>
++		   non-volatile memory -- we might want to mark
+<BR>
++		   this for later */
+<BR>
++		if (cluster-&gt;usage &amp; 3)
+<BR>
++			continue;
+<BR>
++
+<BR>
++		end = cluster-&gt;start_pfn + cluster-&gt;numpages;
+<BR>
++		if (end &gt; max_low_pfn)
+<BR>
++			max_low_pfn = end;
+<BR>
++	}
+<BR>
++	/* Enforce maximum of 2GB even if there is more.  Blah.  */
+<BR>
++	if (max_low_pfn &gt; PFN_MAX)
+<BR>
++		max_low_pfn = PFN_MAX;
+<BR>
++	SRM_printf(&quot;max_low_pfn %d\n&quot;, max_low_pfn);
+<BR>
++
+<BR>
++	/* allocate the bootmem array after the kernel and mark
+<BR>
++	   the whole MM as reserved */
+<BR>
++	bootmap_size = init_bootmem(start_pfn, max_low_pfn);
+<BR>
++
+<BR>
++	for (cluster = memdesc-&gt;cluster, i = memdesc-&gt;numclusters;
+<BR>
++	     i &gt; 0; i--, cluster++)
+<BR>
++	{
+<BR>
++		unsigned long end, start;
+<BR>
++
+<BR>
++		/* Bit 0 is console/PALcode reserved.  Bit 1 is
+<BR>
++		   non-volatile memory -- we might want to mark
+<BR>
++		   this for later */
+<BR>
++		if (cluster-&gt;usage &amp; 3)
+<BR>
++			continue;
+<BR>
++
+<BR>
++		start = PFN_PHYS(cluster-&gt;start_pfn);
+<BR>
++		if (start &lt; PFN_PHYS(start_pfn) + bootmap_size)
+<BR>
++			start = PFN_PHYS(start_pfn) + bootmap_size;
+<BR>
++		if (PFN_DOWN(start) &gt;= PFN_MAX)
+<BR>
++			continue;
+<BR>
++
+<BR>
++		end = PFN_PHYS(cluster-&gt;start_pfn + cluster-&gt;numpages);
+<BR>
++		if (PFN_DOWN(end) &gt; PFN_MAX)
+<BR>
++			end = PFN_PHYS(PFN_MAX);
+<BR>
++
+<BR>
++		if (start &gt;= end)
+<BR>
++			continue;
+<BR>
++		free_bootmem(start, end-start);
+<BR>
++	}
+<BR>
++
+<BR>
++#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
++	initrd_start = INITRD_START;
+<BR>
++	if (initrd_start) {
+<BR>
++		initrd_end = initrd_start+INITRD_SIZE;
+<BR>
++		printk(&quot;Initial ramdisk at: 0x%p (%lu bytes)\n&quot;,
+<BR>
++		       (void *) initrd_start, INITRD_SIZE);
+<BR>
++
+<BR>
++		if (initrd_end &gt; phys_to_virt(PFN_PHYS(max_low_pfn))) {
+<BR>
++			printk(&quot;initrd extends beyond end of memory &quot;
+<BR>
++			       &quot;(0x%08lx &gt; 0x%08lx)\ndisabling initrd\n&quot;,
+<BR>
++			       initrd_end, phys_to_virt(PFN_PHYS(max_low_pfn)));
+<BR>
++			initrd_start = initrd_end = 0;
+<BR>
++		}
+<BR>
++		else
+<BR>
++			reserve_bootmem(virt_to_phys(initrd_start), INITRD_SIZE);
+<BR>
++	}
+<BR>
++#endif /* CONFIG_BLK_DEV_INITRD */
+<BR>
++}
+<BR>
++#undef PFN_UP
+<BR>
++#undef PFN_DOWN
+<BR>
++#undef PFN_PHYS
+<BR>
++#undef PFN_MAX
+<BR>
+&nbsp;
+<BR>
++void __init
+<BR>
++setup_arch(char **cmdline_p)
+<BR>
++{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct alpha_machine_vector *vec = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct percpu_struct *cpu;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *type_name, *var_name, *p;
+<BR>
+@@ -258,6 +355,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_using_srm = strncmp((const char *)hwrpb-&gt;ssn, &quot;MILO&quot;, 4) != 0;
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++	SRM_printf(&quot;Booting on %s%s%s using machine vector %s\n&quot;,
+<BR>
++	       type_name, (*var_name ? &quot; variation &quot; : &quot;&quot;),
+<BR>
++	       var_name, alpha_mv.vector_name);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Booting &quot;
+<BR>
+&nbsp;#ifdef CONFIG_ALPHA_GENERIC
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;GENERIC &quot;
+<BR>
+@@ -281,29 +382,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wrmces(0x7);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Find our memory.  */
+<BR>
+-	*memory_end_p = find_end_memory();
+<BR>
+-	*memory_start_p = (unsigned long) _end;
+<BR>
+-
+<BR>
+-#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
+-	initrd_start = INITRD_START;
+<BR>
+-	if (initrd_start) {
+<BR>
+-		initrd_end = initrd_start+INITRD_SIZE;
+<BR>
+-		printk(&quot;Initial ramdisk at: 0x%p (%lu bytes)\n&quot;,
+<BR>
+-		       (void *) initrd_start, INITRD_SIZE);
+<BR>
+-
+<BR>
+-		if (initrd_end &gt; *memory_end_p) {
+<BR>
+-			printk(&quot;initrd extends beyond end of memory &quot;
+<BR>
+-			       &quot;(0x%08lx &gt; 0x%08lx)\ndisabling initrd\n&quot;,
+<BR>
+-			       initrd_end, (unsigned long) memory_end_p);
+<BR>
+-			initrd_start = initrd_end = 0;
+<BR>
+-		}
+<BR>
+-	}
+<BR>
+-#endif
+<BR>
++	setup_memory();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Initialize the machine.  Usually has to do with setting up
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DMA windows and the like.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (alpha_mv.init_arch)
+<BR>
+-		alpha_mv.init_arch(memory_start_p, memory_end_p);
+<BR>
++		alpha_mv.init_arch();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Reserve standard resources.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reserve_std_resources();
+<BR>
+@@ -352,35 +436,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;setup_smp();
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;}
+<BR>
+-
+<BR>
+-static unsigned long __init
+<BR>
+-find_end_memory(void)
+<BR>
+-{
+<BR>
+-	int i;
+<BR>
+-	unsigned long high = 0;
+<BR>
+-	struct memclust_struct * cluster;
+<BR>
+-	struct memdesc_struct * memdesc;
+<BR>
+-
+<BR>
+-	memdesc = (struct memdesc_struct *)
+<BR>
+-		(INIT_HWRPB-&gt;mddt_offset + (unsigned long) INIT_HWRPB);
+<BR>
+-	cluster = memdesc-&gt;cluster;
+<BR>
+-
+<BR>
+-	for (i = memdesc-&gt;numclusters ; i &gt; 0; i--, cluster++) {
+<BR>
+-		unsigned long tmp;
+<BR>
+-		tmp = (cluster-&gt;start_pfn + cluster-&gt;numpages) &lt;&lt; PAGE_SHIFT;
+<BR>
+-		if (tmp &gt; high)
+<BR>
+-			high = tmp;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	/* Round it up to an even number of pages. */
+<BR>
+-	high = (high + PAGE_SIZE) &amp; (PAGE_MASK*2);
+<BR>
+-
+<BR>
+-	/* Enforce maximum of 2GB even if there is more.  Blah.  */
+<BR>
+-	if (high &gt; 0x80000000UL)
+<BR>
+-		high = 0x80000000UL;
+<BR>
+-	return PAGE_OFFSET + high;
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;
+<BR>
+&nbsp;static char sys_unknown[] = &quot;Unknown&quot;;
+<BR>
+&nbsp;static char systype_names[][16] = {
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/smp.c alpha/arch/alpha/kernel/smp.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/smp.c	Tue Sep 14 14:35:33 1999
+<BR>
++++ alpha/arch/alpha/kernel/smp.c	Tue Nov 23 14:33:22 1999
+<BR>
+@@ -23,8 +23,10 @@
+<BR>
+&nbsp;#include &lt;asm/irq.h&gt;
+<BR>
+&nbsp;#include &lt;asm/bitops.h&gt;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
++#include &lt;asm/pgalloc.h&gt;
+<BR>
+&nbsp;#include &lt;asm/hardirq.h&gt;
+<BR>
+&nbsp;#include &lt;asm/softirq.h&gt;
+<BR>
++#include &lt;asm/mmu_context.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __KERNEL_SYSCALLS__
+<BR>
+&nbsp;#include &lt;asm/unistd.h&gt;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/kernel/sys_sio.c alpha/arch/alpha/kernel/sys_sio.c
+<BR>
+--- 2.3.29pre3/arch/alpha/kernel/sys_sio.c	Mon Nov 22 23:08:56 1999
+<BR>
++++ alpha/arch/alpha/kernel/sys_sio.c	Tue Nov 23 01:30:44 1999
+<BR>
+@@ -55,7 +55,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void __init
+<BR>
+-xl_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++xl_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;
+<BR>
+@@ -93,7 +93,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose = alloc_pci_controler(mem_start);
+<BR>
++	hose = alloc_pci_controler();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space = &amp;ioport_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;mem_space = &amp;iomem_resource;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;config_space = LCA_CONF;
+<BR>
+@@ -101,7 +101,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void __init
+<BR>
+-alphabook1_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++alphabook1_init_arch(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* The AlphaBook1 has LCD video fixed at 800x600,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;37 rows and 100 cols. */
+<BR>
+@@ -109,7 +109,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;screen_info.orig_video_cols = 100;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;screen_info.orig_video_lines = 37;
+<BR>
+&nbsp;
+<BR>
+-	lca_init_arch(mem_start, mem_end);
+<BR>
++	lca_init_arch();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/mm/fault.c alpha/arch/alpha/mm/fault.c
+<BR>
+--- 2.3.29pre3/arch/alpha/mm/fault.c	Tue Sep 14 14:34:05 1999
+<BR>
++++ alpha/arch/alpha/mm/fault.c	Tue Nov 23 04:18:03 1999
+<BR>
+@@ -11,7 +11,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __EXTERN_INLINE inline
+<BR>
+&nbsp;#include &lt;asm/mmu_context.h&gt;
+<BR>
+-#include &lt;asm/pgtable.h&gt;
+<BR>
++#include &lt;asm/pgalloc.h&gt;
+<BR>
+&nbsp;#undef  __EXTERN_INLINE
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/signal.h&gt;
+<BR>
+diff -urN 2.3.29pre3/arch/alpha/mm/init.c alpha/arch/alpha/mm/init.c
+<BR>
+--- 2.3.29pre3/arch/alpha/mm/init.c	Tue Oct 26 21:30:50 1999
+<BR>
++++ alpha/arch/alpha/mm/init.c	Tue Nov 23 14:54:29 1999
+<BR>
+@@ -4,6 +4,8 @@
+<BR>
+&nbsp;&nbsp;*  Copyright (C) 1995  Linus Torvalds
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++/* 2.3.x zone allocator, 1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;linux/signal.h&gt;
+<BR>
+&nbsp;#include &lt;linux/sched.h&gt;
+<BR>
+@@ -15,6 +17,7 @@
+<BR>
+&nbsp;#include &lt;linux/mman.h&gt;
+<BR>
+&nbsp;#include &lt;linux/mm.h&gt;
+<BR>
+&nbsp;#include &lt;linux/swap.h&gt;
+<BR>
++#include &lt;linux/bootmem.h&gt; /* max_low_pfn */
+<BR>
+&nbsp;#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
+&nbsp;#include &lt;linux/blk.h&gt;
+<BR>
+&nbsp;#endif
+<BR>
+@@ -22,10 +25,12 @@
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;#include &lt;asm/uaccess.h&gt;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
++#include &lt;asm/pgalloc.h&gt;
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
++#include &lt;asm/mmu_context.h&gt;
+<BR>
+&nbsp;
+<BR>
+-#define DEBUG_POISON 0
+<BR>
++static unsigned long totalram_pages;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void die_if_kernel(char *,struct pt_regs *,long);
+<BR>
+&nbsp;extern void show_net_buffers(void);
+<BR>
+@@ -58,7 +63,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pmd = (pmd_t *) __get_free_page(GFP_KERNEL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pgd_none(*pgd)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pmd) {
+<BR>
+-			clear_page((unsigned long)pmd);
+<BR>
++			clear_page((void *)pmd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pgd_set(pgd, pmd);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return pmd + offset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -81,7 +86,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pte = (pte_t *) __get_free_page(GFP_KERNEL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pmd_none(*pmd)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pte) {
+<BR>
+-			clear_page((unsigned long)pte);
+<BR>
++			clear_page((void *)pte);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pmd_set(pmd, pte);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return pte + offset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -136,7 +141,7 @@
+<BR>
+&nbsp;__bad_page(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset((void *) EMPTY_PGE, 0, PAGE_SIZE);
+<BR>
+-	return pte_mkdirty(mk_pte((unsigned long) EMPTY_PGE, PAGE_SHARED));
+<BR>
++	return pte_mkdirty(mk_pte(mem_map + MAP_NR(EMPTY_PGE), PAGE_SHARED));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+@@ -172,8 +177,6 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-extern unsigned long free_area_init(unsigned long, unsigned long);
+<BR>
+-
+<BR>
+&nbsp;static inline unsigned long
+<BR>
+&nbsp;load_PCB(struct thread_struct * pcb)
+<BR>
+&nbsp;{
+<BR>
+@@ -186,40 +189,39 @@
+<BR>
+&nbsp;&nbsp;* paging_init() sets up the page tables: in the alpha version this actually
+<BR>
+&nbsp;&nbsp;* unmaps the bootup page table (as we're now in KSEG, so we don't need it).
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-unsigned long
+<BR>
+-paging_init(unsigned long start_mem, unsigned long end_mem)
+<BR>
++void paging_init(void)
+<BR>
+&nbsp;{
+<BR>
+-	int i;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long newptbr;
+<BR>
+-	struct memclust_struct * cluster;
+<BR>
+-	struct memdesc_struct * memdesc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long original_pcb_ptr;
+<BR>
++	unsigned int zones_size[MAX_NR_ZONES] = {0, 0, 0};
+<BR>
++	unsigned long dma_pfn, high_pfn;
+<BR>
+&nbsp;
+<BR>
+-	/* initialize mem_map[] */
+<BR>
+-	start_mem = free_area_init(start_mem, end_mem);
+<BR>
++	dma_pfn = virt_to_phys((char *)MAX_DMA_ADDRESS) &gt;&gt; PAGE_SHIFT;
+<BR>
++	high_pfn = max_low_pfn;
+<BR>
+&nbsp;
+<BR>
+-	/* find free clusters, update mem_map[] accordingly */
+<BR>
+-	memdesc = (struct memdesc_struct *)
+<BR>
+-		(hwrpb-&gt;mddt_offset + (unsigned long) hwrpb);
+<BR>
+-	cluster = memdesc-&gt;cluster;
+<BR>
+-	for (i = memdesc-&gt;numclusters ; i &gt; 0; i--, cluster++) {
+<BR>
+-		unsigned long pfn, nr;
+<BR>
+-
+<BR>
+-		/* Bit 0 is console/PALcode reserved.  Bit 1 is
+<BR>
+-		   non-volatile memory -- we might want to mark
+<BR>
+-		   this for later */
+<BR>
+-		if (cluster-&gt;usage &amp; 3)
+<BR>
+-			continue;
+<BR>
+-		pfn = cluster-&gt;start_pfn;
+<BR>
+-		nr = cluster-&gt;numpages;
+<BR>
++#define ORDER_MASK (~((1 &lt;&lt; (MAX_ORDER-1))-1))
+<BR>
++#define ORDER_ALIGN(n)	(((n) +  ~ORDER_MASK) &amp; ORDER_MASK)
+<BR>
+&nbsp;
+<BR>
+-		while (nr--)
+<BR>
+-			clear_bit(PG_reserved, &amp;mem_map[pfn++].flags);
+<BR>
++	dma_pfn = ORDER_ALIGN(dma_pfn);
+<BR>
++	high_pfn = ORDER_ALIGN(high_pfn);
+<BR>
++
+<BR>
++#undef ORDER_MASK
+<BR>
++#undef ORDER_ALIGN
+<BR>
++
+<BR>
++	if (dma_pfn &gt; high_pfn)
+<BR>
++		zones_size[ZONE_DMA] = high_pfn;
+<BR>
++	else
+<BR>
++	{
+<BR>
++		zones_size[0] = dma_pfn;
+<BR>
++		zones_size[ZONE_NORMAL] = high_pfn - dma_pfn;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	/* initialize mem_map[] */
+<BR>
++	free_area_init(zones_size);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Initialize the kernel's page tables.  Linux puts the vptb in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the last slot of the L1 page table.  */
+<BR>
+-	memset((void *) ZERO_PAGE(0), 0, PAGE_SIZE);
+<BR>
++	memset((void *)ZERO_PGE, 0, PAGE_SIZE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(swapper_pg_dir, 0, PAGE_SIZE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newptbr = ((unsigned long) swapper_pg_dir - PAGE_OFFSET) &gt;&gt; PAGE_SHIFT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pgd_val(swapper_pg_dir[1023]) =
+<BR>
+@@ -252,8 +254,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;phys_to_virt(original_pcb_ptr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;original_pcb = *(struct thread_struct *) original_pcb_ptr;
+<BR>
+-
+<BR>
+-	return start_mem;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SRM)
+<BR>
+@@ -273,64 +273,12 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+-#if DEBUG_POISON
+<BR>
+-static void
+<BR>
+-kill_page(unsigned long pg)
+<BR>
+-{
+<BR>
+-	unsigned long *p = (unsigned long *)pg;
+<BR>
+-	unsigned long i = PAGE_SIZE, v = 0xdeadbeefdeadbeef;
+<BR>
+-	do {
+<BR>
+-		p[0] = v;
+<BR>
+-		p[1] = v;
+<BR>
+-		p[2] = v;
+<BR>
+-		p[3] = v;
+<BR>
+-		p[4] = v;
+<BR>
+-		p[5] = v;
+<BR>
+-		p[6] = v;
+<BR>
+-		p[7] = v;
+<BR>
+-		i -= 64;
+<BR>
+-		p += 8;
+<BR>
+-	} while (i != 0);
+<BR>
+-}
+<BR>
+-#else
+<BR>
+-#define kill_page(pg)
+<BR>
+-#endif
+<BR>
+-
+<BR>
+&nbsp;void
+<BR>
+-mem_init(unsigned long start_mem, unsigned long end_mem)
+<BR>
++mem_init(void)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long tmp;
+<BR>
+-
+<BR>
+-	end_mem &amp;= PAGE_MASK;
+<BR>
+-	max_mapnr = num_physpages = MAP_NR(end_mem);
+<BR>
+-	high_memory = (void *) end_mem;
+<BR>
+-	start_mem = PAGE_ALIGN(start_mem);
+<BR>
+-
+<BR>
+-	/*
+<BR>
+-	 * Mark the pages used by the kernel as reserved.
+<BR>
+-	 */
+<BR>
+-	tmp = KERNEL_START;
+<BR>
+-	while (tmp &lt; start_mem) {
+<BR>
+-		set_bit(PG_reserved, &amp;mem_map[MAP_NR(tmp)].flags);
+<BR>
+-		tmp += PAGE_SIZE;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	for (tmp = PAGE_OFFSET ; tmp &lt; end_mem ; tmp += PAGE_SIZE) {
+<BR>
+-		if (tmp &gt;= MAX_DMA_ADDRESS)
+<BR>
+-			clear_bit(PG_DMA, &amp;mem_map[MAP_NR(tmp)].flags);
+<BR>
+-		if (PageReserved(mem_map+MAP_NR(tmp)))
+<BR>
+-			continue;
+<BR>
+-		atomic_set(&amp;mem_map[MAP_NR(tmp)].count, 1);
+<BR>
+-#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
+-		if (initrd_start &amp;&amp; tmp &gt;= initrd_start &amp;&amp; tmp &lt; initrd_end)
+<BR>
+-			continue;
+<BR>
+-#endif
+<BR>
+-		kill_page(tmp);
+<BR>
+-		free_page(tmp);
+<BR>
+-	}
+<BR>
+-	tmp = nr_free_pages &lt;&lt; PAGE_SHIFT;
+<BR>
+-	printk(&quot;Memory: %luk available\n&quot;, tmp &gt;&gt; 10);
+<BR>
+-	return;
+<BR>
++	max_mapnr = num_physpages = max_low_pfn;
+<BR>
++	totalram_pages += free_all_bootmem();
+<BR>
++	printk(&quot;Memory: %luk available\n&quot;, totalram_pages &gt;&gt; 10);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+@@ -341,34 +289,36 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr = (unsigned long)(&amp;__init_begin);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (; addr &lt; (unsigned long)(&amp;__init_end); addr += PAGE_SIZE) {
+<BR>
+-		mem_map[MAP_NR(addr)].flags &amp;= ~(1 &lt;&lt; PG_reserved);
+<BR>
+-		atomic_set(&amp;mem_map[MAP_NR(addr)].count, 1);
+<BR>
+-		kill_page(addr);
+<BR>
++		ClearPageReserved(mem_map + MAP_NR(addr));
+<BR>
++		set_page_count(mem_map+MAP_NR(addr), 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free_page(addr);
+<BR>
++		totalram_pages++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;Freeing unused kernel memory: %ldk freed\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(&amp;__init_end - &amp;__init_begin) &gt;&gt; 10);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
++void free_initrd_mem(unsigned long start, unsigned long end)
+<BR>
++{
+<BR>
++	for (; start &lt; end; start += PAGE_SIZE) {
+<BR>
++		ClearPageReserved(mem_map + MAP_NR(start));
+<BR>
++		set_page_count(mem_map+MAP_NR(start), 1);
+<BR>
++		free_page(start);
+<BR>
++		totalram_pages++;
+<BR>
++	}
+<BR>
++	printk (&quot;Freeing initrd memory: %ldk freed\n&quot;, (end - start) &gt;&gt; 10);
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;void
+<BR>
+&nbsp;si_meminfo(struct sysinfo *val)
+<BR>
+&nbsp;{
+<BR>
+-	int i;
+<BR>
+-
+<BR>
+-	i = max_mapnr;
+<BR>
+-	val-&gt;totalram = 0;
+<BR>
++	val-&gt;totalram = totalram_pages;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;val-&gt;sharedram = 0;
+<BR>
+-	val-&gt;freeram = nr_free_pages &lt;&lt; PAGE_SHIFT;
+<BR>
+-	val-&gt;bufferram = atomic_read(&amp;buffermem);
+<BR>
+-	while (i-- &gt; 0)  {
+<BR>
+-		if (PageReserved(mem_map+i))
+<BR>
+-			continue;
+<BR>
+-		val-&gt;totalram++;
+<BR>
+-		if (!atomic_read(&amp;mem_map[i].count))
+<BR>
+-			continue;
+<BR>
+-		val-&gt;sharedram += atomic_read(&amp;mem_map[i].count) - 1;
+<BR>
+-	}
+<BR>
+-	val-&gt;totalram &lt;&lt;= PAGE_SHIFT;
+<BR>
+-	val-&gt;sharedram &lt;&lt;= PAGE_SHIFT;
+<BR>
+-	return;
+<BR>
++	val-&gt;freeram = nr_free_pages();
+<BR>
++	val-&gt;bufferram = atomic_read(&amp;buffermem_pages);
+<BR>
++	val-&gt;totalhigh = 0;
+<BR>
++	val-&gt;freehigh = 0;
+<BR>
++	val-&gt;mem_unit = PAGE_SIZE;
+<BR>
+&nbsp;}
+<BR>
+diff -urN 2.3.29pre3/arch/i386/kernel/pci-i386.c alpha/arch/i386/kernel/pci-i386.c
+<BR>
+--- 2.3.29pre3/arch/i386/kernel/pci-i386.c	Tue Oct 26 21:30:50 1999
+<BR>
++++ alpha/arch/i386/kernel/pci-i386.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -122,12 +122,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;PCI: I/O Region %s/%d too large (%ld bytes)\n&quot;, dev-&gt;slot_name, i, size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFBIG;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-		if (allocate_resource(pr, r, size, 0x1000, ~0, 1024)) {
+<BR>
++		if (allocate_resource(pr, r, size, 0x1000, ~0, 1024, dev)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;PCI: Allocation of I/O region %s/%d (%ld bytes) failed\n&quot;, dev-&gt;slot_name, i, size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EBUSY;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+-		if (allocate_resource(pr, r, size, 0x10000000, ~0, size)) {
+<BR>
++		if (allocate_resource(pr, r, size, 0x10000000, ~0, size, dev)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;PCI: Allocation of memory region %s/%d (%ld bytes) failed\n&quot;, dev-&gt;slot_name, i, size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EBUSY;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -291,6 +291,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_allocate_resources(0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_allocate_resources(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_assign_resources();
+<BR>
++}
+<BR>
++
+<BR>
++unsigned long resource_fixup(struct pci_dev * dev, struct resource * res,
+<BR>
++			     unsigned long start, unsigned long size)
+<BR>
++{
+<BR>
++	return start;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;int pcibios_enable_resources(struct pci_dev *dev)
+<BR>
+diff -urN 2.3.29pre3/arch/i386/mm/init.c alpha/arch/i386/mm/init.c
+<BR>
+--- 2.3.29pre3/arch/i386/mm/init.c	Mon Nov 22 23:08:56 1999
+<BR>
++++ alpha/arch/i386/mm/init.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -636,6 +636,19 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;Freeing unused kernel memory: %dk freed\n&quot;, (&amp;__init_end - &amp;__init_begin) &gt;&gt; 10);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_BLK_DEV_INITRD
+<BR>
++void free_initrd_mem(unsigned long start, unsigned long end)
+<BR>
++{
+<BR>
++	for (; start &lt; end; start += PAGE_SIZE) {
+<BR>
++		ClearPageReserved(mem_map + MAP_NR(start));
+<BR>
++		set_page_count(mem_map+MAP_NR(start), 1);
+<BR>
++		free_page(start);
+<BR>
++		totalram_pages++;
+<BR>
++	}
+<BR>
++	printk (&quot;Freeing initrd memory: %ldk freed\n&quot;, (end - start) &gt;&gt; 10);
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;void si_meminfo(struct sysinfo *val)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;val-&gt;totalram = totalram_pages;
+<BR>
+diff -urN 2.3.29pre3/drivers/block/rd.c alpha/drivers/block/rd.c
+<BR>
+--- 2.3.29pre3/drivers/block/rd.c	Mon Nov 22 23:08:57 1999
+<BR>
++++ alpha/drivers/block/rd.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -276,9 +276,11 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int initrd_release(struct inode *inode,struct file *file)
+<BR>
+&nbsp;{
+<BR>
++	extern void free_initrd_mem(unsigned long, unsigned long);
+<BR>
++
+<BR>
++	if (--initrd_users) return 0;
+<BR>
++	free_initrd_mem(initrd_start, initrd_end);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;initrd_start = 0;
+<BR>
+-	/* No need to actually release the pages, because that is
+<BR>
+-	   done later by free_all_bootmem. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.29pre3/drivers/pci/pci.c alpha/drivers/pci/pci.c
+<BR>
+--- 2.3.29pre3/drivers/pci/pci.c	Tue Oct 26 21:30:50 1999
+<BR>
++++ alpha/drivers/pci/pci.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -437,6 +437,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev = dev_cache;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(dev, 0, sizeof(*dev));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;bus = bus;
+<BR>
++		dev-&gt;sysdata = bus-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;devfn  = devfn;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pci_read_config_byte(dev, PCI_HEADER_TYPE, &amp;hdr_type))
+<BR>
+@@ -556,6 +557,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;self = dev;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;parent = bus;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;ops = bus-&gt;ops;
+<BR>
++			child-&gt;sysdata = bus-&gt;sysdata;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the primary, secondary and subordinate
+<BR>
+diff -urN 2.3.29pre3/drivers/pci/setup.c alpha/drivers/pci/setup.c
+<BR>
+--- 2.3.29pre3/drivers/pci/setup.c	Tue Oct 26 21:30:50 1999
+<BR>
++++ alpha/drivers/pci/setup.c	Tue Nov 23 16:02:32 1999
+<BR>
+@@ -9,6 +9,8 @@
+<BR>
+&nbsp;&nbsp;* Support routines for initializing a PCI subsystem.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++/* fixed for multiple pci buses, 1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/kernel.h&gt;
+<BR>
+&nbsp;#include &lt;linux/pci.h&gt;
+<BR>
+@@ -33,15 +35,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int err;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;err = -EINVAL;
+<BR>
+-	if (root != NULL) {
+<BR>
+-		/* If `dev' is on a secondary pci bus, `root' may not be
+<BR>
+-		   at the origin.  In that case, adjust the resource into
+<BR>
+-		   range.  */
+<BR>
+-		res-&gt;start += root-&gt;start;
+<BR>
+-		res-&gt;end += root-&gt;start;
+<BR>
+-
+<BR>
++	if (root != NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;err = request_resource(root, res);
+<BR>
+-	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (err) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;PCI: Address space collision on region %d &quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;of device %s\n&quot;, resource, dev-&gt;name);
+<BR>
+@@ -89,7 +84,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGC((&quot;  for root[%lx:%lx] min[%lx] size[%lx]\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;root-&gt;start, root-&gt;end, min, size));
+<BR>
+&nbsp;
+<BR>
+-		if (allocate_resource(root, res, size, min, -1, size) &lt; 0) {
+<BR>
++		if (allocate_resource(root, res, size, min, -1, size, dev) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;PCI: Failed to allocate resource %d for %s\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i, dev-&gt;name);
+<BR>
+@@ -148,13 +143,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pdev_assign_unassigned_resources(dev, min_io, min_mem);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-struct pbus_set_ranges_data
+<BR>
+-{
+<BR>
+-	int found_vga;
+<BR>
+-	unsigned int io_start, io_end;
+<BR>
+-	unsigned int mem_start, mem_end;
+<BR>
+-};
+<BR>
+-
+<BR>
+&nbsp;#define ROUND_UP(x, a)		(((x) + (a) - 1) &amp; ~((a) - 1))
+<BR>
+&nbsp;#define ROUND_DOWN(x, a)	((x) &amp; ~((a) - 1))
+<BR>
+&nbsp;
+<BR>
+@@ -166,7 +154,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev *dev;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inner.found_vga = 0;
+<BR>
+-	inner.mem_start = inner.io_start = ~0;
+<BR>
++	inner.mem_start = inner.io_start = ~0UL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inner.mem_end = inner.io_end = 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Collect information about how our direct children are layed out. */
+<BR>
+@@ -200,6 +188,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inner.mem_start = ROUND_DOWN(inner.mem_start, 1*1024*1024);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inner.mem_end = ROUND_UP(inner.mem_end, 1*1024*1024);
+<BR>
++
+<BR>
++	pcibios_fixup_pbus_ranges(bus, &amp;inner);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Configure the bridge, if possible.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (bus-&gt;self) {
+<BR>
+diff -urN 2.3.29pre3/drivers/video/tgafb.c alpha/drivers/video/tgafb.c
+<BR>
+--- 2.3.29pre3/drivers/video/tgafb.c	Tue Sep 14 14:35:13 1999
+<BR>
++++ alpha/drivers/video/tgafb.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -937,7 +937,7 @@
+<BR>
+&nbsp;static void tgafb_set_disp(const void *fb_par, struct display *disp,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct fb_info_gen *info)
+<BR>
+&nbsp;{
+<BR>
+-    disp-&gt;screen_base = ioremap(fb_info.tga_fb_base);
+<BR>
++    disp-&gt;screen_base = ioremap(fb_info.tga_fb_base, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (fb_info.tga_type) {
+<BR>
+&nbsp;#ifdef FBCON_HAS_CFB8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 0: /* 8-plane */
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/core_tsunami.h alpha/include/asm-alpha/core_tsunami.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/core_tsunami.h	Tue Oct 12 18:16:42 1999
+<BR>
++++ alpha/include/asm-alpha/core_tsunami.h	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -291,6 +291,9 @@
+<BR>
+&nbsp;#define TSUNAMI_IO_BIAS          TSUNAMI_IO(0)
+<BR>
+&nbsp;#define TSUNAMI_MEM_BIAS         TSUNAMI_MEM(0)
+<BR>
+&nbsp;
+<BR>
++/* The IO address space is larger than 0xffff */
+<BR>
++#define TSUNAMI_IO_SPACE	(TSUNAMI_CONF(0) - TSUNAMI_IO(0))
+<BR>
++#define TSUNAMI_MEM_SPACE	(_TSUNAMI_IACK_SC(0) - TSUNAMI_MEM(0))
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Data structure for handling TSUNAMI machine checks:
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/div64.h alpha/include/asm-alpha/div64.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/div64.h	Sun Nov 21 03:20:20 1999
+<BR>
++++ alpha/include/asm-alpha/div64.h	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -7,8 +7,8 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;#define do_div(n,base) ({ \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __res; \
+<BR>
+-	__res = ((unsigned long) n) % (unsigned) base; \
+<BR>
+-	n = ((unsigned long) n) / (unsigned) base; \
+<BR>
++	__res = ((unsigned long) (n)) % (unsigned) (base); \
+<BR>
++	(n) = ((unsigned long) (n)) / (unsigned) (base); \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__res; })
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/machvec.h alpha/include/asm-alpha/machvec.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/machvec.h	Sun Nov 21 17:46:05 1999
+<BR>
++++ alpha/include/asm-alpha/machvec.h	Tue Nov 23 00:07:43 1999
+<BR>
+@@ -78,7 +78,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*device_interrupt)(unsigned long vector, struct pt_regs *regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*machine_check)(u64 vector, u64 la, struct pt_regs *regs);
+<BR>
+&nbsp;
+<BR>
+-	void (*init_arch)(unsigned long *, unsigned long *);
+<BR>
++	void (*init_arch)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_irq)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_pit)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_pci)(void);
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/page.h alpha/include/asm-alpha/page.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/page.h	Tue Sep 14 14:33:21 1999
+<BR>
++++ alpha/include/asm-alpha/page.h	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -19,7 +19,7 @@
+<BR>
+&nbsp;&nbsp;* results in clearer kernel profiles as we see _who_ is
+<BR>
+&nbsp;&nbsp;* doing page clearing or copying.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-static inline void clear_page(unsigned long page)
+<BR>
++static inline void clear_page(void * page)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long count = PAGE_SIZE/64;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *ptr = (unsigned long *)page;
+<BR>
+@@ -38,7 +38,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while (count);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void copy_page(unsigned long _to, unsigned long _from)
+<BR>
++static inline void copy_page(void * _to, void * _from)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long count = PAGE_SIZE/64;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *to = (unsigned long *)_to;
+<BR>
+@@ -106,7 +106,16 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* STRICT_MM_TYPECHECKS */
+<BR>
+&nbsp;
+<BR>
++#if 0
+<BR>
+&nbsp;#define BUG()		__asm__ __volatile__(&quot;call_pal 129 # bugchk&quot;)
+<BR>
++#else
+<BR>
++/* hack to see the BUG() information in the early boot stage */
+<BR>
++#define BUG()								\
+<BR>
++do {									\
+<BR>
++	SRM_printf(&quot;kernel BUG at %s:%d!\n&quot;, __FILE__, __LINE__);	\
+<BR>
++	halt();								\
+<BR>
++} while(0)
+<BR>
++#endif
+<BR>
+&nbsp;#define PAGE_BUG(page)	BUG()
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* !ASSEMBLY */
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/pgalloc.h alpha/include/asm-alpha/pgalloc.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/pgalloc.h	Thu Jan  1 01:00:00 1970
+<BR>
++++ alpha/include/asm-alpha/pgalloc.h	Tue Nov 23 03:57:46 1999
+<BR>
+@@ -0,0 +1,337 @@
+<BR>
++#ifndef _ALPHA_PGALLOC_H
+<BR>
++#define _ALPHA_PGALLOC_H
+<BR>
++
+<BR>
++#include &lt;linux/config.h&gt;
+<BR>
++
+<BR>
++/* Caches aren't brain-dead on the Alpha. */
+<BR>
++#define flush_cache_all()			do { } while (0)
+<BR>
++#define flush_cache_mm(mm)			do { } while (0)
+<BR>
++#define flush_cache_range(mm, start, end)	do { } while (0)
+<BR>
++#define flush_cache_page(vma, vmaddr)		do { } while (0)
+<BR>
++#define flush_page_to_ram(page)			do { } while (0)
+<BR>
++#define flush_icache_range(start, end)		do { } while (0)
+<BR>
++
+<BR>
++/*
+<BR>
++ * Use a few helper functions to hide the ugly broken ASN
+<BR>
++ * numbers on early Alphas (ev4 and ev45)
+<BR>
++ */
+<BR>
++
+<BR>
++#ifndef __EXTERN_INLINE
+<BR>
++#define __EXTERN_INLINE extern inline
+<BR>
++#define __MMU_EXTERN_INLINE
+<BR>
++#endif
+<BR>
++
+<BR>
++__EXTERN_INLINE void
+<BR>
++ev4_flush_tlb_current(struct mm_struct *mm)
+<BR>
++{
+<BR>
++	tbiap();
+<BR>
++}
+<BR>
++
+<BR>
++__EXTERN_INLINE void
+<BR>
++ev4_flush_tlb_other(struct mm_struct *mm)
+<BR>
++{
+<BR>
++}
+<BR>
++
+<BR>
++extern void ev5_flush_tlb_current(struct mm_struct *mm);
+<BR>
++
+<BR>
++__EXTERN_INLINE void
+<BR>
++ev5_flush_tlb_other(struct mm_struct *mm)
+<BR>
++{
+<BR>
++	mm-&gt;context = 0;
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * Flush just one page in the current TLB set.
+<BR>
++ * We need to be very careful about the icache here, there
+<BR>
++ * is no way to invalidate a specific icache page..
+<BR>
++ */
+<BR>
++
+<BR>
++__EXTERN_INLINE void
+<BR>
++ev4_flush_tlb_current_page(struct mm_struct * mm,
+<BR>
++			   struct vm_area_struct *vma,
+<BR>
++			   unsigned long addr)
+<BR>
++{
+<BR>
++	tbi(2 + ((vma-&gt;vm_flags &amp; VM_EXEC) != 0), addr);
+<BR>
++}
+<BR>
++
+<BR>
++__EXTERN_INLINE void
+<BR>
++ev5_flush_tlb_current_page(struct mm_struct * mm,
+<BR>
++			   struct vm_area_struct *vma,
+<BR>
++			   unsigned long addr)
+<BR>
++{
+<BR>
++	if (vma-&gt;vm_flags &amp; VM_EXEC)
+<BR>
++		ev5_flush_tlb_current(mm);
+<BR>
++	else
+<BR>
++		tbi(2, addr);
+<BR>
++}
+<BR>
++
+<BR>
++
+<BR>
++#ifdef CONFIG_ALPHA_GENERIC
+<BR>
++# define flush_tlb_current		alpha_mv.mv_flush_tlb_current
+<BR>
++# define flush_tlb_other		alpha_mv.mv_flush_tlb_other
+<BR>
++# define flush_tlb_current_page		alpha_mv.mv_flush_tlb_current_page
+<BR>
++#else
+<BR>
++# ifdef CONFIG_ALPHA_EV4
+<BR>
++#  define flush_tlb_current		ev4_flush_tlb_current
+<BR>
++#  define flush_tlb_other		ev4_flush_tlb_other
+<BR>
++#  define flush_tlb_current_page	ev4_flush_tlb_current_page
+<BR>
++# else
+<BR>
++#  define flush_tlb_current		ev5_flush_tlb_current
+<BR>
++#  define flush_tlb_other		ev5_flush_tlb_other
+<BR>
++#  define flush_tlb_current_page	ev5_flush_tlb_current_page
+<BR>
++# endif
+<BR>
++#endif
+<BR>
++
+<BR>
++#ifdef __MMU_EXTERN_INLINE
+<BR>
++#undef __EXTERN_INLINE
+<BR>
++#undef __MMU_EXTERN_INLINE
+<BR>
++#endif
+<BR>
++
+<BR>
++/*
+<BR>
++ * Flush current user mapping.
+<BR>
++ */
+<BR>
++static inline void flush_tlb(void)
+<BR>
++{
+<BR>
++	flush_tlb_current(current-&gt;mm);
+<BR>
++}
+<BR>
++
+<BR>
++#ifndef __SMP__
+<BR>
++/*
+<BR>
++ * Flush everything (kernel mapping may also have
+<BR>
++ * changed due to vmalloc/vfree)
+<BR>
++ */
+<BR>
++static inline void flush_tlb_all(void)
+<BR>
++{
+<BR>
++	tbia();
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * Flush a specified user mapping
+<BR>
++ */
+<BR>
++static inline void flush_tlb_mm(struct mm_struct *mm)
+<BR>
++{
+<BR>
++	if (mm != current-&gt;mm)
+<BR>
++		flush_tlb_other(mm);
+<BR>
++	else
+<BR>
++		flush_tlb_current(mm);
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * Page-granular tlb flush.
+<BR>
++ *
+<BR>
++ * do a tbisd (type = 2) normally, and a tbis (type = 3)
+<BR>
++ * if it is an executable mapping.  We want to avoid the
+<BR>
++ * itlb flush, because that potentially also does a
+<BR>
++ * icache flush.
+<BR>
++ */
+<BR>
++static inline void flush_tlb_page(struct vm_area_struct *vma,
+<BR>
++	unsigned long addr)
+<BR>
++{
+<BR>
++	struct mm_struct * mm = vma-&gt;vm_mm;
+<BR>
++
+<BR>
++	if (mm != current-&gt;mm)
+<BR>
++		flush_tlb_other(mm);
+<BR>
++	else
+<BR>
++		flush_tlb_current_page(mm, vma, addr);
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * Flush a specified range of user mapping:  on the
+<BR>
++ * Alpha we flush the whole user tlb.
+<BR>
++ */
+<BR>
++static inline void flush_tlb_range(struct mm_struct *mm,
+<BR>
++	unsigned long start, unsigned long end)
+<BR>
++{
+<BR>
++	flush_tlb_mm(mm);
+<BR>
++}
+<BR>
++
+<BR>
++#else /* __SMP__ */
+<BR>
++
+<BR>
++extern void flush_tlb_all(void);
+<BR>
++extern void flush_tlb_mm(struct mm_struct *);
+<BR>
++extern void flush_tlb_page(struct vm_area_struct *, unsigned long);
+<BR>
++extern void flush_tlb_range(struct mm_struct *, unsigned long, unsigned long);
+<BR>
++
+<BR>
++#endif /* __SMP__ */
+<BR>
++
+<BR>
++/*      
+<BR>
++ * Allocate and free page tables. The xxx_kernel() versions are
+<BR>
++ * used to allocate a kernel page table - this turns on ASN bits
+<BR>
++ * if any.
+<BR>
++ */
+<BR>
++#ifndef __SMP__
+<BR>
++extern struct pgtable_cache_struct {
+<BR>
++	unsigned long *pgd_cache;
+<BR>
++	unsigned long *pte_cache;
+<BR>
++	unsigned long pgtable_cache_sz;
+<BR>
++} quicklists;
+<BR>
++#else
+<BR>
++#include &lt;asm/smp.h&gt;
+<BR>
++#define quicklists cpu_data[smp_processor_id()]
+<BR>
++#endif
+<BR>
++#define pgd_quicklist (quicklists.pgd_cache)
+<BR>
++#define pmd_quicklist ((unsigned long *)0)
+<BR>
++#define pte_quicklist (quicklists.pte_cache)
+<BR>
++#define pgtable_cache_size (quicklists.pgtable_cache_sz)
+<BR>
++
+<BR>
++extern __inline__ pgd_t *get_pgd_slow(void)
+<BR>
++{
+<BR>
++	pgd_t *ret = (pgd_t *)__get_free_page(GFP_KERNEL), *init;
+<BR>
++	
+<BR>
++	if (ret) {
+<BR>
++		init = pgd_offset(&amp;init_mm, 0UL);
+<BR>
++		memset (ret, 0, USER_PTRS_PER_PGD * sizeof(pgd_t));
+<BR>
++		memcpy (ret + USER_PTRS_PER_PGD, init + USER_PTRS_PER_PGD,
+<BR>
++			(PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
+<BR>
++
+<BR>
++		pgd_val(ret[PTRS_PER_PGD])
+<BR>
++		  = pte_val(mk_pte(mem_map + MAP_NR(ret), PAGE_KERNEL));
+<BR>
++	}
+<BR>
++	return ret;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ pgd_t *get_pgd_fast(void)
+<BR>
++{
+<BR>
++	unsigned long *ret;
+<BR>
++
+<BR>
++	if((ret = pgd_quicklist) != NULL) {
+<BR>
++		pgd_quicklist = (unsigned long *)(*ret);
+<BR>
++		ret[0] = ret[1];
+<BR>
++		pgtable_cache_size--;
+<BR>
++	} else
+<BR>
++		ret = (unsigned long *)get_pgd_slow();
+<BR>
++	return (pgd_t *)ret;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pgd_fast(pgd_t *pgd)
+<BR>
++{
+<BR>
++	*(unsigned long *)pgd = (unsigned long) pgd_quicklist;
+<BR>
++	pgd_quicklist = (unsigned long *) pgd;
+<BR>
++	pgtable_cache_size++;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pgd_slow(pgd_t *pgd)
+<BR>
++{
+<BR>
++	free_page((unsigned long)pgd);
+<BR>
++}
+<BR>
++
+<BR>
++extern pmd_t *get_pmd_slow(pgd_t *pgd, unsigned long address_premasked);
+<BR>
++
+<BR>
++extern __inline__ pmd_t *get_pmd_fast(void)
+<BR>
++{
+<BR>
++	unsigned long *ret;
+<BR>
++
+<BR>
++	if((ret = (unsigned long *)pte_quicklist) != NULL) {
+<BR>
++		pte_quicklist = (unsigned long *)(*ret);
+<BR>
++		ret[0] = ret[1];
+<BR>
++		pgtable_cache_size--;
+<BR>
++	}
+<BR>
++	return (pmd_t *)ret;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pmd_fast(pmd_t *pmd)
+<BR>
++{
+<BR>
++	*(unsigned long *)pmd = (unsigned long) pte_quicklist;
+<BR>
++	pte_quicklist = (unsigned long *) pmd;
+<BR>
++	pgtable_cache_size++;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pmd_slow(pmd_t *pmd)
+<BR>
++{
+<BR>
++	free_page((unsigned long)pmd);
+<BR>
++}
+<BR>
++
+<BR>
++extern pte_t *get_pte_slow(pmd_t *pmd, unsigned long address_preadjusted);
+<BR>
++
+<BR>
++extern __inline__ pte_t *get_pte_fast(void)
+<BR>
++{
+<BR>
++	unsigned long *ret;
+<BR>
++
+<BR>
++	if((ret = (unsigned long *)pte_quicklist) != NULL) {
+<BR>
++		pte_quicklist = (unsigned long *)(*ret);
+<BR>
++		ret[0] = ret[1];
+<BR>
++		pgtable_cache_size--;
+<BR>
++	}
+<BR>
++	return (pte_t *)ret;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pte_fast(pte_t *pte)
+<BR>
++{
+<BR>
++	*(unsigned long *)pte = (unsigned long) pte_quicklist;
+<BR>
++	pte_quicklist = (unsigned long *) pte;
+<BR>
++	pgtable_cache_size++;
+<BR>
++}
+<BR>
++
+<BR>
++extern __inline__ void free_pte_slow(pte_t *pte)
+<BR>
++{
+<BR>
++	free_page((unsigned long)pte);
+<BR>
++}
+<BR>
++
+<BR>
++extern void __bad_pte(pmd_t *pmd);
+<BR>
++extern void __bad_pmd(pgd_t *pgd);
+<BR>
++
+<BR>
++#define pte_free_kernel(pte)	free_pte_fast(pte)
+<BR>
++#define pte_free(pte)		free_pte_fast(pte)
+<BR>
++#define pmd_free_kernel(pmd)	free_pmd_fast(pmd)
+<BR>
++#define pmd_free(pmd)		free_pmd_fast(pmd)
+<BR>
++#define pgd_free(pgd)		free_pgd_fast(pgd)
+<BR>
++#define pgd_alloc()		get_pgd_fast()
+<BR>
++
+<BR>
++extern inline pte_t * pte_alloc(pmd_t *pmd, unsigned long address)
+<BR>
++{
+<BR>
++	address = (address &gt;&gt; PAGE_SHIFT) &amp; (PTRS_PER_PTE - 1);
+<BR>
++	if (pmd_none(*pmd)) {
+<BR>
++		pte_t *page = get_pte_fast();
+<BR>
++		
+<BR>
++		if (!page)
+<BR>
++			return get_pte_slow(pmd, address);
+<BR>
++		pmd_set(pmd, page);
+<BR>
++		return page + address;
+<BR>
++	}
+<BR>
++	if (pmd_bad(*pmd)) {
+<BR>
++		__bad_pte(pmd);
+<BR>
++		return NULL;
+<BR>
++	}
+<BR>
++	return (pte_t *) pmd_page(*pmd) + address;
+<BR>
++}
+<BR>
++
+<BR>
++extern inline pmd_t * pmd_alloc(pgd_t *pgd, unsigned long address)
+<BR>
++{
+<BR>
++	address = (address &gt;&gt; PMD_SHIFT) &amp; (PTRS_PER_PMD - 1);
+<BR>
++	if (pgd_none(*pgd)) {
+<BR>
++		pmd_t *page = get_pmd_fast();
+<BR>
++		
+<BR>
++		if (!page)
+<BR>
++			return get_pmd_slow(pgd, address);
+<BR>
++		pgd_set(pgd, page);
+<BR>
++		return page + address;
+<BR>
++	}
+<BR>
++	if (pgd_bad(*pgd)) {
+<BR>
++		__bad_pmd(pgd);
+<BR>
++		return NULL;
+<BR>
++	}
+<BR>
++	return (pmd_t *) pgd_page(*pgd) + address;
+<BR>
++}
+<BR>
++
+<BR>
++#define pte_alloc_kernel	pte_alloc
+<BR>
++#define pmd_alloc_kernel	pmd_alloc
+<BR>
++
+<BR>
++extern int do_check_pgt_cache(int, int);
+<BR>
++
+<BR>
++extern inline void set_pgdir(unsigned long address, pgd_t entry)
+<BR>
++{
+<BR>
++	struct task_struct * p;
+<BR>
++	pgd_t *pgd;
+<BR>
++        
+<BR>
++	read_lock(&amp;tasklist_lock);
+<BR>
++	for_each_task(p) {
+<BR>
++		if (!p-&gt;mm)
+<BR>
++			continue;
+<BR>
++		*pgd_offset(p-&gt;mm,address) = entry;
+<BR>
++	}
+<BR>
++	read_unlock(&amp;tasklist_lock);
+<BR>
++	for (pgd = (pgd_t *)pgd_quicklist; pgd; pgd = (pgd_t *)*(unsigned long *)pgd)
+<BR>
++		pgd[(address &gt;&gt; PGDIR_SHIFT) &amp; (PTRS_PER_PAGE - 1)] = entry;
+<BR>
++}
+<BR>
++
+<BR>
++#endif /* _ALPHA_PGALLOC_H */
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/pgtable.h alpha/include/asm-alpha/pgtable.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/pgtable.h	Sun Oct 31 02:46:42 1999
+<BR>
++++ alpha/include/asm-alpha/pgtable.h	Tue Nov 23 14:36:18 1999
+<BR>
+@@ -9,165 +9,11 @@
+<BR>
+&nbsp;&nbsp;* in &lt;asm/page.h&gt; (currently 8192).
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+-#include &lt;linux/spinlock.h&gt;	/* For the task lock */
+<BR>
+&nbsp;
+<BR>
+-#include &lt;asm/system.h&gt;
+<BR>
++#include &lt;asm/page.h&gt;
+<BR>
+&nbsp;#include &lt;asm/processor.h&gt;	/* For TASK_SIZE */
+<BR>
+-#include &lt;asm/mmu_context.h&gt;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+&nbsp;
+<BR>
+-
+<BR>
+-/* Caches aren't brain-dead on the Alpha. */
+<BR>
+-#define flush_cache_all()			do { } while (0)
+<BR>
+-#define flush_cache_mm(mm)			do { } while (0)
+<BR>
+-#define flush_cache_range(mm, start, end)	do { } while (0)
+<BR>
+-#define flush_cache_page(vma, vmaddr)		do { } while (0)
+<BR>
+-#define flush_page_to_ram(page)			do { } while (0)
+<BR>
+-#define flush_icache_range(start, end)		do { } while (0)
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Use a few helper functions to hide the ugly broken ASN
+<BR>
+- * numbers on early Alphas (ev4 and ev45)
+<BR>
+- */
+<BR>
+-
+<BR>
+-#ifndef __EXTERN_INLINE
+<BR>
+-#define __EXTERN_INLINE extern inline
+<BR>
+-#define __MMU_EXTERN_INLINE
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-__EXTERN_INLINE void
+<BR>
+-ev4_flush_tlb_current(struct mm_struct *mm)
+<BR>
+-{
+<BR>
+-	tbiap();
+<BR>
+-}
+<BR>
+-
+<BR>
+-__EXTERN_INLINE void
+<BR>
+-ev4_flush_tlb_other(struct mm_struct *mm)
+<BR>
+-{
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern void ev5_flush_tlb_current(struct mm_struct *mm);
+<BR>
+-
+<BR>
+-__EXTERN_INLINE void
+<BR>
+-ev5_flush_tlb_other(struct mm_struct *mm)
+<BR>
+-{
+<BR>
+-	mm-&gt;context = 0;
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Flush just one page in the current TLB set.
+<BR>
+- * We need to be very careful about the icache here, there
+<BR>
+- * is no way to invalidate a specific icache page..
+<BR>
+- */
+<BR>
+-
+<BR>
+-__EXTERN_INLINE void
+<BR>
+-ev4_flush_tlb_current_page(struct mm_struct * mm,
+<BR>
+-			   struct vm_area_struct *vma,
+<BR>
+-			   unsigned long addr)
+<BR>
+-{
+<BR>
+-	tbi(2 + ((vma-&gt;vm_flags &amp; VM_EXEC) != 0), addr);
+<BR>
+-}
+<BR>
+-
+<BR>
+-__EXTERN_INLINE void
+<BR>
+-ev5_flush_tlb_current_page(struct mm_struct * mm,
+<BR>
+-			   struct vm_area_struct *vma,
+<BR>
+-			   unsigned long addr)
+<BR>
+-{
+<BR>
+-	if (vma-&gt;vm_flags &amp; VM_EXEC)
+<BR>
+-		ev5_flush_tlb_current(mm);
+<BR>
+-	else
+<BR>
+-		tbi(2, addr);
+<BR>
+-}
+<BR>
+-
+<BR>
+-
+<BR>
+-#ifdef CONFIG_ALPHA_GENERIC
+<BR>
+-# define flush_tlb_current		alpha_mv.mv_flush_tlb_current
+<BR>
+-# define flush_tlb_other		alpha_mv.mv_flush_tlb_other
+<BR>
+-# define flush_tlb_current_page		alpha_mv.mv_flush_tlb_current_page
+<BR>
+-#else
+<BR>
+-# ifdef CONFIG_ALPHA_EV4
+<BR>
+-#  define flush_tlb_current		ev4_flush_tlb_current
+<BR>
+-#  define flush_tlb_other		ev4_flush_tlb_other
+<BR>
+-#  define flush_tlb_current_page	ev4_flush_tlb_current_page
+<BR>
+-# else
+<BR>
+-#  define flush_tlb_current		ev5_flush_tlb_current
+<BR>
+-#  define flush_tlb_other		ev5_flush_tlb_other
+<BR>
+-#  define flush_tlb_current_page	ev5_flush_tlb_current_page
+<BR>
+-# endif
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-#ifdef __MMU_EXTERN_INLINE
+<BR>
+-#undef __EXTERN_INLINE
+<BR>
+-#undef __MMU_EXTERN_INLINE
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Flush current user mapping.
+<BR>
+- */
+<BR>
+-static inline void flush_tlb(void)
+<BR>
+-{
+<BR>
+-	flush_tlb_current(current-&gt;mm);
+<BR>
+-}
+<BR>
+-
+<BR>
+-#ifndef __SMP__
+<BR>
+-/*
+<BR>
+- * Flush everything (kernel mapping may also have
+<BR>
+- * changed due to vmalloc/vfree)
+<BR>
+- */
+<BR>
+-static inline void flush_tlb_all(void)
+<BR>
+-{
+<BR>
+-	tbia();
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Flush a specified user mapping
+<BR>
+- */
+<BR>
+-static inline void flush_tlb_mm(struct mm_struct *mm)
+<BR>
+-{
+<BR>
+-	if (mm != current-&gt;mm)
+<BR>
+-		flush_tlb_other(mm);
+<BR>
+-	else
+<BR>
+-		flush_tlb_current(mm);
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Page-granular tlb flush.
+<BR>
+- *
+<BR>
+- * do a tbisd (type = 2) normally, and a tbis (type = 3)
+<BR>
+- * if it is an executable mapping.  We want to avoid the
+<BR>
+- * itlb flush, because that potentially also does a
+<BR>
+- * icache flush.
+<BR>
+- */
+<BR>
+-static inline void flush_tlb_page(struct vm_area_struct *vma,
+<BR>
+-	unsigned long addr)
+<BR>
+-{
+<BR>
+-	struct mm_struct * mm = vma-&gt;vm_mm;
+<BR>
+-
+<BR>
+-	if (mm != current-&gt;mm)
+<BR>
+-		flush_tlb_other(mm);
+<BR>
+-	else
+<BR>
+-		flush_tlb_current_page(mm, vma, addr);
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Flush a specified range of user mapping:  on the
+<BR>
+- * Alpha we flush the whole user tlb.
+<BR>
+- */
+<BR>
+-static inline void flush_tlb_range(struct mm_struct *mm,
+<BR>
+-	unsigned long start, unsigned long end)
+<BR>
+-{
+<BR>
+-	flush_tlb_mm(mm);
+<BR>
+-}
+<BR>
+-
+<BR>
+-#else /* __SMP__ */
+<BR>
+-
+<BR>
+-extern void flush_tlb_all(void);
+<BR>
+-extern void flush_tlb_mm(struct mm_struct *);
+<BR>
+-extern void flush_tlb_page(struct vm_area_struct *, unsigned long);
+<BR>
+-extern void flush_tlb_range(struct mm_struct *, unsigned long, unsigned long);
+<BR>
+-
+<BR>
+-#endif /* __SMP__ */
+<BR>
+-
+<BR>
+&nbsp;/* Certain architectures need to do special things when PTEs
+<BR>
+&nbsp;&nbsp;* within a page table are directly modified.  Thus, the following
+<BR>
+&nbsp;&nbsp;* hook is made available.
+<BR>
+@@ -293,7 +139,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define BAD_PAGETABLE	__bad_pagetable()
+<BR>
+&nbsp;#define BAD_PAGE	__bad_page()
+<BR>
+-#define ZERO_PAGE(vaddr)	(PAGE_OFFSET+0x30A000)
+<BR>
++#define ZERO_PAGE(vaddr)	(mem_map + MAP_NR(ZERO_PGE))
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* number of bits that fit into a memory pointer */
+<BR>
+&nbsp;#define BITS_PER_PTR			(8*sizeof(unsigned long))
+<BR>
+@@ -330,8 +176,14 @@
+<BR>
+&nbsp;&nbsp;* Conversion functions:  convert a page and protection to a page entry,
+<BR>
+&nbsp;&nbsp;* and a page entry and page directory to the page they refer to.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-extern inline pte_t mk_pte(unsigned long page, pgprot_t pgprot)
+<BR>
+-{ pte_t pte; pte_val(pte) = ((page-PAGE_OFFSET) &lt;&lt; (32-PAGE_SHIFT)) | pgprot_val(pgprot); return pte; }
+<BR>
++#define mk_pte(page, pgprot)						\
+<BR>
++({									\
+<BR>
++	pte_t pte;							\
+<BR>
++									\
+<BR>
++	pte_val(pte) = ((unsigned long)(page - mem_map) &lt;&lt; 32) |	\
+<BR>
++		       pgprot_val(pgprot);				\
+<BR>
++	pte;								\
+<BR>
++})
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
+<BR>
+&nbsp;{ pte_t pte; pte_val(pte) = (PHYS_TWIDDLE(physpage) &lt;&lt; (32-PAGE_SHIFT)) | pgprot_val(pgprot); return pte; }
+<BR>
+@@ -345,8 +197,8 @@
+<BR>
+&nbsp;extern inline void pgd_set(pgd_t * pgdp, pmd_t * pmdp)
+<BR>
+&nbsp;{ pgd_val(*pgdp) = _PAGE_TABLE | ((((unsigned long) pmdp) - PAGE_OFFSET) &lt;&lt; (32-PAGE_SHIFT)); }
+<BR>
+&nbsp;
+<BR>
+-extern inline unsigned long pte_page(pte_t pte)
+<BR>
+-{ return PAGE_OFFSET + ((pte_val(pte) &amp; _PFN_MASK) &gt;&gt; (32-PAGE_SHIFT)); }
+<BR>
++#define pte_pagenr(x)	((unsigned long)((pte_val(x) &gt;&gt; 32)))
+<BR>
++#define pte_page(x)	(mem_map+pte_pagenr(x))
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern inline unsigned long pmd_page(pmd_t pmd)
+<BR>
+&nbsp;{ return PAGE_OFFSET + ((pmd_val(pmd) &amp; _PFN_MASK) &gt;&gt; (32-PAGE_SHIFT)); }
+<BR>
+@@ -368,6 +220,9 @@
+<BR>
+&nbsp;extern inline int pgd_present(pgd_t pgd)	{ return pgd_val(pgd) &amp; _PAGE_VALID; }
+<BR>
+&nbsp;extern inline void pgd_clear(pgd_t * pgdp)	{ pgd_val(*pgdp) = 0; }
+<BR>
+&nbsp;
+<BR>
++#define page_address(page)	((page)-&gt;virtual)
+<BR>
++#define __page_address(page)	(PAGE_OFFSET + (((page) - mem_map) &lt;&lt; PAGE_SHIFT))
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* The following only work if pte_present() is true.
+<BR>
+&nbsp;&nbsp;* Undefined behaviour if not..
+<BR>
+@@ -395,10 +250,8 @@
+<BR>
+&nbsp;#define pgd_offset_k(address) pgd_offset(&amp;init_mm, address)
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* to find an entry in a page-table-directory. */
+<BR>
+-extern inline pgd_t * pgd_offset(struct mm_struct * mm, unsigned long address)
+<BR>
+-{
+<BR>
+-	return mm-&gt;pgd + ((address &gt;&gt; PGDIR_SHIFT) &amp; (PTRS_PER_PAGE - 1));
+<BR>
+-}
+<BR>
++#define __pgd_offset(address)	((address &gt;&gt; PGDIR_SHIFT) &amp; (PTRS_PER_PGD-1))
+<BR>
++#define pgd_offset(mm, address)	((mm)-&gt;pgd+__pgd_offset(address))
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Find an entry in the second-level page table.. */
+<BR>
+&nbsp;extern inline pmd_t * pmd_offset(pgd_t * dir, unsigned long address)
+<BR>
+@@ -412,186 +265,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (pte_t *) pmd_page(*dir) + ((address &gt;&gt; PAGE_SHIFT) &amp; (PTRS_PER_PAGE - 1));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-/*      
+<BR>
+- * Allocate and free page tables. The xxx_kernel() versions are
+<BR>
+- * used to allocate a kernel page table - this turns on ASN bits
+<BR>
+- * if any.
+<BR>
+- */
+<BR>
+-#ifndef __SMP__
+<BR>
+-extern struct pgtable_cache_struct {
+<BR>
+-	unsigned long *pgd_cache;
+<BR>
+-	unsigned long *pte_cache;
+<BR>
+-	unsigned long pgtable_cache_sz;
+<BR>
+-} quicklists;
+<BR>
+-#else
+<BR>
+-#include &lt;asm/smp.h&gt;
+<BR>
+-#define quicklists cpu_data[smp_processor_id()]
+<BR>
+-#endif
+<BR>
+-#define pgd_quicklist (quicklists.pgd_cache)
+<BR>
+-#define pmd_quicklist ((unsigned long *)0)
+<BR>
+-#define pte_quicklist (quicklists.pte_cache)
+<BR>
+-#define pgtable_cache_size (quicklists.pgtable_cache_sz)
+<BR>
+-
+<BR>
+-extern __inline__ pgd_t *get_pgd_slow(void)
+<BR>
+-{
+<BR>
+-	pgd_t *ret = (pgd_t *)__get_free_page(GFP_KERNEL), *init;
+<BR>
+-	
+<BR>
+-	if (ret) {
+<BR>
+-		init = pgd_offset(&amp;init_mm, 0);
+<BR>
+-		memset (ret, 0, USER_PTRS_PER_PGD * sizeof(pgd_t));
+<BR>
+-		memcpy (ret + USER_PTRS_PER_PGD, init + USER_PTRS_PER_PGD,
+<BR>
+-			(PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
+<BR>
+-
+<BR>
+-		pgd_val(ret[PTRS_PER_PGD])
+<BR>
+-		  = pte_val(mk_pte((unsigned long)ret, PAGE_KERNEL));
+<BR>
+-	}
+<BR>
+-	return ret;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ pgd_t *get_pgd_fast(void)
+<BR>
+-{
+<BR>
+-	unsigned long *ret;
+<BR>
+-
+<BR>
+-	if((ret = pgd_quicklist) != NULL) {
+<BR>
+-		pgd_quicklist = (unsigned long *)(*ret);
+<BR>
+-		ret[0] = ret[1];
+<BR>
+-		pgtable_cache_size--;
+<BR>
+-	} else
+<BR>
+-		ret = (unsigned long *)get_pgd_slow();
+<BR>
+-	return (pgd_t *)ret;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pgd_fast(pgd_t *pgd)
+<BR>
+-{
+<BR>
+-	*(unsigned long *)pgd = (unsigned long) pgd_quicklist;
+<BR>
+-	pgd_quicklist = (unsigned long *) pgd;
+<BR>
+-	pgtable_cache_size++;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pgd_slow(pgd_t *pgd)
+<BR>
+-{
+<BR>
+-	free_page((unsigned long)pgd);
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern pmd_t *get_pmd_slow(pgd_t *pgd, unsigned long address_premasked);
+<BR>
+-
+<BR>
+-extern __inline__ pmd_t *get_pmd_fast(void)
+<BR>
+-{
+<BR>
+-	unsigned long *ret;
+<BR>
+-
+<BR>
+-	if((ret = (unsigned long *)pte_quicklist) != NULL) {
+<BR>
+-		pte_quicklist = (unsigned long *)(*ret);
+<BR>
+-		ret[0] = ret[1];
+<BR>
+-		pgtable_cache_size--;
+<BR>
+-	}
+<BR>
+-	return (pmd_t *)ret;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pmd_fast(pmd_t *pmd)
+<BR>
+-{
+<BR>
+-	*(unsigned long *)pmd = (unsigned long) pte_quicklist;
+<BR>
+-	pte_quicklist = (unsigned long *) pmd;
+<BR>
+-	pgtable_cache_size++;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pmd_slow(pmd_t *pmd)
+<BR>
+-{
+<BR>
+-	free_page((unsigned long)pmd);
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern pte_t *get_pte_slow(pmd_t *pmd, unsigned long address_preadjusted);
+<BR>
+-
+<BR>
+-extern __inline__ pte_t *get_pte_fast(void)
+<BR>
+-{
+<BR>
+-	unsigned long *ret;
+<BR>
+-
+<BR>
+-	if((ret = (unsigned long *)pte_quicklist) != NULL) {
+<BR>
+-		pte_quicklist = (unsigned long *)(*ret);
+<BR>
+-		ret[0] = ret[1];
+<BR>
+-		pgtable_cache_size--;
+<BR>
+-	}
+<BR>
+-	return (pte_t *)ret;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pte_fast(pte_t *pte)
+<BR>
+-{
+<BR>
+-	*(unsigned long *)pte = (unsigned long) pte_quicklist;
+<BR>
+-	pte_quicklist = (unsigned long *) pte;
+<BR>
+-	pgtable_cache_size++;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void free_pte_slow(pte_t *pte)
+<BR>
+-{
+<BR>
+-	free_page((unsigned long)pte);
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern void __bad_pte(pmd_t *pmd);
+<BR>
+-extern void __bad_pmd(pgd_t *pgd);
+<BR>
+-
+<BR>
+-#define pte_free_kernel(pte)	free_pte_fast(pte)
+<BR>
+-#define pte_free(pte)		free_pte_fast(pte)
+<BR>
+-#define pmd_free_kernel(pmd)	free_pmd_fast(pmd)
+<BR>
+-#define pmd_free(pmd)		free_pmd_fast(pmd)
+<BR>
+-#define pgd_free(pgd)		free_pgd_fast(pgd)
+<BR>
+-#define pgd_alloc()		get_pgd_fast()
+<BR>
+-
+<BR>
+-extern inline pte_t * pte_alloc(pmd_t *pmd, unsigned long address)
+<BR>
+-{
+<BR>
+-	address = (address &gt;&gt; PAGE_SHIFT) &amp; (PTRS_PER_PTE - 1);
+<BR>
+-	if (pmd_none(*pmd)) {
+<BR>
+-		pte_t *page = get_pte_fast();
+<BR>
+-		
+<BR>
+-		if (!page)
+<BR>
+-			return get_pte_slow(pmd, address);
+<BR>
+-		pmd_set(pmd, page);
+<BR>
+-		return page + address;
+<BR>
+-	}
+<BR>
+-	if (pmd_bad(*pmd)) {
+<BR>
+-		__bad_pte(pmd);
+<BR>
+-		return NULL;
+<BR>
+-	}
+<BR>
+-	return (pte_t *) pmd_page(*pmd) + address;
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern inline pmd_t * pmd_alloc(pgd_t *pgd, unsigned long address)
+<BR>
+-{
+<BR>
+-	address = (address &gt;&gt; PMD_SHIFT) &amp; (PTRS_PER_PMD - 1);
+<BR>
+-	if (pgd_none(*pgd)) {
+<BR>
+-		pmd_t *page = get_pmd_fast();
+<BR>
+-		
+<BR>
+-		if (!page)
+<BR>
+-			return get_pmd_slow(pgd, address);
+<BR>
+-		pgd_set(pgd, page);
+<BR>
+-		return page + address;
+<BR>
+-	}
+<BR>
+-	if (pgd_bad(*pgd)) {
+<BR>
+-		__bad_pmd(pgd);
+<BR>
+-		return NULL;
+<BR>
+-	}
+<BR>
+-	return (pmd_t *) pgd_page(*pgd) + address;
+<BR>
+-}
+<BR>
+-
+<BR>
+-#define pte_alloc_kernel	pte_alloc
+<BR>
+-#define pmd_alloc_kernel	pmd_alloc
+<BR>
+-
+<BR>
+-extern int do_check_pgt_cache(int, int);
+<BR>
+-
+<BR>
+-extern inline void set_pgdir(unsigned long address, pgd_t entry)
+<BR>
+-{
+<BR>
+-	struct task_struct * p;
+<BR>
+-	pgd_t *pgd;
+<BR>
+-        
+<BR>
+-	read_lock(&amp;tasklist_lock);
+<BR>
+-	for_each_task(p) {
+<BR>
+-		if (!p-&gt;mm)
+<BR>
+-			continue;
+<BR>
+-		*pgd_offset(p-&gt;mm,address) = entry;
+<BR>
+-	}
+<BR>
+-	read_unlock(&amp;tasklist_lock);
+<BR>
+-	for (pgd = (pgd_t *)pgd_quicklist; pgd; pgd = (pgd_t *)*(unsigned long *)pgd)
+<BR>
+-		pgd[(address &gt;&gt; PGDIR_SHIFT) &amp; (PTRS_PER_PAGE - 1)] = entry;
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;extern pgd_t swapper_pg_dir[1024];
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+@@ -610,9 +283,11 @@
+<BR>
+&nbsp;extern inline pte_t mk_swap_pte(unsigned long type, unsigned long offset)
+<BR>
+&nbsp;{ pte_t pte; pte_val(pte) = (type &lt;&lt; 32) | (offset &lt;&lt; 40); return pte; }
+<BR>
+&nbsp;
+<BR>
+-#define SWP_TYPE(entry) (((entry) &gt;&gt; 32) &amp; 0xff)
+<BR>
+-#define SWP_OFFSET(entry) ((entry) &gt;&gt; 40)
+<BR>
+-#define SWP_ENTRY(type,offset) pte_val(mk_swap_pte((type),(offset)))
+<BR>
++#define SWP_TYPE(x)			(((x).val &gt;&gt; 32) &amp; 0xff)
+<BR>
++#define SWP_OFFSET(x)			((x).val &gt;&gt; 40)
+<BR>
++#define SWP_ENTRY(type, offset)		((swp_entry_t) { pte_val(mk_swap_pte((type),(offset))) })
+<BR>
++#define pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
+<BR>
++#define swp_entry_to_pte(x)		((pte_t) { (x).val })
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define module_map	vmalloc
+<BR>
+&nbsp;#define module_unmap	vfree
+<BR>
+@@ -622,6 +297,13 @@
+<BR>
+&nbsp;#define kern_addr_valid(addr)	(1)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define io_remap_page_range(start, busaddr, size, prot) \
+<BR>
+-	remap_page_range(start, virt_to_phys(__ioremap(busaddr)), size, prot)
+<BR>
++	remap_page_range(start, virt_to_phys(__ioremap(busaddr), 0), size, prot)
+<BR>
++
+<BR>
++#define pte_ERROR(e) \
+<BR>
++	printk(&quot;%s:%d: bad pte %016lx.\n&quot;, __FILE__, __LINE__, pte_val(e))
+<BR>
++#define pmd_ERROR(e) \
+<BR>
++	printk(&quot;%s:%d: bad pmd %016lx.\n&quot;, __FILE__, __LINE__, pmd_val(e))
+<BR>
++#define pgd_ERROR(e) \
+<BR>
++	printk(&quot;%s:%d: bad pgd %016lx.\n&quot;, __FILE__, __LINE__, pgd_val(e))
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* _ALPHA_PGTABLE_H */
+<BR>
+diff -urN 2.3.29pre3/include/asm-alpha/system.h alpha/include/asm-alpha/system.h
+<BR>
+--- 2.3.29pre3/include/asm-alpha/system.h	Sun Nov 21 17:46:05 1999
+<BR>
++++ alpha/include/asm-alpha/system.h	Tue Nov 23 14:18:13 1999
+<BR>
+@@ -363,6 +363,17 @@
+<BR>
+&nbsp;&nbsp;&nbsp;((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
+<BR>
+&nbsp;#define tas(ptr) (xchg((ptr),1))
+<BR>
+&nbsp;
+<BR>
++/* Very dirty but nevertheless very fun hack ;). I recall the aboot printf()
+<BR>
++   that will in turn use the SRM  console to do the debugging of the boot
+<BR>
++   process. As there's no runtime symbol table, the address of printf()
+<BR>
++   is hardwired and is in function of the bootlx binary you have in /boot...
+<BR>
++   1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++#if 0
+<BR>
++#define SRM_printf(args...) ({ int (*__SRM_printf)(const char *fmt, ...) = (int (*)(const char *fmt, ...)) 0x20000aa0; __SRM_printf(args); })
+<BR>
++#else
+<BR>
++#define SRM_printf(args...)
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;#endif /* __ASSEMBLY__ */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif
+<BR>
+diff -urN 2.3.29pre3/include/linux/bootmem.h alpha/include/linux/bootmem.h
+<BR>
+--- 2.3.29pre3/include/linux/bootmem.h	Mon Nov 22 23:08:58 1999
+<BR>
++++ alpha/include/linux/bootmem.h	Tue Nov 23 15:29:39 1999
+<BR>
+@@ -3,6 +3,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
++#include &lt;asm/cache.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+diff -urN 2.3.29pre3/include/linux/ioport.h alpha/include/linux/ioport.h
+<BR>
+--- 2.3.29pre3/include/linux/ioport.h	Tue Sep 14 14:35:32 1999
+<BR>
++++ alpha/include/linux/ioport.h	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -80,10 +80,11 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern int request_resource(struct resource *root, struct resource *new);
+<BR>
+&nbsp;extern int release_resource(struct resource *new);
+<BR>
++struct pci_dev;
+<BR>
+&nbsp;extern int allocate_resource(struct resource *root, struct resource *new,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long min, unsigned long max,
+<BR>
+-			     unsigned long align);
+<BR>
++			     unsigned long align, struct pci_dev *);
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Convenience shorthand with allocation */
+<BR>
+&nbsp;#define request_region(start,n,name)	__request_region(&amp;ioport_resource, (start), (n), (name))
+<BR>
+@@ -106,5 +107,8 @@
+<BR>
+&nbsp;#define HAVE_AUTOIRQ
+<BR>
+&nbsp;extern void autoirq_setup(int waittime);
+<BR>
+&nbsp;extern int autoirq_report(int waittime);
+<BR>
++
+<BR>
++extern unsigned long resource_fixup(struct pci_dev *, struct resource *,
+<BR>
++				    unsigned long, unsigned long);
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif	/* _LINUX_IOPORT_H */
+<BR>
+diff -urN 2.3.29pre3/include/linux/pci.h alpha/include/linux/pci.h
+<BR>
+--- 2.3.29pre3/include/linux/pci.h	Thu Nov 11 18:23:12 1999
+<BR>
++++ alpha/include/linux/pci.h	Tue Nov 23 15:29:24 1999
+<BR>
+@@ -404,8 +404,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int (*write_dword)(struct pci_dev *, int where, u32 val);
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
++struct pbus_set_ranges_data
+<BR>
++{
+<BR>
++	int found_vga;
+<BR>
++	unsigned long io_start, io_end;
+<BR>
++	unsigned long mem_start, mem_end;
+<BR>
++};
+<BR>
++
+<BR>
+&nbsp;void pcibios_init(void);
+<BR>
+&nbsp;void pcibios_fixup_bus(struct pci_bus *);
+<BR>
++void pcibios_fixup_pbus_ranges(struct pci_bus *, struct pbus_set_ranges_data *);
+<BR>
+&nbsp;int pcibios_enable_device(struct pci_dev *);
+<BR>
+&nbsp;char *pcibios_setup (char *str);
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.29pre3/kernel/resource.c alpha/kernel/resource.c
+<BR>
+--- 2.3.29pre3/kernel/resource.c	Sun Nov 21 03:20:20 1999
+<BR>
++++ alpha/kernel/resource.c	Mon Nov 22 23:15:10 1999
+<BR>
+@@ -126,7 +126,7 @@
+<BR>
+&nbsp;static int find_resource(struct resource *root, struct resource *new,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long min, unsigned long max,
+<BR>
+-			 unsigned long align)
+<BR>
++			 unsigned long align, struct pci_dev * dev)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct resource *this = root-&gt;child;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long start, end;
+<BR>
+@@ -142,6 +142,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (end &gt; max)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end = max;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start = (start + align - 1) &amp; ~(align - 1);
+<BR>
++		start = resource_fixup (dev, new, start, size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (start &lt; end &amp;&amp; end - start + 1 &gt;= size) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new-&gt;start = start;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new-&gt;end = start + size - 1;
+<BR>
+@@ -161,12 +162,12 @@
+<BR>
+&nbsp;int allocate_resource(struct resource *root, struct resource *new,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long min, unsigned long max,
+<BR>
+-		      unsigned long align)
+<BR>
++		      unsigned long align, struct pci_dev * dev)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int err;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write_lock(&amp;resource_lock);
+<BR>
+-	err = find_resource(root, new, size, min, max, align);
+<BR>
++	err = find_resource(root, new, size, min, max, align, dev);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (err &gt;= 0 &amp;&amp; __request_resource(root, new))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;err = -EBUSY;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write_unlock(&amp;resource_lock);
+<BR>
+<P><P>The patch can be downloaded also from here:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://ftp.*.kernel.org/pub/linux/kernel/people/andrea/patches/v2.3/2.3.29pre3/alpha-1.bz2">ftp://ftp.*.kernel.org/pub/linux/kernel/people/andrea/patches/v2.3/2.3.29pre3/alpha-1.bz2</A>
+<BR>
+<P>andrea@alpha:~ &gt; uname -a
+<BR>
+Linux alpha 2.3.29 #77 SMP Tue Nov 23 15:16:07 CET 1999 alpha unknown
+<BR>
+<P>;)
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0026.html">Brian Hall: "Problems running DEC OSF binaries under Alpha Linux"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0024.html">Zygo Blaxell: "Re: More Multia questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0028.html">Richard Henderson: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Dec 01 1999 - 06:08:10 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: SIGFPE error on exponential underflow in g77</TITLE>
+<META NAME="Author" CONTENT="Phillip Ezolt (ezolt@perf.zko.dec.com)">
+<META NAME="Subject" CONTENT="Re: SIGFPE error on exponential underflow in g77">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: SIGFPE error on exponential underflow in g77</H1>
+<HR>
+<P>
+<!-- received="Fri Mar 05 22:10:06 1999 PST" -->
+<!-- sent="Fri, 5 Mar 1999 17:08:00 -0500 (EST)" -->
+<!-- name="Phillip Ezolt" -->
+<!-- email="ezolt@perf.zko.dec.com" -->
+<!-- subject="Re: SIGFPE error on exponential underflow in g77" -->
+<!-- id="Pine.OSF.3.96.990305164859.27078B-100000@perf.zko.dec.com" -->
+<!-- inreplyto="199903051624.LAA23271@adder.cs.Virginia.EDU" -->
+<STRONG>Phillip Ezolt</STRONG> (<A HREF="mailto:ezolt@perf.zko.dec.com?subject=Re:%20SIGFPE%20error%20on%20exponential%20underflow%20in%20g77"><EM>ezolt@perf.zko.dec.com</EM></A>)<BR>
+<EM>Fri, 5 Mar 1999 17:08:00 -0500 (EST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#283">[ date ]</A>
+<A HREF="index.html#283">[ thread ]</A>
+<A HREF="subject.html#283">[ subject ]</A>
+<A HREF="author.html#283">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0284.html">Aaron: "Alpa Processor no longer Number one :("</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0282.html">Ron Farrer: "mozilla (was: Re: OT: redhat.com look)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0281.html">Dan Morrill: "Re: OT: redhat.com look"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0284.html">Aaron: "Alpa Processor no longer Number one :("</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, 5 Mar 1999, Greg Lindahl wrote:
+<BR>
+<EM>&gt; Someone needs to look at the source of just the glue routine, and
+</EM><BR>
+<EM>&gt; decide if it doing something useful and needs -mieee when compiled,
+</EM><BR>
+<EM>&gt; or if it is doing excess work and needs to get cut down.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- g
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><P>There may be something more tricky than simply compiling the glue routine
+<BR>
+with -mieee. 
+<BR>
+<P>I have found that GNU libm actually returns denormalized numbers (VERY
+<BR>
+VERY small numbers) when ffm and cpml actually round this to zero. 
+<BR>
+<P>Consider the following program:
+<BR>
+<P>#include &lt;math.h&gt;
+<BR>
+&nbsp;
+<BR>
+main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;double y;
+<BR>
+&nbsp;&nbsp;double x=-744.07568359375;
+<BR>
+&nbsp;&nbsp;y = exp(x);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;printf(&quot;%g\n&quot;, y);
+<BR>
+&nbsp;&nbsp;printf(&quot;%g\n&quot;, x);
+<BR>
+&nbsp;
+<BR>
+} 
+<BR>
+<P>[[spec@csg150 cpml.0.1]$ gcc -o test_exp_libm test_exp.c -lm
+<BR>
+[[spec@csg150 cpml.0.1]$ ./test_exp_libm
+<BR>
+4.94066e-324
+<BR>
+-744.076
+<BR>
+[[spec@csg150 cpml.0.1]$ gcc -o test_exp_libm_mieee test_exp.c -mieee -lm
+<BR>
+[[spec@csg150 cpml.0.1]$ ./test_exp_libm_mieee
+<BR>
+4.94066e-324
+<BR>
+-744.076                                                                    
+<BR>
+[[spec@csg150 cpml.0.1]$ gcc -o test_exp_ffm test_exp.c -lffm
+<BR>
+[[spec@csg150 cpml.0.1]$ ./test_exp_ffm
+<BR>
+0
+<BR>
+-744.076
+<BR>
+[[spec@csg150 cpml.0.1]$ gcc -o test_exp_cpml test_exp.c -lcpml
+<BR>
+[[spec@csg150 cpml.0.1]$ ./test_exp_cpml
+<BR>
+0
+<BR>
+-744.076  
+<BR>
+<P>(libm is glibc-2.0.7-29 )
+<BR>
+(cpml is cpml.0.1)
+<BR>
+(libffm is libffm.0.28 )
+<BR>
+(gcc version egcs-2.91.60 19981201 (egcs-1.1.1 release) )
+<BR>
+<P><P>Libm returns a very small number instead of zero. It does not matter whether
+<BR>
+or not -mieee is used.  It returns a denormalized number which fits into a 
+<BR>
+double, and the program will work, for a while.  However, you will immediately
+<BR>
+get a Floating Point Exception and a core dump when you try to change this 
+<BR>
+into a single precision number. 
+<BR>
+<P>What is deceiving about this whole process is that you can happly get
+<BR>
+a denormalized number, and then a hundreds of cycles later you get an FPE.
+<BR>
+<P>If you are experiencing trouble with this, it would be in your best interest
+<BR>
+to link in either the CPML or the FFM.  First, they are MUCH faster than (on
+<BR>
+some things) than libm, and they both seem to round to zero appropriately. 
+<BR>
+<P>I am not sure how to trick g77 to use libffm or libcpml instead of libm, but
+<BR>
+it is definately worth it to find out. 
+<BR>
+<P>--Phil
+<BR>
+<P>Digital/Compaq: High Performance Servers/Benchmark Performance Engineering
+<BR>
+<A HREF="mailto:Phillip.Ezolt@compaq.com?subject=Re:%20SIGFPE%20error%20on%20exponential%20underflow%20in%20g77">Phillip.Ezolt@compaq.com</A>                            <A HREF="mailto:ezolt@perf.zko.dec.com?subject=Re:%20SIGFPE%20error%20on%20exponential%20underflow%20in%20g77">ezolt@perf.zko.dec.com</A>
+<BR>
+<P><P><P><P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20SIGFPE%20error%20on%20exponential%20underflow%20in%20g77">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20SIGFPE%20error%20on%20exponential%20underflow%20in%20g77">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0284.html">Aaron: "Alpa Processor no longer Number one :("</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0282.html">Ron Farrer: "mozilla (was: Re: OT: redhat.com look)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0281.html">Dan Morrill: "Re: OT: redhat.com look"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0284.html">Aaron: "Alpa Processor no longer Number one :("</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Fri Mar 05 1999 - 15:00:16 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

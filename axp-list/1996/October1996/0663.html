@@ -1,0 +1,148 @@
+<!-- received="Thu Oct 17 16:44:19 1996 " -->
+<!-- sent="Thu, 17 Oct 1996 15:26:58 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="199610172027.PAA28463@atheist.tamu.edu" -->
+<!-- inreplyto="Pine.LNX.3.93.961017124005.6940C-100000@pc5829.hil.siemens.at" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Thu, 17 Oct 1996 15:26:58 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#663">[ date ]</a><a href="index.html#663">[ thread ]</a><a href="subject.html#663">[ subject ]</a><a href="author.html#663">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0664.html">Eric Smith: "Re: Headless udb"</a>
+<li> <b>Previous message:</b> <a href="0662.html">Matthew Geier: "Re: Assorted Noname Problems, II"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; another option is to trick gcc into producing the proper symbol entries</i><br>
+<i>&gt; around the exception-prone code. We have to generate two symbols:</i><br>
+<i>&gt; </i><br>
+<i>&gt;   symbol_1:     mov   src, target_that_might_fault</i><br>
+<i>&gt; </i><br>
+<i>&gt;   symbol_2:     exception_handling_logic</i><br>
+<i>&gt; </i><br>
+<i>&gt; Thus the exception handler only has to read the EIP value of symbol_2 out</i><br>
+<i>&gt; of a table indexed by symbol_1 [=exception EIP].</i><br>
+<p>
+This general idea sounds very promising.  And it doesn't need a custom<br>
+program to implement either.  Consider the following for the Alpha:<br>
+<p>
+#define get_user_64(x,addr)			\<br>
+({						\<br>
+	long __err;				\<br>
+	__asm__("clr	%1\n"			\<br>
+	"1:	ldq	%0, %2\n"		\<br>
+	".section __ex_table,\"aw\"\n\t"	\<br>
+		".quad	1b\n"			\<br>
+	".text"					\<br>
+		: "=r"(x), "=r"(__err)		\<br>
+		: "m"(*(addr)));		\<br>
+	__err;					\<br>
+})<br>
+<p>
+Notice that we are collecting the address of the instruction that is<br>
+allowed to fault in section __ex_table.  There is an ld feature (at <br>
+least as of binutils 2.7) that, for each section whose entire name<br>
+is a valid C symbol, generates the two symbols __start_&lt;section&gt; and<br>
+__stop_&lt;section&gt;.  Additionally, due to the way the data is generated<br>
+and sections assembled, we know that the addresses will be sorted by<br>
+increasing address.<br>
+<p>
+Thus we can get the extent of the table and do a binary search for our<br>
+faulting address, the register in which to store -EFAULT from<br>
+*(pc - 4) &amp; 0x1f, and the return address is the next instruction.<br>
+<p>
+That simple table and two instruction idea should work in all cases<br>
+for any machine that can direcly load/store all data sizes.<br>
+<p>
+For the Alpha, we need more to handle sub-word loads/stores efficiently.<br>
+For get_user_8 the insn sequence is<br>
+<p>
+	clr	err<br>
+1:	ldq_u	val, addr<br>
+	extbl	val, addr, val<br>
+3:<br>
+<p>
+and for put_user_8 the sequence is<br>
+<p>
+	clr	err<br>
+1:	ldq_u	tmp, addr<br>
+	insbl	val, addr, tmp2<br>
+	mskbl	tmp, addr, tmp<br>
+	or	tmp, tmp2, tmp<br>
+2:	stq_u	tmp, addr<br>
+3:<br>
+<p>
+Now, here we have three options.  First, we could add knowledge about<br>
+how to decode these fragments into the exception handler so that it<br>
+knows how to handle each case via the single address entry.  Second,<br>
+we could put the 1's addresses in separate tables and build only the<br>
+knowledge of the exact displacements into the exception handler. <br>
+Finally, we could use a table format such as:<br>
+<p>
+	.quad	1b<br>
+	.byte	3b-1b, 2b-1b, 2b-3b, &lt;errreg&gt;<br>
+<p>
+At this point I'm in favour of the first option, as kernel space should<br>
+be put at a premium.  Continuing to think along those lines, it'd be <br>
+nice if we could use .gprel32 instead of .quad.  This, I think, requires<br>
+a tiny compiler patch to add a bit to force the surrounding function to<br>
+load its gp so it'd be available for the exception handler.<br>
+<p>
+This covers the single load/store case, what about the block routines<br>
+such as clear_user?  They certainly will still want to be able to<br>
+bail out of the entire operation directly. <br>
+<p>
+I'd suggest that this be done by exchanging the exception count + known<br>
+register for a single abort address, since the nested exceptions we could<br>
+have gotten with exception() ...  end_exception() are no longer possible.<br>
+<p>
+Oh yes, modules.  We'd need to make modules register their tables on<br>
+startup so that we can search those as well.<br>
+<p>
+Comments?  No rush on any of this really; we have lots of things to do<br>
+in the meantime.<br>
+<p>
+<p>
+r~<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0664.html">Eric Smith: "Re: Headless udb"</a>
+<li> <b>Previous message:</b> <a href="0662.html">Matthew Geier: "Re: Assorted Noname Problems, II"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

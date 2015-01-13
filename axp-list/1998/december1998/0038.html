@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Is XL300 or EBP41-AN any good?</TITLE>
+<META NAME="Author" CONTENT="Tom Holroyd (tomh@taz.ccs.fau.edu)">
+<META NAME="Subject" CONTENT="Re: Is XL300 or EBP41-AN any good?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Is XL300 or EBP41-AN any good?</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 02 08:04:51 1998 PST" -->
+<!-- sent="Wed, 2 Dec 1998 16:06:55 +0900 (JST)" -->
+<!-- name="Tom Holroyd" -->
+<!-- email="tomh@taz.ccs.fau.edu" -->
+<!-- subject="Re: Is XL300 or EBP41-AN any good?" -->
+<!-- id="Pine.LNX.3.96.981202155822.5075A-100000@bhalpha1.nibh.go.jp" -->
+<!-- inreplyto="Pine.LNX.4.02.9812012342250.21284-100000@irish.spincycle.com" -->
+<STRONG>Tom Holroyd</STRONG> (<A HREF="mailto:tomh@taz.ccs.fau.edu?subject=Re:%20Is%20XL300%20or%20EBP41-AN%20any%20good?"><EM>tomh@taz.ccs.fau.edu</EM></A>)<BR>
+<EM>Wed, 2 Dec 1998 16:06:55 +0900 (JST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#38">[ date ]</A>
+<A HREF="index.html#38">[ thread ]</A>
+<A HREF="subject.html#38">[ subject ]</A>
+<A HREF="author.html#38">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Bob Taylor: "Re: Is XL300 or EBP41-AN any good?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Robb Romans: "Re: Is XL300 or EBP41-AN any good?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0035.html">Jeff DeMaagd: "Re: Is XL300 or EBP41-AN any good?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0039.html">Bob Taylor: "Re: Is XL300 or EBP41-AN any good?"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 1 Dec 1998, Robb Romans wrote:
+<BR>
+<P><EM>&gt;As a side note, RH 5.2 installed fine, with the updated ramdisk, and the
+</EM><BR>
+<EM>&gt;existing MILO installed from 5.1. Only problem was the fscking date got
+</EM><BR>
+<EM>&gt;set to 2018 on lots of files, even though I started the install from a
+</EM><BR>
+<EM>&gt;running 5.1 system.  The cool little script to fix that posted here didn't
+</EM><BR>
+<EM>&gt;work on the symlinks.
+</EM><BR>
+<P>Right -- utime(2) [and therefore touch(1)] doesn't work on symlinks.  Here
+<BR>
+is a solution: delete and recreate all the bad links. 
+<BR>
+<P>The following program will do the job for one file, and you can invoke
+<BR>
+it thusly (assuming it's called fixlinkdate):
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;% find / -type l -exec fixlinkdate {} \;
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+#include &lt;time.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/stat.h&gt;
+<BR>
+<P>int main(int argc, char **argv)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int i, y;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char filename[1024];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct stat link;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct tm *t;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (argc != 2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;usage: %s filename\n&quot;, argv[0]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(-1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Get the link's target and other details. */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((i = readlink(argv[1], filename, 1023)) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;%s is not a valid symbolic link\n&quot;, argv[1]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(-1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filename[i] = 0;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (lstat(argv[1], &amp;link) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;lstat&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(-1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Sanity check. */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t = localtime(&amp;link.st_mtime);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y = t-&gt;tm_year + 1900;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (y != 2018) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;year on %s is %d\n&quot;, argv[1], y);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Delete the symbolic link and recreate it. */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (unlink(argv[1]) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;unlink&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(-1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (symlink(filename, argv[1]) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;symlink&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(-1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Set the owner back. */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;chown(argv[1], link.st_uid, link.st_gid);
+<BR>
+}
+<BR>
+<P>Note that this program only recreates links that have a year of 2018,
+<BR>
+which was the case for my system also.  You can obviously change that
+<BR>
+value to anything.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Is%20XL300%20or%20EBP41-AN%20any%20good?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Is%20XL300%20or%20EBP41-AN%20any%20good?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Bob Taylor: "Re: Is XL300 or EBP41-AN any good?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Robb Romans: "Re: Is XL300 or EBP41-AN any good?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0035.html">Jeff DeMaagd: "Re: Is XL300 or EBP41-AN any good?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0039.html">Bob Taylor: "Re: Is XL300 or EBP41-AN any good?"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Wed Dec 02 1998 - 04:13:58 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

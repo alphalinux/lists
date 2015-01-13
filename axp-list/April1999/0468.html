@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: cuax vs ttySx</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: cuax vs ttySx">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: cuax vs ttySx</H1>
+<HR>
+<P>
+<!-- received="Sat Apr 17 19:58:37 1999 PDT" -->
+<!-- sent="Sat, 17 Apr 1999 13:55:22 -0600 (MDT)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: cuax vs ttySx" -->
+<!-- id="199904171955.NAA08689@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Pine.BSF.4.02.9904171106120.4589-100000@ns1.fidalgo.net" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20cuax%20vs%20ttySx"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Sat, 17 Apr 1999 13:55:22 -0600 (MDT)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#468">[ date ]</A>
+<A HREF="index.html#468">[ thread ]</A>
+<A HREF="subject.html#468">[ subject ]</A>
+<A HREF="author.html#468">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0469.html">Michal Jaegermann: "Re: Modems on an Alpha..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0467.html">Daniel J. Frasnelli: "Multia serial ports"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0462.html">Ron Farrer: "cuax vs ttySx"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Ron Farrer wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; now cuax has been obsoleted, so your only choice is ttySx. (which 
+</EM><BR>
+<EM>&gt; &gt; might become /dev/tts/x if devfs goes into 2.3) 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Could be, I alway's used cuax for modems/routers/etc. and ttysx for
+</EM><BR>
+<EM>&gt; terminals mostly because a few times cuax caused problems with some
+</EM><BR>
+<EM>&gt; terminals.
+</EM><BR>
+<P>'cuax' devices are really obsolete for a long time.  Mainly they
+<BR>
+provide some primitive form of locking with ttySx devices; this locking
+<BR>
+is more trouble than gain in any non-trivial situtation.
+<BR>
+<P>Ted Tso, who wrote the whole serial handler, describe once 'cuax'
+<BR>
+devices as a &quot;mistake&quot; and tried quite hard to wean people from 'cuax'.
+<BR>
+Persuasions did not seem to work so, in 2.2 kernels, any use of 'cuax'
+<BR>
+logs an obnoxious message and these devices will be gone in future
+<BR>
+kernel versions.  This should do it. :-)
+<BR>
+<P>Myself I am using /dev/ttySx for a long time and never had any problems.
+<BR>
+We still probably need a slightly modified 'stty' which can open 
+<BR>
+a serial port directly using O_NONBLOCK for situations when one got
+<BR>
+stuck and CLOCAL is not set.  Normally 'stty' is used as
+<BR>
+&quot;stty &lt;something, something&gt; &lt; /dev/ttyS1&quot; and one cannot rely on a
+<BR>
+shell that it will do that.  It might, but one never know.
+<BR>
+<P>Below is a detailed explanation from Ted about differences and pitfals
+<BR>
+done better that I could have been able to. :-)  Note dates.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P>Subject: Re: /dev/cua? Vs /dev/ttyS?
+<BR>
+Date: Mon, 13 May 1996 19:51:04 +0200
+<BR>
+Status: ROr
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Date:        Mon, 13 May 1996 07:57:09 +1000
+<BR>
+&nbsp;&nbsp;&nbsp;From: Tony Nugent &lt;<A HREF="mailto:tonyn@sctnugen.ppp.gu.edu.au?subject=Re:%20cuax%20vs%20ttySx">tonyn@sctnugen.ppp.gu.edu.au</A>&gt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Can someone kindly explain the difference between the /dev/cua? and
+<BR>
+&nbsp;&nbsp;&nbsp;/dev/ttyS? devices?
+<BR>
+<P>/dev/ttySxx devices are fully POSIX-compliant TTY devices.  If you are
+<BR>
+only going to be using one set of tty devices, you should be using
+<BR>
+/dev/ttySxx. 
+<BR>
+<P>/dev/cuaXX devices are different from /dev/ttySXX in two ways --- first
+<BR>
+of all, they will allow you to open the device even if CLOCAL is not set
+<BR>
+and the O_NONBLOCK flag was not given to the open device.  This allows
+<BR>
+programs that don't use the POSIX-mandated interface for opening
+<BR>
+/dev/ttySxx devices to be able to use /dev/cuaXX to make outgoing phone
+<BR>
+calls on their modem (cu stands for &quot;callout&quot;, and is taken from SunOS).
+<BR>
+<P>The second way in which /dev/cuaXX differs from /dev/ttySXX is that if
+<BR>
+they are used, they will trigger a simplistic kernel-based locking
+<BR>
+scheme:  If /dev/ttySXX is opened by one or more processes, then an
+<BR>
+attempt to open /dev/cuaXX will return EAGAIN.  If /dev/cuaXX is opened
+<BR>
+by one or more processes, then an attempt to open /dev/ttySXX will
+<BR>
+result the open blocking until /dev/cuaXX is closed, and the carrier
+<BR>
+detect line goes high.
+<BR>
+<P>While this will allow for simple lockouts between a user using a modem
+<BR>
+for callout and a getty listening on the line for logins, it doesn't
+<BR>
+work if you need to arbitrate between multiple programs wanting to do
+<BR>
+dialout --- for example, users wanting to do dialout and UUCP.
+<BR>
+<P>I originally implemented the cuaXX/ttySXX lockout mechanism back before
+<BR>
+FSSTND established a standard convention for the use of tty lock files.
+<BR>
+Now that it's there, people should use the tty lock files and not try
+<BR>
+using /dev/cuaXX.  The only reason why /dev/cuaXX hasn't disappeared yet
+<BR>
+is for backwards compatibility reasons.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ted
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20cuax%20vs%20ttySx">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20cuax%20vs%20ttySx">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0469.html">Michal Jaegermann: "Re: Modems on an Alpha..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0467.html">Daniel J. Frasnelli: "Multia serial ports"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0462.html">Ron Farrer: "cuax vs ttySx"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sat Apr 17 1999 - 13:00:13 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

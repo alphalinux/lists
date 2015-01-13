@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: [suse-axp] install problems cont'd part 2</TITLE>
+<META NAME="Author" CONTENT="alex@chem.ufl.edu (alex@chem.ufl.edu)">
+<META NAME="Subject" CONTENT="[suse-axp] install problems cont'd part 2">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[suse-axp] install problems cont'd part 2</H1>
+<HR>
+<P>
+<!-- received="Wed Oct 06 05:41:27 1999" -->
+<!-- isoreceived="19991006124127" -->
+<!-- sent="Tue, 5 Oct 1999 15:57:42 -0500 (EST)" -->
+<!-- isosent="19991005205742" -->
+<!-- name="alex@chem.ufl.edu" -->
+<!-- email="alex@chem.ufl.edu" -->
+<!-- subject="[suse-axp] install problems cont'd part 2" -->
+<!-- id="199910052057.PAA26734@physical36.chem.ufl.edu" -->
+<STRONG>Subject: </STRONG>[suse-axp] install problems cont'd part 2<BR>
+<EM>alex@chem.ufl.edu</EM><BR>
+<STRONG>Date: </STRONG>Tue Oct 05 1999 - 13:57:42 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#3">[ date ]</A>
+<A HREF="index.html#3">[ thread ]</A>
+<A HREF="subject.html#3">[ subject ]</A>
+<A HREF="author.html#3">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Izaak Bozof: "Re: [suse-axp] install problems cont'd part 2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">alex@chem.ufl.edu: "[suse-axp] install problem solved"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0004.html">Izaak Bozof: "Re: [suse-axp] install problems cont'd part 2"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Looks like I was too optimistic in my previous post. I am successfully
+<BR>
+getting the packages installed. However, once linuxrc tries to leave and
+<BR>
+start the system it either hangs (did so initially on the first couple
+<BR>
+of tries) or goes back to the SRM console (I couldn't find out what
+<BR>
+triggers it to either hang or to go back to the SRM console). The
+<BR>
+problem is at the point where the message appears:
+<BR>
+<P>The base system has been successfully installed. This new installed
+<BR>
+system will now be started in order to commit the installation.
+<BR>
+<P>Perhaps, the problem is to allow automatic booting from the SRM console?
+<BR>
+I looked up the SuSE manual where it deals with this rather sparsely on
+<BR>
+pages 27 and 21 under &quot;Booten from SRM console&quot; and &quot;Assign partitions
+<BR>
+for the SRM console.&quot;
+<BR>
+<P>I am also trying to use fdisk on console 2 to repartition the disk.
+<BR>
+Before I do that and perhaps end up doing some permanent damage to the
+<BR>
+system, let me run this by the list for any caution you may have about
+<BR>
+this:
+<BR>
+<P>Initially, I had YaST partition the disk into three parts, sda1 for the
+<BR>
+first 6 cylinders to go to /boot; sda2 for 130 cylinders to go to swap;
+<BR>
+and the rest (from 138 ro 1018) to go to /.
+<BR>
+<P>Using fdisk as described in the manual I initially discovered an
+<BR>
+existing BSD disklabel reading:
+<BR>
+<P>#   size   offset    fstype      fsize  bsize  cpg
+<BR>
+a:  131072       0   4.2BSD      1024   8192    16  #(Cyl. 1 - 165*)
+<BR>
+b:  393216  131072   unused      1024   8192        #(Cyl. 165* - 658*)
+<BR>
+c: 2050860       0   unused      1024   8192        #(Cyl. 1 - 2510)
+<BR>
+g: 1526572  524288   4.2BSD      1024   8192    16  #(Cyl. 658* - 2510*)
+<BR>
+<P>With no experience in using fdisk and the few pointers in the SuSE
+<BR>
+manual I have now come up with a new BSD disklabel of the following
+<BR>
+kind:
+<BR>
+#   size   offset    fstype      fsize  bsize  cpg
+<BR>
+a:  255651    6039     swap                         #(Cyl. 8*- 328*)
+<BR>
+b: 1789557  261690     ext2                         #(Cyl. 328* - 2571*)
+<BR>
+c: 2045208    6039   unused      1024   8192        #(Cyl. 8* - 2571*)
+<BR>
+<P>Does this look right?
+<BR>
+<P>I left the first 4 cylinders untouched just to be on the safe side. The
+<BR>
+book says to start with the *3rd block*. I am not sure whether they
+<BR>
+mean cylinder with that statement, since I couldn't find any reference
+<BR>
+to blocks in the fdisk menu. I also found that when I added new BSD
+<BR>
+partitions it allowed me to go to cylinder 1019 which ended up putting
+<BR>
+2571 in the partition table instead of 2510 which was there originally.
+<BR>
+The complete disklabel shows 2570 cylinders (I guess not the same
+<BR>
+cylinders as during generating the partitions ?).
+<BR>
+<P><P><P><P>Additional info to help in diagnosing the problem:
+<BR>
+I installed the AXP kernel with TGA support assuming that I needed it
+<BR>
+since I needed the aboot image with TGA built in. I repartitioned the
+<BR>
+whole 1 GB disk which resulted in a small boot partition sda1 which is
+<BR>
+DOS, a 128 MB swap partition, and the rest the root partition. The
+<BR>
+system has something like 96MB RAM. It is an AS 250 4/266. I am using
+<BR>
+the default installation off of the SuSE AXP 6.1 CD's. The aboot-tga
+<BR>
+image of the SuSE ftp site had helped me get past the SRM console and
+<BR>
+load the system up so far.
+<BR>
+Thanks for any pointers, Alex.
+<BR>
+<P><PRE>
+-- 
+Dr. Alexander Angerhofer
+Associate Professor of Chemistry
+Department of Chemistry
+The University of Florida
+Box 117200
+Gainesville, FL 32611-7200
+USA
+<P>Tel.: (+1) 352 846 3281
+alt.: (+1) 352 392 9489
+lab : (+1) 352 846 3283
+FAX : (+1) 352 392 0872
+<P><P><P><P><P>-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Izaak Bozof: "Re: [suse-axp] install problems cont'd part 2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">alex@chem.ufl.edu: "[suse-axp] install problem solved"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0004.html">Izaak Bozof: "Re: [suse-axp] install problems cont'd part 2"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:59 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

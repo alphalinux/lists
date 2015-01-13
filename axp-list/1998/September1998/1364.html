@@ -1,0 +1,224 @@
+<!-- received="Thu Oct  8 05:04:57 1998 " -->
+<!-- sent="Thu, 8 Oct 1998 01:58:55 -0600 (MDT)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="patches for RasMol" -->
+<!-- id="199810080758.BAA26854@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>patches for RasMol</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>patches for RasMol</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Thu, 8 Oct 1998 01:58:55 -0600 (MDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1364">[ date ]</a><a href="index.html#1364">[ thread ]</a><a href="subject.html#1364">[ subject ]</a><a href="author.html#1364">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<li> <b>Previous message:</b> <a href="1363.html">Jay.Estabrook@digital.com: "Re: Miata Woes"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<li> <b>Reply:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Below are patches for RasMol to behave with an interactive input<br>
+when used with glibc2.  I think that they should also work correctly<br>
+with older systems (like RH 4.2 on Alpha with glibc 1.99) but they<br>
+were not tested.  They are pretty easy to adjust if this is not<br>
+the case.  In particular I do not know for which versions<br>
+putting 'struct fd_set' become harmful.  If you will get compilation<br>
+complaints about fd_set then adjust '#define SFDSET' to drop 'struct'<br>
+from there.  All this stuff is NOT Alpha specific.<br>
+<p>
+These patches are for release 2.6b2 - the latest one I was able<br>
+to find.  I included also a mod by Jim Paradis which displays<br>
+a molecule name on a title bar.<br>
+<p>
+If you have an older version 2.6, like the one on gatekeeper.dec.com,<br>
+then patches to rasmol.c still apply although it is possible that<br>
+you will have to resolve some minor differences by hand.<br>
+<p>
+  Have clean fun with molecules,<br>
+  Michal<br>
+<p>
+<p>
+diff -ur orig/RasMol-2.6b2/rasmol.c RasMol-2.6b2/rasmol.c<br>
+--- orig/RasMol-2.6b2/rasmol.c	Mon Oct 28 08:39:08 1996<br>
++++ RasMol-2.6b2/rasmol.c	Wed Oct  7 19:46:31 1998<br>
+@@ -29,6 +29,17 @@<br>
+ #include "outfile.h"<br>
+ <br>
+ <br>
++#ifdef __linux__<br>
++# include &lt;features.h&gt;<br>
++# if  __GLIBC__ &gt;= 2<br>
++#  define LXGLIBC<br>
++#  define SFDSET fd_set<br>
++# else<br>
++# define SFDSET struct fd_set<br>
++# endif<br>
++#else<br>
++#define SFDSET struct fd_set<br>
++#endif<br>
+ <br>
+ #ifdef TERMIOS<br>
+ #include &lt;sys/types.h&gt;<br>
+@@ -49,7 +60,11 @@<br>
+ #define TCSETAW TIOCSETAW<br>
+ #define TCGETA  TIOCGETA<br>
+ #else<br>
++#ifdef LXGLIBC<br>
++#include &lt;termios.h&gt;<br>
++#else<br>
+ #include &lt;sys/termio.h&gt;<br>
++#endif /* LXGLIBC */<br>
+ #endif /* _CONVEX_SOURCE */<br>
+ #endif /* __FreeBSD__ */<br>
+ #endif /* esv */<br>
+@@ -109,7 +124,7 @@<br>
+ #endif<br>
+ <br>
+ #ifdef TERMIOS<br>
+-#ifdef __FreeBSD__<br>
++#if defined( __FreeBSD__) || defined (LXGLIBC)<br>
+ static struct termios OrigTerm;<br>
+ static struct termios IntrTerm;<br>
+ #else<br>
+@@ -117,8 +132,8 @@<br>
+ static struct termio IntrTerm;<br>
+ #endif<br>
+ <br>
+-static struct fd_set OrigWaitSet;<br>
+-static struct fd_set WaitSet;<br>
++static SFDSET OrigWaitSet;<br>
++static SFDSET WaitSet;<br>
+ static struct timeval TimeOut;<br>
+ static int WaitWidth;<br>
+ static int FileNo;<br>
+@@ -210,8 +225,13 @@<br>
+ #endif<br>
+ <br>
+ #ifdef TERMIOS<br>
+-    if( isatty(FileNo) )<br>
++    if( isatty(FileNo) ) {<br>
++#ifndef LXGLIBC	<br>
+         ioctl(FileNo, TCSETAW, &amp;OrigTerm);<br>
++#else<br>
++	tcsetattr(FileNo, TCSANOW, &amp;OrigTerm);<br>
++#endif<br>
++    }<br>
+ #endif<br>
+ <br>
+ #ifdef SOCKETS<br>
+@@ -508,7 +528,12 @@<br>
+ <br>
+ <br>
+     if( isatty(FileNo) )<br>
+-    {   ioctl(FileNo, TCGETA, &amp;OrigTerm);<br>
++    {<br>
++#ifndef LXGLIBC<br>
++	ioctl(FileNo, TCGETA, &amp;OrigTerm);<br>
++#else<br>
++	tcgetattr(FileNo, &amp;OrigTerm);<br>
++#endif<br>
+         IntrTerm = OrigTerm;<br>
+ <br>
+         IntrTerm.c_iflag |= IGNBRK|IGNPAR;<br>
+@@ -523,7 +548,11 @@<br>
+         IntrTerm.c_cc[VSUSP] = 0;<br>
+ #endif<br>
+ <br>
++#ifndef LXGLIBC<br>
+         ioctl(FileNo, TCSETAW, &amp;IntrTerm);<br>
++#else<br>
++        tcsetattr(FileNo, TCSANOW, &amp;IntrTerm);<br>
++#endif<br>
+     }<br>
+ #endif /* TERMIOS */<br>
+ <br>
+@@ -594,8 +623,8 @@<br>
+             status = select( WaitWidth, (int*)&amp;WaitSet, (int*)NULL, <br>
+                                         (int*)NULL, &amp;TimeOut );<br>
+ #else<br>
+-            status = select( WaitWidth, &amp;WaitSet, (struct fd_set*)NULL, <br>
+-                                        (struct fd_set*)NULL, &amp;TimeOut );<br>
++            status = select( WaitWidth, &amp;WaitSet, (SFDSET*)NULL, <br>
++                                        (SFDSET*)NULL, &amp;TimeOut );<br>
+ #endif<br>
+ <br>
+ #ifdef SOCKETS<br>
+diff -ur orig/RasMol-2.6b2/molecule.c RasMol-2.6b2/molecule.c<br>
+--- orig/RasMol-2.6b2/molecule.c	Mon Oct 28 05:19:31 1996<br>
++++ RasMol-2.6b2/molecule.c	Thu Oct  8 01:11:56 1998<br>
+@@ -123,6 +123,7 @@<br>
+ void DescribeMolecule()<br>
+ {<br>
+     char buffer[40];<br>
++    extern void SetWindowName(char *);<br>
+ <br>
+     if( CommandActive )<br>
+         WriteChar('\n');<br>
+@@ -132,6 +133,10 @@<br>
+     {   WriteString("Molecule name ....... ");<br>
+         WriteString(Info.moleculename);<br>
+         WriteChar('\n');<br>
++	SetWindowName(Info.moleculename);<br>
++    }<br>
++    else {<br>
++	SetWindowName("RasMol Version 2.6b2");<br>
+     }<br>
+ <br>
+     if( *Info.classification )<br>
+diff -ur orig/RasMol-2.6b2/x11win.c RasMol-2.6b2/x11win.c<br>
+--- orig/RasMol-2.6b2/x11win.c	Thu Sep 26 05:22:42 1996<br>
++++ RasMol-2.6b2/x11win.c	Thu Oct  8 01:08:57 1998<br>
+@@ -1655,6 +1655,10 @@<br>
+     return( num );<br>
+ }<br>
+ <br>
++void SetWindowName(char *name)<br>
++{<br>
++    XStoreName(dpy, MainWin, name);<br>
++}<br>
+ <br>
+ int CreateImage()<br>
+ {<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<li> <b>Previous message:</b> <a href="1363.html">Jay.Estabrook@digital.com: "Re: Miata Woes"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<li> <b>Reply:</b> <a href="1365.html">Roman Martonak: "Re: patches for RasMol"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

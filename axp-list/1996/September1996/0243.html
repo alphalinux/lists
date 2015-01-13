@@ -1,0 +1,198 @@
+<!-- received="Wed Sep 11 10:27:14 1996 " -->
+<!-- sent="Tue, 10 Sep 1996 12:06:58 +0200" -->
+<!-- name="Fred Roy" -->
+<!-- email="froy@gr.osf.org" -->
+<!-- subject="Re: problems with full-screen based programs" -->
+<!-- id="199609100959.FAA18737@postman.osf.org" -->
+<!-- inreplyto="199609100517.AA10673@dorsai.dorsai.org" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: problems with full-screen based programs</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: problems with full-screen based programs</h2>
+
+<b>Fred Roy</b> (<a href="mailto:froy@gr.osf.org"><i>froy@gr.osf.org</i></a>)<br>
+<i>Tue, 10 Sep 1996 12:06:58 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#243">[ date ]</a><a href="index.html#243">[ thread ]</a><a href="subject.html#243">[ subject ]</a><a href="author.html#243">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0244.html">Michael K. Johnson: "Re: how to rsh/rlogin as root with PAM ?"</a>
+<li> <b>Previous message:</b> <a href="0242.html">Linus Torvalds: "Re: {rd,wr}unique palcode insns"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0307.html">Michal Jaegermann: "Re: problems with full-screen based programs"</a>
+<li> <b>Reply:</b> <a href="0307.html">Michal Jaegermann: "Re: problems with full-screen based programs"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+You <a href="mailto:--tony@dorsai.org--">--tony@dorsai.org--</a> recently wrote:<br>
+<p>
+<i>&gt;Just about everything is working great on my UDB, _except_ some</i><br>
+<i>&gt;of the full-screen based programs. I'm using RedHat 3.0.3 with all the</i><br>
+<i>&gt;ECOFF .rpm's. (Don't have the time to ELF my system right now)</i><br>
+<i>&gt;</i><br>
+<i>&gt;	Things like "elm", "tin", and "irc" have this REALLY annoying</i><br>
+<i>&gt;I/O buffering problem. It seems that it takes several characters of</i><br>
+<i>&gt;input (a lot of returns, etc.) in order to get response out of any of</i><br>
+<i>&gt;the programs.</i><br>
+<i>&gt;</i><br>
+<i>&gt;I don't suspect it's a termcap problem, because other things like</i><br>
+<i>&gt;"vi" and "lynx" work fine, but the others are broken. I'm not sure if "lynx"</i><br>
+<i>&gt;uses the curses libraries (if I remember, it has options for both curses and</i><br>
+<i>&gt;non-curses) so my inital *GUESS* is that it might be curses.</i><br>
+<p>
+<p>
+Some months ago, I encountered the same problems with "more"; I had used as <br>
+source code for "more" the Slackware Linux/Intel 1.x source code distribution, <br>
+and had built it on a DEC Alpha system running the "old" Linux/Alpha <br>
+distribution termed "BLADE 0.3", including an "old" libc. Here are things <br>
+discussed on these topics:<br>
+<p>
+* Date: Fri, 16 Feb 1996 08:46:12 -0700<br>
+* From: David Mosberger-Tang &lt;<a href="mailto:davidm@AZStarNet.com">davidm@AZStarNet.com</a>&gt;<br>
+* Subject: Re: midi player? &amp; more<br>
+* &gt; I first added lines like:<br>
+* &gt; 	  otty.c_lflag &amp;= ~(ICANON|ECHO);<br>
+* &gt;         + otty.c_cc[VMIN] = 1;   /* be sure it is 1 */<br>
+* &gt;         + otty.c_cc[VTIME] = 0;  /* be sure it is 0 */<br>
+* &gt; without success.<br>
+<p>
+* This one fixes more in util-linux-2.5 as well.  I suspect it shouldn't<br>
+* be necessary.  It starts to look to me like TCGETA may not return the<br>
+* correct values.  Looking at linux/include/asm-alpha/termios.h, we find<br>
+* that trans_to_termio() sets the _VMIN and _VTIME entries *only* if the<br>
+* ICANON flag is set in c_lflag whereas the x86 version always copies<br>
+* everything unconditionally.<br>
+<p>
+* &gt; Then I noticed that ioctl() was called with (sometimes) a pointer to a<br>
+* &gt; `struct termio' as 3rd argument, while (on Linux/Alpha/BLADE_0.3)<br>
+* &gt; the Vxx array indexes differed beetween termio.c_cc[] and termios.c_cc[]<br>
+* &gt; ... and in system headers VMIN * &amp; co are overriden to suit the<br>
+* &gt; `struct termio' variants only when &lt;termio.h&gt; is included  ... and it's<br>
+* &gt; not the case in more.c.<br>
+<p>
+* termio and termios are not compatible on Linux/Alpha (in fact, you get<br>
+* an error message when trying to include both header files).  As long<br>
+* as one sticks with one or the other, everything will (should) work<br>
+* fine though.  So the real bug may have been that the old more.c<br>
+* included termios.h when it should have included termio.h (this is<br>
+* correct in the version distributed by Red Hat).<br>
+<p>
+- - - - - -<br>
+<p>
+* Subject: Re: Re: midi player? &amp; more<br>
+* Date: Fri, 16 Feb 96 17:21:10 +0100<br>
+* From: Fred Roy &lt;<a href="mailto:froy@gr.osf.org">froy@gr.osf.org</a>&gt;<br>
+*<br>
+* The hidden thing that I have forgot to mention is: in BLADE_0.3 (sorry...)<br>
+* &lt;sys/ioctl.h&gt; includes &lt;termios.h&gt; ... so without changing the headers<br>
+* one could not *also* include &lt;termio.h&gt; in util-linux-2.1/more.c to get<br>
+* in the redefinitions of VMIN to _VMIN, etc. Don't know if it also<br>
+* applies to util-linux-2.5/more.c. ... and RedHat's &lt;sys/ioctl.h&gt;.<br>
+<p>
+- - - - - -<br>
+<p>
+* Date: Fri, 16 Feb 1996 09:30:35 -0700<br>
+* From: David Mosberger-Tang &lt;<a href="mailto:davidm@AZStarNet.com">davidm@AZStarNet.com</a>&gt;<br>
+* Subject: Re: Re: midi player? &amp; more<br>
+<p>
+* The more in Red Hat does not include sys/ioctl.h.  But it's a mess<br>
+* anyways.  I'm not going to be able to look into this soon (I'm having<br>
+* plenty fun with glibc already), but if somebody could track this down<br>
+* (e.g., *why* are termio and termios incompatible?  what does OSF/1<br>
+* do?  etc) it surely looks like something that should go into 2.0.<br>
+* The reason I'm pushing glibc (besides being good in itself) is that<br>
+* it will require a few kernel changes as well---needless to say, 2.0<br>
+* sounds like a target for these...<br>
+<p>
+- - - - - -<br>
+<p>
+* Date: Fri, 16 Feb 1996 11:29:39 -0500 (EST)<br>
+* From: Erik Troan &lt;<a href="mailto:ewt@redhat.com">ewt@redhat.com</a>&gt;<br>
+* Subject: Re: Re: midi player? &amp; more<br>
+*<br>
+* On Fri, 16 Feb 1996, Fred Roy wrote:<br>
+<p>
+* &gt; The hidden thing that I have forgot to mention is: in BLADE_0.3 (sorry...)<br>
+* &gt; &lt;sys/ioctl.h&gt; includes &lt;termios.h&gt; ... so without changing the headers<br>
+* &gt; one could not *also* include &lt;termio.h&gt; in util-linux-2.1/more.c to get<br>
+* &gt; in the redefinitions of VMIN to _VMIN, etc. Don't know if it also<br>
+* &gt; applies to util-linux-2.5/more.c. ... and RedHat's &lt;sys/ioctl.h&gt;.<br>
+*<br>
+* I don't mess with any of that stuff.<br>
+<p>
+- - - - - -<br>
+<p>
+* Date: Sat, 17 Feb 1996 17:22:32 -0700<br>
+* From: David Mosberger-Tang &lt;<a href="mailto:davidm@AZStarNet.com">davidm@AZStarNet.com</a>&gt;<br>
+*<br>
+* OK, here is the scoop:<br>
+*<br>
+* The OSF/1 (and System V?) version of termio interprets termio.c_cc[4]<br>
+* and termio.c_cc[5] as VEOF and VEOL if ICANON is set in<br>
+* termio.c_lflag.  If ICANON is not set, those fields are interpreted as<br>
+* VMIN and VTIME, respectively.  What more does is get the current<br>
+* termio structure, turn off ICANON (as well as making some other<br>
+* changes), and then it sets the new termio structure.  Since the old<br>
+* structure was gotten with ICANON set, the values in termio.c_cc[4]/[5]<br>
+* are the VEOF and VEOL values but when they are set, they are<br>
+* interpreted as VMIN and VTIME...  So it really is necessary to set<br>
+* VMIN and VTIME in more---it's not a kernel problem (but it sure is<br>
+* ugly...).<br>
+*<br>
+* I guess the solution is to encourage everyone to use termios (that's<br>
+* why less is more... :-)<br>
+<p>
+Summary: when using early (1995) versions of Linux/Alpha system headers and <br>
+libc, there were terminal I/O buffering problems in the AXP executable <br>
+obtained for classic Linux commands relying on the old-styled "termio" API, <br>
+such as the "more" command.<br>
+I made changes both in system headers and the source code for "more" <br>
+--"ispell" is perhaps another example-- to fix such problems.<br>
+<p>
+I can't say if the problem you recently encountered with "elm" is the same or <br>
+not: while I built a working "elm" on Linux/Alpha, I have no longer my source <br>
+code on-line. As far as I remember, for commands relying on the "curses" API, <br>
+I used the "ncurses" Linux/Alpha library variant instead of the "curses" <br>
+variant. However, I don't know if these two variants are supported in today <br>
+RedHat distributions for Linux/Alpha.<br>
+<p>
+Note: the Elvis "vi" clone uses a custom version of "curses" that is embedded <br>
+within the source code for this command. This could explain why "vi" works <br>
+while "elm" does not.<br>
+<p>
+fred<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0244.html">Michael K. Johnson: "Re: how to rsh/rlogin as root with PAM ?"</a>
+<li> <b>Previous message:</b> <a href="0242.html">Linus Torvalds: "Re: {rd,wr}unique palcode insns"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0307.html">Michal Jaegermann: "Re: problems with full-screen based programs"</a>
+<li> <b>Reply:</b> <a href="0307.html">Michal Jaegermann: "Re: problems with full-screen based programs"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

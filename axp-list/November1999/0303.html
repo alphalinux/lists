@@ -1,0 +1,341 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>AXP-List Hypermail Archive: Re: Assembly errors with lockmeter</TITLE>
+<META NAME="Author" CONTENT="Peter Rival (frival@zk3.dec.com)">
+<META NAME="Subject" CONTENT="Re: Assembly errors with lockmeter">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Assembly errors with lockmeter</H1>
+<HR>
+<P>
+<!-- received="Mon Nov  8 04:34:12 1999" -->
+<!-- isoreceived="19991108133412" -->
+<!-- sent="Mon, 08 Nov 1999 09:03:46 -0500" -->
+<!-- isosent="19991108140346" -->
+<!-- name="Peter Rival" -->
+<!-- email="frival@zk3.dec.com" -->
+<!-- subject="Re: Assembly errors with lockmeter" -->
+<!-- id="3826D83F.7B73A97@zk3.dec.com" -->
+<!-- inreplyto="19991107164713.A7248@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: Assembly errors with lockmeter<BR>
+<STRONG>From: </STRONG>Peter Rival (<EM>frival@zk3.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Nov 08 1999 - 05:03:46 AKST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#303">[ date ]</A>
+<A HREF="index.html#303">[ thread ]</A>
+<A HREF="subject.html#303">[ subject ]</A>
+<A HREF="author.html#303">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0304.html">Jay.Estabrook@digital.com: "Re: Alpha cluster?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0302.html">Shane Sturrock: "Re: Alpha cluster?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0295.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0295.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0303.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+</PRE>
+<P>
+Richard Henderson wrote:
+<BR>
+<P><EM>&gt; On Tue, Nov 02, 1999 at 08:41:15PM +0000, Peter Rival wrote:
+</EM><BR>
+<EM>&gt; &gt;         mb
+</EM><BR>
+<EM>&gt; &gt; .section .text2,&quot;ax&quot;
+</EM><BR>
+<EM>&gt; &gt; 6:
+</EM><BR>
+<EM>&gt; &gt; .previous
+</EM><BR>
+<EM>&gt; &gt;         addl $1,$31,$1    &lt;-- Line 655
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; This fixes it.  I do wonder what exactly you're doing with
+</EM><BR>
+<EM>&gt; labels in sections with no code attached to them...
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P>I wonder myself sometimes...;)  Basically I was trying to do something like &quot;try
+<BR>
+to grab the read lock once, and if you fail, bail out&quot;.  I was just trying to
+<BR>
+modify read_lock to do something like that.  I suppose it would have been better
+<BR>
+to write it more like this:
+<BR>
+<P>static __inline__ int _read_try_lock_(void *lock)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long temp,result=0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:     ldl_l %1,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;       blbs %1,6f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;       subl %1,2,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;       stl_c %1,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;       beq %1,6f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;       mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;6:     mov %1,%2\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=m&quot; (__dummy_lock(lock)), &quot;=&amp;r&quot; (temp), &quot;=&amp;r&quot; (result)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;m&quot; (__dummy_lock(lock))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (result != 1);  /* Was the lock grabbed? */
+<BR>
+}
+<BR>
+<P>But that looks kinda ugly.  I really don't want to unconditionally copy lock into
+<BR>
+the result, as I've already set the result to zero.  Hmmm...any assembly experts
+<BR>
+have a better take on it?  BTW, which tree is this against - 2.95.2 or egcs
+<BR>
+1.1.2?  Thanks for looking into it!
+<BR>
+<P>&nbsp;- Pete
+<BR>
+<P><EM>&gt;
+</EM><BR>
+<EM>&gt;         * config/tc-alpha.c (alpha_align): Check, don't assert, that
+</EM><BR>
+<EM>&gt;         the previous label was in the current section before playing
+</EM><BR>
+<EM>&gt;         with auto-alignment.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Index: gas/config/tc-alpha.c
+</EM><BR>
+<EM>&gt; ===================================================================
+</EM><BR>
+<EM>&gt; RCS file: /cvs/binutils/binutils/gas/config/tc-alpha.c,v
+</EM><BR>
+<EM>&gt; retrieving revision 1.6
+</EM><BR>
+<EM>&gt; diff -c -p -d -r1.6 tc-alpha.c
+</EM><BR>
+<EM>&gt; *** tc-alpha.c  1999/10/18 22:29:14     1.6
+</EM><BR>
+<EM>&gt; --- tc-alpha.c  1999/11/08 00:42:40
+</EM><BR>
+<EM>&gt; *************** alpha_align (n, pfill, label, force)
+</EM><BR>
+<EM>&gt; *** 4756,4769 ****
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;     alpha_current_align = n;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; !   if (label != NULL)
+</EM><BR>
+<EM>&gt;       {
+</EM><BR>
+<EM>&gt; -       assert (S_GET_SEGMENT (label) == now_seg);
+</EM><BR>
+<EM>&gt;         symbol_set_frag (label, frag_now);
+</EM><BR>
+<EM>&gt;         S_SET_VALUE (label, (valueT) frag_now_fix ());
+</EM><BR>
+<EM>&gt;       }
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; !   record_alignment(now_seg, n);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;     /* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp; elf, record the requested alignment
+</EM><BR>
+<EM>&gt;        in a reloc for the linker to see.  */
+</EM><BR>
+<EM>&gt; --- 4756,4768 ----
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;     alpha_current_align = n;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; !   if (label != NULL &amp;&amp; S_GET_SEGMENT (label) == now_seg)
+</EM><BR>
+<EM>&gt;       {
+</EM><BR>
+<EM>&gt;         symbol_set_frag (label, frag_now);
+</EM><BR>
+<EM>&gt;         S_SET_VALUE (label, (valueT) frag_now_fix ());
+</EM><BR>
+<EM>&gt;       }
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; !   record_alignment (now_seg, n);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;     /* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp; elf, record the requested alignment
+</EM><BR>
+<EM>&gt;        in a reloc for the linker to see.  */
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; --
+</EM><BR>
+<EM>&gt; To unsubscribe: send e-mail to axp-list-request@redhat.com with
+</EM><BR>
+<EM>&gt; 'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</EM><BR>
+<P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+Richard Henderson wrote:
+<blockquote TYPE=CITE>On Tue, Nov 02, 1999 at 08:41:15PM +0000, Peter Rival
+wrote:
+<br>>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mb
+<br>> .section .text2,"ax"
+<br>> 6:
+<br>> .previous
+<br>>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; addl $1,$31,$1&nbsp;&nbsp;&nbsp;
+&lt;-- Line 655
+<p>This fixes it.&nbsp; I do wonder what exactly you're doing with
+<br>labels in sections with no code attached to them...
+<br>&nbsp;</blockquote>
+I wonder myself sometimes...;)&nbsp; Basically I was trying to do something
+like "try to grab the read lock once, and if you fail, bail out".&nbsp;
+I was just trying to modify read_lock to do something like that.&nbsp;
+I suppose it would have been better to write it more like this:
+<p><tt>static __inline__ int _read_try_lock_(void *lock)</tt>
+<br><tt>{</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; long temp,result=0;</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; __asm__ __volatile__(</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "1:&nbsp;&nbsp;&nbsp;&nbsp;
+ldl_l %1,%0\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+blbs %1,6f\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+subl %1,2,%1\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+stl_c %1,%0\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+beq %1,6f\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+mb\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ".section .text2,\"ax\"\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "6:&nbsp;&nbsp;&nbsp;&nbsp;
+mov %1,%2\n"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ".previous"</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : "=m" (__dummy_lock(lock)),
+"=&amp;r" (temp), "=&amp;r" (result)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : "m" (__dummy_lock(lock))</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; );</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return (result != 1);&nbsp;
+/* Was the lock grabbed? */</tt>
+<br>}
+<p>But that looks kinda ugly.&nbsp; I really don't want to unconditionally
+copy lock into the result, as I've already set the result to zero.&nbsp;
+Hmmm...any assembly experts have a better take on it?&nbsp; BTW, which
+tree is this against - 2.95.2 or egcs 1.1.2?&nbsp; Thanks for looking into
+it!
+<p>&nbsp;- Pete
+<blockquote TYPE=CITE>&nbsp;
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; * config/tc-alpha.c (alpha_align):
+Check, don't assert, that
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; the previous label was in
+the current section before playing
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; with auto-alignment.
+<p>Index: gas/config/tc-alpha.c
+<br>===================================================================
+<br>RCS file: /cvs/binutils/binutils/gas/config/tc-alpha.c,v
+<br>retrieving revision 1.6
+<br>diff -c -p -d -r1.6 tc-alpha.c
+<br>*** tc-alpha.c&nbsp; 1999/10/18 22:29:14&nbsp;&nbsp;&nbsp;&nbsp; 1.6
+<br>--- tc-alpha.c&nbsp; 1999/11/08 00:42:40
+<br>*************** alpha_align (n, pfill, label, force)
+<br>*** 4756,4769 ****
+<p>&nbsp;&nbsp;&nbsp; alpha_current_align = n;
+<p>!&nbsp;&nbsp; if (label != NULL)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {
+<br>-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; assert (S_GET_SEGMENT (label)
+== now_seg);
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; symbol_set_frag (label,
+frag_now);
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; S_SET_VALUE (label, (valueT)
+frag_now_fix ());
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }
+<p>!&nbsp;&nbsp; record_alignment(now_seg, n);
+<p>&nbsp;&nbsp;&nbsp; /* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp;
+elf, record the requested alignment
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; in a reloc for the linker to see.&nbsp;
+*/
+<br>--- 4756,4768 ----
+<p>&nbsp;&nbsp;&nbsp; alpha_current_align = n;
+<p>!&nbsp;&nbsp; if (label != NULL &amp;&amp; S_GET_SEGMENT (label) ==
+now_seg)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; symbol_set_frag (label,
+frag_now);
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; S_SET_VALUE (label, (valueT)
+frag_now_fix ());
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }
+<p>!&nbsp;&nbsp; record_alignment (now_seg, n);
+<p>&nbsp;&nbsp;&nbsp; /* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp;
+elf, record the requested alignment
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; in a reloc for the linker to see.&nbsp;
+*/
+<p>--
+<br>To unsubscribe: send e-mail to axp-list-request@redhat.com with
+<br>'unsubscribe' as the subject.&nbsp; Do not send it to axp-list@redhat.com</blockquote>
+
+
+
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0304.html">Jay.Estabrook@digital.com: "Re: Alpha cluster?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0302.html">Shane Sturrock: "Re: Alpha cluster?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0295.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0295.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0303.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a23</A> 
+: <EM>Mon Nov 08 1999 - 04:34:15 AKST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,269 @@
+<!-- received="Tue Jun 25 14:58:04 1996 " -->
+<!-- sent="Tue, 25 Jun 1996 14:58:04 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="new NCR scsi driver!" -->
+<!-- id="199606251259.OAA06955@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>new NCR scsi driver!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>new NCR scsi driver!</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Tue, 25 Jun 1996 14:58:04 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#315">[ date ]</a><a href="index.html#315">[ thread ]</a><a href="subject.html#315">[ subject ]</a><a href="author.html#315">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0316.html">Michael Schwingen: "Re: Eliminating Reply-to: header -- was: Re: UDB &amp; Multia"</a>
+<li> <b>Previous message:</b> <a href="0314.html">Peter L Higginson  25-Jun-1996 1359: "Lost partition table"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0388.html">Craig Ruff: "Re: new NCR scsi driver!"</a>
+<li> <b>Maybe reply:</b> <a href="0388.html">Craig Ruff: "Re: new NCR scsi driver!"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+there is another driver for the NCR 53C8xx chips for Linux which <br>
+is the FreeBSD driver ported to Linux by  Gerard Roudier &lt;<a href="mailto:groudier@iplus.fr">groudier@iplus.fr</a>&gt;.<br>
+this driver seems to be much more bug free (don't have any problems with <br>
+DISCONNECT enabled anymore!!) and supports wide-scsi, configuration via<br>
+/proc/scsi/ncr53c8xx/* and...<br>
+<p>
+thanks to the work of Gerard this driver also works now for ALPHA with <br>
+the patch below (mostly long -&gt; 32bit cleanup)  which is relative to<br>
+ncrBsd2Linux-1.11-src.tar.gz  (can be found e.g. on sunsite; I got it<br>
+from Incoming, don't know if it has been moved already).<br>
+<p>
+<p>
+the driver itself works fine but there are two problems left I don't really <br>
+know how to fix this right:<br>
+<p>
+- memory mapped I/O doesn't work, probably because vremap() in mm/valloc.c<br>
+  is not correct ?  trying to map the I/O registers, vremap() returns NULL.<br>
+  using one of the patches below for mm/vmalloc.c and drivers/scsi/ncr53c8xx.c<br>
+  fixes the vremap() problem but then the kernel immideately panics with<br>
+  "Unable to hangle kernel paging request..." in readl() when trying to<br>
+  access the mapped I/O registers.<br>
+  how do the registers have to be mapped ?<br>
+<p>
+-------------------------------------------------------------------------------<br>
+--- /mnt/soft/1/linux/mm/vmalloc.c	Thu Apr  4 00:13:09 1996<br>
++++ mm/vmalloc.c	Tue Jun 25 14:37:34 1996<br>
+@@ -306,7 +306,7 @@<br>
+ 	void * addr;<br>
+ 	struct vm_struct * area;<br>
+ <br>
+-	if (offset &lt; high_memory)<br>
++	if (offset &lt; (MAP_NR(high_memory) &lt;&lt; PAGE_SHIFT))<br>
+ 		return NULL;<br>
+ 	if (offset &amp; ~PAGE_MASK)<br>
+ 		return NULL;<br>
+--- /mnt/soft/1/linux/drivers/scsi/ncr53c8xx.c	Tue Jun 25 10:14:20 1996<br>
++++ drivers/scsi/ncr53c8xx.c	Tue Jun 25 14:40:23 1996<br>
+@@ -302,7 +302,7 @@<br>
+ {<br>
+ 	u_long page_base = ((u_long) base) &amp; PAGE_MASK;<br>
+ 	u_long page_offs = ((u_long) base) - page_base;<br>
+-	return (vm_offset_t) ((u_long) vremap(page_base, page_offs+size) + page_offs);<br>
++	return (vm_offset_t) ((u_long) vremap(page_base | PAGE_OFFSET, page_offs+size) + page_offs);<br>
+ }<br>
+ static inline void unmap_pci_mem(vm_offset_t vaddr, u_long size)<br>
+ {<br>
+--- /mnt/soft/1/linux/drivers/scsi/ncr53c8xx.c	Tue Jun 25 10:14:20 1996<br>
++++ drivers/scsi/ncr53c8xx.c	Tue Jun 25 14:40:23 1996<br>
+@@ -302,7 +302,7 @@<br>
+ {<br>
+ 	u_long page_base = ((u_long) base) &amp; PAGE_MASK;<br>
+ 	u_long page_offs = ((u_long) base) - page_base;<br>
+-	return (vm_offset_t) ((u_long) vremap(page_base, page_offs+size) + page_offs);<br>
++	return (vm_offset_t) ((u_long) vremap(page_base | PAGE_OFFSET, page_offs+size) + page_offs) &amp; ~PAGE_OFFSET;<br>
+ }<br>
+ static inline void unmap_pci_mem(vm_offset_t vaddr, u_long size)<br>
+ {<br>
+-------------------------------------------------------------------------------<br>
+<p>
+- MILO doesn't support vremap() an vfree() yet<br>
+<p>
+<p>
+-------------------------------------------------------------------------------<br>
+begin 644 ncrBsd2Linux-1.11-axp_patch.gz<br>
+M'XL(`.C,SS$"`^P\[U?;R*Z?PU\QK[WP8I*`[&lt;1)@,(N!;K+?0'Z@"Z[K^W-<br>
+M,;8#WCJVUW8@W&amp;[_]R=I9NRQX_"CNU_&gt;.8_3DGA&amp;HY$TDD;2C'']R81U9FQC<br>
+M8S-T$JOK#.?S#8&gt;5GE8ZG4X%H'$Q"]D_X;_19\;6=J^_;0WARU9_I=5JE4&lt;W<br>
+M+F&lt;&gt;@9H6,[K;IK%M"-`??V2=GMX&gt;L!;]_O''%;:^N&lt;)6V.;Z2F=]O6'T&lt;)Q'<br>
+MP&amp;UVYR6I'\&amp;,&amp;X:QTH)NL[NDVP0\Z_@?J(SC*,D\EUT&lt;7!QWCH_9Q+.S6&gt;*E<br>
+MV]3/X.?B(71NDRB,9BD+O9LH\^T,$!%UAM%O]UD+/XPN$?C:#YU@YGKLE1.%<br>
+M:6:'6;IQ^TIM3UUJ6&amp;GE36\"/YS--[.'V`/@O9762@LX1!8.O8D/'&amp;2W'GM[<br>
+M&lt;&lt;C2["'PV&amp;SLAUG79`@/4)LK+?SF&gt;A,V@U;1NP-8E$D+&gt;=/&lt;(,'=[_XASLT^<br>
+M+8S9'[0-G3B'Z5Q.[K43Q0_-M,W&lt;<a href="mailto:-@NUQM2;.O#">-@NUQM2;.O#</a>&lt;=+4V:Z;X*]0T!?K?7A(U<br>
+M&lt;]#4RSBH+@`[$C":3*`SFC2S-IMJC683&amp;-58&lt;ZW9S-BZIFN=O2F`MU"PDQ#%<br>
+M(0=`RS(4J?]O;UR'Y;47NOY$*!NJPK[K@EJD+$OL,`T*%&gt;AM#=IFC[4L?=#N<br>
+MZHJ2BCD;QV&lt;GX^/3M\U$8_+'#Z^!M[BSA\K'6@59:9;,G(S!:HT3[Z;-$B*E<br>
+MC&amp;A\]NY=,])J$4&amp;[5IWYJCSS_?-GKB`:E1$%W\W"J,Q"4,-"ONHTY.S#)&lt;@/<br>
+M;-@.&lt;%`TRX#M)CZ!UHBAK644)(H.26Q796SW?PW;J(PM&gt;!FVUB.&lt;?@^OK4=X<br>
+M_1YN6X]P^W?P*[1!X*S%5ZB%M,:3HY.S\]_8U([!\['C,U"C&gt;):Q31P/7RHV<br>
+MR$Y.CL\J1IAXMGO=7,,I@#*@CN."IX+$?)RBL'Q&lt;T[FU$_`7U&gt;%5&amp;Y08KBHS<br>
+MWR^9N3IN5!D7/)/B487BX&amp;F*"T=+.,J:&gt;)_XF7&lt;MUZ6&gt;AH7Q5Y7Q]R\&lt;/ZJ,<br>
+M#QX?WWJ$?O8\%EJ/L,"&gt;QT7K$2[8=S)2-I$RBJ?75=H,6(GHBL+@H6HQN)=9<br>
+M9K=MF+"7=;?:AB7BF0ENI:&lt;'YV.PU_WW[X\.5&lt;.J;&amp;SX4^QW!2.5;4L!$\TJ<br>
+MQJMZC-BL@HWJP4:5B;GLDNK$HWSB`N&gt;"RG!@M;D$?%4/?%4+/*H'SIL+FA&lt;6<br>
+MO`!6F^M7-F%EU^AZ,<a href="mailto:48RX0TL.IL$">48RX0TL.IL$</a>]@U[-4N]\73J1Z_XFG&lt;'?,VM?K[F7I!Z<br>
+MI1!F&lt;95IRY:8V`\E#[NMZ(#J[Q&gt;58!D6";==41,U)EG4DR78KE2:KIKER&amp;91<br>
+MC99@&amp;:E81E7.1L_D;%3E;%1P5E!5HXBU^$IPVPO*JI4P7CT3X]4BQJMZC*-G<br>
+M8APM8AP5&amp;%LJQHK&gt;+\58@MNNM0\N41G&amp;HZKW(5D9LE9_N`4?J.@R;Q)1BN-&lt;<br>
+MLW7\/8YW&lt;+!HANSL"_NZTFG,QD$4WC2"L3-U=]3GV(;D`#*N!L0YT"&lt;AE&amp;&lt;!<br>
+MP;XIB!NS%'L!-4\E]1YF5(9A]D6RVP#3QM0/\HX,`FQ*`UT[LS&gt;P"^.;G(1&amp;<br>
+M([8SY_;C\+,RJ]H(DS;062#*2T!SXX5&gt;8@&gt;4]C(W\2$[9G$2W?FNES*;$]2U<br>
+MMHB@[M"0!$D4MDB&amp;!%$P(8-T-TNB`(B]\=,,DFW88!@L6AK;CL&lt;)1G+36XCG<br>
+M@#+XC:12MBH?52+]Y`\6&gt;'=&gt;P&amp;FQ]"[18IF6H`5RZ\QWV%WDN\QV?Y^EV3A]<br>
+M@(FGX\R?&gt;LT05Q$"2$T(G(!A+@I%[2RSG5O6O'!2?_QS!$,OO6D,29W'UK,X<br>
+MA.00(6&gt;A#]\$R&gt;!([WS'&amp;_MN&amp;_AH"(V?C6GW3:`/BPO82T.=6S_FWZ[MU./?<br>
+M_&amp;B,;+8A\W_F&gt;!*.P,"_%SA8CH/:DS_$=+.T+;$*BB=A208D,#],O21#E-'X<br>
+MWO8SV!_&amp;`2Q;+K8V(]D&lt;3$.7K8,R`0J^#A`A;.$Z]"SXI&amp;3WKU02&gt;)B."3O3<br>
+M&lt;PJ)&gt;%#$,/OXF0$,:[SZ%/[CV-W&amp;M=MPVG?,<a href="mailto:V.@/J*RSJ7">V.@/J*RSJ7</a>&lt;W#0,K3-W^MCY@<br>
+MJ&lt;&gt;.YC'[QZ?P%1AH&amp;:TP%5Q_60O:I;CFEZ/SB^.ST\8Z,PR0*\1-'%1C6!T`<br>
+M%2^RF&amp;L-H-C@42A'0%DDL:[&gt;)&lt;WMZI;47%Y[ZGSO#PFM(V=?(T&amp;MM'2P''9O<br>
+MIZS&lt;`3Z39T+?-I?/^(;MOST[O[S&lt;_XGMU72O;[:_&lt;LLDADS#P&amp;)7JVL"9Z+J<br>
+MA&gt;H(PFY&amp;L1.Y'MO=9;K&amp;&lt;!"8=@):!EVO5M-M=G1^?G:N0U0&amp;CN?\^/TELS.V<br>
+MZF[`&lt;I%5-6AU0AOM-X;8%OQC!U8OR3J&amp;AMYB`4"4@%0X5':`.SP:[?_&amp;FH9.<br>
+M/[R1.U].Z&gt;'1VP\_C=^-]G^Z8&amp;N,/W&amp;:-**D('N^S=B;U?E&gt;061S%J;^3&gt;BY<br>
+M&amp;LUL("%Y$Q&gt;!(+?`$JM8B)/'QA*9Y`K1%UZ!VX_"_\S8K7WGL2P"RR8Q[X]&amp;<br>
+MX':G4SMT4[$V78.4S;2ZTF4W&amp;HD71$X*RFYRT2#[./E'_3/[%\KXH_%9`R%T<br>
+MY9+5K)GQR)H]O6C/7K7:96M\H]_7D,=^V1%\#H?$9]?0"SXE($J.3&gt;P@@+TI<br>
+MB68WMV0"V`Y[O3T+LFU)MW&lt;/4KG+HOCV(85\"CWCNL:BP"T(KP=I2BM#6$F[<br>
+MI)`)4CBI7:O/21T,2S7LO[(E_=_?D5`"/.[IF3H)J&amp;&gt;:PSSNP?5R(/3[?3:-<br>
+<a href="mailto:MQ^!0-RBB@I5H@@Z.__GAY#T">MQ^!0-RBB@I5H@@Z.__GAY#T</a>)'349P7!Q-FX]V_62C&lt;"&gt;A&lt;[MA@BYT!6='KP5<br>
+MICU^__-O%QA4@I9Z@&gt;=DFD:!75GA[6N4+LRZNSH'+?WBQQHJ.Y-*S(06YV;K<br>
+MQ%Q?EF&amp;)'\%"8T%T3[&amp;QA`M$B^.ENO5Z!I=FKRNE652RESJ^R^/3W[22'`X.<br>
+MWB+W%Y?[E_"YN3HGVE668;`^GTPF[1+G-"Y8/I"1U:BCT5J0^5O4&gt;30*T!=\<br>
+M3M$0^+-PB%P#L(^B:V+7&amp;E@8TO&gt;LK8&amp;(Z=%C,G8&amp;82E%M%GD0%`ZA6#52ZF3<br>
+M7,'[\^/3R_'^X&gt;%YDP&lt;W)=[/3D[V3P_9N_WCT=$A:X(&lt;5N&lt;:^W%U7CB]*L6L<br>
+M0O*CZK%T@G@CWQZ&gt;GL")Y48!+&amp;#M)P77!@)"#W).#\W#X\,QN&gt;^%X4)I2(:#<br>
+M'D4HO4%?1BCD2'D18!/V'PB2K.[!T-#WL;X@GOHZ2AJ#&gt;MI/#L`_'))YH\F]<br>
+M/S@&gt;'Q[]&lt;GQP-`82,,CB"-C:&amp;D/(7T0`MK?+#(@4_OP3&gt;/YK:/2Y0,3("ST'<br>
+M3U_&amp;*)0SA\[8G&lt;*NV@94#NP\N(E&lt;&gt;!DS^ATZ\IF`/EW/$LC$4(5X:,G%9_6X<br>
+M^`;]1\5G6JKX!M:+Q6=:?XOX:M%\A_@&amp;UO&gt;+KQCD9)#&lt;6CA*[Q6C#D_VV;OC<br>
+M=V&lt;8[`R'.(27)[?Z:.U6UQCFUOZ&lt;?:+QO)V"[]S/V"XJKAX3SFA6LV54XJ.E<br>
+M&amp;\=C^-3-HQ)-5;:0IS81#O/43D)A,B\,6A:7]F`@&lt;CU&lt;;KZ5-WST(VWFXL&lt;.<br>
+M-?/,/H4.I3;BIC$"V7FNWS65-MB1(/M/G&lt;2/LW$T21$*6_Q*+2#,O"29Q1G6<br>
+M,+'&gt;,`D&gt;V`^"2"I.M*P&gt;54]$+O+X/L&lt;4&lt;;]9=?^$"']USG_OB37#VB4H)U"F<br>
+M:USJ%+.6FU%6Q'\;F&gt;;/Q=IBD1"-(HVU95W7CB;R:JO7[[4-%'9O.&amp;@;O;S\<br>
+MXT:,5X!X486YH.C4\_P4FRHO\DB\5,?GOD&lt;ML7&amp;+EJUS5,2-[&amp;Z&lt;&gt;@[K,''"<br>
+MH#3N&amp;=*%4LA'ZJ-`@1WF:*AO`OZOZ&gt;_J.\Q_P[/FI@!'OC1H;K5X^L6/J]:U<br>
+M-;7_H_\935MT50\\L)M;<a href="mailto:TR.#92G9UU1B$6">TR.#92G9UU1B$6</a>"#%@M6$Z!RK:X"X$(S`.!:SM!4<br>
+M.N#M.TJ,]8*;%7R)@^B&amp;XA/[!A0[PM#;#B#32UP&amp;2A\E/+.S+(,*+Y;5-84Q<br>
+M*G9#),=BB&gt;(Q[^`VI#J655=D&lt;QAR;&amp;/(`9\=^D=?-RD*X9WZ&lt;*[EX4[%X8`0<br>
+M6&gt;Z[=6T-?/=$N((VX[;0(1LBJ#1R`F50&gt;EUY=.&amp;Q!#^'O4)KYX].F`5=S"MS<br>
+M=LDBESK59U#7*EMCB&lt;Z:CNNE'41[/3;.14U''3],18&amp;'5DQQ$-*C0=)&gt;K#BE<br>
+MZ[S.LK8F5,<a href="mailto:3LX0D.Z`@$">3LX0D.Z`@$</a>=.)2CO1&lt;;+W)J\*0O:H&amp;Q#&amp;R5H%9R_.)ESB-3NX"<br>
+MU$CZ4P:VL_TI&gt;\4C;-7\C?Y.;NPY/%O5S3FF"TV^R]0;&gt;25&lt;1RW5RG;8DJ&lt;P<br>
+MM93DO77TM-2CH$7"U.44CD3%6"6*.X3G5_;0'SB!9X=L%O-R_]1F$W\2\17N<br>
+MZR9M=GVCKY9WLED2Y@6N:BQA)S&lt;&gt;%FR8&amp;WDI%I$2"&amp;4@@2?TD)P7.&lt;TSK%R$<br>
+M*U7;$WMC';A:Q^*4LGL_N\7P!H\U[`1KST0+:-F&amp;`)0!T+T?!"S?`L$MWD?)<br>
+MEPTA"TAPT2'V+5,Y+GF7&gt;-Z_/7D8$&lt;"."1'DM0?9&gt;$"5,[P+0&gt;B$QTV+LY1:<br>
+M;5\&gt;2[P[/SKZGZ.R[@/U&gt;:)+!8\[.UC8^/1Y7^&lt;[G2BWI2`0+/WXJT9?$U41<br>
+M8,OB2]T?*!6N0B%?R9A/*3K1;M1HP*2T399(6=?8@BVQ?,?D0RJ;HVJ7\U54<br>
+M?P#;-/KTB;06H362OKMK0$:P8`$-D68")UN&lt;(XC8^H(CS`)(:T0XR2[.+R[Y<br>
+MJ$*MD:UB@U4N)/`E*$K3U@#/L/$NW@"O)5HB'%0//E!S@&lt;`QF%5Q1+2BGNZ!<br>
+MTU7B5]314CAKEX-;Y2F&lt;9^6&amp;];OR&lt;V2[29M%@1&gt;J0-EU`.'P&gt;NC=BS/#/$Q&amp;<br>
+M0HI'3HD:15&gt;#:O51$E.T"&amp;J*!I4&lt;!0SI43R:W#4D?7D"`$^PA\'6"'NK%V0V<br>
+M/*0Z_J(J,QVB0CZR(^I2UI!.-5O6,*]+@=9AT+++UBAMH:/*WF&lt;&gt;=1'U6'B%<br>
+MCX]=:OS&amp;,*/FYB8&amp;BB(LU6,7MK1R,,1:/$(:&lt;@]6(.!7:5^*0J61Q,KXX0)G<br>
+M%6_/Z,BK9:C[&lt;+'!XUJJFXDB04WB6NIXWO^\?W%4K5M^"@_&gt;8^YY\-[$C\,+<br>
+M&gt;CK]%8MP[!?Q&gt;'!RB!_"W:MIJ$H,\BSR1^@H%:[X+#&amp;?):Z=)59FX74L?HU/<br>
+MP5@6!F:#%7JX:%6:[NB9E^I:M;`J!),G/=(O#&amp;&amp;/H.QJR-,L6A'4?ZEBQN&lt;B<br>
+MS$)U7Q,%D:]8D+BDS&lt;,<a href="mailto:'!Y1X#M4O@%PTDUH5%.H">'!Y1X#M4O@%PTDUH5%.H</a>,63C&gt;BH4Y.,D%_(+&amp;U8T`<br>
+M&amp;:%EP@@&lt;^%'G=B%(IB9CP2H62-*7S:RK$Y``],^R(@L_B@1?I(1G?.D_A9=O<br>
+M1Z099Z.C4_K&lt;/SS?Y:7@DCY5!L2U`RJVTY3T[NTQLZ=5=8&gt;$PU6/?ZL,1Z87<br>
+M&amp;Z709&gt;EC2^=[U9:97WUX4A*5LC(O4VOEB(Q[T8^K[F=&amp;15_^3PG!J!\&lt;3^X2<br>
+ME&gt;H#[%@+W0NU!3&amp;#_GE)A[&amp;LPX0.NB2C]ZBBTM&gt;5,\1ES)\?75SNGU_*2&amp;89<br>
+M_X4`_)!!..HXZ`*II,:N'UA6.DZ419;4=S52RCSL+!=AROV,'[GQ&lt;)-?]AE2<br>
+M61O"#JNH#"WE9'\T.CLH\S'Z&lt;$JE,1Y"MUDP"WGJ45I/%CC7^=F`ZM.#N'H(<br>
+M7$#S0C\'6:1\(%9@D*_`(_JG$OX$W25"G"5D+YQ6%,"":J&lt;X&lt;LI=;']K`!%7<br>
+M'XC&gt;&amp;JIW1VLBZLK!)]:*\'Z3&lt;LEBO0C*\L+7783O7-#;+^C=Z!X4A$WRXM6C<br>
+M&lt;#M*+1&amp;O*A57E*;V`SL]N\0,P;&amp;=6\_=X%!TQ3;WAY,)I@XV3Q[H[FP^G0UM<br>
+M;7$G*H3,(GG(LPP?#TJ=+QOR[I,XQRO&lt;&lt;\WE7UF#0HJ1&lt;K:K$(%K2`SO"JXZ<br>
+M$B870W$';MGK&amp;'(&amp;2-MP,*VUP))?1GQR+*X_GH`80B\Y`I564DA^CQ358Z#K<br>
+M5+D?Z$9^3B&lt;+O8_D78M5!B])V)^[9&lt;6A2UZ\+`'=&amp;%U1FDD/.^6$?NGP$M02<br>
+M3*3R,A&amp;1BC\PMPS,0P==71;F\C/PJ3T?RX/T';7=#]7V;RQV_#$&gt;L(]]-\4[<br>
+M3^PKY*,$_G79$1CD2HP^S#8SON$1_C/A.P;^QQ$,8IM'1NR_;U=&amp;H!H_.HO%<br>
+M9X&amp;/+A#VK?T$406XG$((:&lt;D`DW-AZL\&gt;P&amp;&lt;PGSU#G\_05V&gt;@5&gt;Y2E0%6N2]=<br>
+M\E&gt;!25S&amp;N`.]B!*Z+E'&lt;RY"W&lt;X2YC(Y//_PJKYN-#\X.C_#H;80O_XFCN(/(<br>
+M]9I&amp;N]O6-2%JY&lt;8&amp;OVFQ(Y=Z5M&lt;E[VYS"/*`-2"DPL17KTOO[[4&amp;O=ZPR%68<br>
+M&lt;F!/D8?"4J7'F\&gt;PBWLN]#%-*/E*84:J";#_V`6)XN%CWK)7LA$-;[2*(MJ7<br>
+M9O'.(MMF]W828J%HNQ@;3;"JY:?L!MPM^N+LU@YS&gt;N1)^K/1/8D+Y&lt;+CL)Q&gt;<br>
+M:=04@Q.[BF77L/NF9/K:=W$;1/=_$Z]+,=5SJJRJ4";D#39-YPLZ4\3;S&amp;\#<br>
+M&amp;&gt;90D[4LT"V*I@&gt;]?GY;BTG?VC&amp;D$*GD+%YTHB[U6A2_`L6O/RG**.EKB_M)<br>
+MG&amp;JN\?R[&lt;L?I+^(NV5'IOI.8"6\\7?.K'YC8:&gt;4+N/*&amp;SH#*]":(P^I:\OXD<br>
+M1(FM%NYVO_N3B&gt;^E166M=`XWPX.X-ZQY&lt;71P=GHX_G`!J&lt;#E\&lt;%_P3&lt;MO[RW<br>
+M.**U*Z%X^)K7UBBHQEHIN"!/O6O'B5'/_WCO(N[.;CTY?"9UHJ)0^0V?E?H&gt;<br>
+M!9(*][`!YG)PZ]X_ORV]07Z[^/[Y;&gt;/"SOC[YQ8S]6W=V.Y:]&gt;^?W]:\?SXH<br>
+MWC\WAE2WXA_B-6=_TGB9*U?&gt;K1/7/W[]E7T]_3`:M2N_%,MM)EY`+[-K_-88<br>
+M;QZ[7@:FVOY4O"_T&lt;I3F$I2DS8VB0QP5M#%2\,-)!!$`(YS8(/8VM)DX\1P;<br>
+MWZ+/^QN-3RLJIC]FWLP;<a href="mailto:YT.*#KHFIS9@8IBU">YT.*#KHFIS9@8IBU</a>&amp;X(8_$&amp;,.&amp;$:X/578;7KFWB"<br>
+<a href="mailto:MEOJ./1U?^U$ZCNW$GG%22">MEOJ./1U?^U$ZCNW$GG+</a>"P*'1?$@.ON!`V_O!_NGXOS\&lt;?3@"/FEAMP:TL%N#<br>
+M_)Z&lt;&gt;.MI^6()YOZ.15J.ZO\7AW5Z!O^S#_GU7ODCQ&lt;G8V&gt;B=@2WZW-0949#9<br>
+MVY33X(LG%V&gt;'HR)+FZ;7'Z\^XS'/(I[1X&lt;4!QZ.;"AX_!;\88H$"]V_YG7[X<br>
+M&lt;='FNJ$#"S+/I%+Y&amp;(OR6#+L=/;<a href="mailto:86SQDB_%4O^8'_VI#@8$7YEZ.@F">86SQDB_%4O^8'_VI#@8$7YEZ.@F</a>)XH\&gt;1<br>
+MT($3QT&amp;G*3F6$QL$&lt;L!7E^%_?@6PP+(HE(/]M^&gt;7))0A%ZXS=?,KK;,DP3&lt;+<br>
+MHMA+Z,\@2#RT&lt;+BGX85,_HE+!Q1&gt;+U!(IX1=]/[*I*-W#5J''E*.QZ`):1$=<br>
+M@/+--A&gt;]LR#ZS)O&amp;Q/+KUZ\9WIV.$ANR&lt;&gt;#5^5(K&gt;V=1]B_"0&lt;(W807EB0A?<br>
+M/B1VA[J,&gt;JY[O-&gt;L[[5X;[&gt;^M[_#^3=[BZIW[&gt;2DOWW(\`QT!JN$ZRTLNR`=<br>
+M,0P7,82VFZ,X]&gt;99/C`WI#(*IT;_XUSM+OBIR?N(KF\M*B]@Z-994)Q64&lt;0"<br>
+M10HN9I._(_':E"@6)9$Z"99&amp;[1W2W!]^^$%9RJ)P4U$'*=&amp;2*;Y`I*U"I"44<br>
+M+Y%IJY!IV2,\7ZBM0J@5%,^7:JN0JHKCY6(E"^D.%U29+HJ2GG&gt;W%CM]/)`4<br>
+ME[MI$[`&amp;2S&gt;!B\M#)IQWK_!3=*V`KD[@1(N&amp;*WT.6.SIV&lt;'9"4=@-.1XO#:.<br>
+MWCZ=7"?L_A:KB7FY6GJ@[J+RVZ[K816NZ%3%)WI))CVQ1+QTP*6+;(L5VF;%<br>
+MC4&lt;<a href="mailto:OI-.G">OI-.G</a>"@&gt;`PJQ!D7*G_Z;345&amp;H[IZISMHR:9?E'Q0""&lt;%&gt;[I__='0Y/L&amp;P<br>
+M5E?&gt;(.CD?VA(O&lt;XOSHAWE+]#)#B7'&lt;1TI_-77GD3)WE]@ZZD_N_`%+*+0&lt;M]<br>
+<a href="mailto:M??W#7.-#G'P@?3*#">M??W#7.-#G'P@?3*#</a>"D,+R"XBA3@%#60?V=@H&amp;)9"]P=#ASB!:3N^)"DG-[\,<br>
+M/)&gt;F`-\,`XE&gt;<a href="mailto:T%I%:TQAZ*@K0A@:WQ#EF.(H">T%I%:TQAZ*@K0A@:WQ#EF.(H</a>&gt;X`I"Q#(+)4Q9)(*-B0%,1@Y<br>
+M2+Q\`^*#7'W@&gt;002((@&amp;+DB-IXM&amp;9@KH+"38GB805Q,&lt;2F9(IQ*@*P7["54M<br>
+,5:(9`"9U[%=Q3```<br>
+`<br>
+end<br>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0316.html">Michael Schwingen: "Re: Eliminating Reply-to: header -- was: Re: UDB &amp; Multia"</a>
+<li> <b>Previous message:</b> <a href="0314.html">Peter L Higginson  25-Jun-1996 1359: "Lost partition table"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0388.html">Craig Ruff: "Re: new NCR scsi driver!"</a>
+<li> <b>Maybe reply:</b> <a href="0388.html">Craig Ruff: "Re: new NCR scsi driver!"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

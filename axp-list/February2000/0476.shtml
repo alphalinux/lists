@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: gprof on Alpha</H1> 
+	
+<!-- received="Wed Feb 23 16:54:54 2000" -->
+<!-- isoreceived="20000224005454" -->
+<!-- sent="23 Feb 2000 09:03:59 -0500" -->
+<!-- isosent="20000223140359" -->
+<!-- name="Harvey J. Stein" -->
+<!-- email="hjstein@bfr.co.il " -->
+<!-- subject="Re: gprof on Alpha" -->
+<!-- id="kiwbt585834.fsf@blinky.bloomberg.com" -->
+<!-- inreplyto="Wed, 23 Feb 2000 01:35:08 -0600&quot;" -->
+<STRONG>Subject: </STRONG>Re: gprof on Alpha<BR>
+<STRONG>From: </STRONG>Harvey J. Stein (<EM>hjstein@bfr.co.il </EM>)<BR>
+<STRONG>Date: </STRONG>Wed Feb 23 06:03:59 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#476">[ date ]</A>
+<A HREF="index.shtml#476">[ thread ]</A>
+<A HREF="subject.shtml#476">[ subject ]</A>
+<A HREF="author.shtml#476">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0477.shtml">Rolf Neugebauer: "Re: gprof on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0475.shtml">Nikolaos Ntarmos: "Re: alpha update for 2.3.47-6"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0477.shtml">Rolf Neugebauer: "Re: gprof on Alpha"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0473.shtml">Harvey J. Stein: "Re: gprof on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&quot;W Bauske&quot; &lt;wsb@paralleldata.com&gt; writes:
+<BR>
+<P><EM> &gt; Ok, I'm trying to do some tuning and I set -pg in my make
+</EM><BR>
+<EM> &gt; file and recompiled all my code on my UP2000. Then run a
+</EM><BR>
+<EM> &gt; test and it generates a gmon.out just fine. So, then I try
+</EM><BR>
+<EM> &gt; a 'gprof my_binary' and it SEGV's in malloc. Traceback is:
+</EM><BR>
+<P>In redhat 4.2, you needed to a) patch gprof, b) patch libc_p.a, and
+<BR>
+c) compile statically linked.  Some subset of this might be what you
+<BR>
+need.  Don't apply the libc_p.a patch because it almost certainly will
+<BR>
+just screw things up (since it was for RH 4.2, which has an extremely
+<BR>
+old libc).
+<BR>
+<P>Here're some details (from my alpha-patches-n-bugfixes document, which
+<BR>
+you might be able to find on the net):
+<BR>
+<P><P>4. Profiling Repair.
+<BR>
+<P>To make profiling work, you need two patches from David Mosberger
+<BR>
+which were posted to axp-list@redhat.com (tracked down by Toon Moene
+<BR>
+who posted their archive URLs to axp-list). You might also need one of
+<BR>
+the gcc patches mentioned above.
+<BR>
+<P>In any case, David Mosberger's patches are in the axp-list archive at:
+<BR>
+<P><A HREF="http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0463.html">http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0463.html</A>
+<BR>
+<P>and
+<BR>
+<P><A HREF="http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0464.html">http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0464.html</A>
+<BR>
+<P>The former is a source patch for binutils to keep gprof from seg
+<BR>
+faulting, and the latter is a binary patch for libc_p.a to keep your
+<BR>
+programs from seg faulting.
+<BR>
+<P>For convenience, both are included in the Patches section. The former
+<BR>
+is in binutils-new-patches.tar.gz.uue, along with an RPM spec file for
+<BR>
+incorporating it into binutils-2.7.0.2-4.src.rpm, and the latter is
+<BR>
+David Mosberger's libc_p.a binary patch.
+<BR>
+<P>To fix gprof, unpack binutils-new-patches.tar.gz.uue, and rebuild
+<BR>
+binutils-2.7.0.2-4.src.rpm analogously to the instructions above for
+<BR>
+gcc. But, *don't* install the binary rpm after rebuilding. It
+<BR>
+conflicts with the libc headers. Just either copy gprof over the
+<BR>
+version in /usr/bin, or override the /usr/bin version with the new one
+<BR>
+in /usr/local/bin, etc.
+<BR>
+<P>As for the binary patches for libc_p.a, here's an extract from David
+<BR>
+Mosberger's message about it how to apply them:
+<BR>
+<P>After extracting these files, replace them in your libc_p.a. E.g.:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;ar rv /usr/lib/libc_p.a gmon.po ieee_{s,g}et_fp_control.po
+<BR>
+<P>and then profiling should work again. Note that the binutils-2.7 gprof
+<BR>
+has a bug that sometimes causes a SIGFPE. See my earlier mail for a
+<BR>
+patch that fixes this.
+<BR>
+<P>Finally, there is still a problem with mixing profiling and dynamic
+<BR>
+linking. E.g., with dynamic linking, adding -lm will cause a binary
+<BR>
+that segfaults. Adding the -static flag should fix this problem for
+<BR>
+now (until a real solution is found).
+<BR>
+<P>Here're the patches:
+<BR>
+<P>begin 644 binutils-new-patches.tar.gz
+<BR>
+M'XL(`,B_&lt;C0``^U6;6_;-A#.U_!7'+`52UQ+UIOM1FV&amp;OJ1+,R1MD*3KQX&quot;6
+<BR>
+M:)NK1&amp;HDE&lt;0!UM^^(RT[7NRL0U&amp;TP*8'-B3RCL?C/2?&gt;C;BH#2^T)]BU5U&amp;3
+<BR>
+M39GN;7U=0!(,^WW8`H#A8/X,D\0]&amp;P0`@R1.^C'*^U8:1L$6]+^R'QM1:T,5
+<BR>
+MP-;T=VT8%_^@QY3^%@Y]6XPV\;^&lt;C/RA1V^JQ'&gt;2+]TC#()!P_&lt;F_J-HF-SQ
+<BR>
+MG\0X$T3)&lt;`N&quot;KWG0A_`_YQ_C?T&quot;O&gt;`XG4H^8FC#E75`Q@9W&lt;SI;/Z:V-CV#&amp;
+<BR>
+MSV2Y2U#]O!9=&quot;`=P@F$+]_:&amp;$$9I?R\-8_&quot;&quot;81!8%?M_PQ0#KH'&quot;F-_`6&quot;J8
+<BR>
+M5$J.@0M832\?+J8,7'I9;&lt;4*:O@5`R/!3)DU=,9R&gt;$,-)'ZX7`EGIR==&amp;-4&amp;
+<BR>
+MN/E)`[I6%&lt;RP8@9&amp;\2M.&quot;Z`B!SV5=9$#K:IB9BUE!:/&quot;ZCC;(!6?&lt;(&amp;Z6M8J
+<BR>
+M8^BJAFM6%#Y\X`:7&amp;J?E7.O:5SP/5&lt;ZEC&amp;I4OW93,UG#A!DX/SK\Y?0U2.%6
+<BR>
+MO2BJ*841RRCF#6Y0,C&gt;=RWI4.!-75'&amp;*[]H&amp;Q*U0&amp;6BCZLS4:%6QDG*!)Z\%
+<BR>
+M%]S@B?@MR_U%&lt;#W/T4,(Z70Z\\#V7DV1-W8L)Y^V/^#&quot;7^L&quot;PB$$&lt;1H&amp;:1!9
+<BR>
+MJ@;$\[S[VMO()[S+#$#?,AFC\L#Q:DVOPFT5=A-P`VLI[(8!NN)YY+'-BGE&amp;
+<BR>
+M#%P^Q&amp;G\9)X=&amp;[/KV:;L^AG-X&amp;^[`]GDDJI,^QGLX/.2YOEN&quot;B4K-3,[NX`W
+<BR>
+M%9)(BT)F&gt;$Y4L(0RH6W&lt;&lt;-::`$PZ5N3:$@8K`81K9!8&quot;O]D)0WDQK5VH(+%^
+<BR>
+M!V&amp;:S$,%&lt;$0%'%.1,;B@LP+S%YYQ*IYGLXFH]=Q?1P;Z&gt;\8PLS2:7^:GS6PK
+<BR>
+MOJ-G&gt;:9/VXM8Q2'@AL$P[2?WZ5EJWZ,G&gt;I)&amp;\&lt;/T/(F[&gt;\$=0788S1E:5%JT
+<BR>
+MZOV&lt;R5H8&gt;+P/[N7I4J@8)I]8C/\DS0+8AQV;GIU=N&quot;E=W&amp;%'8SCQ:][IH'QW
+<BR>
+M]RE&amp;$QJ&amp;'&amp;==&quot;+JPKD.6+E3(#/JP#_.7IW&gt;2;,KQHT7?['-UWCF]XC/YWG?G
+<BR>
+M?P&amp;?K?]^X$&gt;^KECVY7M\KOXG@_!&gt;_S?L1VW]_R8XK\N2JED*AV_?PTLLAVH&amp;
+<BR>
+M[Y%[;F9PP*Y8(:O2?JCS.&lt;XT&gt;4M+EBYO.O(;AH5+D4*3*Z2Y#%-(*'DEJQE6
+<BR>
+MV:E!^Z?'Y%#)NDI7[?8NI$0CYZX&quot;IS`V5=KK58I5/N5^R8W/\KI7U:,&gt;7KKK
+<BR>
+M:8G,^9-;&lt;FK3-DCAOMS3&gt;+ED!&lt;[&gt;S!O8N6;X=TW;X(:K\FA='JW*XW5YO&quot;I/
+<BR>
+MUN5-`TU&gt;UGBGG4F)\&gt;B9LKH[D&lt;(Y\BAG.E.\,AA/LBPEKH?*9%&amp;PS`H`;]1Z
+<BR>
+M00;60FQ&lt;M&quot;7-=EBV#T()%E@L(A-%2^W#D2%&lt;9$6-MEV?0;5F)38&gt;RK5(J/R1
+<BR>
+<EM>MJ&gt;ZB];%/&quot;J(NL5C;C:1M&gt;TC)=89&quot;*IBL]=*TVS%GU.WGZBJ[85EM;%=C924U
+</EM><BR>
+MVB?DD663/,+&quot;4./#A0&amp;;A@K&quot;9A&quot;N#J+50;PZ2.P@0',C&amp;T+B]S(IQGQB:[[G
+<BR>
+MX1;89.[W:JUPQ(1UP=-3K&quot;PY*&gt;E'VTW*(N?*::S/8(&lt;PEFB:&quot;[P+L(%0)7AJ
+<BR>
+M##]BDWGY\OW1\&lt;'EV;MW%Z3\B`NL&amp;_&lt;$ZT8W*$#CXR91L^_BZ3EWL!?D&amp;[&gt;R
+<BR>
+M2=/KD,DMBKT_]M;\=#K61*_CVT&gt;'D!_@$.NRPCX,.353;*;QNYAZ]E;G8YX!
+<BR>
+M^HS))=7L@:,[DP4?V:T)6;CKE6&quot;O=9SGF&quot;YFUEN^^?0A&quot;_&lt;7-ZFYLG3ZP'F&lt;
+<BR>
+MGDTGJ0WI:1N$(I\G03-;B_7Y,&lt;&lt;6&amp;S\L;%G.7K\X.'E-5D+H7DLJ[#]&lt;C!&lt;&gt;
+<BR>
+M-4-[ZJ7$!O-[7]@M6K1HT:)%BQ8M6K1HT:)%BQ8M6K1HT:+%O\!?^?_D]0`H
+<BR>
+&quot;````
+<BR>
+`
+<BR>
+end
+<BR>
+<P><PRE>
+-- 
+Harvey Stein
+Bloomberg LP
+hjstein@bfr.co.il
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0477.shtml">Rolf Neugebauer: "Re: gprof on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0475.shtml">Nikolaos Ntarmos: "Re: alpha update for 2.3.47-6"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0477.shtml">Rolf Neugebauer: "Re: gprof on Alpha"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0473.shtml">Harvey J. Stein: "Re: gprof on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Mar  1 06:26:24 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

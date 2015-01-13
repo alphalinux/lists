@@ -1,0 +1,353 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: pthread problem with asynchronous signals</TITLE>
+<META NAME="Author" CONTENT="Reto Baettig (baettig@scs.ch)">
+<META NAME="Subject" CONTENT="pthread problem with asynchronous signals">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>pthread problem with asynchronous signals</H1>
+<HR>
+<P>
+<!-- received="Wed May 24 02:55:08 2000" -->
+<!-- isoreceived="20000524095508" -->
+<!-- sent="Tue, 23 May 2000 17:54:26 -0700" -->
+<!-- isosent="20000524005426" -->
+<!-- name="Reto Baettig" -->
+<!-- email="baettig@scs.ch" -->
+<!-- subject="pthread problem with asynchronous signals" -->
+<!-- id="392B2842.BF716AF1@scs.ch" -->
+<STRONG>Subject: </STRONG>pthread problem with asynchronous signals<BR>
+<STRONG>From: </STRONG>Reto Baettig (<EM>baettig@scs.ch</EM>)<BR>
+<STRONG>Date: </STRONG>Tue May 23 2000 - 17:54:26 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#43">[ date ]</A>
+<A HREF="index.html#43">[ thread ]</A>
+<A HREF="subject.html#43">[ subject ]</A>
+<A HREF="author.html#43">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">David Huggins-Daines: "SA_SIGINFO on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0044.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi
+<BR>
+<P>I saw that there are known problems with linux-threads and asynchronous
+<BR>
+signals, but I could not find a matching error-report at
+<BR>
+www-gnats.gnu.org.
+<BR>
+So I am posting my observations of the problem. Maybe this helps
+<BR>
+debugging the problems.
+<BR>
+<P>I also heard that this could be a kernel problem. This is the reason why
+<BR>
+I'm posting this also to the kernel-list.
+<BR>
+<P>Please CC me answers because I'm not subscribed to all the
+<BR>
+mailing-lists.
+<BR>
+<P>Thank you for your help
+<BR>
+<P>Reto
+<BR>
+<P>--------------------------------
+<BR>
+<P>Environment:
+<BR>
+------------
+<BR>
+Redhat 6.1, Kernel 2.2.14
+<BR>
+SMP and UP on Alpha
+<BR>
+<P>C-Library: libc-2.1.3.so
+<BR>
+<P>Kernel modules         2.3.10-pre1
+<BR>
+Gnu C                  egcs-2.91.66
+<BR>
+Binutils               2.9.1.0.24
+<BR>
+Dynamic linker         ldd (GNU libc) 2.1.3
+<BR>
+Linux C++ Library      ..
+<BR>
+Procps                 2.0.5
+<BR>
+Mount                  2.9o
+<BR>
+Net-tools              1.51
+<BR>
+Console-tools          1999.03.02
+<BR>
+Sh-utils               1.16
+<BR>
+Modules Loaded         eip elan rms qsw nfsd
+<BR>
+<P>Synopsis:
+<BR>
+---------
+<BR>
+Sending sigterm to a signal handler can cause pthread_cond_wait to
+<BR>
+return.
+<BR>
+<P>Description:
+<BR>
+------------
+<BR>
+See attached example.
+<BR>
+The threads are waiting for a condition. When I press CTRL-C, sometimes
+<BR>
+the 
+<BR>
+threads waiting for the condition &quot;wake up&quot;. This happens almost
+<BR>
+everytime on 
+<BR>
+Alpha SMP and happens sometime on Alpha UP. I could not try Intel SMP
+<BR>
+yet. Intel UP seems to work fine (but one never knows ;-)
+<BR>
+<P>Testcode:
+<BR>
+---------
+<BR>
+<P>/* 
+<BR>
+&nbsp;* thread.c
+<BR>
+&nbsp;* 
+<BR>
+&nbsp;* compile with:
+<BR>
+&nbsp;* gcc -g -O2 -D_REENTRANT -o thread thread.c -lpthread
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* run ./thread
+<BR>
+&nbsp;* press b to broadcast condition
+<BR>
+&nbsp;* press s to signal condition
+<BR>
+&nbsp;* press ctrl-c to call signal handler and set terminate variable
+<BR>
+&nbsp;* press b after ctrl-c to broadcast condition -&gt; threads terminate
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* Strange behaviour on alpha (UP ,SMP even worse), linux 2.2.14:
+<BR>
+&nbsp;* pressing ctrl-c sometimes lets foo come out of the
+<BR>
+&nbsp;*   pthread_cond_wait(&amp;cond, &amp;mutex); condition
+<BR>
+&nbsp;* 
+<BR>
+&nbsp;* On intel UP, this seems to work...
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* Reto Baettig ( baettig@scs.ch )
+<BR>
+&nbsp;* 5-23-00
+<BR>
+&nbsp;* 
+<BR>
+&nbsp;*/
+<BR>
+<P>#include &lt;pthread.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;signal.h&gt;
+<BR>
+#include &lt;asm/atomic.h&gt;
+<BR>
+<P>#define NUM_THREADS     10
+<BR>
+<P>pthread_cond_t  cond = PTHREAD_COND_INITIALIZER;
+<BR>
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+<BR>
+<P>int     terminate = 0;
+<BR>
+int     numthreads = 0;
+<BR>
+<P>void *foo(void *arg)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (;;) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_lock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (terminate) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto terminate;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_cond_wait(&amp;cond, &amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (terminate) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto terminate;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_unlock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;I got the signal!!!!  0x%Lx\n&quot;, pthread_self());
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>terminate:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;numthreads--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_unlock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;I'm leaving now...\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return NULL;
+<BR>
+}
+<BR>
+void bar(int signo)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;terminate++; /* Nobody decrements that variable, and we just
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;check it to be != 0, so I think that this is
+<BR>
+safe and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;that we do not need a mutex here */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* we can also remove the next line. The strange behaviour
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* occurs less often but still occurs...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;%i: Got sigint!!!  %i threads living...\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_self(),numthreads);
+<BR>
+}
+<BR>
+<P>int main(int argc, char *argv[])
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_t       threads[NUM_THREADS];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_attr_t  attr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int             i;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char            buffer[80];
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_attr_init(&amp;attr);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=0; i &lt; NUM_THREADS; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pthread_create(&amp;threads[i], &amp;attr, foo, NULL) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;pthread_create&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_lock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;numthreads++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_unlock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;signal(SIGINT, bar);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (fgets(buffer, 80, stdin)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (toupper(*buffer)) {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 'B' :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_cond_broadcast(&amp;cond);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 'S' :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_cond_signal(&amp;cond);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Not an option.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_lock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!numthreads)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* All the threads we had terminated
+<BR>
+*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pthread_mutex_unlock(&amp;mutex);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">David Huggins-Daines: "SA_SIGINFO on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0044.html">Brent Verner: "Re: pthread problem with asynchronous signals"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

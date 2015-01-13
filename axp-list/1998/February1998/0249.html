@@ -1,0 +1,113 @@
+<!-- received="Wed Feb 18 06:24:10 1998 " -->
+<!-- sent="Wed, 18 Feb 1998 11:17:39 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="SCSI bus/disk problem? - slow disk" -->
+<!-- id="199802181017.LAA21322@gueuze.ens-lyon.fr" -->
+<!-- inreplyto="34EA590E.E633AE15@psychology.adelaide.edu.au" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>SCSI bus/disk problem? - slow disk</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>SCSI bus/disk problem? - slow disk</h2>
+
+<b>Loic Prylli</b> (<a href="mailto:Loic.Prylli@ens-lyon.fr"><i>Loic.Prylli@ens-lyon.fr</i></a>)<br>
+<i>Wed, 18 Feb 1998 11:17:39 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#249">[ date ]</a><a href="index.html#249">[ thread ]</a><a href="subject.html#249">[ subject ]</a><a href="author.html#249">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0250.html">Uncle George: "sys/sockio.h"</a>
+<li> <b>Previous message:</b> <a href="0248.html">George: "Re: 2.1.86"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Mark Brown writes:<br>
+<i> &gt; However the scsi disk is extemely slow (4.1GB Quantum UW with Qlogic</i><br>
+<i> &gt; (PCI) controller). A process sits around for ages apparently waiting </i><br>
+<i> &gt; for the disk to respond - there is no load on the system.</i><br>
+<i> &gt; eg to dd a 100MB file to /dev/null takes &lt;2 secs process time but</i><br>
+<i> &gt; about 135 secs real time!! The same operation on the same box with</i><br>
+<i> &gt; Digital Unix took &lt;10secs real time (and about 1 sec total process</i><br>
+<i> &gt; time).</i><br>
+<p>
+I had this problem some time ago, the problem is that the irq of the<br>
+scsi controller is not detected correctly by the linux kernel. It<br>
+binds it to irq 0, the only very strange thing is that it works at<br>
+all!! (maybe irq0 is the timer interrupt, so the scsi interrupt<br>
+handler is called at each tick instead of as soon as an scsi request<br>
+is completed, that could explain the slowness).<br>
+<p>
+Here is what I have understood (for 2.0.3x, I have not looked at<br>
+2.1.x): The PWS have two PCI bus on motherboard, the SCSI controller<br>
+is on the second one, there is code in bios32.c to find the number of<br>
+the interrupt depending on a "global slot number", computed in<br>
+function of the PCI slot number, and the PCI bus of the device. For<br>
+device on the second PCI bus you have to add 5 to the PCI slot number<br>
+to find the "global slot number".<br>
+<p>
+To differentiate between devices on the second PCI bus and PCI bus<br>
+behind other add-on bridge that could have been added, the comparison <br>
+PCI_SLOT(dev-&gt;bus-&gt;self-&gt;devfn) == 8 is hardcoded in the code, which<br>
+assume the PCI bridge is on PCI slot 8. Perhaps on previous PWS it was<br>
+true, but on mine and probably on yours, the bridge is in PCI slot 20<br>
+(as reported by /proc/pci):<br>
+  Bus  0, device  20, function  0:<br>
+    PCI bridge: DEC DC21052 (rev 2).<br>
+<p>
+<p>
+So I have change the code to determine if a device is on the second<br>
+PCI bus. Here is the small patch that should solve your problem:<br>
+<p>
+<p>
+--- linux/arch/alpha/kernel/bios32.c.std        Sun Jan 18 12:10:59 1998<br>
++++ linux/arch/alpha/kernel/bios32.c    Sun Jan 18 12:10:59 1998<br>
+@@ -756,7 +756,7 @@<br>
+                                /* follow the chain of bridges, swizzling as we go */<br>
+ #if defined(CONFIG_ALPHA_MIATA)<br>
+                                /* check first for the built-in bridge */<br>
+-                               if (PCI_SLOT(dev-&gt;bus-&gt;self-&gt;devfn) == 8) {<br>
++                               if ( PCI_SLOT(dev-&gt;bus-&gt;self-&gt;devfn) == 20 || PCI_SLOT(dev-&gt;bus-&gt;self-&gt;devfn) == 8) {<br>
+                                  slot = PCI_SLOT(dev-&gt;devfn) + 5;<br>
+ #if 0<br>
+                                  printk("MIATA: bus 1 slot %d pin %d irq %d "<br>
+<p>
+<p>
+<p>
+Best regards,<br>
+<p>
+Loic<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0250.html">Uncle George: "sys/sockio.h"</a>
+<li> <b>Previous message:</b> <a href="0248.html">George: "Re: 2.1.86"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

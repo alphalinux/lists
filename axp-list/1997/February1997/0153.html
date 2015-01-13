@@ -1,0 +1,450 @@
+<!-- received="Wed Feb  5 22:03:59 1997 " -->
+<!-- sent="Wed, 5 Feb 1997 20:06:33 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="alpha patches for 2.1.25" -->
+<!-- id="199702060206.UAA05119@atheist.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>alpha patches for 2.1.25</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>alpha patches for 2.1.25</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Wed, 5 Feb 1997 20:06:33 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#153">[ date ]</a><a href="index.html#153">[ thread ]</a><a href="subject.html#153">[ subject ]</a><a href="author.html#153">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0154.html">Bernd : "Re: UDB Kernel Panic"</a>
+<li> <b>Previous message:</b> <a href="0152.html">vbajaj@portal.stwing.upenn.edu: "2.1.24 failed compile"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here are two patches to get 2.1.25 to build on the Alpha.<br>
+<p>
+ o You cannot xchg to a short on the Alpha, so make<br>
+   fs_struct.umask an int.<br>
+<p>
+ o An interim implementation of csum_partial_copy_from_user.<br>
+   I am working on an assembly version, but getting that tuned<br>
+   and demonstrably correct may take some time.<br>
+<p>
+And on the side I think I found a bug in csum_ipv6_magic.  I did once<br>
+get a report that it wasn't working correctly; perhaps this is it.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+diff -rup linux-2.1.25/arch/alpha/lib/csum_ipv6_magic.S linux-cur/arch/alpha/lib/csum_ipv6_magic.S<br>
+--- linux-2.1.25/arch/alpha/lib/csum_ipv6_magic.S	Sun Nov 10 11:29:33 1996<br>
++++ linux-cur/arch/alpha/lib/csum_ipv6_magic.S	Wed Feb  5 19:16:47 1997<br>
+@@ -61,8 +61,8 @@ csum_ipv6_magic:<br>
+ 	extwl	$0,2,$1		# e0    :<br>
+ 	zapnot	$0,3,$0		# .. e1 :<br>
+ 	addq	$0,$1,$0	# e0    :<br>
+-	unop			#       :<br>
+-	not	$0,$0		# e0    :<br>
++	not	$0,$0		# e1    :<br>
++	zapnot	$0,3,$0		# e0    :<br>
+ 	ret			# .. e1 :<br>
+ <br>
+ 	.end csum_ipv6_magic<br>
+diff -rup linux-2.1.25/arch/alpha/lib/csum_partial_copy.c linux-cur/arch/alpha/lib/csum_partial_copy.c<br>
+--- linux-2.1.25/arch/alpha/lib/csum_partial_copy.c	Wed Jul 17 06:39:21 1996<br>
++++ linux-cur/arch/alpha/lib/csum_partial_copy.c	Wed Feb  5 19:36:12 1997<br>
+@@ -7,6 +7,11 @@<br>
+  * we do for performance..<br>
+  */<br>
+ <br>
++#include &lt;linux/types.h&gt;<br>
++#include &lt;asm/string.h&gt;<br>
++#include &lt;asm/uaccess.h&gt;<br>
++<br>
++<br>
+ #define ldq_u(x,y) \<br>
+ __asm__ __volatile__("ldq_u %0,%1":"=r" (x):"m" (*(unsigned long *)(y)))<br>
+ <br>
+@@ -31,17 +36,52 @@ __asm__ __volatile__("insql %1,%2,%0":"=<br>
+ #define insqh(x,y,z) \<br>
+ __asm__ __volatile__("insqh %1,%2,%0":"=r" (z):"r" (x),"r" (y))<br>
+ <br>
++<br>
++#define __get_user_u(x,ptr)				\<br>
++({							\<br>
++	long __guu_err;					\<br>
++	__asm__ __volatile__(				\<br>
++	"1:	ldq_u %0,%2\n"				\<br>
++	"2:\n"						\<br>
++	".section __ex_table,\"a\"\n"			\<br>
++	"	.gprel32 1b\n"				\<br>
++	"	lda %0,2b-1b(%1)\n"			\<br>
++	".previous"					\<br>
++		: "=r"(x), "=r"(__guu_err)		\<br>
++		: "m"(__m(ptr)), "1"(0));		\<br>
++	__guu_err;					\<br>
++})<br>
++<br>
++#define __put_user_u(x,ptr)				\<br>
++({							\<br>
++	long __puu_err;					\<br>
++	__asm__ __volatile__(				\<br>
++	"1:	stq_u %2,%1\n"				\<br>
++	"2:\n"						\<br>
++	".section __ex_table,\"a\"\n"			\<br>
++	"	.gprel32 1b"				\<br>
++	"	lda $31,2b-1b(%0)\n"			\<br>
++	".previous"					\<br>
++		: "=r"(__puu_err)			\<br>
++		: "m"(__m(addr)), "rJ"(x), "0"(0));	\<br>
++	__puu_err;					\<br>
++})<br>
++<br>
++<br>
+ /*<br>
+  * Ok. This isn't fun, but this is the EASY case.<br>
+  */<br>
+-static inline unsigned long csum_partial_copy_aligned(<br>
+-	unsigned long *src, unsigned long *dst,<br>
+-	long len, unsigned long checksum)<br>
++static inline unsigned long<br>
++csum_partial_cfu_aligned(unsigned long *src, unsigned long *dst,<br>
++			 long len, unsigned long checksum,<br>
++			 int *errp)<br>
+ {<br>
+ 	unsigned long carry = 0;<br>
++	int err = 0;<br>
+ <br>
+ 	while (len &gt;= 0) {<br>
+-		unsigned long word = *src;<br>
++		unsigned long word;<br>
++		err |= __get_user(word, src);<br>
+ 		checksum += carry;<br>
+ 		src++;<br>
+ 		checksum += word;<br>
+@@ -54,7 +94,7 @@ static inline unsigned long csum_partial<br>
+ 	checksum += carry;<br>
+ 	if (len) {<br>
+ 		unsigned long word, tmp;<br>
+-		word = *src;<br>
++		err |= __get_user(word, src);<br>
+ 		tmp = *dst;<br>
+ 		mskql(word, len, word);<br>
+ 		checksum += word;<br>
+@@ -63,28 +103,31 @@ static inline unsigned long csum_partial<br>
+ 		*dst = word | tmp;<br>
+ 		checksum += carry;<br>
+ 	}<br>
+-	return checksum;	<br>
++	if (err) *errp = err;<br>
++	return checksum;<br>
+ }<br>
+ <br>
+ /*<br>
+  * This is even less fun, but this is still reasonably<br>
+  * easy.<br>
+  */<br>
+-static inline unsigned long csum_partial_copy_dest_aligned(<br>
+-	unsigned long *src, unsigned long *dst,<br>
+-	unsigned long soff,<br>
+-	long len, unsigned long checksum)<br>
++static inline unsigned long<br>
++csum_partial_cfu_dest_aligned(unsigned long *src, unsigned long *dst,<br>
++			      unsigned long soff,<br>
++			      long len, unsigned long checksum,<br>
++			      int *errp)<br>
+ {<br>
+ 	unsigned long first;<br>
+ 	unsigned long word, carry;<br>
+ 	unsigned long lastsrc = 7+len+(unsigned long)src;<br>
++	int err = 0;<br>
+ <br>
+-	ldq_u(first,src);<br>
++	err |= __get_user_u(first,src);<br>
+ 	carry = 0;<br>
+ 	while (len &gt;= 0) {<br>
+ 		unsigned long second;<br>
+ <br>
+-		ldq_u(second, src+1);<br>
++		err |= __get_user_u(second, src+1);<br>
+ 		extql(first, soff, word);<br>
+ 		len -= 8;<br>
+ 		src++;<br>
+@@ -102,7 +145,7 @@ static inline unsigned long csum_partial<br>
+ 	if (len) {<br>
+ 		unsigned long tmp;<br>
+ 		unsigned long second;<br>
+-		ldq_u(second, lastsrc);<br>
++		err |= __get_user_u(second, lastsrc);<br>
+ 		tmp = *dst;<br>
+ 		extql(first, soff, word);<br>
+ 		extqh(second, soff, first);<br>
+@@ -114,25 +157,28 @@ static inline unsigned long csum_partial<br>
+ 		*dst = word | tmp;<br>
+ 		checksum += carry;<br>
+ 	}<br>
++	if (err) *errp = err;<br>
+ 	return checksum;<br>
+ }<br>
+ <br>
+ /*<br>
+  * This is slightly less fun than the above..<br>
+  */<br>
+-static inline unsigned long csum_partial_copy_src_aligned(<br>
+-	unsigned long *src, unsigned long *dst,<br>
+-	unsigned long doff,<br>
+-	long len, unsigned long checksum,<br>
+-	unsigned long partial_dest)<br>
++static inline unsigned long<br>
++csum_partial_cfu_src_aligned(unsigned long *src, unsigned long *dst,<br>
++			     unsigned long doff,<br>
++			     long len, unsigned long checksum,<br>
++			     unsigned long partial_dest,<br>
++			     int *errp)<br>
+ {<br>
+ 	unsigned long carry = 0;<br>
+ 	unsigned long word;<br>
++	int err = 0;<br>
+ <br>
+ 	mskql(partial_dest, doff, partial_dest);<br>
+ 	while (len &gt;= 0) {<br>
+ 		unsigned long second_dest;<br>
+-		word = *src;<br>
++		err |= __get_user(word, src);<br>
+ 		len -= 8;<br>
+ 		insql(word, doff, second_dest);<br>
+ 		checksum += carry;<br>
+@@ -147,7 +193,7 @@ static inline unsigned long csum_partial<br>
+ 	checksum += carry;<br>
+ 	if (len &gt;= 0) {<br>
+ 		unsigned long second_dest;<br>
+-		word = *src;<br>
++		err |= __get_user(word, src);<br>
+ 		mskql(word, len-doff, word);<br>
+ 		checksum += word;<br>
+ 		insql(word, doff, second_dest);<br>
+@@ -162,7 +208,7 @@ static inline unsigned long csum_partial<br>
+ 		checksum += carry;<br>
+ 	} else if (len &amp; 7) {<br>
+ 		unsigned long second_dest;<br>
+-		word = *src;<br>
++		err |= __get_user(word, src);<br>
+ 		ldq_u(second_dest, dst);<br>
+ 		mskql(word, len-doff, word);<br>
+ 		checksum += word;<br>
+@@ -172,6 +218,7 @@ static inline unsigned long csum_partial<br>
+ 		stq_u(partial_dest | word | second_dest, dst);<br>
+ 		checksum += carry;<br>
+ 	}<br>
++	if (err) *errp = err;<br>
+ 	return checksum;<br>
+ }<br>
+ <br>
+@@ -179,24 +226,26 @@ static inline unsigned long csum_partial<br>
+  * This is so totally un-fun that it's frightening. Don't<br>
+  * look at this too closely, you'll go blind.<br>
+  */<br>
+-static inline unsigned long csum_partial_copy_unaligned(<br>
+-	unsigned long * src, unsigned long * dst,<br>
+-	unsigned long soff, unsigned long doff,<br>
+-	long len, unsigned long checksum,<br>
+-	unsigned long partial_dest)<br>
++static inline unsigned long<br>
++csum_partial_cfu_unaligned(unsigned long * src, unsigned long * dst,<br>
++			   unsigned long soff, unsigned long doff,<br>
++			   long len, unsigned long checksum,<br>
++			   unsigned long partial_dest,<br>
++			   int *errp)<br>
+ {<br>
+ 	unsigned long carry = 0;<br>
+ 	unsigned long first;<br>
+ 	unsigned long lastsrc;<br>
++	int err = 0;<br>
+ <br>
+-	ldq_u(first, src);<br>
++	err |= __get_user_u(first, src);<br>
+ 	lastsrc = 7+len+(unsigned long)src;<br>
+ 	mskql(partial_dest, doff, partial_dest);<br>
+ 	while (len &gt;= 0) {<br>
+ 		unsigned long second, word;<br>
+ 		unsigned long second_dest;<br>
+ <br>
+-		ldq_u(second, src+1);<br>
++		err |= __get_user_u(second, src+1);<br>
+ 		extql(first, soff, word);<br>
+ 		checksum += carry;<br>
+ 		len -= 8;<br>
+@@ -216,8 +265,8 @@ static inline unsigned long csum_partial<br>
+ 	if (len &gt;= 0) {<br>
+ 		unsigned long second, word;<br>
+ 		unsigned long second_dest;<br>
+-		<br>
+-		ldq_u(second, lastsrc);<br>
++<br>
++		err |= __get_user_u(second, lastsrc);<br>
+ 		extql(first, soff, word);<br>
+ 		extqh(second, soff, first);<br>
+ 		word |= first;<br>
+@@ -233,12 +282,12 @@ static inline unsigned long csum_partial<br>
+ 			mskqh(second_dest, len, second_dest);<br>
+ 			stq_u(partial_dest | second_dest, dst+1);<br>
+ 		}<br>
+-		checksum += carry;			<br>
++		checksum += carry;<br>
+ 	} else if (len &amp; 7) {<br>
+ 		unsigned long second, word;<br>
+ 		unsigned long second_dest;<br>
+ <br>
+-		ldq_u(second, lastsrc);<br>
++		err |= __get_user_u(second, lastsrc);<br>
+ 		extql(first, soff, word);<br>
+ 		extqh(second, soff, first);<br>
+ 		word |= first;<br>
+@@ -251,42 +300,51 @@ static inline unsigned long csum_partial<br>
+ 		stq_u(partial_dest | word | second_dest, dst);<br>
+ 		checksum += carry;<br>
+ 	}<br>
++	if (err) *errp = err;<br>
+ 	return checksum;<br>
+ }<br>
+ <br>
+-unsigned int csum_partial_copy(char *src, char *dst, int len, int sum)<br>
++unsigned int<br>
++csum_partial_copy_from_user(int *errp, char *src, char *dst,<br>
++			    int len, unsigned int sum)<br>
+ {<br>
+ 	unsigned long checksum = (unsigned) sum;<br>
+ 	unsigned long soff = 7 &amp; (unsigned long) src;<br>
+ 	unsigned long doff = 7 &amp; (unsigned long) dst;<br>
+ <br>
++	if (!access_ok(src, len, VERIFY_READ)) {<br>
++		*errp = -EFAULT;<br>
++		memset(dst, 0, len);<br>
++		return checksum;<br>
++	}<br>
++<br>
+ 	if (len) {<br>
+ 		if (!doff) {<br>
+ 			if (!soff)<br>
+-				checksum = csum_partial_copy_aligned(<br>
++				checksum = csum_partial_cfu_aligned(<br>
+ 					(unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+-					len-8, checksum);<br>
++					len-8, checksum, errp);<br>
+ 			else<br>
+-				checksum = csum_partial_copy_dest_aligned(<br>
++				checksum = csum_partial_cfu_dest_aligned(<br>
+ 					(unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+-					soff, len-8, checksum);<br>
++					soff, len-8, checksum, errp);<br>
+ 		} else {<br>
+ 			unsigned long partial_dest;<br>
+ 			ldq_u(partial_dest, dst);<br>
+ 			if (!soff)<br>
+-				checksum = csum_partial_copy_src_aligned(<br>
++				checksum = csum_partial_cfu_src_aligned(<br>
+ 					(unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					doff, len-8, checksum,<br>
+-					partial_dest);<br>
++					partial_dest, errp);<br>
+ 			else<br>
+-				checksum = csum_partial_copy_unaligned(<br>
++				checksum = csum_partial_cfu_unaligned(<br>
+ 					(unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					soff, doff, len-8, checksum,<br>
+-					partial_dest);<br>
++					partial_dest, errp);<br>
+ 		}<br>
+ 		/* 64 -&gt; 33 bits */<br>
+ 		checksum = (checksum &amp; 0xffffffff) + (checksum &gt;&gt; 32);<br>
+@@ -297,4 +355,17 @@ unsigned int csum_partial_copy(char *src<br>
+ 		checksum = (checksum &amp; 0xffff) + (checksum &gt;&gt; 16);<br>
+ 	}<br>
+ 	return checksum;<br>
++}<br>
++<br>
++unsigned int<br>
++csum_partial_copy (const char *src, char *dst, int len, unsigned int sum)<br>
++{<br>
++	unsigned int ret;<br>
++	int error = 0;<br>
++<br>
++	ret = csum_partial_copy_from_user(&amp;error, src, dst, len, sum);<br>
++	if (error)<br>
++		printk("csum_partial_copy_old(): tell mingo to convert me!\n");<br>
++<br>
++	return ret;<br>
+ }<br>
+diff -rup linux-2.1.25/include/asm-alpha/checksum.h linux-cur/include/asm-alpha/checksum.h<br>
+--- linux-2.1.25/include/asm-alpha/checksum.h	Sat Nov 23 04:29:03 1996<br>
++++ linux-cur/include/asm-alpha/checksum.h	Wed Feb  5 19:19:42 1997<br>
+@@ -44,9 +44,16 @@ unsigned int csum_partial_copy(const cha<br>
+ /*<br>
+  * the same as csum_partial, but copies from user space (but on the alpha<br>
+  * we have just one address space, so this is identical to the above)<br>
++ *<br>
++ * this is obsolete and will go away.<br>
+  */<br>
+ #define csum_partial_copy_fromuser csum_partial_copy<br>
+ <br>
++/*<br>
++ * this is a new version of the above that records errors it finds in *errp,<br>
++ * but continues and zeros the rest of the buffer.<br>
++ */<br>
++unsigned int csum_partial_copy_from_user(int *errp, char *src, char *dst, int len, unsigned int sum);<br>
+ <br>
+ /*<br>
+  * this routine is used for miscellaneous IP-like checksums, mainly<br>
+diff -rup linux-2.1.25/include/linux/sched.h linux-cur/include/linux/sched.h<br>
+--- linux-2.1.25/include/linux/sched.h	Wed Feb  5 19:48:19 1997<br>
++++ linux-cur/include/linux/sched.h	Wed Feb  5 19:22:23 1997<br>
+@@ -127,7 +127,7 @@ struct files_struct {<br>
+ <br>
+ struct fs_struct {<br>
+ 	int count;<br>
+-	unsigned short umask;<br>
++	int umask;<br>
+ 	struct inode * root, * pwd;<br>
+ };<br>
+ <br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0154.html">Bernd : "Re: UDB Kernel Panic"</a>
+<li> <b>Previous message:</b> <a href="0152.html">vbajaj@portal.stwing.upenn.edu: "2.1.24 failed compile"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

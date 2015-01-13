@@ -1,0 +1,1355 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: 2.3.49-2 axp iommu update</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="2.3.49-2 axp iommu update">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.3.49-2 axp iommu update</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 01 08:07:19 2000" -->
+<!-- isoreceived="20000301160719" -->
+<!-- sent="Tue, 29 Feb 2000 22:09:37 -0800" -->
+<!-- isosent="20000301060937" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="2.3.49-2 axp iommu update" -->
+<!-- id="20000229220937.A251@castro.cygnus.com" -->
+<STRONG>Subject: </STRONG>2.3.49-2 axp iommu update<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@cygnus.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Feb 29 2000 - 22:09:37 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#176">[ date ]</A>
+<A HREF="index.html#176">[ thread ]</A>
+<A HREF="subject.html#176">[ subject ]</A>
+<A HREF="author.html#176">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0177.html">Richard Henderson: "2.3.49 axp ptrace icache flush"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Despite three days mucking about with it, I can't make PYXIS
+<BR>
+iommu stable.  There are a pile of known bugs in the chip that
+<BR>
+are semi-documented in NetBSD source, but this doesn't seem
+<BR>
+to be one of them.  Or at least isn't a manifestation I would
+<BR>
+have expected.  So I turn it off.
+<BR>
+<P>Change the way ptes are allocated.  Always search forward for
+<BR>
+a new allocation.  If we reach the end, flush the whole TLB.
+<BR>
+This works best for the bulk of the core logics, which only
+<BR>
+have a tbia.  It probably works best for tsunami too, since
+<BR>
+we do less synchronization with the pchips.
+<BR>
+<P><P>r~
+<BR>
+<P><P><P>diff -rup linux/arch/alpha/kernel/core_apecs.c 2.3.49-2/arch/alpha/kernel/core_apecs.c
+<BR>
+--- linux/arch/alpha/kernel/core_apecs.c	Mon Feb 21 02:49:21 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_apecs.c	Tue Feb 29 19:26:00 2000
+<BR>
+@@ -385,7 +385,7 @@ apecs_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Window 1 is direct access 1GB at 1GB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Window 2 is scatter-gather 8MB at 8MB (for isa)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, PAGE_SIZE);
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;sg_pci = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x40000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x40000000;
+<BR>
+diff -rup linux/arch/alpha/kernel/core_cia.c 2.3.49-2/arch/alpha/kernel/core_cia.c
+<BR>
+--- linux/arch/alpha/kernel/core_cia.c	Mon Feb 21 02:49:21 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_cia.c	Tue Feb 29 19:26:39 2000
+<BR>
+@@ -405,10 +405,12 @@ cia_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* ??? We ought to scale window 1 with memory.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	/* NetBSD hints that page tables must be aligned to 32K due
+<BR>
+-	   to a hardware bug.  No description of what models affected.  */
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, 32768);
+<BR>
+-	hose-&gt;sg_pci = iommu_arena_new(0x40000000, 0x08000000, 32768);
+<BR>
++	/* ??? NetBSD hints that page tables must be aligned to 32K,
+<BR>
++	   possibly due to a hardware bug.  This is over-aligned
+<BR>
++	   from the 8K alignment one would expect for an 8MB window. 
+<BR>
++	   No description of what CIA revisions affected.  */
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0x8000);
+<BR>
++	hose-&gt;sg_pci = iommu_arena_new(hose, 0x40000000, 0x08000000, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x80000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x80000000;
+<BR>
+&nbsp;
+<BR>
+diff -rup linux/arch/alpha/kernel/core_lca.c 2.3.49-2/arch/alpha/kernel/core_lca.c
+<BR>
+--- linux/arch/alpha/kernel/core_lca.c	Mon Feb 21 02:49:21 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_lca.c	Tue Feb 29 19:26:44 2000
+<BR>
+@@ -307,7 +307,7 @@ lca_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Window 0 is direct access 1GB at 1GB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Window 1 is scatter-gather 8MB at 8MB (for isa)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, PAGE_SIZE);
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;sg_pci = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x40000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x40000000;
+<BR>
+diff -rup linux/arch/alpha/kernel/core_mcpcia.c 2.3.49-2/arch/alpha/kernel/core_mcpcia.c
+<BR>
+--- linux/arch/alpha/kernel/core_mcpcia.c	Mon Feb 21 02:49:42 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_mcpcia.c	Tue Feb 29 19:26:49 2000
+<BR>
+@@ -404,8 +404,8 @@ mcpcia_startup_hose(struct pci_controler
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* ??? We ought to scale window 1 with memory.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, PAGE_SIZE);
+<BR>
+-	hose-&gt;sg_pci = iommu_arena_new(0x40000000, 0x08000000, PAGE_SIZE);
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0);
+<BR>
++	hose-&gt;sg_pci = iommu_arena_new(hose, 0x40000000, 0x08000000, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x80000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x80000000;
+<BR>
+&nbsp;
+<BR>
+diff -rup linux/arch/alpha/kernel/core_pyxis.c 2.3.49-2/arch/alpha/kernel/core_pyxis.c
+<BR>
+--- linux/arch/alpha/kernel/core_pyxis.c	Tue Feb 29 21:00:53 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_pyxis.c	Mon Mar 19 00:05:07 2068
+<BR>
+@@ -36,7 +36,6 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define DEBUG_CONFIG 0
+<BR>
+-
+<BR>
+&nbsp;#if DEBUG_CONFIG
+<BR>
+&nbsp;# define DBG_CNF(args)	printk args
+<BR>
+&nbsp;#else
+<BR>
+@@ -434,6 +433,8 @@ pyxis_broken_pci_tbi(struct pci_controle
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ctrl = *(vuip)PYXIS_CTRL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)PYXIS_CTRL = ctrl | 4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
++	*(vuip)PYXIS_CTRL;
+<BR>
++	mb();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Read from PCI dense memory space at TBI_ADDR, skipping 64k
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on each read.  This forces SG TLB misses.  It appears that
+<BR>
+@@ -448,6 +449,8 @@ pyxis_broken_pci_tbi(struct pci_controle
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)PYXIS_CTRL = ctrl;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
++	*(vuip)PYXIS_CTRL;
+<BR>
++	mb();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__restore_flags(flags);
+<BR>
+&nbsp;}
+<BR>
+@@ -480,31 +483,31 @@ pyxis_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int temp;
+<BR>
+&nbsp;
+<BR>
+-#if 0
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_ERR_MASK 0x%x\n&quot;, *(vuip)PYXIS_ERR_MASK);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_ERR 0x%x\n&quot;, *(vuip)PYXIS_ERR);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_INT_REQ 0x%lx\n&quot;, *(vulp)PYXIS_INT_REQ);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_INT_MASK 0x%lx\n&quot;, *(vulp)PYXIS_INT_MASK);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_INT_ROUTE 0x%lx\n&quot;, *(vulp)PYXIS_INT_ROUTE);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_INT_HILO 0x%lx\n&quot;, *(vulp)PYXIS_INT_HILO);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_INT_CNFG 0x%x\n&quot;, *(vuip)PYXIS_INT_CNFG);
+<BR>
+-	printk(&quot;pyxis_init: PYXIS_RT_COUNT 0x%lx\n&quot;, *(vulp)PYXIS_RT_COUNT);
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-	/* 
+<BR>
+-	 * Set up error reporting. Make sure CPU_PE is OFF in the mask.
+<BR>
+-	 */
+<BR>
++	/* Set up error reporting. Make sure CPU_PE is OFF in the mask.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = *(vuip)PYXIS_ERR_MASK;
+<BR>
+-	temp &amp;= ~4;   
+<BR>
+-	*(vuip)PYXIS_ERR_MASK = temp;
+<BR>
+-	mb();
+<BR>
+-	*(vuip)PYXIS_ERR_MASK;	/* re-read to force write */
+<BR>
++	*(vuip)PYXIS_ERR_MASK = temp &amp; ~4;
+<BR>
+&nbsp;
+<BR>
++	/* Enable master/target abort.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = *(vuip)PYXIS_ERR;
+<BR>
+-	temp |= 0x180;		/* master/target abort */
+<BR>
+-	*(vuip)PYXIS_ERR = temp;
+<BR>
++	*(vuip)PYXIS_ERR = temp | 0x180;
+<BR>
++
+<BR>
++	/* Clear the PYXIS_CFG register, which gets used  for PCI Config
+<BR>
++	   Space accesses.  That is the way we want to use it, and we do
+<BR>
++	   not want to depend on what ARC or SRM might have left behind.  */
+<BR>
++	*(vuip)PYXIS_CFG = 0;
+<BR>
++ 
+<BR>
++	/* Zero the HAEs.  */
+<BR>
++	*(vuip)PYXIS_HAE_MEM = 0;
+<BR>
++	*(vuip)PYXIS_HAE_IO = 0;
+<BR>
++
+<BR>
++	/* Finally, check that the PYXIS_CTRL1 has IOA_BEN set for
+<BR>
++	   enabling byte/word PCI bus space(s) access.  */
+<BR>
++	temp = *(vuip)PYXIS_CTRL1;
+<BR>
++	*(vuip)PYXIS_CTRL1 = temp | 1;
+<BR>
++
+<BR>
++	/* Syncronize with all previous changes.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+-	*(vuip)PYXIS_ERR;	/* re-read to force write */
+<BR>
++	*(vuip)PYXIS_REV;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Create our single hose.
+<BR>
+@@ -531,10 +534,41 @@ pyxis_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* address range.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-	/* NetBSD hints that page tables must be aligned to 32K due
+<BR>
+-	   to a hardware bug.  No description of what models affected.  */
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, 32768);
+<BR>
+-	hose-&gt;sg_pci = iommu_arena_new(0xc0000000, 0x08000000, 32768);
+<BR>
++#if 1
+<BR>
++	/* ??? There's some bit of syncronization wrt writing new tlb
+<BR>
++	   entries that's missing.  Sometimes it works, sometimes invalid
+<BR>
++	   tlb machine checks, sometimes hard lockup.  And this just within
+<BR>
++	   the boot sequence.
+<BR>
++
+<BR>
++	   I've tried extra memory barriers, extra alignment, pyxis
+<BR>
++	   register reads, tlb flushes, and loopback tlb accesses.
+<BR>
++
+<BR>
++	   I guess the pyxis revision in the sx164 is just too buggy...  */
+<BR>
++
+<BR>
++	hose-&gt;sg_isa = hose-&gt;sg_pci = NULL;
+<BR>
++	__direct_map_base = 0x40000000;
+<BR>
++	__direct_map_size = 0x80000000;
+<BR>
++
+<BR>
++	*(vuip)PYXIS_W0_BASE = 0x40000000 | 1;
+<BR>
++	*(vuip)PYXIS_W0_MASK = (0x40000000 - 1) &amp; 0xfff00000;
+<BR>
++	*(vuip)PYXIS_T0_BASE = 0;
+<BR>
++
+<BR>
++	*(vuip)PYXIS_W1_BASE = 0x80000000 | 1;
+<BR>
++	*(vuip)PYXIS_W1_MASK = (0x40000000 - 1) &amp; 0xfff00000;
+<BR>
++	*(vuip)PYXIS_T1_BASE = 0;
+<BR>
++
+<BR>
++	*(vuip)PYXIS_W2_BASE = 0;
+<BR>
++	*(vuip)PYXIS_W3_BASE = 0;
+<BR>
++
+<BR>
++	alpha_mv.mv_pci_tbi = NULL;
+<BR>
++	mb();
+<BR>
++#else
+<BR>
++	/* ??? NetBSD hints that page tables must be aligned to 32K,
+<BR>
++	   possibly due to a hardware bug.  This is over-aligned
+<BR>
++	   from the 8K alignment one would expect for an 8MB window. 
+<BR>
++	   No description of what CIA revisions affected.  */
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0x08000);
+<BR>
++	hose-&gt;sg_pci = iommu_arena_new(hose, 0xc0000000, 0x08000000, 0x20000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x40000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x80000000;
+<BR>
+&nbsp;
+<BR>
+@@ -560,37 +594,7 @@ pyxis_init_arch(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_enable_broken_tbi(hose-&gt;sg_pci);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.mv_pci_tbi(hose, 0, -1);
+<BR>
+-alpha_mv.mv_pci_tbi = 0;
+<BR>
+-
+<BR>
+-	/*
+<BR>
+-	 * Next, clear the PYXIS_CFG register, which gets used
+<BR>
+-	 *  for PCI Config Space accesses. That is the way
+<BR>
+-	 *  we want to use it, and we do not want to depend on
+<BR>
+-	 *  what ARC or SRM might have left behind...
+<BR>
+-	 */
+<BR>
+-	temp = *(vuip)PYXIS_CFG;
+<BR>
+-	if (temp != 0) {
+<BR>
+-		*(vuip)PYXIS_CFG = 0;
+<BR>
+-		mb();
+<BR>
+-		*(vuip)PYXIS_CFG; /* re-read to force write */
+<BR>
+-	}
+<BR>
+- 
+<BR>
+-	/* Zero the HAE.  */
+<BR>
+-	*(vuip)PYXIS_HAE_MEM = 0U; mb();
+<BR>
+-	*(vuip)PYXIS_HAE_MEM;	/* re-read to force write */
+<BR>
+-	*(vuip)PYXIS_HAE_IO = 0; mb();
+<BR>
+-	*(vuip)PYXIS_HAE_IO;	/* re-read to force write */
+<BR>
+-
+<BR>
+-	/*
+<BR>
+-	 * Finally, check that the PYXIS_CTRL1 has IOA_BEN set for
+<BR>
+-	 * enabling byte/word PCI bus space(s) access.
+<BR>
+-	 */
+<BR>
+-	temp = *(vuip) PYXIS_CTRL1;
+<BR>
+-	if (!(temp &amp; 1)) {
+<BR>
+-		*(vuip)PYXIS_CTRL1 = temp | 1;
+<BR>
+-		mb();
+<BR>
+-		*(vuip)PYXIS_CTRL1; /* re-read */
+<BR>
+-	}
+<BR>
++#endif
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void
+<BR>
+diff -rup linux/arch/alpha/kernel/core_tsunami.c 2.3.49-2/arch/alpha/kernel/core_tsunami.c
+<BR>
+--- linux/arch/alpha/kernel/core_tsunami.c	Tue Feb 29 20:56:09 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/core_tsunami.c	Tue Feb 29 19:28:39 2000
+<BR>
+@@ -343,13 +343,9 @@ tsunami_init_one_pchip(tsunami_pchip *pc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* because of an idiot-syncrasy of the CYPRESS chip.  It may
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* respond to a PCI bus address in the last 1MB of the 4GB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* address range.
+<BR>
+-	 *
+<BR>
+-	 * Note that the TLB lookup logic uses bitwise concatenation,
+<BR>
+-	 * not addition, so the required arena alignment is based on
+<BR>
+-	 * the size of the window.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	hose-&gt;sg_isa = iommu_arena_new(0x00800000, 0x00800000, 0x00800000&gt;&gt;10);
+<BR>
+-	hose-&gt;sg_pci = iommu_arena_new(0xc0000000, 0x08000000, 0x08000000&gt;&gt;10);
+<BR>
++	hose-&gt;sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0);
+<BR>
++	hose-&gt;sg_pci = iommu_arena_new(hose, 0xc0000000, 0x08000000, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_base = 0x40000000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__direct_map_size = 0x80000000;
+<BR>
+&nbsp;
+<BR>
+diff -rup linux/arch/alpha/kernel/pci_impl.h 2.3.49-2/arch/alpha/kernel/pci_impl.h
+<BR>
+--- linux/arch/alpha/kernel/pci_impl.h	Mon Feb 21 02:49:21 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/pci_impl.h	Tue Feb 29 20:13:00 2000
+<BR>
+@@ -123,6 +123,24 @@ static inline u8 bridge_swizzle(u8 pin, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;_ctl_; })
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
++/* A PCI IOMMU allocation arena.  There are typically two of these
+<BR>
++   regions per bus.  */
+<BR>
++/* ??? The 8400 has a 32-byte pte entry, and the entire table apparently
+<BR>
++   lives directly on the host bridge (no tlb?).  We don't support this
+<BR>
++   machine, but if we ever did, we'd need to parameterize all this quite
+<BR>
++   a bit further.  Probably with per-bus operation tables.  */
+<BR>
++
+<BR>
++struct pci_iommu_arena
+<BR>
++{
+<BR>
++	spinlock_t lock;
+<BR>
++	struct pci_controler *hose;
+<BR>
++	unsigned long *ptes;
+<BR>
++	dma_addr_t dma_base;
+<BR>
++	unsigned int size;
+<BR>
++	unsigned int next_entry;
+<BR>
++};
+<BR>
++
+<BR>
++
+<BR>
+&nbsp;/* The hose list.  */
+<BR>
+&nbsp;extern struct pci_controler *hose_head, **hose_tail;
+<BR>
+&nbsp;extern struct pci_controler *pci_isa_hose;
+<BR>
+@@ -132,8 +150,9 @@ extern u8 common_swizzle(struct pci_dev 
+<BR>
+&nbsp;extern struct pci_controler *alloc_pci_controler(void);
+<BR>
+&nbsp;extern struct resource *alloc_resource(void);
+<BR>
+&nbsp;
+<BR>
+-extern struct pci_iommu_arena *iommu_arena_new(dma_addr_t, unsigned long,
+<BR>
+-					   unsigned long);
+<BR>
++extern struct pci_iommu_arena *iommu_arena_new(struct pci_controler *,
+<BR>
++					       dma_addr_t, unsigned long,
+<BR>
++					       unsigned long);
+<BR>
+&nbsp;extern long iommu_arena_alloc(struct pci_iommu_arena *arena, long n);
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern const char *const pci_io_names[];
+<BR>
+diff -rup linux/arch/alpha/kernel/pci_iommu.c 2.3.49-2/arch/alpha/kernel/pci_iommu.c
+<BR>
+--- linux/arch/alpha/kernel/pci_iommu.c	Tue Feb 29 20:56:09 2000
+<BR>
++++ 2.3.49-2/arch/alpha/kernel/pci_iommu.c	Tue Feb 29 19:54:04 2000
+<BR>
+@@ -27,6 +27,8 @@
+<BR>
+&nbsp;# define DBGA2(args...)
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++#define DEBUG_NODIRECT 0
+<BR>
++
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline unsigned long
+<BR>
+&nbsp;mk_iommu_pte(unsigned long paddr)
+<BR>
+@@ -41,23 +43,29 @@ calc_npages(long bytes)
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct pci_iommu_arena *
+<BR>
+-iommu_arena_new(dma_addr_t base, unsigned long window_size,
+<BR>
+-		unsigned long align)
+<BR>
++iommu_arena_new(struct pci_controler *hose, dma_addr_t base,
+<BR>
++		unsigned long window_size, unsigned long align)
+<BR>
+&nbsp;{
+<BR>
+-	unsigned long entries, mem_size, mem_pages;
+<BR>
++	unsigned long mem_size;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_iommu_arena *arena;
+<BR>
+&nbsp;
+<BR>
+-	entries = window_size &gt;&gt; PAGE_SHIFT;
+<BR>
+-	mem_size = entries * sizeof(unsigned long);
+<BR>
+-	mem_pages = calc_npages(mem_size);
+<BR>
++	mem_size = window_size / (PAGE_SIZE / sizeof(unsigned long));
+<BR>
++
+<BR>
++	/* Note that the TLB lookup logic uses bitwise concatenation,
+<BR>
++	   not addition, so the required arena alignment is based on
+<BR>
++	   the size of the window.  Retain the align parameter so that
+<BR>
++	   particular systems can over-align the arena.  */
+<BR>
++	if (align &lt; mem_size)
+<BR>
++		align = mem_size;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arena = alloc_bootmem(sizeof(*arena));
+<BR>
+-	arena-&gt;ptes = __alloc_bootmem(mem_pages * PAGE_SIZE, align, 0);
+<BR>
++	arena-&gt;ptes = __alloc_bootmem(mem_size, align, 0);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_init(&amp;arena-&gt;lock);
+<BR>
++	arena-&gt;hose = hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arena-&gt;dma_base = base;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arena-&gt;size = window_size;
+<BR>
+-	arena-&gt;alloc_hint = 0;
+<BR>
++	arena-&gt;next_entry = 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return arena;
+<BR>
+&nbsp;}
+<BR>
+@@ -74,20 +82,22 @@ iommu_arena_alloc(struct pci_iommu_arena
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Search forward for the first sequence of N empty ptes.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beg = arena-&gt;ptes;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end = beg + (arena-&gt;size &gt;&gt; PAGE_SHIFT);
+<BR>
+-	p = beg + arena-&gt;alloc_hint;
+<BR>
++	p = beg + arena-&gt;next_entry;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (i &lt; n &amp;&amp; p &lt; end)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = (*p++ == 0 ? i + 1 : 0);
+<BR>
+&nbsp;
+<BR>
+-	if (p &gt;= end) {
+<BR>
+-		/* Failure.  Assume the hint was wrong and go back to
+<BR>
++	if (i &lt; n) {
+<BR>
++		/* Reached the end.  Flush the TLB and restart the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;search from the beginning.  */
+<BR>
++		alpha_mv.mv_pci_tbi(arena-&gt;hose, 0, -1);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = beg;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (i &lt; n &amp;&amp; p &lt; end)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = (*p++ == 0 ? i + 1 : 0);
+<BR>
+&nbsp;
+<BR>
+-		if (p &gt;= end) {
+<BR>
++		if (i &lt; n) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(&amp;arena-&gt;lock, flags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -100,7 +110,7 @@ iommu_arena_alloc(struct pci_iommu_arena
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (p = p - n, i = 0; i &lt; n; ++i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p[i] = ~1UL;
+<BR>
+&nbsp;
+<BR>
+-	arena-&gt;alloc_hint = p - beg + n;
+<BR>
++	arena-&gt;next_entry = p - beg + n;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(&amp;arena-&gt;lock, flags);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return p - beg;
+<BR>
+@@ -115,7 +125,6 @@ iommu_arena_free(struct pci_iommu_arena 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p = arena-&gt;ptes + ofs;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; n; ++i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p[i] = 0;
+<BR>
+-	arena-&gt;alloc_hint = ofs;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Map a single buffer of the indicate size for PCI DMA in streaming
+<BR>
+@@ -138,6 +147,7 @@ pci_map_single(struct pci_dev *pdev, voi
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paddr = virt_to_phys(cpu_addr);
+<BR>
+&nbsp;
+<BR>
++#if !DEBUG_NODIRECT
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* First check to see if we can use the direct map window.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (paddr + size + __direct_map_base - 1 &lt;= max_dma
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; paddr + size &lt;= __direct_map_size) {
+<BR>
+@@ -148,6 +158,7 @@ pci_map_single(struct pci_dev *pdev, voi
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If the machine doesn't define a pci_tbi routine, we have to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assume it doesn't support sg mapping.  */
+<BR>
+@@ -199,6 +210,7 @@ pci_unmap_single(struct pci_dev *pdev, d
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (direction == PCI_DMA_NONE)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BUG();
+<BR>
+&nbsp;
+<BR>
++#if !DEBUG_NODIRECT
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dma_addr &gt;= __direct_map_base
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; dma_addr &lt; __direct_map_base + __direct_map_size) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Nothing to do.  */
+<BR>
+@@ -208,6 +220,7 @@ pci_unmap_single(struct pci_dev *pdev, d
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arena = hose-&gt;sg_pci;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!arena || dma_addr &lt; arena-&gt;dma_base)
+<BR>
+@@ -224,10 +237,9 @@ pci_unmap_single(struct pci_dev *pdev, d
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;npages = calc_npages((dma_addr &amp; ~PAGE_MASK) + size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iommu_arena_free(arena, dma_ofs, npages);
+<BR>
+-	alpha_mv.mv_pci_tbi(hose, dma_addr, dma_addr + size - 1);
+<BR>
+&nbsp;
+<BR>
+-	DBGA2(&quot;pci_unmap_single: sg [%x,%lx] np %ld from %p\n&quot;,
+<BR>
+-	      dma_addr, size, npages, __builtin_return_address(0));
+<BR>
++	DBGA(&quot;pci_unmap_single: sg [%x,%lx] np %ld from %p\n&quot;,
+<BR>
++	     dma_addr, size, npages, __builtin_return_address(0));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+@@ -347,6 +359,7 @@ sg_fill(struct scatterlist *leader, stru
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long *ptes;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long npages, dma_ofs, i;
+<BR>
+&nbsp;
+<BR>
++#if !DEBUG_NODIRECT
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If everything is physically contiguous, and the addresses
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fall into the direct-map window, use it.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (leader-&gt;dma_address == 0
+<BR>
+@@ -360,6 +373,7 @@ sg_fill(struct scatterlist *leader, stru
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Otherwise, we'll use the iommu to make the pages virtually
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;contiguous.  */
+<BR>
+@@ -376,56 +390,38 @@ sg_fill(struct scatterlist *leader, stru
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGA(&quot;    sg_fill: [%p,%lx] -&gt; sg %x np %ld\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;leader-&gt;address, size, out-&gt;dma_address, npages);
+<BR>
+&nbsp;
+<BR>
++	/* All virtually contiguous.  We need to find the length of each
+<BR>
++	   physically contiguous subsegment to fill in the ptes.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptes = &amp;arena-&gt;ptes[dma_ofs];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sg = leader;
+<BR>
+-	if (0 &amp;&amp; leader-&gt;dma_address == 0) {
+<BR>
+-		/* All physically contiguous.  We already have the
+<BR>
+-		   length, all we need is to fill in the ptes.  */
+<BR>
++	do {
+<BR>
++		struct scatterlist *last_sg = sg;
+<BR>
++
+<BR>
++		size = sg-&gt;length;
+<BR>
++		paddr = virt_to_phys(sg-&gt;address);
+<BR>
+&nbsp;
+<BR>
+-		paddr = virt_to_phys(sg-&gt;address) &amp; PAGE_MASK;
+<BR>
++		while (sg+1 &lt; end &amp;&amp; (int) sg[1].dma_address == -1) {
+<BR>
++			size += sg[1].length;
+<BR>
++			sg++;
+<BR>
++		}
+<BR>
++
+<BR>
++		npages = calc_npages((paddr &amp; ~PAGE_MASK) + size);
+<BR>
++
+<BR>
++		paddr &amp;= PAGE_MASK;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; npages; ++i, paddr += PAGE_SIZE)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*ptes++ = mk_iommu_pte(paddr);
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if DEBUG_ALLOC &gt; 0
+<BR>
+-		DBGA(&quot;    (0) [%p,%x] np %ld\n&quot;,
+<BR>
+-		     sg-&gt;address, sg-&gt;length, npages);
+<BR>
+-		for (++sg; sg &lt; end &amp;&amp; (int) sg-&gt;dma_address &lt; 0; ++sg)
+<BR>
++		DBGA(&quot;    (%ld) [%p,%x] np %ld\n&quot;,
+<BR>
++		     last_sg - leader, last_sg-&gt;address,
+<BR>
++		     last_sg-&gt;length, npages);
+<BR>
++		while (++last_sg &lt;= sg) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGA(&quot;        (%ld) [%p,%x] cont\n&quot;,
+<BR>
+-			     sg - leader, sg-&gt;address, sg-&gt;length);
+<BR>
+-#endif
+<BR>
+-	} else {
+<BR>
+-		/* All virtually contiguous.  We need to find the
+<BR>
+-		   length of each physically contiguous subsegment
+<BR>
+-		   to fill in the ptes.  */
+<BR>
+-		do {
+<BR>
+-			struct scatterlist *last_sg = sg;
+<BR>
+-
+<BR>
+-			size = sg-&gt;length;
+<BR>
+-			paddr = virt_to_phys(sg-&gt;address);
+<BR>
+-
+<BR>
+-			while (sg+1 &lt; end &amp;&amp; (int) sg[1].dma_address == -1) {
+<BR>
+-				size += sg[1].length;
+<BR>
+-				sg++;
+<BR>
+-			}
+<BR>
+-
+<BR>
+-			npages = calc_npages((paddr &amp; ~PAGE_MASK) + size);
+<BR>
+-
+<BR>
+-			paddr &amp;= PAGE_MASK;
+<BR>
+-			for (i = 0; i &lt; npages; ++i, paddr += PAGE_SIZE)
+<BR>
+-				*ptes++ = mk_iommu_pte(paddr);
+<BR>
+-
+<BR>
+-#if DEBUG_ALLOC &gt; 0
+<BR>
+-			DBGA(&quot;    (%ld) [%p,%x] np %ld\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;last_sg - leader, last_sg-&gt;address,
+<BR>
+-			     last_sg-&gt;length, npages);
+<BR>
+-			while (++last_sg &lt;= sg) {
+<BR>
+-				DBGA(&quot;        (%ld) [%p,%x] cont\n&quot;,
+<BR>
+-				     last_sg - leader, last_sg-&gt;address,
+<BR>
+-				     last_sg-&gt;length);
+<BR>
+-			}
+<BR>
++			     last_sg-&gt;length);
+<BR>
++		}
+<BR>
+&nbsp;#endif
+<BR>
+-		} while (++sg &lt; end &amp;&amp; (int) sg-&gt;dma_address &lt; 0);
+<BR>
+-	}
+<BR>
++	} while (++sg &lt; end &amp;&amp; (int) sg-&gt;dma_address &lt; 0);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 1;
+<BR>
+&nbsp;}
+<BR>
+@@ -472,13 +468,9 @@ pci_map_sg(struct pci_dev *pdev, struct 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Third, iterate over the scatterlist leaders and allocate
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dma space as needed.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (out = sg; sg &lt; end; ++sg) {
+<BR>
+-		int ret;
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((int) sg-&gt;dma_address &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+-
+<BR>
+-		ret = sg_fill(sg, end, out, arena, max_dma);
+<BR>
+-		if (ret &lt; 0)
+<BR>
++		if (sg_fill(sg, end, out, arena, max_dma) &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto error;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -517,7 +509,6 @@ pci_unmap_sg(struct pci_dev *pdev, struc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_iommu_arena *arena;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct scatterlist *end;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dma_addr_t max_dma;
+<BR>
+-	dma_addr_t fstart, fend;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (direction == PCI_DMA_NONE)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BUG();
+<BR>
+@@ -531,42 +522,32 @@ pci_unmap_sg(struct pci_dev *pdev, struc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!arena || arena-&gt;dma_base + arena-&gt;size &gt; max_dma)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arena = hose-&gt;sg_isa;
+<BR>
+&nbsp;
+<BR>
+-	fstart = -1;
+<BR>
+-	fend = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (end = sg + nents; sg &lt; end; ++sg) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr, size;
+<BR>
++		long npages, ofs;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr = sg-&gt;dma_address;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size = sg-&gt;dma_length;
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!size)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;
+<BR>
++#if !DEBUG_NODIRECT
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (addr &gt;= __direct_map_base
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; addr &lt; __direct_map_base + __direct_map_size) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Nothing to do.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGA(&quot;    (%ld) direct [%lx,%lx]\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sg - end + nents, addr, size);
+<BR>
+-		} else {
+<BR>
+-			long npages, ofs;
+<BR>
+-			dma_addr_t tend;
+<BR>
++			continue;
+<BR>
++		}
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+-			DBGA(&quot;    (%ld) sg [%lx,%lx]\n&quot;,
+<BR>
+-			      sg - end + nents, addr, size);
+<BR>
++		DBGA(&quot;    (%ld) sg [%lx,%lx]\n&quot;,
+<BR>
++		     sg - end + nents, addr, size);
+<BR>
+&nbsp;
+<BR>
+-			npages = calc_npages((addr &amp; ~PAGE_MASK) + size);
+<BR>
+-			ofs = (addr - arena-&gt;dma_base) &gt;&gt; PAGE_SHIFT;
+<BR>
+-			iommu_arena_free(arena, ofs, npages);
+<BR>
+-
+<BR>
+-			tend = addr + size - 1;
+<BR>
+-			if (fstart &gt; addr)
+<BR>
+-				fstart = addr;
+<BR>
+-			if (fend &lt; tend)
+<BR>
+-				fend = tend;
+<BR>
+-		}
+<BR>
++		npages = calc_npages((addr &amp; ~PAGE_MASK) + size);
+<BR>
++		ofs = (addr - arena-&gt;dma_base) &gt;&gt; PAGE_SHIFT;
+<BR>
++		iommu_arena_free(arena, ofs, npages);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	if (fend)
+<BR>
+-		alpha_mv.mv_pci_tbi(hose, fstart, fend);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGA(&quot;pci_unmap_sg: %d entries\n&quot;, nents - (end - sg));
+<BR>
+&nbsp;}
+<BR>
+@@ -580,6 +561,7 @@ pci_dma_supported(struct pci_dev *pdev, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_iommu_arena *arena;
+<BR>
+&nbsp;
+<BR>
++#if !DEBUG_NODIRECT
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If there exists a direct map, and the mask fits either
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MAX_DMA_ADDRESS defined such that GFP_DMA does something
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;useful, or the total system memory as shifted by the
+<BR>
+@@ -588,6 +570,7 @@ pci_dma_supported(struct pci_dev *pdev, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; (__direct_map_base + MAX_DMA_ADDRESS-IDENT_ADDR-1 &lt;= mask
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|| __direct_map_base + (max_low_pfn&lt;&lt;PAGE_SHIFT)-1 &lt;= mask))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 1;
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Check that we have a scatter-gather arena that fits.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose = pdev ? pdev-&gt;sysdata : pci_isa_hose;
+<BR>
+diff -rup linux/include/asm-alpha/pci.h 2.3.49-2/include/asm-alpha/pci.h
+<BR>
+--- linux/include/asm-alpha/pci.h	Tue Feb 29 20:56:13 2000
+<BR>
++++ 2.3.49-2/include/asm-alpha/pci.h	Tue Feb 29 19:55:08 2000
+<BR>
+@@ -12,22 +12,7 @@
+<BR>
+&nbsp;struct pci_dev;
+<BR>
+&nbsp;struct pci_bus;
+<BR>
+&nbsp;struct resource;
+<BR>
+-
+<BR>
+-/* A PCI IOMMU allocation arena.  There are typically two of these
+<BR>
+-   regions per bus.  */
+<BR>
+-/* ??? The 8400 has a 32-byte pte entry, and the entire table apparently
+<BR>
+-   lives directly on the host bridge (no tlb?).  We don't support this
+<BR>
+-   machine, but if we ever did, we'd need to parameterize all this quite
+<BR>
+-   a bit further.  Probably with per-bus operation tables.  */
+<BR>
+-
+<BR>
+-struct pci_iommu_arena
+<BR>
+-{
+<BR>
+-	spinlock_t lock;
+<BR>
+-	unsigned long *ptes;
+<BR>
+-	dma_addr_t dma_base;
+<BR>
+-	unsigned int size;
+<BR>
+-	unsigned int alloc_hint;
+<BR>
+-};
+<BR>
++struct pci_iommu_arena;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* A controler.  Used to manage multiple PCI busses.  */
+<BR>
+&nbsp;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0177.html">Richard Henderson: "2.3.49 axp ptrace icache flush"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

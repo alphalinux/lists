@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: slow ethernet</TITLE>
+<META NAME="Author" CONTENT="Paul Slootman (paul@debian.org)">
+<META NAME="Subject" CONTENT="Re: slow ethernet">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: slow ethernet</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 25 13:28:28 2001" -->
+<!-- isoreceived="20010125212828" -->
+<!-- sent="Thu, 25 Jan 2001 13:59:21 +0100" -->
+<!-- isosent="20010125125921" -->
+<!-- name="Paul Slootman" -->
+<!-- email="paul@debian.org" -->
+<!-- subject="Re: slow ethernet" -->
+<!-- id="20010125135921.B29583@murphy.nl" -->
+<!-- inreplyto="3A6FABDC.B2B8BAC8@bartender.mit.edu" -->
+<STRONG>Subject: </STRONG>Re: slow ethernet<BR>
+<STRONG>From: </STRONG>Paul Slootman (<EM>paul@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jan 25 2001 - 04:59:21 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#150">[ date ]</A>
+<A HREF="index.html#150">[ thread ]</A>
+<A HREF="subject.html#150">[ subject ]</A>
+<A HREF="author.html#150">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0151.html">Doug Larrick: "Re: Everybuddy"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0149.html">Paul Slootman: "Re: PHP4, try 2"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0142.html">Luke Shulenburger: "slow ethernet"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0142.html">Paul Slootman: "Re: slow ethernet"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed 24 Jan 2001, Luke Shulenburger wrote:
+<BR>
+<P><EM>&gt; I just bought a 100mb switch and have noticed that my alpha is getting
+</EM><BR>
+<EM>&gt; really poor
+</EM><BR>
+<EM>&gt; performance over the network.  I have tried other computers and they get
+</EM><BR>
+<EM>&gt; transfer
+</EM><BR>
+<EM>&gt; rates that are acceptable (20mb/s or so).  However, whenever I transfer
+</EM><BR>
+<EM>&gt; to or from
+</EM><BR>
+<EM>&gt; my alpha (an LX with a tulip ethernet card with woody installed) I get
+</EM><BR>
+<EM>&gt; about 100kb/s
+</EM><BR>
+<EM>&gt; download and a maximum of 50kb/s upload speed.
+</EM><BR>
+<P>This is fairly typical of a wrong halfduplex / fullduplex setting.
+<BR>
+There's a utility available from Donald Becker's site that can tweak
+<BR>
+that setting (I forget the site name at the moment, and the utility's
+<BR>
+name, although that was something starting with mii).
+<BR>
+<P><EM>&gt; I don't exactly know where to start attacking the problem.  Here are a
+</EM><BR>
+<EM>&gt; few things
+</EM><BR>
+<EM>&gt; that look suspicious.  Whenever I ping anything I get messages like so:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 64 bytes from 18.239.0.1: icmp_seq=6 ttl=255 time=4.0 ms
+</EM><BR>
+<EM>&gt; wrong data byte #8 should be 0x8 but was 0x5c
+</EM><BR>
+<EM>&gt;         c d e f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22
+</EM><BR>
+<EM>&gt; 23 24 25 26 27 28 29 2a 2b
+</EM><BR>
+<EM>&gt;         2c 2d 2e 2f 0 0 0 0 0 0 0 0 0 0 0 0
+</EM><BR>
+<P>This is a stupid bug in ping, where sizeof(struct timeval) was used
+<BR>
+everywhere except for 3 places where there was a hardcoded 8. I've
+<BR>
+found the bug and reported it, but I haven't seen any action on it
+<BR>
+yet. I may have to do an NMU...
+<BR>
+<P><EM>&gt; and this shows up in /var/log/syslog
+</EM><BR>
+<EM>&gt;  Jan 24 22:59:53 bartender kernel: ping(19841): unaligned trap at
+</EM><BR>
+<EM>&gt; 0000000120003110: 000000012002671c 29 2
+</EM><BR>
+<P>Hmm, hadn't noticed that.
+<BR>
+<P>However, I recommend installing iputils-ping instead of netkit-ping
+<BR>
+(at least for the time being), that ping works better. I do get this,
+<BR>
+though:
+<BR>
+<P>$ ping -c 3 gw
+<BR>
+PING gw.local (192.168.1.254) from 192.168.1.2 : 56(84) bytes of data.
+<BR>
+64 bytes from gw.local (192.168.1.254): icmp_seq=0 ttl=255 time=442 usec
+<BR>
+64 bytes from gw.local (192.168.1.254): icmp_seq=1 ttl=255 time=66 usec
+<BR>
+Warning: time of day goes back, taking countermeasures.
+<BR>
+64 bytes from gw.local (192.168.1.254): icmp_seq=2 ttl=255 time=1.209 msec
+<BR>
+<P>Until you see the warning message, don't rely on the times. I have no
+<BR>
+idea what this means, though.
+<BR>
+<P><P>Anyway, that will have nothing to do with your slow ethernet problem.
+<BR>
+<P><P><EM>&gt; I'm also getting messages in the /var/log/syslog like this whenever I
+</EM><BR>
+<EM>&gt; try to transfer files
+</EM><BR>
+<EM>&gt; with samba:
+</EM><BR>
+<EM>&gt; Jan 24 14:18:08 bartender nmbd[19120]: warning: /etc/hosts.deny, line 1:
+</EM><BR>
+<EM>&gt; missing &quot;:&quot; separator
+</EM><BR>
+<EM>&gt; Jan 24 14:18:08 bartender nmbd[19120]: warning: /etc/hosts.deny, line 2:
+</EM><BR>
+<EM>&gt; missing &quot;:&quot; separator
+</EM><BR>
+<P>So fix lines 1 and 2...
+<BR>
+<P><EM>&gt; Jan 24 14:18:08 bartender nmbd[19120]:   params.c:OpenConfFile() -
+</EM><BR>
+<EM>&gt; Unable to open configuration file &quot;/etc/samba/smb.conf&quot;:
+</EM><BR>
+<EM>&gt; Jan 24 14:18:08 bartender nmbd[19120]:   ^INo such file or directory
+</EM><BR>
+<P>It definitely looks like you never configured samba? There *must*
+<BR>
+be a /etc/samba/smb.conf file.
+<BR>
+<P><EM>&gt; Jan 24 15:38:01 bartender modprobe: modprobe: Can't locate module
+</EM><BR>
+<EM>&gt; net-pf-10
+</EM><BR>
+<P>Edit /etc/modutils.conf, uncomment the &quot;alias net-pf-10 off&quot; line.
+<BR>
+It's for IPv6 which exim tries to use (and then it falls back to IPv4,
+<BR>
+so this is no problem either).
+<BR>
+<P><EM>&gt; I have outputs from tulip-diag and from mii-diag as well.  Basically
+</EM><BR>
+<P>Ah, that's the one!
+<BR>
+<P><EM>&gt; I have lots of information but no idea where to start using it.  Any
+</EM><BR>
+<P>Figure out how to turn on / turn off fullduplex with mii-diag,
+<BR>
+and see what difference it makes (you can do it on the fly).
+<BR>
+<P><P>Paul Slootman
+<BR>
+<PRE>
+-- 
+home:       paul@wurtel.demon.nl <A HREF="http://www.wurtel.demon.nl/">http://www.wurtel.demon.nl/</A>
+work:       paul@murphy.nl       <A HREF="http://www.murphy.nl/">http://www.murphy.nl/</A>
+debian:     paul@debian.org      <A HREF="http://www.debian.org/">http://www.debian.org/</A>
+isdn4linux: paul@isdn4linux.org  <A HREF="http://www.isdn4linux.org/">http://www.isdn4linux.org/</A>
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0151.html">Doug Larrick: "Re: Everybuddy"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0149.html">Paul Slootman: "Re: PHP4, try 2"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0142.html">Luke Shulenburger: "slow ethernet"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0142.html">Paul Slootman: "Re: slow ethernet"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:54:59 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

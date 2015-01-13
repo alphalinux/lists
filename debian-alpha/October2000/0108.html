@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: compiling</TITLE>
+<META NAME="Author" CONTENT="T. Weyergraf (kirk@colinet.de)">
+<META NAME="Subject" CONTENT="Re: compiling">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: compiling</H1>
+<HR>
+<P>
+<!-- received="Fri Oct 27 13:09:57 2000" -->
+<!-- isoreceived="20001027200957" -->
+<!-- sent="Thu, 26 Oct 2000 19:55:19 +0200" -->
+<!-- isosent="20001026175519" -->
+<!-- name="T. Weyergraf" -->
+<!-- email="kirk@colinet.de" -->
+<!-- subject="Re: compiling" -->
+<!-- id="kirk-1001026195519.A0228876@hydra.colinet.de" -->
+<!-- inreplyto="Pine.SOL.3.96.1001026125527.29648B-100000@campfire.rrz.Uni-Koeln.DE" -->
+<STRONG>Subject: </STRONG>Re: compiling<BR>
+<STRONG>From: </STRONG>T. Weyergraf (<EM>kirk@colinet.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Oct 26 2000 - 10:55:19 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#108">[ date ]</A>
+<A HREF="index.html#108">[ thread ]</A>
+<A HREF="subject.html#108">[ subject ]</A>
+<A HREF="author.html#108">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0109.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0107.html">Major A: "Re: UP1100 &amp; Matrox"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0099.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0109.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0099.html">T. Weyergraf: "Re: compiling"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Re-Hi,
+<BR>
+<P><EM>&gt;&gt; [...]
+</EM><BR>
+<P><EM>&gt; I found out that the same happened with libcxml and ran the same command
+</EM><BR>
+<EM>&gt; line in exchanging all libcpml stuff with libcxml. This one worked, too.
+</EM><BR>
+<P>Should work as well. I'll look into that for completeness.
+<BR>
+<P><EM>&gt; Which paths should be listed in the /etc/ld.so.conf? It had only entries
+</EM><BR>
+<EM>&gt; for 2 X11-libs. I typed in additional lines:
+</EM><BR>
+<P>Regarding the Compaq tools, you should not need to change any of the search-paths.
+<BR>
+They link the libaries from their respective dirs in /usr/lib/compaq to /usr/lib.
+<BR>
+<P>ldconfig considers /lib and /usr/lib as &quot;trusted paths&quot; and searches them anyway. No need
+<BR>
+to put them in /etc/ld.so.conf ( which is a bit crappy IMHO anyway - but that's another story ).
+<BR>
+Especially, you should avoid putting version-specific paths in there, like the line
+<BR>
+containing gcc-lib below.
+<BR>
+&nbsp;
+<BR>
+<EM>&gt; /lib
+</EM><BR>
+<EM>&gt; /usr/lib
+</EM><BR>
+<EM>&gt; /usr/lib/gcc-lib/alpha-linux/2.95.2
+</EM><BR>
+<EM>&gt; /usr/X11R6/lib/Xaw3d
+</EM><BR>
+<EM>&gt; /usr/X11R6/lib
+</EM><BR>
+&nbsp;
+<BR>
+<EM>&gt; &gt; &gt; ld: cannot find -lgcc
+</EM><BR>
+<EM>&gt; &gt; &gt; make: *** [mb] Error 1
+</EM><BR>
+<EM>&gt; &gt; [...]
+</EM><BR>
+<EM>&gt; &gt; /usr/lib/compaq/ccc-&quot;your_version&quot;alpha-linux/bin/comp.config
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I had this file edited by hand.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; After running that script, the error message still shows up, so I tried
+</EM><BR>
+<EM>&gt; to find the path to the directory, it added to the /etc/ld.so.conf file
+</EM><BR>
+<EM>&gt; and still got the error message. I couldn't find a *.so in the
+</EM><BR>
+<EM>&gt; directory, just a *.a. Might it be possible, that I have to run this
+</EM><BR>
+<EM>&gt; command line here as well to create a shared lib? 
+</EM><BR>
+<P>Ok. libgcc ( which appears to be missing ) is in /usr/lib/gcc-lib/alpha-linux/2.95.2/libgcc.a
+<BR>
+<P>That tells two stories.
+<BR>
+1. It's an ar(1) archive. Not a shared object. ldconfig, ld.so.conf and friends have absolutely
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;nothing to do with it. The linker has to find it at compile-time ( better: link-time ).
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Everything you do with ldconfig and friends, it manipulating paths, were the dynamic
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;linker finds shared objects at run-time.
+<BR>
+2. The file comp.config in /usr/lib/compaq/ccc*/*/bin *must* contain the line
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;-L/usr/lib/gcc-lib/alpha-linux/2.95.2
+<BR>
+<P>The second point is of importance. The switch &quot;-L&lt;something&gt;&quot; tells the compiler driver
+<BR>
+&nbsp;( ccc ) to pass the path following -L to the linker.
+<BR>
+<P>The best would be, to show the contents of comp.config, you have.
+<BR>
+<P><EM>&gt; Thank you for your help, as usual one learns a lot from this. 
+</EM><BR>
+<P>Be my guest ;-)
+<BR>
+<P><P><EM>&gt; Regards,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Kerstin
+</EM><BR>
+<P>Regards, 
+<BR>
+Thomas Weyergraf
+<BR>
+<P><P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0109.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0107.html">Major A: "Re: UP1100 &amp; Matrox"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0099.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0109.html">Kerstin Hoef-Emden: "Re: compiling"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0099.html">T. Weyergraf: "Re: compiling"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 02 2000 - 08:06:31 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Coda on Alpha?</TITLE>
+<META NAME="Author" CONTENT="Christopher C Chimelis (chris@classnet.med.miami.edu)">
+<META NAME="Subject" CONTENT="Re: Coda on Alpha?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Coda on Alpha?</H1>
+<HR>
+<P>
+<!-- received="Thu Apr 15 14:19:22 1999 PDT" -->
+<!-- sent="Thu, 15 Apr 1999 10:19:06 -0400 (EDT)" -->
+<!-- name="Christopher C Chimelis" -->
+<!-- email="chris@classnet.med.miami.edu" -->
+<!-- subject="Re: Coda on Alpha?" -->
+<!-- id="Pine.LNX.3.96.990415100134.28983B-100000@beezer.med.miami.edu" -->
+<!-- inreplyto="3715CE0F.94688308@msa.dec.com" -->
+<STRONG>Christopher C Chimelis</STRONG> (<A HREF="mailto:chris@classnet.med.miami.edu?subject=Re:%20Coda%20on%20Alpha?"><EM>chris@classnet.med.miami.edu</EM></A>)<BR>
+<EM>Thu, 15 Apr 1999 10:19:06 -0400 (EDT)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#112">[ date ]</A>
+<A HREF="index.html#112">[ thread ]</A>
+<A HREF="subject.html#112">[ subject ]</A>
+<A HREF="author.html#112">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0111.html">Christopher C Chimelis: "Re: Wine"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0109.html">Brederlow: "Re: Wine"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 15 Apr 1999, Wai-Sun Chia wrote:
+<BR>
+<P><EM>&gt; Folks,
+</EM><BR>
+<EM>&gt; After building the coda.o on my Alpha, I tried to build the server and
+</EM><BR>
+<EM>&gt; client package (I'm on Debian/Alpha 2.1)..
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; But the build bombs out.
+</EM><BR>
+<EM>&gt; I'm quite competent in C but I'm afraid I'm out of my league here with
+</EM><BR>
+<EM>&gt; C++ stuff...
+</EM><BR>
+<EM>&gt; Any C++ guru running Alpha here?
+</EM><BR>
+<P>I think I can explain...or at least try (I do know what's going on but
+<BR>
+whether I can word it so that people can understand is unknown :-)
+<BR>
+<P><EM>&gt; resforce.cc: In function `int RuntExists(struct ViceVersionVector **,
+</EM><BR>
+<EM>&gt; int, int *, int *)':
+</EM><BR>
+<EM>&gt; resforce.cc:718: call of overloaded `IsRunt (ViceVersionVector *&amp;)' is
+</EM><BR>
+<EM>&gt; ambiguous
+</EM><BR>
+<EM>&gt; resforce.cc:707: candidates are: IsRunt(ViceVersionVector *)
+</EM><BR>
+<EM>&gt; /usr/src/coda-5.2.0/include/inconsist.h:83:                 IsRunt(vv_t
+</EM><BR>
+<EM>&gt; *)
+</EM><BR>
+<P>In C++, you can &quot;overload&quot; a function, meaning that you can actually make
+<BR>
+two functions with the same name providing that they accept different
+<BR>
+arguments (for example: test(int x) and test(long x) can both exist in the
+<BR>
+same code and each will work depending on what type of argument is passed
+<BR>
+to test's 'x' var.  It's actually a really neat concept and VERY handy
+<BR>
+(wish we had it in C, actually).
+<BR>
+<P>Anyway, what's going on above is that the function RuntExists is calling
+<BR>
+IsRunt with an argument of the type ViceVersionVector.  Well, the same
+<BR>
+source code file (at line 707) defines an IsRunt() function that accepts
+<BR>
+ViceVersionVector arguments, and I believe was meant to overload the
+<BR>
+default IsRunt() function which presumably wouldn't accept arguments of
+<BR>
+that type before.  The problem is, according to inconsist.h on line 83,
+<BR>
+there is another definition of the function IsRunt() that accepts
+<BR>
+arguments of type vv_t.
+<BR>
+<P>Now you may think that ViceVersionVector != vv_t, and that wouldn't be a
+<BR>
+bad assumption (I wouldn't normally think they were the same either), but
+<BR>
+thinking about some programmers' naming conventions lead me to believe
+<BR>
+that the name 'vv_t' actually means &quot;version vector type&quot; or &quot;vice
+<BR>
+version type&quot; (I'd pick the former).  If that's true, they you can
+<BR>
+probably find a line somewhere in the source that defines type vv_t as
+<BR>
+being equal to ViceVersionVector (or vice versa), which would break
+<BR>
+overloading there since both functions would be called in the same
+<BR>
+instances (or they could even both be defined as ints, which might also
+<BR>
+cause overloading problems on some compilers...dunno about ANSI C++ right
+<BR>
+now..no books here).
+<BR>
+<P>In short (too late, right :-), look for what ViceVersionVector and vv_t
+<BR>
+actually represent and see if the types are identical.  If so, then figure
+<BR>
+out which one will do what it should be doing properly and find a way to
+<BR>
+use that one exclusively and make the other one invisible at compile time
+<BR>
+(basically try to use one or the other).
+<BR>
+<P>Let me know how it goes...and hope that long explanation helped...
+<BR>
+<P>C
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20Coda%20on%20Alpha?">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20Coda%20on%20Alpha?">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0111.html">Christopher C Chimelis: "Re: Wine"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0109.html">Brederlow: "Re: Wine"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Apr 15 1999 - 08:00:18 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

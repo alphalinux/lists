@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Compiler question</TITLE>
+<META NAME="Author" CONTENT="T. Weyergraf (kirk@colinet.de)">
+<META NAME="Subject" CONTENT="Re: Compiler question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Compiler question</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 09 22:46:56 2001" -->
+<!-- isoreceived="20010210064656" -->
+<!-- sent="Thu, 08 Feb 2001 22:39:19 +0100" -->
+<!-- isosent="20010208213919" -->
+<!-- name="T. Weyergraf" -->
+<!-- email="kirk@colinet.de" -->
+<!-- subject="Re: Compiler question" -->
+<!-- id="kirk-1010208223919.A0D7597@hydra.colinet.de" -->
+<!-- inreplyto="Pine.SOL.3.96.1010208210108.5536A-100000@campfire.rrz.Uni-Koeln.DE" -->
+<STRONG>Subject: </STRONG>Re: Compiler question<BR>
+<STRONG>From: </STRONG>T. Weyergraf (<EM>kirk@colinet.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 08 2001 - 13:39:19 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#262">[ date ]</A>
+<A HREF="index.html#262">[ thread ]</A>
+<A HREF="subject.html#262">[ subject ]</A>
+<A HREF="author.html#262">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0263.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0261.html">Jim Crilly: "Re: Bizarre fdisk/mke2fs behaviour"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0258.html">Kerstin Hoef-Emden: "Compiler question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0258.html">T. Weyergraf: "Re: Compiler question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt; Hi,
+</EM><BR>
+<P>Hi,
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; I compiled a program to perform relative rate tests on DNA sequences. It
+</EM><BR>
+<EM>&gt; is supposed to tell me, whether sets of sequences do differ in their
+</EM><BR>
+<EM>&gt; mutational rate or not.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This program is available for Mac PPC as well as binary and I did some
+</EM><BR>
+<EM>&gt; tests on the Mac and some on my Alpha. Besides the fact that the program
+</EM><BR>
+<EM>&gt; does crash a lot, I encountered a weird thing: Using the same datasets,
+</EM><BR>
+<EM>&gt; the two computers calculated different probability values. Now I am
+</EM><BR>
+<EM>&gt; confronted with the problem which computer to trust! The data were
+</EM><BR>
+<EM>&gt; supposed to be published!
+</EM><BR>
+<P>Do you *ever* trust a computer ? ohh..... 8-)
+<BR>
+<P>&nbsp;
+<BR>
+<EM>&gt; I did now some testing with one dataset only.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The probability value that the tested DNA sequence differs from the
+</EM><BR>
+<EM>&gt; others on the Mac was calculated to be 1.12497e-07.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I tried then the compilates with both compilers available for Alpha:
+</EM><BR>
+<P>[ various compile-command lines deleted.]
+<BR>
+<P><EM>&gt; In all the above cases the output was:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; exact probability (P): 1e-07
+</EM><BR>
+<P>This is looks weird. Here are some first ideas:
+<BR>
+<P>1. Do you compile the source on Mac as well ? What OS/compiler was used ? 64bit PPC system ?
+<BR>
+2. Did you verify against another platform ( like linux/x86 ) ?
+<BR>
+3. Did you check the output functions for the values ? ( like printf etc ). 
+<BR>
+4. Did you check for casts btw float and double ? Or are any other conversions used, like
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;atof ?
+<BR>
+5. How is the data stored ? if in a file, how is it read ?
+<BR>
+6. Did you try gcc with -Wall ? Did you lint the program ?
+<BR>
+7. With the various executables, you generated, did you check each with ldd, which libs they
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;use ?
+<BR>
+&nbsp;
+<BR>
+<EM>&gt; As soon as -fast was included, the value changed:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ccc -o crrtree -O3 -fast RRTree.c -lcpml -lffm -lm
+</EM><BR>
+<EM>&gt; ccc -o crrtree -O3 -fast -ieee RRTree.c -lcpml -lffm -lm
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; exact probability (P): 6.17021e-07
+</EM><BR>
+<P>Hmm. As a guess, I would suspect implicit casts to be the problem.
+<BR>
+&nbsp;
+<BR>
+<EM>&gt; The probability values of the first compiling attempts are slightly
+</EM><BR>
+<EM>&gt; lower than the one from the MacPPC. Can this be explained by 32 bit vs.
+</EM><BR>
+<EM>&gt; 64 bit? 
+</EM><BR>
+<P>Normally not. In both, 32bit and 64bit programming environments ( ILP32, LP64 ), like the
+<BR>
+ones used in Linux, sizeof(double) is eight bytes and sizeof(float) is four bytes.
+<BR>
+However, there might be some subtle issues with the internal representation of the values.
+<BR>
+<P>&nbsp;
+<BR>
+<EM>&gt; And about -fast: It looks to me like this option is introducing a bug.
+</EM><BR>
+<P>Don't call it a bug too fast. Since the program behaviour is odd enough without -fast, it's
+<BR>
+hard to tell.
+<BR>
+<P>&nbsp;
+<BR>
+<EM>&gt; What are the comments of the compiler and c-programming experts?
+</EM><BR>
+<P>Without the source and the test-data, it's hard to tell. Is the source and a testdata-set available ?
+<BR>
+is it big ? it might be worth, giving it a look.
+<BR>
+<P><EM>&gt; Regards,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Kerstin
+</EM><BR>
+<P>Regards,
+<BR>
+Thomas
+<BR>
+<P><PRE>
+-- 
+Thomas Weyergraf                                                kirk@colinet.de
+My Favorite IA64 Opcode-guess ( see arch/ia64/lib/memset.S )
+&quot;br.ret.spnt.few&quot; - got back from getting beer, did not spend a lot.
+<P><P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0263.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0261.html">Jim Crilly: "Re: Bizarre fdisk/mke2fs behaviour"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0258.html">Kerstin Hoef-Emden: "Compiler question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0258.html">T. Weyergraf: "Re: Compiler question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:01 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

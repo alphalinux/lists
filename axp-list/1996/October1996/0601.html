@@ -1,0 +1,112 @@
+<!-- received="Thu Oct 17 00:55:56 1996 " -->
+<!-- sent="Thu, 17 Oct 1996 07:51:13 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="199610170444.VAA04041@netcom4.netcom.com" -->
+<!-- inreplyto="9610161720.AA08025@dcl.MIT.EDU" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Thu, 17 Oct 1996 07:51:13 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#601">[ date ]</a><a href="index.html#601">[ thread ]</a><a href="subject.html#601">[ subject ]</a><a href="author.html#601">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0602.html">Tony McNeil: "UDB MILO and Kernel help"</a>
+<li> <b>Previous message:</b> <a href="0600.html">Marc Singer: "More info: RH40 buggy install"</a>
+<li> <b>In reply to:</b> <a href="0561.html">Theodore Y. Ts'o: "Re: Linux-2.1.4"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0634.html">Erik Troan: "Re: More info: RH40 buggy install"</a>
+<li> <b>Reply:</b> <a href="0634.html">Erik Troan: "Re: More info: RH40 buggy install"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 16 Oct 1996, Theodore Y. Ts'o wrote:<br>
+<i>&gt; </i><br>
+<i>&gt;    Trust me, the new code still _is_ snappier than just about everything. In</i><br>
+<i>&gt;    fact, I can more-or-less guarantee that it cannot be done faster than we do</i><br>
+<i>&gt;    it now (modulus some localized optimizations).  But the new code is also</i><br>
+<i>&gt;    _different_ than the old code, and doing loops a byte at a time</i><br>
+<i>&gt;    degraded from just "stupid" (in 2.0.x) to outright "insane" (in 2.1.x). </i><br>
+<i>&gt; </i><br>
+<i>&gt; Well, the tty layer code does this all over, mostly to avoid the number</i><br>
+<i>&gt; of copies that it needed to make --- remember, for the tty code a "byte"</i><br>
+<i>&gt; is the natural size that you generally want to work with.  (For an i386</i><br>
+<i>&gt; running at 40MHz, that is the fastest way to do things; I can understand</i><br>
+<i>&gt; that on an Alpha w/o byte instructions, it might be much more painful.)</i><br>
+<i>&gt;</i><br>
+<i>&gt; So will it be faster now to copy everything from userspace into a kernel</i><br>
+<i>&gt; "bounce buffer" first, instead of fetching things from user space one</i><br>
+<i>&gt; byte at a time?   That seems counter-intuitive, since traditionally the</i><br>
+<i>&gt; way you get speedups is to *reduce* the number of memory copies while</i><br>
+<i>&gt; going through a network or tty layer....</i><br>
+<p>
+Don't worry. Byte sized accesses aren't really _that_ expensive. In places<br>
+where byte-sized copies are natural (and I'd agree that the tty layer<br>
+certainly counts as one) just continue to use them. After all, the tty layer<br>
+tends to do some operations on those bytes, so it's actually _logical_ to get<br>
+them as bytes rather than in larger blocks. <br>
+<p>
+The places I reacted against were not places like the tty layer, but places<br>
+that really don't do "byte" operations in the first place. The ELF loader<br>
+really does a "memset()", which is definitely not a byte-at-a-time operation<br>
+except for the most stupid implementation. Similarly, most fast "strncpy()"<br>
+implementations tend to do word copies and do various tricks to find the zero<br>
+in the word.  And I'm not talking about the kernel implementation here:  I'm<br>
+talking about optimized _libc_ implementations. <br>
+<p>
+Note that the overhead of "get_user()" is something like 10 assembler<br>
+instructions.  It's NOT a costly operation in itself, but the instructions do<br>
+add up if you keep on doing them ;)<br>
+<p>
+In short: if you actually do some _operation_ on the byte or word you're<br>
+fetching, the 10 instructions to fetch it are generally not the problem, and<br>
+doing double-buffering would only complicate the code more (certainly more<br>
+than 10 instructions). It's only if you're doing things like area copies or<br>
+clears that byte-wise operations are really silly, because there is obviously<br>
+a much better way to do them. <br>
+<p>
+(And I wouldn't worry about an alpha keeping up with the tty layer. Trust <br>
+me, most alpha's have no problem at all with keeping up ;)<br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0602.html">Tony McNeil: "UDB MILO and Kernel help"</a>
+<li> <b>Previous message:</b> <a href="0600.html">Marc Singer: "More info: RH40 buggy install"</a>
+<li> <b>In reply to:</b> <a href="0561.html">Theodore Y. Ts'o: "Re: Linux-2.1.4"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0634.html">Erik Troan: "Re: More info: RH40 buggy install"</a>
+<li> <b>Reply:</b> <a href="0634.html">Erik Troan: "Re: More info: RH40 buggy install"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

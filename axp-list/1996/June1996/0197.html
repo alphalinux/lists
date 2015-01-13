@@ -1,0 +1,144 @@
+<!-- received="Mon Jun 17 17:00:14 1996 " -->
+<!-- sent="Mon, 17 Jun 1996 17:00:14 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="how to build g77-0.5.18 for alpha?" -->
+<!-- id="199606171501.RAA24436@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>how to build g77-0.5.18 for alpha?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>how to build g77-0.5.18 for alpha?</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Mon, 17 Jun 1996 17:00:14 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#197">[ date ]</a><a href="index.html#197">[ thread ]</a><a href="subject.html#197">[ subject ]</a><a href="author.html#197">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0198.html">David Fell: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>Previous message:</b> <a href="0196.html">Erik Troan: "procps-1.01-3"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0202.html">Craig Burley: "Re: how to build g77-0.5.18 for alpha?"</a>
+<li> <b>Maybe reply:</b> <a href="0202.html">Craig Burley: "Re: how to build g77-0.5.18 for alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I've tried to build g77-0.5.18 using plain gcc-2.7.2 sources.<br>
+for that I've copied config/alpha/*linux* from the Red Hat gccaxp-2.7.1-1<br>
+sources only needing this one more patch:<br>
+<p>
+--- config/alpha/xm-alpha.h~    Thu Aug 31 23:52:27 1995<br>
++++ config/alpha/xm-alpha.h     Mon Jun 17 13:53:29 1996<br>
+@@ -45,6 +45,7 @@<br>
+ #if !defined(__GNUC__) &amp;&amp; !defined(_WIN32)<br>
+ #include &lt;alloca.h&gt;<br>
+ #else<br>
++#undef alloca<br>
+ extern void *alloca ();<br>
+ #endif<br>
+<p>
+<p>
+but trying to compile a hello-world program I get <br>
+<p>
+	# ./g77 --driver=./xgcc -B./ -c hello.f<br>
+	f/com.c:10566: failed assertion `ffetype_size (type) == sizeof (ffetargetInteger1)'<br>
+	xgcc: Internal compiler error: program f771 got fatal signal 6<br>
+<p>
+<p>
+are there any patches to build g77 in AXP (or a newer g77 version) ?  <br>
+or is there a complete binary package ?<br>
+<p>
+any rough time scale for g77-0.6 ?<br>
+<p>
+<p>
+<p>
+I've tried the g77 binary from Craftwork (thanks to Mauro DePalma for the CDROM!)<br>
+which is based on g77-0.5.17.  this g77 works but I found at least two<br>
+problem which is shown by the small program below:<br>
+<p>
+- the variable "S" is not set to the correct value for all optimization levels<br>
+  above "-O0"<br>
+- tarray doesn't get initialized to zero for everything above "-O0"<br>
+<p>
+	# g77 -O0 t.f<br>
+	 -0.250107944  0.937445998  0.968217969  0.968217969<br>
+	  0.  0.<br>
+	# g77 -O1 t.f<br>
+	 -0.250107944  0.937445998  0.  0.<br>
+	  2.12366486IOT trap/Abort (core dumped)<br>
+	# g77 -O2 t.f<br>
+	 -0.250107944  0.937445998  0.968217969  0.<br>
+	  2.12366486IOT trap/Abort (core dumped)<br>
+<p>
+<p>
+Harald<br>
+-------------------------------------------------------------------------------<br>
+      program t<br>
+<p>
+      real a(10), fc(10), ff(10)<br>
+      real tarray(2)<br>
+<p>
+      a(5) = 1<br>
+      a(6) = 1.5<br>
+      a(7) = 2<br>
+<p>
+      DO 4 I=5,7<br>
+         FF(I)=SIN(.0174533*A(I))<br>
+         FC(I)=COS(.0174533*A(I))<br>
+ 4    CONTINUE<br>
+      Q=(FC(7)-FC(5)*FC(6))/(FF(5)*FF(6))<br>
+<p>
+      S=SQRT(AMAX1(0.,1.-Q**2))<br>
+<p>
+      print *,q,AMAX1(0.,1.-Q**2),SQRT(AMAX1(0.,1.-Q**2)),s<br>
+<p>
+      print *,tarray(1),tarray(2)<br>
+      <br>
+      end<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0198.html">David Fell: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>Previous message:</b> <a href="0196.html">Erik Troan: "procps-1.01-3"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0202.html">Craig Burley: "Re: how to build g77-0.5.18 for alpha?"</a>
+<li> <b>Maybe reply:</b> <a href="0202.html">Craig Burley: "Re: how to build g77-0.5.18 for alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

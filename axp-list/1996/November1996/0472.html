@@ -1,0 +1,119 @@
+<!-- received="Sun Nov 10 10:20:35 1996 " -->
+<!-- sent="10 Nov 1996 16:17:50 +0100" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="Aboot/compressed kernels on Jensen" -->
+<!-- id="199611101038.AA23041@net4you.co.at" -->
+<!-- inreplyto="Fri, 8 Nov 1996 11:51:43 -0700 (MST)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Aboot/compressed kernels on Jensen</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Aboot/compressed kernels on Jensen</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>10 Nov 1996 16:17:50 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#472">[ date ]</a><a href="index.html#472">[ thread ]</a><a href="subject.html#472">[ subject ]</a><a href="author.html#472">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0473.html">Eric Jones: "error message?"</a>
+<li> <b>Previous message:</b> <a href="0471.html">Dreyer: "Re: milo"</a>
+<li> <b>In reply to:</b> <a href="0418.html">David  Mosberger: "Re: Is the AXP part of the Red Hat Archives bootable?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+David  Mosberger &lt;<a href="mailto:davidm@AZStarNet.com">davidm@AZStarNet.com</a>&gt; writes:<br>
+<i>&gt;  Jim&gt; On the other hand, there is a problem with either aboot or the compressed</i><br>
+<i>&gt;  Jim&gt; kernels on the 4.0 CD such that aboot can't boot them... it complains</i><br>
+<i>&gt;  Jim&gt; about "unknown compression method".</i><br>
+[..]<br>
+<i>&gt; So, if it's indeed an aboot problem, it's a subtle one.  I can imagine</i><br>
+<i>&gt; that there might be a problem due to the old SRM version that's</i><br>
+<i>&gt; running on the Jensens.  But then, why would uncompressed booting</i><br>
+<i>&gt; work?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Anyhow, since I don't have a Jensen and since the CD-ROM has been</i><br>
+<i>&gt; mastered properly as far as I can tell, could somebody with a Jensen</i><br>
+<i>&gt; look into this?  Note that it's very easy to build an iso9660</i><br>
+<i>&gt; filesystem on a floppy disk, so even if you don't have a CD-ROM burner</i><br>
+<i>&gt; you can test the relevant code (that's how I got the iso9660 support</i><br>
+<p>
+I did this (with a SCSI disk, floppy doesn't work on the Jensen), and<br>
+it worked fine with the original, compressed kernels. I was able to<br>
+get to the install screen. <br>
+<p>
+The files used were captured from an ftp.redhat.com mirror a few days<br>
+after the initial announcment had been made. I don't have a real CD<br>
+yet.<br>
+<p>
+I use firmware version 1.7, Aboot reports PALCode version 1.35. Jim,<br>
+which version did you use?<br>
+<p>
+I think I found a bug in the iso9660 FS code used in aboot. The file<br>
+bootlx was located at an particular position, and caused isomarkboot<br>
+to dump core. I think this patch is fixing it:<br>
+<p>
+--- isolib.c.org	Wed Jul  3 01:58:17 1996<br>
++++ isolib.c	Sun Nov 10 15:13:58 1996<br>
+@@ -205,11 +205,11 @@<br>
+ 		frag1 = sb.s_blocksize - offset;<br>
+ 		cpnt = big_data_block;<br>
+ 		memcpy(cpnt, data_block + offset, frag1);<br>
++		offset += *pnt - sb.s_blocksize;<br>
+ 		if (iso_breadi(++block, 1, data_block) &lt; 0) {<br>
+ 			printf("unable to read i-node block");<br>
+ 			return NULL;<br>
+ 		}<br>
+-		offset += *pnt - sb.s_blocksize;<br>
+ 		memcpy((char *)cpnt+frag1, data_block, offset);<br>
+ 		pnt = ((unsigned char *) cpnt);<br>
+ 		raw_inode = ((struct iso_directory_record *) pnt);<br>
+<p>
+But since I have no idea what's exactly is done there, somebody with<br>
+knowledge about iso9660 should check this, please.<br>
+<p>
+Note that this might also be a bug in the original MILO source.<br>
+<p>
+Martin<br>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0473.html">Eric Jones: "error message?"</a>
+<li> <b>Previous message:</b> <a href="0471.html">Dreyer: "Re: milo"</a>
+<li> <b>In reply to:</b> <a href="0418.html">David  Mosberger: "Re: Is the AXP part of the Red Hat Archives bootable?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

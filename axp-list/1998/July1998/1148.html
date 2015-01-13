@@ -1,0 +1,331 @@
+<!-- received="Mon Aug  3 21:22:22 1998 " -->
+<!-- sent="Mon, 3 Aug 1998 19:15:41 -0500 (CDT)" -->
+<!-- name="Larry Creech" -->
+<!-- email="lcreech@lonestar.rcclub.org" -->
+<!-- subject="RE: SRM/aboot vs. Avanti AS-200" -->
+<!-- id="3.0.5.32.19980803171321.00968870@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="618FD3AF120DD111A27900805F19D9C402AC013B@xch-blv-03.ca.boeing.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RE: SRM/aboot vs. Avanti AS-200</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RE: SRM/aboot vs. Avanti AS-200</h2>
+
+<b>Larry Creech</b> (<a href="mailto:lcreech@lonestar.rcclub.org"><i>lcreech@lonestar.rcclub.org</i></a>)<br>
+<i>Mon, 3 Aug 1998 19:15:41 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1148">[ date ]</a><a href="index.html#1148">[ thread ]</a><a href="subject.html#1148">[ subject ]</a><a href="author.html#1148">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1149.html">Randal Carpenter: "RE: Milo boot image on Redhat 5.1, where is it?  I am an intel   linux"</a>
+<li> <b>Previous message:</b> <a href="1147.html">Brian E.W. Wood: "RE: rh 5.1 &amp; a working gcc"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Oh yes, /dev/sda2 is my root partition not /dev/sda1. /dev/sda1 in <br>
+previous tries would get blown away with swrite, so I moved it to a safer <br>
+place. I got tired of blown partitions trying to figure out BSD disk <br>
+labels with fdisk. The most painful part was the core dumps, fixed that <br>
+by computing by hand all the drive parms and entering them in the BSD <br>
+section of fdisk, it did not pick them up automatically.<br>
+<p>
+On Mon, 3 Aug 1998, Tibbetts, Richard wrote:<br>
+<p>
+<i>&gt; Hmmm....</i><br>
+<i>&gt; 	I'm happy that worked, but I'm a bit confused. I think something</i><br>
+<i>&gt; is amiss...</i><br>
+<i>&gt; If I'm reading what you did correctly, you've partitioned your drive</i><br>
+<i>&gt; thusly:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; /dev/sda1            3        3        4     8308   83  Linux native</i><br>
+<i>&gt; &gt; /dev/sda2            5        5      989  4091690   83  Linux native</i><br>
+<i>&gt; &gt; /dev/sda3          990      990     1019   124620   82  Linux swap</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; 	If I'm reading this right, you've only left a 4 MB partition for</i><br>
+<i>&gt; your root filesystem! that won't work. It' needs to be at least 32mb!</i><br>
+<i>&gt; OR... You're using /dev/sda2 as one large partition (not breaking it up)</i><br>
+<i>&gt; (tsk tsk... bad form, it'll bite you later). If the later is the case,</i><br>
+<i>&gt; then you don't need /dev/sda1. It'll only cause confusion. If I can make</i><br>
+<i>&gt; a strong recommendation, set your disk up like the following:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	/dev/sda1	swap		128mb</i><br>
+<i>&gt; 	/dev/sda2	/		32mb</i><br>
+<i>&gt; 	/dev/sda3	/usr 		650mb</i><br>
+<i>&gt; 	/dev/sda4	(will be the extended partition on the PC side,</i><br>
+<i>&gt; and a BSD partition covering the entire disk starting from cylinder 2).</i><br>
+<i>&gt; 	/dev/sda5	/var		64mb</i><br>
+<i>&gt; 	/dev/sda6	/home		500mb (variable depending on</i><br>
+<i>&gt; size of userbase)</i><br>
+<i>&gt; 	/dev/sda7	/usr/local	Half of remaining</i><br>
+<i>&gt; 	/dev/sda8	/opt (or /usr/src depending on intended use) --</i><br>
+<i>&gt; Remaining disk.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	The last three partitions can vary in size depending on personal</i><br>
+<i>&gt; taste, and the intended use. Just be sure to start your first partition</i><br>
+<i>&gt; on the second cylinder.</i><br>
+<i>&gt; 	Load the OS, and duplicate the partitions in BSD Disklabels.</i><br>
+<i>&gt; 	Then run /sbin/swriteboot -v /boot/bootlx /dev/sda (check the</i><br>
+<i>&gt; syntax, I always get it backward).</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	You should now have a bootable drive, with your kernel in / on</i><br>
+<i>&gt; /dev/sda2 (per the above table).</i><br>
+<i>&gt; 	That should work. (the aboot.conf is optional, I've been looking</i><br>
+<i>&gt; at doing one, but had no real motivation yet...).</i><br>
+<i>&gt; 	This would boot from the SRM as:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	&gt;&gt;b dka0 -fi 2/&lt;kernel.name&gt; -fl "root=/dev/sda2"</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	I can't imaging "formatting" the blank space at the head of the</i><br>
+<i>&gt; disk. I think what you did was "format" the /dev/sda1 partition, and</i><br>
+<i>&gt; dropped your kernel in there. This is a bad thing.  It's now going to</i><br>
+<i>&gt; act as your root partition, and it's wayyyyy to small. Do yourself a</i><br>
+<i>&gt; huge favor, and re-do it. It's a pain I know, but it's far easier now,</i><br>
+<i>&gt; than it will be after you're running software, and it keeps falling down</i><br>
+<i>&gt; on you.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	I'm going off to check my notes on setting up the boot-time</i><br>
+<i>&gt; defaults. I'm not sure if I have them here, or at home (my Alpha is at</i><br>
+<i>&gt; home, not here at the office, so I can't quite run off and check it.</i><br>
+<i>&gt; I'll get back to you shortly on this.</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; 	______________________________</i><br>
+<i>&gt; &gt; 	Ric Tibbetts</i><br>
+<i>&gt; &gt; 	Boeing SSG Distributed CATIA</i><br>
+<i>&gt; &gt; 	Central Administration G-4722</i><br>
+<i>&gt; &gt; 	CAS-CADE Central Administration</i><br>
+<i>&gt; &gt; 	Phone: 425/393-4442    Pager: 425/645-2012</i><br>
+<i>&gt; &gt; 	E-Mail:    <a href="mailto:richard.tibbetts@boeing.com">richard.tibbetts@boeing.com</a></i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; 	"Very Funny Scotty... Now  beam down my clothes!"</i><br>
+<i>&gt; &gt; 	______________________________</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; ----------</i><br>
+<i>&gt; &gt; From: 	Larry Creech[SMTP:lcreech@lonestar.rcclub.org]</i><br>
+<i>&gt; &gt; Reply To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; Sent: 	Monday, August 03, 1998 3:35 PM</i><br>
+<i>&gt; &gt; To: 	Tibbetts, Richard</i><br>
+<i>&gt; &gt; Subject: 	RE: SRM/aboot vs. Avanti AS-200</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; That did it!! In addition I had to format the 1st partition (~4meg)</i><br>
+<i>&gt; &gt; and </i><br>
+<i>&gt; &gt; put a vmlinux.gz and an etc/aboot.conf to get it to work. At the SRM </i><br>
+<i>&gt; &gt; prompt type:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; 	boot dka0 -fi 1/cmlinux.gz</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; I tried 2/vmlinux.gz but it didn't work.</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; Thanks a million,</i><br>
+<i>&gt; &gt; Larry Creech  </i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; On Mon, 3 Aug 1998, Tibbetts, Richard wrote:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; &gt; Larry;</i><br>
+<i>&gt; &gt; &gt; 	Whew, I can identify with you on this one. I went round &amp; round</i><br>
+<i>&gt; &gt; &gt; with it on mine several times (Once I got it loaded, I re-did it a</i><br>
+<i>&gt; &gt; &gt; couple of times just be sure I knew how should I ever need to do it</i><br>
+<i>&gt; &gt; &gt; again!)...</i><br>
+<i>&gt; &gt; &gt; 	So.. what do you do...?</i><br>
+<i>&gt; &gt; &gt; 	Here's how I did it:</i><br>
+<i>&gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; 	First run through the load as normal. Go ahead and partition the</i><br>
+<i>&gt; &gt; &gt; disk using the PC Style partitions (normal fdisk) leaving the first</i><br>
+<i>&gt; &gt; meg</i><br>
+<i>&gt; &gt; &gt; or so empty (just start the first partition on cylinder 2). After</i><br>
+<i>&gt; &gt; the</i><br>
+<i>&gt; &gt; &gt; load is finished, and you can log in (booting from the CD or a boot</i><br>
+<i>&gt; &gt; &gt; floppy using the SRM.</i><br>
+<i>&gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; 	Once it's up &amp; running, log in as root, and take a look around,</i><br>
+<i>&gt; &gt; &gt; and be sure all looks ok.</i><br>
+<i>&gt; &gt; &gt; 	Now, start fdisk, and set up the BSD style disklabels, making</i><br>
+<i>&gt; &gt; &gt; sure that all of the start-end points for each partition match the</i><br>
+<i>&gt; &gt; PC</i><br>
+<i>&gt; &gt; &gt; style partitions exactly.</i><br>
+<i>&gt; &gt; &gt; 	Now run swriteboot -v ....etc....., and watch for errors.</i><br>
+<i>&gt; &gt; &gt; Correct any that come along.</i><br>
+<i>&gt; &gt; &gt; 	After this is complete, a look at fdisk will show that your old</i><br>
+<i>&gt; &gt; &gt; partition table is toasted. This is normal. Note also, that despite</i><br>
+<i>&gt; &gt; that</i><br>
+<i>&gt; &gt; &gt; blown partition table, you're still running! ":)  This is because</i><br>
+<i>&gt; &gt; the</i><br>
+<i>&gt; &gt; &gt; filesystems "shifted" over to the BSD partitions.</i><br>
+<i>&gt; &gt; &gt; 	You should now be able to boot.</i><br>
+<i>&gt; &gt; &gt; 	An additional tip: I've set the defaults up on mine so that at</i><br>
+<i>&gt; &gt; &gt; the SRM prompt, I only type b to boot.</i><br>
+<i>&gt; &gt; &gt; 	I hope this gets you through it. It can be frustrating at it's</i><br>
+<i>&gt; &gt; &gt; best!</i><br>
+<i>&gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; 	______________________________</i><br>
+<i>&gt; &gt; &gt; &gt; 	Ric Tibbetts</i><br>
+<i>&gt; &gt; &gt; &gt; 	Boeing SSG Distributed CATIA</i><br>
+<i>&gt; &gt; &gt; &gt; 	Central Administration G-4722</i><br>
+<i>&gt; &gt; &gt; &gt; 	CAS-CADE Central Administration</i><br>
+<i>&gt; &gt; &gt; &gt; 	Phone: 425/393-4442    Pager: 425/645-2012</i><br>
+<i>&gt; &gt; &gt; &gt; 	E-Mail:    <a href="mailto:richard.tibbetts@boeing.com">richard.tibbetts@boeing.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; 	"Very Funny Scotty... Now  beam down my clothes!"</i><br>
+<i>&gt; &gt; &gt; &gt; 	______________________________</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; ----------</i><br>
+<i>&gt; &gt; &gt; &gt; From: 	Larry Creech[SMTP:lcreech@lonestar.rcclub.org]</i><br>
+<i>&gt; &gt; &gt; &gt; Reply To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; Sent: 	Monday, August 03, 1998 1:45 PM</i><br>
+<i>&gt; &gt; &gt; &gt; To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; Subject: 	SRM/aboot vs. Avanti AS-200</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; Still no luck.. I've tried the BSD disk label in fdisk. Left 4meg</i><br>
+<i>&gt; &gt; of </i><br>
+<i>&gt; &gt; &gt; &gt; space free in the beginning of the drive. This is what happens:</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; swriteboot /dev/sda bootlx writes a boot sector and doesn't</i><br>
+<i>&gt; &gt; complain.</i><br>
+<i>&gt; &gt; &gt; &gt; If I reboot aboot can't find the 2nd partition, neither can the</i><br>
+<i>&gt; &gt; boot </i><br>
+<i>&gt; &gt; &gt; &gt; floppy. I then have to load the ramdisk to re-run fdisk. I find</i><br>
+<i>&gt; &gt; that</i><br>
+<i>&gt; &gt; &gt; &gt; the </i><br>
+<i>&gt; &gt; &gt; &gt; last partition (my swap is gone), but all the BSD lables are</i><br>
+<i>&gt; &gt; intact.</i><br>
+<i>&gt; &gt; &gt; &gt; If I </i><br>
+<i>&gt; &gt; &gt; &gt; partition the drive only using BSD labels the kernel doesn't see</i><br>
+<i>&gt; &gt; any </i><br>
+<i>&gt; &gt; &gt; &gt; partitions. If I restore the partition information, I can reboot</i><br>
+<i>&gt; &gt; off </i><br>
+<i>&gt; &gt; &gt; &gt; floppy without a complete re-install, but aboot is then gone. Here</i><br>
+<i>&gt; &gt; are</i><br>
+<i>&gt; &gt; &gt; &gt; my </i><br>
+<i>&gt; &gt; &gt; &gt; partitions:</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; Command (m for help): p</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; Disk /dev/sda: 134 heads, 62 sectors, 1019 cylinders</i><br>
+<i>&gt; &gt; &gt; &gt; Units = cylinders of 8308 * 512 bytes</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt;    Device Boot   Begin    Start      End   Blocks   Id  System</i><br>
+<i>&gt; &gt; &gt; &gt; /dev/sda1            3        3        4     8308   83  Linux</i><br>
+<i>&gt; &gt; native</i><br>
+<i>&gt; &gt; &gt; &gt; /dev/sda2            5        5      989  4091690   83  Linux</i><br>
+<i>&gt; &gt; native</i><br>
+<i>&gt; &gt; &gt; &gt; /dev/sda3          990      990     1019   124620   82  Linux swap</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; Command (m for help): b</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; BSD disklabel command (m for help): p</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; 3 partitions:</i><br>
+<i>&gt; &gt; &gt; &gt; #        size   offset    fstype   [fsize bsize   cpg]</i><br>
+<i>&gt; &gt; &gt; &gt;   a:    16616    16616      ext2                        # (Cyl.</i><br>
+<i>&gt; &gt; 3 -</i><br>
+<i>&gt; &gt; &gt; &gt; 4)</i><br>
+<i>&gt; &gt; &gt; &gt;   b:  8183380    33232      ext2                        # (Cyl.</i><br>
+<i>&gt; &gt; 5 -</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; 989)</i><br>
+<i>&gt; &gt; &gt; &gt;   c:   257548  8216612      swap                        # (Cyl.</i><br>
+<i>&gt; &gt; 990 -</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; 1020)</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; BSD disklabel command (m for help): </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; On Sun, 2 Aug 1998, Brian E.W. Wood wrote:</i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; On 02-Aug-98 Larry Creech wrote:</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; I'm currently using the stock 2.0.34 kernel aboot disk from</i><br>
+<i>&gt; &gt; &gt; &gt; redhat. I've </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; not been able to get both my ethernet and scsi working at the</i><br>
+<i>&gt; &gt; same</i><br>
+<i>&gt; &gt; &gt; &gt; time </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; with 2.0.35, I also noticed that the crystal sound chip used</i><br>
+<i>&gt; &gt; in</i><br>
+<i>&gt; &gt; &gt; &gt; the AS200 </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; was not on the list of supported devices in the OSS sound</i><br>
+<i>&gt; &gt; system.</i><br>
+<i>&gt; &gt; &gt; &gt; The </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; system I have at work, though I paid for it with my own money,</i><br>
+<i>&gt; &gt; so</i><br>
+<i>&gt; &gt; &gt; &gt; I </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; haven't been able to try some of the adive I've gotten today,</i><br>
+<i>&gt; &gt; &gt; &gt; which has </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; been excellent! I'll know first thing monday morning, I'd know</i><br>
+<i>&gt; &gt; &gt; &gt; sooner if </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; I could get it ro reboot and load unattended, but I'm not</i><br>
+<i>&gt; &gt; there</i><br>
+<i>&gt; &gt; &gt; &gt; yet. </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; &gt; Still booting from floppy :(</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; Ahhh... The "clean reboot using SRM" problem, which my friend</i><br>
+<i>&gt; &gt; with</i><br>
+<i>&gt; &gt; &gt; &gt; the AS-200</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; still has.</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; Any progress on this issue?</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; ---</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; Brian E.W. Wood  <a href="mailto:beww@intac.com">beww@intac.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; -- </i><br>
+<i>&gt; &gt; &gt; &gt; &gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; &gt; &gt; &gt; &gt; 'unsubscribe' as the subject.  Do not send it to</i><br>
+<i>&gt; &gt; <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; &gt; -- </i><br>
+<i>&gt; &gt; &gt; &gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; &gt; &gt; &gt; 'unsubscribe' as the subject.  Do not send it to</i><br>
+<i>&gt; &gt; <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; &gt; &gt; </i><br>
+<i>&gt; &gt; &gt; </i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; -- </i><br>
+<i>&gt; &gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; &gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1149.html">Randal Carpenter: "RE: Milo boot image on Redhat 5.1, where is it?  I am an intel   linux"</a>
+<li> <b>Previous message:</b> <a href="1147.html">Brian E.W. Wood: "RE: rh 5.1 &amp; a working gcc"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

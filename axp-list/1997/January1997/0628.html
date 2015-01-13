@@ -1,0 +1,461 @@
+<!-- received="Thu Jan 23 00:21:00 1997 " -->
+<!-- sent="Sat, 23 Nov 1996 00:17:08 -0000" -->
+<!-- name="Terence D. Hairston" -->
+<!-- email="th@sprynet.com" -->
+<!-- subject="Radiance on Linux Alpha" -->
+<!-- id="199701230422.WAA29383@saratoga.compassnet.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Radiance on Linux Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Radiance on Linux Alpha</h2>
+
+<b>Terence D. Hairston</b> (<a href="mailto:th@sprynet.com"><i>th@sprynet.com</i></a>)<br>
+<i>Sat, 23 Nov 1996 00:17:08 -0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#628">[ date ]</a><a href="index.html#628">[ thread ]</a><a href="subject.html#628">[ subject ]</a><a href="author.html#628">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0629.html">Ben Goodwin: "innd in RH4.0 and dev dir"</a>
+<li> <b>Previous message:</b> <a href="0627.html">dayv: "redhat 4.1 / utmp"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I've just downloaded Radiance and hope to install it on my Alphastation =<br>
+200 series running Redhat Linux version 4.0 (Kernel 2.0.27).  I was =<br>
+wondering if anyone had any experience or advice running Radiance under =<br>
+Linux-Alpha?<br>
+<p>
+The makefile that comes with the Radiance distribution does include =<br>
+support the Alpha system running under Digitial Unix, however the Linux =<br>
+setup appears to be geared towards only x86 systems.  There is a generic =<br>
+Unix option which may work for Linux-Alpha, or even possibly the Digital =<br>
+Unix option may do the trick.  Since I'm relatively new to Unix/Linux, I =<br>
+was hoping for some insight regarding getting Radiance running on my =<br>
+Alphastation.  Below I've attached the makefile, any insight that could =<br>
+be offered would be most appreciated, thanks in advance!<br>
+<p>
+<p>
+Terence<br>
+<p>
+<p>
+<p>
+	#!/bin/csh -f<br>
+# SCCSid "@(#)makeall 2.58 6/19/96 LBL"<br>
+#<br>
+# Make all the Radiance programs<br>
+#<br>
+if ( $#argv &lt; 1 ) then<br>
+	echo "Usage: makeall install [clean] [make options]"<br>
+	echo "   or: makeall clean"<br>
+	exit 1<br>
+endif<br>
+if ( "$1" =3D=3D install ) then<br>
+	cat &lt;&lt; _EOF_<br>
+<p>
+		`cat src/rt/VERSION` INSTALLATION<br>
+<p>
+This script rebuilds all of the Radiance programs and installs<br>
+them on your system.  You should read the file README before running<br>
+this script.  You can type ^C (followed by return) at any time to abort.<br>
+<p>
+You must first answer the following questions.<br>
+<p>
+_EOF_<br>
+if ( ! $?EDITOR ) then<br>
+	echo -n "What is your preferred editor [vi]? "<br>
+	set ans=3D"$&lt;"<br>
+	if ( "$ans" !=3D "" ) then<br>
+		setenv EDITOR "$ans"<br>
+	else<br>
+		setenv EDITOR vi<br>
+	endif<br>
+endif<br>
+again1:<br>
+echo -n "Where do you want the executables [/usr/local/bin]? "<br>
+set idir=3D$&lt;<br>
+(echo $idir) &gt;/dev/null<br>
+if ( $status ) goto again1<br>
+set idir=3D$idir<br>
+if ( "$idir" =3D=3D "" ) then<br>
+	set idir=3D/usr/local/bin<br>
+else if ( "$idir" !~ /* ) then<br>
+	echo "Directory must be relative to root, please reenter"<br>
+	goto again1<br>
+endif<br>
+if ( ! -d $idir ) then<br>
+	mkdir $idir<br>
+	if ( $status ) then<br>
+		echo "Cannot create directory, please reenter"<br>
+		goto again1<br>
+	endif<br>
+endif<br>
+if ( ! -d $idir/dev ) then<br>
+	mkdir $idir/dev<br>
+	if ( $status ) then<br>
+		echo "Cannot create subdirectory, please reenter"<br>
+		goto again1<br>
+	endif<br>
+endif<br>
+set rmake=3D$idir/rmake<br>
+if ( "`ls -tL $rmake $0 |&amp; head -1`" =3D=3D $rmake ) goto gotrmake<br>
+set newrmake<br>
+echo -n "Are you a new Radiance user or with a new address? "<br>
+set ans=3D"$&lt;"<br>
+if ( "$ans" =3D~ [yY]* ) then<br>
+	csh -f newuser<br>
+else<br>
+	echo `cat src/rt/VERSION` compiled by `whoami` | mail <a href="mailto:GJWard@lbl.gov">GJWard@lbl.gov</a><br>
+endif<br>
+set special=3D<br>
+set arch=3D<br>
+set opt=3D<br>
+set mach=3D<br>
+set compat=3D<br>
+set extras=3D<br>
+cat &lt;&lt; _EOF_<br>
+<p>
+Please select your system type from the following list:<br>
+<p>
+	1)	Sun SPARC Station<br>
+	2)	DECstation<br>
+	3)	VAXstation running ULTRIX<br>
+	4)	DEC Alpha running OSF<br>
+	5)	HP workstation<br>
+	6)	Silicon Graphics<br>
+	7)	Apple Mac II or Quadra running A/UX<br>
+	8)	NeXT Workstation<br>
+	9)	AIX (RS/6000)<br>
+	10)	BSDI BSD/386<br>
+	11)	Linux<br>
+	12)	PowerPC running MachTen<br>
+	13)	Other<br>
+<p>
+_EOF_<br>
+echo -n "Choice? "<br>
+set arch=3D"$&lt;"<br>
+switch ("$arch")<br>
+case 1:			# SPARC Station<br>
+	set arch=3Dsun<br>
+	if ( `uname -r` =3D~ 4.* ) then<br>
+		set mach=3D"-DBSD -fsingle -DALIGN=3Ddouble /usr/lib/libm.il =<br>
+-I/usr/openwin/include -L/usr/openwin/lib -DSPEED=3D12 -DDCL_ATOF"<br>
+		set opt=3D"-O -pipe"<br>
+		set special=3D"sun tiff"<br>
+		set compat=3D"bmalloc.o strcmp.o"<br>
+	else<br>
+		set mach=3D"-DALIGN=3Ddouble -I/usr/openwin/include -L/usr/openwin/lib =<br>
+-DSPEED=3D36 -DDCL_ATOF"<br>
+		set opt=3D-O<br>
+		set special=3D<br>
+		set compat=3D"bmalloc.o strcmp.o getpagesize.o"<br>
+	endif<br>
+	breaksw<br>
+case 2:			# DECstation<br>
+	set mach=3D"-DALIGN=3Ddouble -DBSD -DSPEED=3D12"<br>
+	set opt=3D"-O"<br>
+	set special=3D"tiff"<br>
+	set compat=3D"malloc.o erf.o strcmp.o"<br>
+	set arch=3Dmips<br>
+	breaksw<br>
+case 3:			# VAXstation<br>
+	set mach=3D"-DBSD -DWFLUSH=3D30 -DSPEED=3D2"<br>
+	set opt=3D"-O"<br>
+	set special=3D"tiff"<br>
+	set compat=3D"malloc.o erf.o strcmp.o"<br>
+	set arch=3Dvax<br>
+	breaksw<br>
+case 4:			# DEC Alpha running OSF<br>
+	set mach=3D"-DALIGN=3Ddouble -DSPEED=3D64 -Dvoid=3Dchar -DDCL_ATOF"<br>
+	set opt=3D"-O"<br>
+	set compat=3D"bmalloc.o strcmp.o"<br>
+	set arch=3Dalpha<br>
+	breaksw<br>
+case 5:			# HP workstation<br>
+	set mach=3D"-DALIGN=3Ddouble -DSPEED=3D36 -D_HPUX_SOURCE"<br>
+	set opt=3D"-O"<br>
+	set special=3D"tiff"<br>
+	set compat=3D"malloc.o getpagesize.o strcmp.o"<br>
+	set arch=3Dhpux<br>
+	breaksw<br>
+case 6:			# Silicon Graphics<br>
+	set arch=3Dsgi<br>
+	switch (`uname -r`)<br>
+	case 3.*:<br>
+		set mach=3D"-DALIGN=3Ddouble -noprototypes -DSPEED=3D36"<br>
+		set opt=3D"-O"<br>
+		set special=3D"sgi tiff"<br>
+		set compat=3D"malloc.o strcmp.o"<br>
+		breaksw<br>
+	case 4.*:<br>
+		set mach=3D"-DALIGN=3Ddouble -cckr -DSPEED=3D36"<br>
+		set opt=3D"-O2"<br>
+		set special=3D"tiff"<br>
+		set compat=3D"malloc.o strcmp.o"<br>
+		set extras=3D'"MLIB=3D-lfastm -lm"'<br>
+		breaksw<br>
+	case 5.*:	# 5.x<br>
+		set special=3D"tiff"<br>
+		# fall through<br>
+	default:	# 6.x or later<br>
+		set mach=3D"-DALIGN=3Ddouble -cckr -DSPEED=3D36"<br>
+		set opt=3D"-O2 -Wl,-ignore_unresolved"<br>
+		hinv -t cpu | grep R3000 &gt;/dev/null<br>
+		if ( $status ) then<br>
+			set opt=3D"$opt -mips2"<br>
+		endif<br>
+		set compat=3D"malloc.o strcmp.o"<br>
+		breaksw<br>
+	endsw<br>
+	breaksw<br>
+case 7:			# Mac II or Quadra<br>
+	set mach=3D"-DSPEED=3D8 -DDCL_ATOF -D_POSIX_SOURCE"<br>
+	set opt=3D"-O"<br>
+	set special=3Dtiff<br>
+	set compat=3D"malloc.o getpagesize.o erf.o strcmp.o"<br>
+	set arch=3Dmac2<br>
+	set extras=3D'"LIBS=3D-lrt -lposix -lm"'<br>
+	breaksw<br>
+case 8:			# NeXT<br>
+	set mach=3D"-DBSD -DSPEED=3D6 -DDCL_ATOF"<br>
+	set opt=3D"-O"<br>
+	set special=3D<br>
+	set arch=3Dnext<br>
+	set compat=3D"bmalloc.o erf.o"<br>
+	set canmalloc<br>
+	breaksw<br>
+case 9:			# AIX<br>
+	set mach=3D"-Dvoid=3Dchar -D_NO_PROTO -DDCL_ATOF -DALIGN=3Ddouble"<br>
+	set opt=3D"-O"<br>
+	set compat=3D"bmalloc.o erf.o"<br>
+	breaksw<br>
+case 10:		# BSDI BSD/386<br>
+	set mach=3D"-DBSD -DSPEED=3D25 -DDCL_ATOF -L/usr/X11/lib =<br>
+-I/usr/X11/include"<br>
+	set opt=3D"-O"<br>
+	set arch=3DIBMPC<br>
+	set compat=3D"malloc.o erf.o strcmp.o"<br>
+	breaksw<br>
+case 11:		# Linux<br>
+	set mach=3D"-DBSD -DSPEED=3D40 -DDCL_ATOF"<br>
+	set opt=3D"-O2"<br>
+	set arch=3DIBMPC<br>
+	set compat=3D"malloc.o erf.o getpagesize.o"<br>
+	set extras=3DCC=3Dgcc<br>
+	set canmalloc<br>
+	breaksw<br>
+case 12:		# PowerPC running MachTen<br>
+	set mach=3D"-DBSD -DALIGN=3Ddouble -DSPEED=3D100 -DDCL_ATOF =<br>
+-I/usr/X11/include -L/usr/X11"<br>
+	set opt=3D"-O"<br>
+	set arch=3DPowerPC<br>
+	set compat=3D"bmalloc.o erf.o strcmp.o"<br>
+	set extras=3D"CC=3Dgcc"<br>
+	breaksw<br>
+case 13:		# Other<br>
+	set opt=3D"-O"<br>
+	set compat=3D"bmalloc.o erf.o strcmp.o"<br>
+	echo -n "Is the UNIX a Berkeley derivative [n]? "<br>
+	if ( "$&lt;" =3D~ [yY]* ) then<br>
+		set mach=3D"$mach -DBSD"<br>
+	else<br>
+		echo -n "Is this OSF UNIX [n]? "<br>
+		if ( "$&lt;" =3D~ [yY]* ) then<br>
+			set mach=3D"$mach -Dvoid=3Dchar -DDCL_ATOF"<br>
+		else<br>
+			set compat=3D"$compat getpagesize.o"<br>
+		endif<br>
+	endif<br>
+	echo -n "Are you using the GNU C compiler [n]? "<br>
+	if ( "$&lt;" =3D~ [yY]* ) then<br>
+		set canmalloc<br>
+		set extras=3D"CC=3Dgcc"<br>
+	endif<br>
+	echo -n "Is the machine a RISC architecture [n]? "<br>
+	if ( "$&lt;" =3D~ [yY]* ) then<br>
+		set mach=3D"$mach -DALIGN=3Ddouble"<br>
+	endif<br>
+	breaksw<br>
+default:<br>
+	echo "Illegal choice\!"<br>
+	echo "Installation aborted."<br>
+	exit 1<br>
+	breaksw<br>
+endsw<br>
+if ( $?mem ) then<br>
+	set mach=3D"$mach $mem"<br>
+else<br>
+	echo -n "Does the target machine have more than 8 Mbytes of RAM? "<br>
+	set ans=3D"$&lt;"<br>
+	if ( "$ans" =3D~ [yY]* ) then<br>
+		echo -n "More than 24 Mbytes? "<br>
+		set ans=3D"$&lt;"<br>
+		if ( "$ans" =3D~ [yY]* ) then<br>
+			set mach=3D"$mach -DBIGMEM"<br>
+			set sizemod=3D"huge models (60,000+ surfaces)"<br>
+		else<br>
+			set sizemod=3D"very large models (20,000+ surfaces)"<br>
+		endif<br>
+	else<br>
+		set sizemod=3D"large models (8,000+ surfaces)"<br>
+	endif<br>
+endif<br>
+# echo "Do you expect to be rendering $sizemod?"<br>
+# echo -n '(Answering "yes" may adversly affect rendering time and =<br>
+geometric accuracy) '<br>
+# set ans=3D"$&lt;"<br>
+# if ( "$ans" =3D~ [yY]* ) then<br>
+# 	set opt=3D"$opt -DSMLFLT"<br>
+# endif<br>
+# echo -n "Do you have X10 support [n]? "<br>
+# if ( "$&lt;" =3D~ [yY]* ) then<br>
+#	set special=3D"$special x10"<br>
+# endif<br>
+if ( $?canmalloc ) then<br>
+	chmod 644 src/{ot,rt}/Rmakefile<br>
+	ed - src/ot/Rmakefile &lt;&lt;'_EOF_'<br>
+1,$s/ malloc\.o/ /<br>
+w<br>
+e src/rt/Rmakefile<br>
+1,$s/ malloc\.o/ /<br>
+w<br>
+q<br>
+'_EOF_'<br>
+endif<br>
+again2:<br>
+echo -n "Where do you want the library files [/usr/local/lib/ray]? "<br>
+set ldir=3D$&lt;<br>
+(echo $ldir) &gt;/dev/null<br>
+if ( $status ) goto again2<br>
+set ldir=3D$ldir<br>
+if ( "$ldir" =3D=3D "" ) then<br>
+	set ldir=3D/usr/local/lib/ray<br>
+else if ( "$ldir" !~ /* ) then<br>
+	echo "Directory must be relative to root, please reenter"<br>
+	goto again2<br>
+endif<br>
+if ( $ldir !=3D $cwd/lib ) then<br>
+	if ( ! -d $ldir ) then<br>
+		mkdir $ldir<br>
+		if ( $status ) then<br>
+			echo "Cannot create directory, please reenter"<br>
+			goto again2<br>
+		endif<br>
+	endif<br>
+	cmp -s lib $ldir<br>
+	if ($status) then<br>
+		echo -n "Install library files now [n]? "<br>
+		if ( "$&lt;" =3D~ [yY]* ) then<br>
+			echo -n "Copying library files to $ldir... "<br>
+			(cd lib ; tar -cf - *) | (cd $ldir ; tar -xf -)<br>
+			echo "Done."<br>
+		endif<br>
+	endif<br>
+endif<br>
+sed 's/[ 	]*$//' &gt; $rmake &lt;&lt; _EOF_<br>
+#!/bin/sh<br>
+exec make "SPECIAL=3D$special" \<br>
+	"OPT=3D$opt" \<br>
+	"MACH=3D$mach" \<br>
+	ARCH=3D$arch "COMPAT=3D$compat" \<br>
+	INSTDIR=3D$idir \<br>
+	LIBDIR=3D$ldir \<br>
+	$extras "\$@" -f Rmakefile<br>
+_EOF_<br>
+chmod 755 $rmake<br>
+chmod 644 src/*/Rmakefile src/rt/devtable.c<br>
+gotrmake:<br>
+echo "Current rmake command is:"<br>
+cat $rmake<br>
+echo -n "Do you want to change it? "<br>
+set ans=3D"$&lt;"<br>
+if ( "$ans" =3D~ [yY]* ) then<br>
+	cp $rmake /tmp/rmake$$<br>
+	$EDITOR $rmake<br>
+	if ( `cat $rmake /tmp/rmake$$ | grep OPT=3D | uniq | wc -l` =3D=3D 2 ) =<br>
+set newrmake<br>
+	rm -f /tmp/rmake$$<br>
+endif<br>
+if ( ! -d src/lib ) then<br>
+	mkdir src/lib<br>
+endif<br>
+if ( $?newrmake ) then<br>
+	echo 'New rmake command -- running "makeall clean"...'<br>
+	csh -f $0 clean<br>
+endif<br>
+cd src<br>
+echo "Making programs..."<br>
+set errs=3D0<br>
+foreach i ( common meta cv cv/dxfcvt gen ot rt px util =<br>
+cal/{ev,calc,rcalc,util} )<br>
+	pushd $i<br>
+	echo "In directory $i..."<br>
+	$rmake -k $*<br>
+	@ errs +=3D $status<br>
+	popd<br>
+end<br>
+if ( $errs ) then<br>
+	echo "There were some errors."<br>
+else<br>
+	echo "Done."<br>
+endif<br>
+cd ..<br>
+else<br>
+cd src<br>
+foreach i ( common cv cv/dxfcvt gen ot px rt util =<br>
+cal/{ev,calc,rcalc,util} meta )<br>
+	pushd $i<br>
+	echo "In directory $i..."<br>
+	make -f Rmakefile $*<br>
+	popd<br>
+end<br>
+echo "Done."<br>
+cd ..<br>
+endif<br>
+foreach i ( $* )<br>
+	if ( "$i" =3D=3D clean ) then<br>
+		echo "Removing library archives..."<br>
+		rm -f src/lib/*.a<br>
+	endif<br>
+end<br>
+exit 0<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0629.html">Ben Goodwin: "innd in RH4.0 and dev dir"</a>
+<li> <b>Previous message:</b> <a href="0627.html">dayv: "redhat 4.1 / utmp"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

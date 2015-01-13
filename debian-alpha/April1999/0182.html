@@ -1,0 +1,811 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Potato woes</TITLE>
+<META NAME="Author" CONTENT="Nikita Schmidt (cetus@snowball.ucd.ie)">
+<META NAME="Subject" CONTENT="Re: Potato woes">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Potato woes</H1>
+<HR>
+<P>
+<!-- received="Tue Apr 27 11:46:26 1999 PDT" -->
+<!-- sent="Tue, 27 Apr 1999 12:45:14 +0100" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@snowball.ucd.ie" -->
+<!-- subject="Re: Potato woes" -->
+<!-- id="19990427124514.A3987@snowball.ucd.ie" -->
+<!-- inreplyto="19990426131323.A23678@henry.dev.madge.com" -->
+<STRONG>Nikita Schmidt</STRONG> (<A HREF="mailto:cetus@snowball.ucd.ie?subject=Re:%20Potato%20woes"><EM>cetus@snowball.ucd.ie</EM></A>)<BR>
+<EM>Tue, 27 Apr 1999 12:45:14 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#182">[ date ]</A>
+<A HREF="index.html#182">[ thread ]</A>
+<A HREF="subject.html#182">[ subject ]</A>
+<A HREF="author.html#182">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0181.html">Mark Brown: "Re: applixware installation on debian alpha?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0180.html">Jeff Sturm: "Re: applixware installation on debian alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Monday, 26 Apr, Giuliano P Procida wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; In init (sometimes), login, klogd (really bad this one). Here is an
+</EM><BR>
+<EM>&gt; example oops (I used -c 4 as the -c 1 output looked dubious):
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>That looks slightly familiar.  Try the patch attached (courtesy of Richard
+<BR>
+Henderson).
+<BR>
+<P>Nikita
+<BR>
+<P><P>
+diff -rup 2.2.6-dist/arch/alpha/kernel/setup.c 2.2.6/arch/alpha/kernel/setup.c
+<BR>
+--- 2.2.6-dist/arch/alpha/kernel/setup.c	Thu Jan 14 10:21:40 1999
+<BR>
++++ 2.2.6/arch/alpha/kernel/setup.c	Sat Apr 24 15:17:01 1999
+<BR>
+@@ -183,6 +183,11 @@ setup_arch(char **cmdline_p, unsigned lo
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vec = get_sysvec_byname(p+9);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++
+<BR>
++		if (strncmp(p, &quot;cycle=&quot;, 6) == 0) {
+<BR>
++			est_cycle_freq = simple_strtol(p+6, NULL, 0);
+<BR>
++			continue;
+<BR>
++		}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Replace the command line, not that we've killed it with strtok.  */
+<BR>
+@@ -721,8 +726,8 @@ int get_cpuinfo(char *buffer)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(char*)cpu-&gt;serial_no,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;systype_name, sysvariation_name, hwrpb-&gt;sys_revision,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(char*)hwrpb-&gt;ssn,
+<BR>
+-		       hwrpb-&gt;cycle_freq ? : est_cycle_freq,
+<BR>
+-		       hwrpb-&gt;cycle_freq ? &quot;&quot; : &quot;est.&quot;,
+<BR>
++		       est_cycle_freq ? : hwrpb-&gt;cycle_freq,
+<BR>
++		       est_cycle_freq ? &quot;est.&quot; : &quot;&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hwrpb-&gt;intr_freq / 4096,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(100 * hwrpb-&gt;intr_freq / 4096) % 100,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hwrpb-&gt;pagesize,
+<BR>
+diff -rup 2.2.6-dist/arch/alpha/kernel/time.c 2.2.6/arch/alpha/kernel/time.c
+<BR>
+--- 2.2.6-dist/arch/alpha/kernel/time.c	Sat Apr 24 15:47:27 1999
+<BR>
++++ 2.2.6/arch/alpha/kernel/time.c	Sat Apr 24 15:17:01 1999
+<BR>
+@@ -223,7 +223,7 @@ time_init(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+-	unsigned long cycle_freq;
+<BR>
++	unsigned long cycle_freq, diff, one_percent;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* The Linux interpretation of the CMOS clock register contents:
+<BR>
+@@ -237,19 +237,30 @@ time_init(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Read cycle counter exactly on falling edge of update flag */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cc1 = rpcc();
+<BR>
+&nbsp;
+<BR>
+-	/* If our cycle frequency isn't valid, go another round and give
+<BR>
+-	   a guess at what it should be.  */
+<BR>
+-	cycle_freq = hwrpb-&gt;cycle_freq;
+<BR>
+-	if (cycle_freq == 0) {
+<BR>
+-		printk(&quot;HWRPB cycle frequency bogus.  Estimating... &quot;);
+<BR>
+-
+<BR>
++	if (!est_cycle_freq) {
+<BR>
++		/* Sometimes the hwrpb-&gt;cycle_freq value is bogus. 
+<BR>
++	   	Go another round to check up on it and see.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do { } while (!(CMOS_READ(RTC_FREQ_SELECT) &amp; RTC_UIP));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do { } while (CMOS_READ(RTC_FREQ_SELECT) &amp; RTC_UIP);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cc2 = rpcc();
+<BR>
+-		est_cycle_freq = cycle_freq = cc2 - cc1;
+<BR>
++		est_cycle_freq = cc2 - cc1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cc1 = cc2;
+<BR>
++	}
+<BR>
+&nbsp;
+<BR>
+-		printk(&quot;%lu Hz\n&quot;, cycle_freq);
+<BR>
++	/* If the given value is within 1% of what we calculated, 
+<BR>
++	   accept it.  Otherwise, use what we found.  */
+<BR>
++	cycle_freq = hwrpb-&gt;cycle_freq;
+<BR>
++	one_percent = cycle_freq / 100;
+<BR>
++	diff = cycle_freq - est_cycle_freq;
+<BR>
++	if (diff &lt; 0)
+<BR>
++		diff = -diff;
+<BR>
++	if (diff &gt; one_percent) {
+<BR>
++		cycle_freq = est_cycle_freq;
+<BR>
++		printk(&quot;HWRPB cycle frequency bogus.  Estimated %lu Hz\n&quot;,
+<BR>
++		       cycle_freq);
+<BR>
++	}
+<BR>
++	else {
+<BR>
++		est_cycle_freq = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* From John Bowman &lt;<A HREF="mailto:bowman@math.ualberta.ca?subject=Re:%20Potato%20woes">bowman@math.ualberta.ca</A>&gt;: allow the values
+<BR>
+diff -rup 2.2.6-dist/arch/alpha/lib/clear_user.S 2.2.6/arch/alpha/lib/clear_user.S
+<BR>
+--- 2.2.6-dist/arch/alpha/lib/clear_user.S	Sun Nov 30 10:59:02 1997
+<BR>
++++ 2.2.6/arch/alpha/lib/clear_user.S	Sat Apr 24 15:14:30 1999
+<BR>
+@@ -80,6 +80,7 @@ $tail:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret	$31, ($28), 1	# .. e1 :
+<BR>
+&nbsp;
+<BR>
+&nbsp;__do_clear_user:
+<BR>
++	ldgp	$29,0($27)	# we do exceptions -- we need the gp.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$6, 7, $4	# e0    : find dest misalignment
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$0, $zerolength # .. e1 :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq	$0, $4, $1	# e0    : bias counter
+<BR>
+diff -rup 2.2.6-dist/arch/alpha/lib/copy_user.S 2.2.6/arch/alpha/lib/copy_user.S
+<BR>
+--- 2.2.6-dist/arch/alpha/lib/copy_user.S	Sat Apr 25 22:35:18 1998
+<BR>
++++ 2.2.6/arch/alpha/lib/copy_user.S	Sat Apr 24 15:13:19 1999
+<BR>
+@@ -46,6 +46,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl __copy_user
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent __copy_user
+<BR>
+&nbsp;__copy_user:
+<BR>
++	ldgp $29,0($27)			# we do exceptions -- we need the gp.
+<BR>
++	.prologue 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and $6,7,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq $0,$35
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq $3,$36
+<BR>
+Only in 2.2.6/arch/alpha/lib: io.c.rej
+<BR>
+diff -rup 2.2.6-dist/arch/alpha/lib/strlen_user.S 2.2.6/arch/alpha/lib/strlen_user.S
+<BR>
+--- 2.2.6-dist/arch/alpha/lib/strlen_user.S	Wed Jun 24 14:30:08 1998
+<BR>
++++ 2.2.6/arch/alpha/lib/strlen_user.S	Sat Apr 24 15:12:37 1999
+<BR>
+@@ -27,7 +27,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+&nbsp;__strlen_user:
+<BR>
+-	.prologue 0
+<BR>
++	ldgp	$29,0($27)	# we do exceptions -- we need the gp.
+<BR>
++	.prologue 1
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EX( ldq_u t0, 0(a0) )	# load first quadword (a0 may be misaligned)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda     t1, -1(zero)
+<BR>
+diff -rup 2.2.6-dist/arch/alpha/lib/strncpy_from_user.S 2.2.6/arch/alpha/lib/strncpy_from_user.S
+<BR>
+--- 2.2.6-dist/arch/alpha/lib/strncpy_from_user.S	Thu Feb  6 04:48:45 1997
+<BR>
++++ 2.2.6/arch/alpha/lib/strncpy_from_user.S	Sat Apr 24 15:11:58 1999
+<BR>
+@@ -31,6 +31,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl __strncpy_from_user
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent __strncpy_from_user
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.frame $30, 0, $26
+<BR>
++	.prologue 1
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+&nbsp;$aligned:
+<BR>
+@@ -99,6 +100,7 @@ $a_eoc:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*** The Function Entry Point ***/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+&nbsp;__strncpy_from_user:
+<BR>
++	ldgp	$29, 0($27)	# we do exceptions -- we need the gp.
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov	a0, v0		# save the string start
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	a2, $zerolength
+<BR>
+diff -rup 2.2.6-dist/include/asm-alpha/semaphore.h 2.2.6/include/asm-alpha/semaphore.h
+<BR>
+--- 2.2.6-dist/include/asm-alpha/semaphore.h	Sat Apr 24 15:47:32 1999
+<BR>
++++ 2.2.6/include/asm-alpha/semaphore.h	Sat Apr 24 15:19:44 1999
+<BR>
+@@ -53,24 +53,31 @@ extern inline void down(struct semaphore
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it's return address in $28.  The pv is loaded as usual.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The gp is clobbered (in the module case) as usual.  */
+<BR>
+&nbsp;
+<BR>
++	/* This little bit of silliness is to get the GP loaded for
+<BR>
++	   a function that ordinarily wouldn't.  Otherwise we could
+<BR>
++	   have it done by the macro directly, which can be optimized
+<BR>
++	   the linker.  */
+<BR>
++	register void *pv __asm__(&quot;$27&quot;) = __down_failed;
+<BR>
++	
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down operation */\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%0\n&quot;
+<BR>
+-		&quot;	subl	$27,1,$27\n&quot;
+<BR>
+-		&quot;	mov	$27,$28\n&quot;
+<BR>
+-		&quot;	stl_c	$28,%0\n&quot;
+<BR>
++		&quot;1:	ldl_l	$24,%1\n&quot;
+<BR>
++		&quot;	subl	$24,1,$24\n&quot;
+<BR>
++		&quot;	mov	$24,$28\n&quot;
+<BR>
++		&quot;	stl_c	$28,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	$28,2f\n&quot;
+<BR>
+-		&quot;	blt	$27,3f\n&quot;
+<BR>
++		&quot;	blt	$24,3f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:	mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%0\n&quot;
+<BR>
+-		&quot;	jsr	$28,__down_failed\n&quot;
+<BR>
++		&quot;3:	lda	$24,%1\n&quot;
+<BR>
++		&quot;	jsr	$28,($27),__down_failed\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: : &quot;m&quot;(sem-&gt;count)
+<BR>
+-		: &quot;$24&quot;, &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
++		: &quot;=r&quot;(pv)
+<BR>
++		: &quot;m&quot;(sem-&gt;count), &quot;r&quot;(pv)
+<BR>
++		: &quot;$24&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern inline int down_interruptible(struct semaphore * sem)
+<BR>
+@@ -81,27 +88,28 @@ extern inline int down_interruptible(str
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;value is in $24.  */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register int ret __asm__(&quot;$24&quot;);
+<BR>
++	register void *pv __asm__(&quot;$27&quot;) = __down_failed_interruptible;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down interruptible operation */\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%1\n&quot;
+<BR>
+-		&quot;	subl	$27,1,$27\n&quot;
+<BR>
+-		&quot;	mov	$27,$28\n&quot;
+<BR>
+-		&quot;	stl_c	$28,%1\n&quot;
+<BR>
++		&quot;1:	ldl_l	$24,%2\n&quot;
+<BR>
++		&quot;	subl	$24,1,$24\n&quot;
+<BR>
++		&quot;	mov	$24,$28\n&quot;
+<BR>
++		&quot;	stl_c	$28,%2\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	$28,2f\n&quot;
+<BR>
+-		&quot;	blt	$27,3f\n&quot;
+<BR>
++		&quot;	blt	$24,3f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mov	$31,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:	mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%1\n&quot;
+<BR>
+-		&quot;	jsr	$28,__down_failed_interruptible\n&quot;
+<BR>
++		&quot;3:	lda	$24,%2\n&quot;
+<BR>
++		&quot;	jsr	$28,($27),__down_failed_interruptible\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: &quot;=r&quot;(ret)
+<BR>
+-		: &quot;m&quot;(sem-&gt;count)
+<BR>
+-		: &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
++		: &quot;=r&quot;(ret), &quot;=r&quot;(pv)
+<BR>
++		: &quot;m&quot;(sem-&gt;count), &quot;r&quot;(pv)
+<BR>
++		: &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+&nbsp;}
+<BR>
+@@ -171,26 +179,29 @@ extern inline void up(struct semaphore *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it's return address in $28.  The pv is loaded as usual.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The gp is clobbered (in the module case) as usual.  */
+<BR>
+&nbsp;
+<BR>
++	register void *pv __asm__(&quot;$27&quot;) = __up_wakeup;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore up operation */\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mb\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%0\n&quot;
+<BR>
+-		&quot;	addl	$27,1,$27\n&quot;
+<BR>
+-		&quot;	mov	$27,$28\n&quot;
+<BR>
+-		&quot;	stl_c	$28,%0\n&quot;
+<BR>
++		&quot;1:	ldl_l	$24,%1\n&quot;
+<BR>
++		&quot;	addl	$24,1,$24\n&quot;
+<BR>
++		&quot;	mov	$24,$28\n&quot;
+<BR>
++		&quot;	stl_c	$28,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	$28,2f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ble	$27,3f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%0\n&quot;
+<BR>
+-		&quot;	jsr	$28,__up_wakeup\n&quot;
+<BR>
++		&quot;3:	lda	$24,%1\n&quot;
+<BR>
++		&quot;	jsr	$28,($27),__up_wakeup\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: : &quot;m&quot;(sem-&gt;count)
+<BR>
+-		: &quot;$24&quot;, &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
++		: &quot;=r&quot;(pv)
+<BR>
++		: &quot;m&quot;(sem-&gt;count), &quot;r&quot;(pv)
+<BR>
++		: &quot;$24&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif
+<BR>
+diff -rup 2.2.6-dist/include/asm-alpha/uaccess.h 2.2.6/include/asm-alpha/uaccess.h
+<BR>
+--- 2.2.6-dist/include/asm-alpha/uaccess.h	Sat Apr 24 15:47:32 1999
+<BR>
++++ 2.2.6/include/asm-alpha/uaccess.h	Sat Apr 24 15:21:48 1999
+<BR>
+@@ -160,7 +160,7 @@ struct __large_struct { unsigned long bu
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=r&quot;(__gu_val), &quot;=r&quot;(__gu_err)	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;m&quot;(__m(addr)), &quot;1&quot;(__gu_err))
+<BR>
+&nbsp;
+<BR>
+-#ifdef __HAVE_CPU_BWX
+<BR>
++#ifdef __alpha_bwx__
+<BR>
+&nbsp;/* Those lucky bastards with ev56 and later CPUs can do byte/word moves.  */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __get_user_16(addr)				\
+<BR>
+@@ -274,7 +274,7 @@ __asm__ __volatile__(&quot;1: stl %r2,%1\n&quot;		
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;=r&quot;(__pu_err)				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;m&quot;(__m(addr)), &quot;rJ&quot;(x), &quot;0&quot;(__pu_err))
+<BR>
+&nbsp;
+<BR>
+-#ifdef __HAVE_CPU_BWX
+<BR>
++#ifdef __alpha_bwx__
+<BR>
+&nbsp;/* Those lucky bastards with ev56 and later CPUs can do byte/word moves.  */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __put_user_16(x,addr)					\
+<BR>
+@@ -363,15 +363,21 @@ extern void __copy_user(void);
+<BR>
+&nbsp;extern inline long
+<BR>
+&nbsp;__copy_tofrom_user_nocheck(void *to, const void *from, long len)
+<BR>
+&nbsp;{
+<BR>
++	/* This little bit of silliness is to get the GP loaded for
+<BR>
++	   a function that ordinarily wouldn't.  Otherwise we could
+<BR>
++	   have it done by the macro directly, which can be optimized
+<BR>
++	   the linker.  */
+<BR>
++	register void * pv __asm__(&quot;$27&quot;) = __copy_user;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void * __cu_to __asm__(&quot;$6&quot;) = to;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register const void * __cu_from __asm__(&quot;$7&quot;) = from;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register long __cu_len __asm__(&quot;$0&quot;) = len;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+-		&quot;jsr $28,__copy_user&quot;
+<BR>
+-		: &quot;=r&quot; (__cu_len), &quot;=r&quot; (__cu_from), &quot;=r&quot; (__cu_to)
+<BR>
+-		: &quot;0&quot; (__cu_len), &quot;1&quot; (__cu_from), &quot;2&quot; (__cu_to)
+<BR>
+-		: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$27&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
++		&quot;jsr $28,(%3),__copy_user\n\tldgp $29,0($28)&quot;
+<BR>
++		: &quot;=r&quot; (__cu_len), &quot;=r&quot; (__cu_from), &quot;=r&quot; (__cu_to), &quot;=r&quot;(pv)
+<BR>
++		: &quot;0&quot; (__cu_len), &quot;1&quot; (__cu_from), &quot;2&quot; (__cu_to), &quot;3&quot;(pv)
+<BR>
++		: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return __cu_len;
+<BR>
+&nbsp;}
+<BR>
+@@ -380,14 +386,17 @@ extern inline long
+<BR>
+&nbsp;__copy_tofrom_user(void *to, const void *from, long len, const void *validate)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (__access_ok((long)validate, len, get_fs())) {
+<BR>
++		register void * pv __asm__(&quot;$27&quot;) = __copy_user;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void * __cu_to __asm__(&quot;$6&quot;) = to;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register const void * __cu_from __asm__(&quot;$7&quot;) = from;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register long __cu_len __asm__(&quot;$0&quot;) = len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+-			&quot;jsr $28,__copy_user&quot;
+<BR>
+-			: &quot;=r&quot; (__cu_len), &quot;=r&quot; (__cu_from), &quot;=r&quot; (__cu_to)
+<BR>
+-			: &quot;0&quot; (__cu_len), &quot;1&quot; (__cu_from), &quot;2&quot; (__cu_to)
+<BR>
+-			: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$27&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
++			&quot;jsr $28,(%3),__copy_user\n\tldgp $29,0($28)&quot;
+<BR>
++			: &quot;=r&quot;(__cu_len), &quot;=r&quot;(__cu_from), &quot;=r&quot;(__cu_to),
+<BR>
++			  &quot;=r&quot; (pv)
+<BR>
++			: &quot;0&quot; (__cu_len), &quot;1&quot; (__cu_from), &quot;2&quot; (__cu_to), 
+<BR>
++			  &quot;3&quot; (pv)
+<BR>
++			: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;len = __cu_len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return len;
+<BR>
+@@ -423,13 +432,19 @@ extern void __do_clear_user(void);
+<BR>
+&nbsp;extern inline long
+<BR>
+&nbsp;__clear_user(void *to, long len)
+<BR>
+&nbsp;{
+<BR>
++	/* This little bit of silliness is to get the GP loaded for
+<BR>
++	   a function that ordinarily wouldn't.  Otherwise we could
+<BR>
++	   have it done by the macro directly, which can be optimized
+<BR>
++	   the linker.  */
+<BR>
++	register void * pv __asm__(&quot;$27&quot;) = __do_clear_user;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void * __cl_to __asm__(&quot;$6&quot;) = to;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register long __cl_len __asm__(&quot;$0&quot;) = len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+-		&quot;jsr $28,__do_clear_user&quot;
+<BR>
+-		: &quot;=r&quot;(__cl_len), &quot;=r&quot;(__cl_to)
+<BR>
+-		: &quot;0&quot;(__cl_len), &quot;1&quot;(__cl_to)
+<BR>
+-		: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$27&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
++		&quot;jsr $28,(%2),__do_clear_user\n\tldgp $29,0($28)&quot;
+<BR>
++		: &quot;=r&quot;(__cl_len), &quot;=r&quot;(__cl_to), &quot;=r&quot;(pv)
+<BR>
++		: &quot;0&quot;(__cl_len), &quot;1&quot;(__cl_to), &quot;2&quot;(pv)
+<BR>
++		: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return __cl_len;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -437,13 +452,14 @@ extern inline long
+<BR>
+&nbsp;clear_user(void *to, long len)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (__access_ok((long)to, len, get_fs())) {
+<BR>
++		register void * pv __asm__(&quot;$27&quot;) = __do_clear_user;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void * __cl_to __asm__(&quot;$6&quot;) = to;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register long __cl_len __asm__(&quot;$0&quot;) = len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(
+<BR>
+-			&quot;jsr $28,__do_clear_user&quot;
+<BR>
+-			: &quot;=r&quot;(__cl_len), &quot;=r&quot;(__cl_to)
+<BR>
+-			: &quot;0&quot;(__cl_len), &quot;1&quot;(__cl_to)
+<BR>
+-			: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$27&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
++			&quot;jsr $28,(%2),__do_clear_user\n\tldgp $29,0($28)&quot;
+<BR>
++			: &quot;=r&quot;(__cl_len), &quot;=r&quot;(__cl_to), &quot;=r&quot;(pv)
+<BR>
++			: &quot;0&quot;(__cl_len), &quot;1&quot;(__cl_to), &quot;2&quot;(pv)
+<BR>
++			: &quot;$1&quot;,&quot;$2&quot;,&quot;$3&quot;,&quot;$4&quot;,&quot;$5&quot;,&quot;$28&quot;,&quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;len = __cl_len;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return len;
+<BR>
+<P>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20Potato%20woes">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20Potato%20woes">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0181.html">Mark Brown: "Re: applixware installation on debian alpha?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0180.html">Jeff Sturm: "Re: applixware installation on debian alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Apr 27 1999 - 05:00:11 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

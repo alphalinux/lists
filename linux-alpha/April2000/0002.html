@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: unaligned access sin sys_swapon()</TITLE>
+<META NAME="Author" CONTENT="Thorsten Kranzkowski (th@Marvin.DL8BCU.ampr.org)">
+<META NAME="Subject" CONTENT="unaligned access sin sys_swapon()">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>unaligned access sin sys_swapon()</H1>
+<HR>
+<P>
+<!-- received="Sun Apr 16 20:11:40 2000" -->
+<!-- isoreceived="20000417031140" -->
+<!-- sent="Sat, 15 Apr 2000 01:11:36 +0000" -->
+<!-- isosent="20000415011136" -->
+<!-- name="Thorsten Kranzkowski" -->
+<!-- email="th@Marvin.DL8BCU.ampr.org" -->
+<!-- subject="unaligned access sin sys_swapon()" -->
+<!-- id="20000415011135.A980@Marvin.DL8BCU.ampr.org" -->
+<STRONG>Subject: </STRONG>unaligned access sin sys_swapon()<BR>
+<STRONG>From: </STRONG>Thorsten Kranzkowski (<EM>th@Marvin.DL8BCU.ampr.org</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Apr 14 2000 - 18:11:36 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#2">[ date ]</A>
+<A HREF="index.html#2">[ thread ]</A>
+<A HREF="subject.html#2">[ subject ]</A>
+<A HREF="author.html#2">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.html">Richard Henderson: "Re: unaligned access sin sys_swapon()"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.html">Naohiko Shimizu: "Stack limit and SHM_MAX"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.html">Richard Henderson: "Re: unaligned access sin sys_swapon()"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello!
+<BR>
+This is an Alpha AXPpxi33, ev4
+<BR>
+gcc 2.96 (egcs-20000410)
+<BR>
+kernel 2.3.99-pre5
+<BR>
+<P>I get an unaligned access in sys_swapon():
+<BR>
+<P>[from /proc/cpuinfo]:
+<BR>
+kernel unaligned acc    : 10 (pc=fffffc0000346384,va=fffffc0007c8fff6)
+<BR>
+<P>[from System.map]:
+<BR>
+fffffc0000345bc0 T get_swaparea_info
+<BR>
+fffffc0000345e10 T is_swap_partition
+<BR>
+fffffc0000345e80 T sys_swapon
+<BR>
+fffffc00003468c0 T si_swapinfo
+<BR>
+fffffc00003469d0 T swap_duplicate
+<BR>
+<P>[gcc invocation]:
+<BR>
+gcc -D__KERNEL__ -I/usr/src/linux-2.3.99-pre5-work/include -Wall 
+<BR>
+-Wstrict-prototypes -O2 -fomit-frame-pointer  -fno-strict-aliasing 
+<BR>
+-pipe -mno-fp-regs -ffixed-8 -mcpu=ev4 -Wa,-mev6   
+<BR>
+-c -o swapfile.o swapfile.c
+<BR>
+<P>[disassembled from swapfile.o]:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;16e8:       1f 04 ff 47     nop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;16ec:       00 00 e0 2f     unop
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:700
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;16f0:       fa 1f ef b3     stl     zero,8186(fp)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:704
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;16f4:       01 00 ff 24     ldah    t6,1(zero)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:700
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;16f8:       fc 1f 2f a0     ldl     t0,8188(fp)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:701
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;16fc:       11 04 ff 47     clr     a1
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:704
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1700:       01 00 bf 20     lda     t4,1(zero)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:700
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1704:       f6 1f ef b3     stl     zero,8182(fp)	&lt;-------- this is the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unaligned access
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:704
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1708:       ff ff e7 20     lda     t6,-1(t6)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:700
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;170c:       21 76 3e 48     zapnot  t0,0xf3,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1710:       fc 1f 2f b0     stl     t0,8188(fp)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:702
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1714:       20 00 e9 b3     stl     zero,32(s0)
+<BR>
+/usr/src/linux-2.3.99-pre5-work/mm/swapfile.c:703
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1718:       24 00 e9 b3     stl     zero,36(s0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;171c:       00 00 e0 2f     unop
+<BR>
+<P>[from swapfile.c]:
+<BR>
+698:	switch (swap_header_version) {
+<BR>
+699:	case 1:
+<BR>
+700:		memset(((char *) swap_header)+PAGE_SIZE-10,0,10);
+<BR>
+701:		j = 0;
+<BR>
+702:		p-&gt;lowest_bit = 0;
+<BR>
+703:		p-&gt;highest_bit = 0;
+<BR>
+704:		for (i = 1 ; i &lt; 8*PAGE_SIZE ; i++) {
+<BR>
+705:			if (test_bit(i,(char *) swap_header)) {
+<BR>
+<P><P>So memset tries to fill the last 10 bytes of a page with '0'. But 2 of the
+<BR>
+3 stl insns use an unaligned address!
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...this page... | ...next page...
+<BR>
+[0]	[1] 	....	[8176]	[8180]	[8184]	[8188]|	[8192]
+<BR>
+0123	4567 	....	0123	4567	89ab	cdef  |	0123
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
+<BR>
+16f0::					  WW	WW 	unaligned write
+<BR>
+16f8::				  		RRRR	aligned read
+<BR>
+1704::				  WW	WW		unaligned write
+<BR>
+1710::						..WW	aligned write
+<BR>
+<P><P><EM>&gt;From asm-alpha/string.h it appears thet memset is in fact __builtin_memset 
+</EM><BR>
+in this case. Is this a gcc problem or did I miss something?
+<BR>
+<P><P>Bye,
+<BR>
+Thorsten
+<BR>
+<P><PRE>
+-- 
+| Thorsten Kranzkowski        Internet: dl8bcu@gmx.net                        |
+| Mobile: ++49 170 1876134       Snail: Niemannsweg 30, 49201 Dissen, Germany |
+| Ampr: dl8bcu@db0lj.#rpl.deu.eu, dl8bcu@marvin.dl8bcu.ampr.org [44.130.8.19] |
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0003.html">Richard Henderson: "Re: unaligned access sin sys_swapon()"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0001.html">Naohiko Shimizu: "Stack limit and SHM_MAX"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.html">Richard Henderson: "Re: unaligned access sin sys_swapon()"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

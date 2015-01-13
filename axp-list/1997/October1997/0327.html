@@ -1,0 +1,128 @@
+<!-- received="Thu Oct 23 04:23:11 1997 " -->
+<!-- sent="Thu, 23 Oct 1997 11:22:04 +0300 (EET DST)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@tele.fi" -->
+<!-- subject="2.1.59 include bug (and patch)" -->
+<!-- id="19971023082207Z231518-4217+2@mea.tmt.tele.fi" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>2.1.59 include bug (and patch)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>2.1.59 include bug (and patch)</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@tele.fi"><i>matti.aarnio@tele.fi</i></a>)<br>
+<i>Thu, 23 Oct 1997 11:22:04 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#327">[ date ]</a><a href="index.html#327">[ thread ]</a><a href="subject.html#327">[ subject ]</a><a href="author.html#327">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0328.html">Harald Koenig: "Re: XL366"</a>
+<li> <b>Previous message:</b> <a href="0326.html">Christopher Young: "Re: XL366"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+	(patch way down below)<br>
+<p>
+	I am writing software that uses IPv6, and I am trying to do<br>
+	it in utmost portable way.  That is, my code autoconfigures<br>
+	to see what kind of system there is, and what facilities it<br>
+	has.<br>
+<p>
+	I have 2.1.59/VGER sources running both at my i686 box, and<br>
+	at my Alpha.  Both have RedHat 4.2 (more or less)<br>
+<p>
+	These systems are quite different when it comes to the use of<br>
+	kernel defined  &lt;asm/*.h&gt; and &lt;linux/*.h&gt;  files.<br>
+<p>
+	The Alpha systems have had GNU LIBC in them, while i686 has<br>
+	libc5.  The GNU LIBC does not include any of the &lt;asm/*.h&gt;,<br>
+	nor &lt;linux/*.h&gt; files, but also it does not have complete<br>
+	IPv6 API in.<br>
+<p>
+	My software therefore has following includes for it to<br>
+	work my IPv6 platforms:<br>
+<p>
+#include &lt;sys/socket.h&gt;<br>
+#include &lt;netinet/in.h&gt;<br>
+#ifdef HAVE_NETINET_IN6_H<br>
+#include &lt;netinet/in6.h&gt;<br>
+#endif<br>
+#ifdef HAVE_NETINET6_IN6_H<br>
+#include &lt;netinet6/in6.h&gt;<br>
+#endif<br>
+#ifdef HAVE_LINUX_IN6_H<br>
+#include &lt;linux/in6.h&gt;<br>
+#endif<br>
+<p>
+#include &lt;netdb.h&gt;<br>
+#if !defined(EAI_AGAIN) || !defined(AI_NONAME)<br>
+#include "netdb6.h"<br>
+#endif<br>
+<p>
+	These last two fill in lacking details for  getaddrinfo(), and<br>
+	getnameinfo()  API uses what the system might have..<br>
+<p>
+	Basically all things that IPv6 application needs should be<br>
+	available thru  &lt;netinet/in.h&gt;  without having to resort to<br>
+	calling system specific things like  &lt;linux/in6.h&gt;.<br>
+<p>
+<p>
+	Anyway, when this application includes  &lt;linux/in6.h&gt;, it begins<br>
+	to complain about type  __u8  in the Alpha, but not in i686.<br>
+	It took me a while to realize that the reason is that this file<br>
+	does not have #include &lt;linux/types.h&gt;, while &lt;linux/in.h&gt; does<br>
+	have it...<br>
+<p>
+<p>
+# diff -u /usr/include/linux/in6.h{~,}<br>
+--- /usr/include/linux/in6.h~   Thu Oct 23 11:17:17 1997<br>
++++ /usr/include/linux/in6.h    Thu Oct 23 11:17:33 1997<br>
+@@ -21,6 +21,7 @@<br>
+ #ifndef _LINUX_IN6_H<br>
+ #define _LINUX_IN6_H<br>
+ <br>
++#include &lt;linux/types.h&gt;<br>
+ <br>
+ /*<br>
+  *     IPv6 address structure<br>
+<p>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@tele.fi">matti.aarnio@tele.fi</a>&gt;<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0328.html">Harald Koenig: "Re: XL366"</a>
+<li> <b>Previous message:</b> <a href="0326.html">Christopher Young: "Re: XL366"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

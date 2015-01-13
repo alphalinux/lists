@@ -1,0 +1,150 @@
+<!-- received="Tue Jan 28 19:14:05 1997 " -->
+<!-- sent="Tue, 28 Jan 1997 17:10:28 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: compiler efficency" -->
+<!-- id="199701290010.RAA09121@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="9701282002.AA15294@moene.indiv.nluug.nl" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiler efficency</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiler efficency</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Tue, 28 Jan 1997 17:10:28 -0700 (MST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#922">[ date ]</a><a href="index.html#922">[ thread ]</a><a href="subject.html#922">[ subject ]</a><a href="author.html#922">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0923.html">Scott Locklin: "Security on RedHat"</a>
+<li> <b>Previous message:</b> <a href="0921.html">Eric Smith: "Re: Better video cards for UDB?"</a>
+<li> <b>In reply to:</b> <a href="0914.html">Paul Wouters: "Re: UDB Jumpers"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0915.html">Andreas Lundgren: "Re: UDB Jumpers"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Toon Moene wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Claus Denk wrote:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt;  Here you go: ( I was just posting the loop, as this is</i><br>
+<i>&gt; &gt;  where almost all the time is spent)</i><br>
+<i>&gt; </i><br>
+<i>&gt; [ ... Deleted ... ]</i><br>
+<i>&gt; </i><br>
+<i>&gt; To implement Richard Henderson's suggestion (which sounds  </i><br>
+<i>&gt; reasonable to me), change the program as follows:</i><br>
+<i>&gt; </i><br>
+<i>&gt;         PROGRAM EULER</i><br>
+<i>&gt;         DOUBLE PRECISION GAM, FAC</i><br>
+<i>&gt;         GAM = 1.0d0</i><br>
+<i>&gt;         FAC = 1.0d0</i><br>
+<i>&gt;         NMAX=100000000</i><br>
+<i>&gt;         DO I=2,NMAX</i><br>
+<i>&gt;           FAC=FAC+1.0d0</i><br>
+<i>&gt;           GAM=GAM+1.0d0/FAC</i><br>
+<i>&gt;         ENDDO</i><br>
+<i>&gt;         GAM = GAM - DLOG(dble(NMAX))</i><br>
+<i>&gt;         WRITE(*,*) GAM</i><br>
+<i>&gt;         WRITE(*,*) 'Exact: 0,57721566490153286060'</i><br>
+<i>&gt;         END</i><br>
+<p>
+I tried this loop on the following machine (275 MHz Cabriolet):<br>
+<p>
+cpu model               : EV4<br>
+cpu variation           : 0<br>
+cpu revision            : 0<br>
+cpu serial number       : Linux_is_Great!<br>
+system type             : Cabriolet<br>
+system variation        : 0<br>
+system revision         : 0<br>
+system serial number    : MILO-0000<br>
+cycle frequency [Hz]    : 274951883<br>
+timer frequency [Hz]    : 1024.00<br>
+page size [bytes]       : 8192<br>
+phys. address bits      : 34<br>
+max. addr. space #      : 63<br>
+BogoMIPS                : 271.58<br>
+kernel unaligned acc    : 0 (pc=0,va=0)<br>
+user unaligned acc      : 0 (pc=0,va=0)<br>
+cpu                     : Alpha<br>
+<p>
+A compiler is gcc version 2.7.2, as distributed with RH 4.0, and<br>
+programs were compiled with 'fort77 -O6' (but a peek into a generated<br>
+assembler code does not reveal any differences with -O3).<br>
+<p>
+Times were like this:<br>
+<p>
+For an original version<br>
+<p>
+20.94user 0.00system 0:20.95elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k<br>
+0inputs+0outputs (84major+25minor)pagefaults 0swaps<br>
+<p>
+For rewrite by Toon Moene<br>
+<p>
+18.00user 0.00system 0:18.00elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k<br>
+0inputs+0outputs (84major+25minor)pagefaults 0swaps<br>
+<p>
+And this one<br>
+<p>
+15.78user 0.00system 0:15.80elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k<br>
+0inputs+0outputs (84major+25minor)pagefaults 0swaps<br>
+<p>
+for the following variant:<br>
+<p>
+      PROGRAM EULER<br>
+      DOUBLE PRECISION GAM, I, NMAX<br>
+      GAM = 1.0d0<br>
+      NMAX=100000000.<br>
+      DO I=NMAX,2.,-1<br>
+         GAM=GAM+1.0d0/I<br>
+      ENDDO<br>
+      GAM = GAM - DLOG(dble(NMAX))<br>
+      WRITE(*,*) GAM<br>
+      WRITE(*,*) 'Exact: 0,57721566490153286060'<br>
+      END<br>
+<p>
+Yes, I realize that using a floating point loop control is, in general,<br>
+a Very Bad Idea (TM).  But in this particular case we can get away<br>
+with it. :-)<br>
+<p>
+Unfortunately I cannot compare with results of Fortran compiler from DU. :-(<br>
+<p>
+  Michal<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0923.html">Scott Locklin: "Security on RedHat"</a>
+<li> <b>Previous message:</b> <a href="0921.html">Eric Smith: "Re: Better video cards for UDB?"</a>
+<li> <b>In reply to:</b> <a href="0914.html">Paul Wouters: "Re: UDB Jumpers"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0915.html">Andreas Lundgren: "Re: UDB Jumpers"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

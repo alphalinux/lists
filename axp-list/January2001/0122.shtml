@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Is termio broken.......?</H1> 
+	
+<!-- received="Tue Jan 09 18:20:40 2001" -->
+<!-- isoreceived="20010110022040" -->
+<!-- sent="Tue, 9 Jan 2001 13:11:58 -0500 " -->
+<!-- isosent="20010109181158" -->
+<!-- name="Hankinson, Jeremy" -->
+<!-- email="JEREMY.HANKINSON@ca.com" -->
+<!-- subject="Is termio broken.......?" -->
+<!-- id="61FC074AB601D411B7970050046089BA054A4E10@usilms10.ca.com" -->
+<STRONG>Subject: </STRONG>Is termio broken.......?<BR>
+<STRONG>From: </STRONG>Hankinson, Jeremy (<EM>JEREMY.HANKINSON@ca.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jan  9 10:11:58 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#122">[ date ]</A>
+<A HREF="index.shtml#122">[ thread ]</A>
+<A HREF="subject.shtml#122">[ subject ]</A>
+<A HREF="author.shtml#122">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0123.shtml">Michal Jaegermann: "Re: ccc error [OT]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0121.shtml">Jeff Sturm: "Re: ccc error"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+When using the old style termio structure to control terminal behavior on RedHat 6.2, turning off ICANON (non canonical mode),  should mean that you can control how functions like read() behave, buy setting termio.c_cc[VMIN] and termio.c_cc[VTIME]. However, the following code does not behave as expected;
+<BR>
+<P>#include        &lt;stdio.h&gt;
+<BR>
+#include        &lt;stdlib.h&gt;
+<BR>
+#include        &lt;termios.h&gt;
+<BR>
+#include        &lt;unistd.h&gt;
+<BR>
+#include        &lt;sys/ioctl.h&gt;
+<BR>
+#define         RES printf(&quot;j_return = %d\n&quot;,j_return)
+<BR>
+#define         STDOUTFD 1
+<BR>
+<P>int
+<BR>
+ican_off()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;struct termio _tty; /* declare termio structure */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if (ioctl(STDOUTFD,TCGETA,&amp;_tty) != 0) /* load current settings into _tty */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;_tty.c_lflag &amp;= ~ICANON; /* switch to non-canonical mode */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;_tty.c_cc[VMIN] = 1;	/* set min no. chars to 1 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;_tty.c_cc[VTIME] = 1;	/* timout = 0.1 secs */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if (ioctl(STDOUTFD,TCSETAW,&amp;_tty) != 0) /*write new settings back to terminal*/
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(2);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;return(0);
+<BR>
+<P>}
+<BR>
+<P>int
+<BR>
+main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int         j_return = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int         j_buff_count;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char        j_buffer[32];
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Switching off ICANON BIT....\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ican_off();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;j_buff_count = read(fileno(stdin), j_buffer, 32);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf( &quot;Buffer: %s\nBuff_count %d\n&quot;,j_buffer,j_buff_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;exit(0);
+<BR>
+<P>}
+<BR>
+<P>According to the documentation, the read statement should return it's input to j_buffer as soon as VMIN is reached, which in this case is 1. In reality it only returns after 4 characters have been entered.
+<BR>
+<P>It turns out that this is because of the VMIN &amp; VTIME are defined as 16 &amp; 17 which is correct if you are using the 'termios' structure, but not 'termio'. For termio, if ICANON is not set, then VMIN &amp; VTIME should be defined as 4 &amp; 5 and sure enough if you replace VMIN and VTIME with 4 &amp; 5 then the desired behavior is achieved.
+<BR>
+<P>This to me is a bug, if termio is available to use (which it is) then it should behave as it used to and as it does under Intel/Linux. (if you compile the above code under intel it works fine with VMIN and VTIME) There does seem to be a definition for handling this in asm/termios.h but it is not included by any of the other termios files.
+<BR>
+If I am making a howling error please let me know, and before you ask, no I can't use termios because I'm porting old code that would be very difficult to change.
+<BR>
+<P>Any comment/solutions would be greatly appreciated.
+<BR>
+<P>&nbsp;
+<BR>
+<P>Jeremy Hankinson
+<BR>
+Ingres Dev - Linux
+<BR>
+Computer Associates 
+<BR>
+Islandia, NY
+<BR>
+e-mail: jeremy.hankinson@ca.com
+<BR>
+tel: +1 631 342 5086
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0123.shtml">Michal Jaegermann: "Re: ccc error [OT]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0121.shtml">Jeff Sturm: "Re: ccc error"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Mar  3 12:54:54 2001 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

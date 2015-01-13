@@ -1,0 +1,633 @@
+<!-- received="Thu Aug  8 10:51:25 1996 " -->
+<!-- sent="Thu, 8 Aug 1996 16:36:47 -0600" -->
+<!-- name="Stefan Kanthak" -->
+<!-- email="kanthak@Gepard.Informatik.RWTH-Aachen.DE" -->
+<!-- subject="Re: PLIP" -->
+<!-- id="9608081636.ZM1292@Gepard.Informatik.RWTH-Aachen.DE" -->
+<!-- inreplyto="ddj@aisb.org" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: PLIP</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: PLIP</h2>
+
+<b>Stefan Kanthak</b> (<a href="mailto:kanthak@Gepard.Informatik.RWTH-Aachen.DE"><i>kanthak@Gepard.Informatik.RWTH-Aachen.DE</i></a>)<br>
+<i>Thu, 8 Aug 1996 16:36:47 -0600</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#243">[ date ]</a><a href="index.html#243">[ thread ]</a><a href="subject.html#243">[ subject ]</a><a href="author.html#243">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0244.html">Eric Tenenbaum: "Re: VRT19HA works on UDB"</a>
+<li> <b>Previous message:</b> <a href="0242.html">Craig Ruff: "Re: SCSI Tape Drive Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0260.html">David Andrew Bushnell: "A question about large disks?"</a>
+<li> <b>Reply:</b> <a href="0260.html">David Andrew Bushnell: "A question about large disks?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello Alphicians!<br>
+<p>
+<i>&gt; I was able to ifconfig plip on the laptop just fine, but the moment I tried</i><br>
+to<br>
+<i>&gt; bring up the plip interface on the Alpha, the machine locked up solid.  I had</i><br>
+<i>&gt; to power cycle it.</i><br>
+I had some trouble with PLIP, too, and took a look in the kernel driver.<br>
+"Ooouh, what a mess", I though when I saw the broken code there. I tried to<br>
+fix it and was sort of succesful. ifconfig does no longer crash, but I was<br>
+still not able to do a ping to my notebook. It may work, because my notebook<br>
+does not connect to other Intel boxes via PLIP.<br>
+<p>
+I am in a hurry and offline for 2.5 weeks from now on. But it is probably a<br>
+good<br>
+start to fix the PLIP driver competely (it is from kernel version 1.3.99 but<br>
+should not have changed till now).<br>
+<p>
+Below is a small patch to be applied against 'plip.c.old' (rename first) in the<br>
+directory linux/drivers/net.<br>
+<p>
+To Eric and Jay: I don't believe it is an interrupt problem, because I only<br>
+fixed some lines which are _reasonably_ wrong code, and it worked much better!<br>
+<p>
+Small hint: install the modules package first if you want to experiment with<br>
+the driver. Then you can easily load/unload it to/from kernel which saves<br>
+lots of time.<br>
+<p>
+<p>
+Ciao,<br>
+Stephan<br>
+<p>
+<p>
+-----------8&lt;-------------------------------------------------------------------<br>
+*** plip.c.old	Thu Aug  8 16:23:57 1996<br>
+--- plip.c	Thu Aug  8 16:29:20 1996<br>
+***************<br>
+*** 8,13 ****<br>
+--- 8,14 ----<br>
+   *		Alan Cox, &lt;<a href="mailto:gw4pts@gw4pts.ampr.org">gw4pts@gw4pts.ampr.org</a>&gt;<br>
+   *		Peter Bauer, &lt;<a href="mailto:100136.3530@compuserve.com">100136.3530@compuserve.com</a>&gt;<br>
+   *		Niibe Yutaka, &lt;<a href="mailto:gniibe@mri.co.jp">gniibe@mri.co.jp</a>&gt;<br>
++  *		Stephan Kanthak &lt;<a href="mailto:kanthak@i6.informatik.rwth-aachen.de">kanthak@i6.informatik.rwth-aachen.de</a>&gt;<br>
+   *<br>
+   *		Modularization and ifreq/ifmap support by Alan Cox.<br>
+   *		Rewritten by Niibe Yutaka.<br>
+***************<br>
+*** 20,26 ****<br>
+   *		  - added message if driver loaded as a module but no<br>
+   *		    interfaces present.<br>
+   *		  - release claimed I/O ports if malloc() fails during init.<br>
+!  *<br>
+   *		Niibe Yutaka<br>
+   *		  - Module initialization.  You can specify I/O addr and IRQ:<br>
+   *			# insmod plip.o io=0x3bc irq=7<br>
+--- 21,27 ----<br>
+   *		  - added message if driver loaded as a module but no<br>
+   *		    interfaces present.<br>
+   *		  - release claimed I/O ports if malloc() fails during init.<br>
+!  *<br>
+   *		Niibe Yutaka<br>
+   *		  - Module initialization.  You can specify I/O addr and IRQ:<br>
+   *			# insmod plip.o io=0x3bc irq=7<br>
+***************<br>
+*** 28,33 ****<br>
+--- 29,37 ----<br>
+   *		  - Make sure other end is OK, before sending a packet.<br>
+   *		  - Fix immediate timer problem.<br>
+   *<br>
++  *		Stephan Kanthak<br>
++  *		  - alpha fixes (might be incomplete)<br>
++  *<br>
+   *		This program is free software; you can redistribute it and/or<br>
+   *		modify it under the terms of the GNU General Public License<br>
+   *		as published by the Free Software Foundation; either version<br>
+***************<br>
+*** 44,50 ****<br>
+   *     Crynwr packet driver, Peter Bauer changed the protocol again<br>
+   *     back to original protocol.<br>
+   *<br>
+!  *     This version follows original PLIP protocol.<br>
+   *     So, this PLIP can't communicate the PLIP of Linux v1.0.<br>
+   */<br>
+<p>
+--- 48,54 ----<br>
+   *     Crynwr packet driver, Peter Bauer changed the protocol again<br>
+   *     back to original protocol.<br>
+   *<br>
+!  *     This version follows original PLIP protocol.<br>
+   *     So, this PLIP can't communicate the PLIP of Linux v1.0.<br>
+   */<br>
+<p>
+***************<br>
+*** 144,150 ****<br>
+<p>
+  /* Functions for DEV methods */<br>
+  static int plip_rebuild_header(void *buff, struct device *dev,<br>
+! 			       unsigned long raddr, struct sk_buff *skb);<br>
+  static int plip_tx_packet(struct sk_buff *skb, struct device *dev);<br>
+  static int plip_open(struct device *dev);<br>
+  static int plip_close(struct device *dev);<br>
+--- 148,154 ----<br>
+<p>
+  /* Functions for DEV methods */<br>
+  static int plip_rebuild_header(void *buff, struct device *dev,<br>
+! 			       unsigned int raddr, struct sk_buff *skb);<br>
+  static int plip_tx_packet(struct sk_buff *skb, struct device *dev);<br>
+  static int plip_open(struct device *dev);<br>
+  static int plip_close(struct device *dev);<br>
+***************<br>
+*** 151,157 ****<br>
+  static struct enet_statistics *plip_get_stats(struct device *dev);<br>
+  static int plip_config(struct device *dev, struct ifmap *map);<br>
+  static int plip_ioctl(struct device *dev, struct ifreq *ifr, int cmd);<br>
+!<br>
+  enum plip_connection_state {<br>
+  	PLIP_CN_NONE=0,<br>
+  	PLIP_CN_RECEIVE,<br>
+--- 155,161 ----<br>
+  static struct enet_statistics *plip_get_stats(struct device *dev);<br>
+  static int plip_config(struct device *dev, struct ifmap *map);<br>
+  static int plip_ioctl(struct device *dev, struct ifreq *ifr, int cmd);<br>
+!<br>
+  enum plip_connection_state {<br>
+  	PLIP_CN_NONE=0,<br>
+  	PLIP_CN_RECEIVE,<br>
+***************<br>
+*** 188,194 ****<br>
+  			unsigned char lsb;<br>
+  #else<br>
+  #error	"Please fix the endianness defines in &lt;asm/byteorder.h&gt;"<br>
+! #endif<br>
+  		} b;<br>
+  		unsigned short h;<br>
+  	} length;<br>
+--- 192,198 ----<br>
+  			unsigned char lsb;<br>
+  #else<br>
+  #error	"Please fix the endianness defines in &lt;asm/byteorder.h&gt;"<br>
+! #endif<br>
+  		} b;<br>
+  		unsigned short h;<br>
+  	} length;<br>
+***************<br>
+*** 210,218 ****<br>
+  	unsigned short timeout_count;<br>
+  	char is_deferred;<br>
+  	int (*orig_rebuild_header)(void *eth, struct device *dev,<br>
+! 				   unsigned long raddr, struct sk_buff *skb);<br>
+  };<br>
+!<br>
+  /* Entry point of PLIP driver.<br>
+     Probe the hardware, and register/initialize the driver. */<br>
+  int<br>
+--- 214,222 ----<br>
+  	unsigned short timeout_count;<br>
+  	char is_deferred;<br>
+  	int (*orig_rebuild_header)(void *eth, struct device *dev,<br>
+! 				   unsigned int raddr, struct sk_buff *skb);<br>
+  };<br>
+!<br>
+  /* Entry point of PLIP driver.<br>
+     Probe the hardware, and register/initialize the driver. */<br>
+  int<br>
+***************<br>
+*** 303,309 ****<br>
+<p>
+  	return 0;<br>
+  }<br>
+!<br>
+  /* Bottom half handler for the delayed request.<br>
+     This routine is kicked by do_timer().<br>
+     Request `plip_bh' to be invoked. */<br>
+--- 307,313 ----<br>
+<p>
+  	return 0;<br>
+  }<br>
+!<br>
+  /* Bottom half handler for the delayed request.<br>
+     This routine is kicked by do_timer().<br>
+     Request `plip_bh' to be invoked. */<br>
+***************<br>
+*** 432,438 ****<br>
+<p>
+  	return TIMEOUT;<br>
+  }<br>
+!<br>
+  static int<br>
+  plip_none(struct device *dev, struct net_local *nl,<br>
+  	  struct plip_local *snd, struct plip_local *rcv)<br>
+--- 436,442 ----<br>
+<p>
+  	return TIMEOUT;<br>
+  }<br>
+!<br>
+  static int<br>
+  plip_none(struct device *dev, struct net_local *nl,<br>
+  	  struct plip_local *snd, struct plip_local *rcv)<br>
+***************<br>
+*** 537,543 ****<br>
+  			return TIMEOUT;<br>
+  		if (rcv-&gt;length.h &gt; dev-&gt;mtu + dev-&gt;hard_header_len<br>
+<i>  		    || rcv-&gt;length.h &lt; 8) {</i><br>
+! 			printk("%s: bogus packet size %d.\n", dev-&gt;name,<br>
+rcv-&gt;length.h);<br>
+  			return ERROR;<br>
+  		}<br>
+  		/* Malloc up new buffer. */<br>
+--- 541,548 ----<br>
+  			return TIMEOUT;<br>
+  		if (rcv-&gt;length.h &gt; dev-&gt;mtu + dev-&gt;hard_header_len<br>
+<i>  		    || rcv-&gt;length.h &lt; 8) {</i><br>
+! 			printk("%s: bogus packet size %d.\n", dev-&gt;name,<br>
+! rcv-&gt;length.h);<br>
+  			return ERROR;<br>
+  		}<br>
+  		/* Malloc up new buffer. */<br>
+***************<br>
+*** 555,561 ****<br>
+  	case PLIP_PK_DATA:<br>
+  		lbuf = rcv-&gt;skb-&gt;data;<br>
+  		do<br>
+! 			if (plip_receive(nibble_timeout, status_addr,<br>
+  					 &amp;rcv-&gt;nibble, &amp;lbuf[rcv-&gt;byte]))<br>
+  				return TIMEOUT;<br>
+  		while (++rcv-&gt;byte &lt; rcv-&gt;length.h);<br>
+--- 560,566 ----<br>
+  	case PLIP_PK_DATA:<br>
+  		lbuf = rcv-&gt;skb-&gt;data;<br>
+  		do<br>
+! 			if (plip_receive(nibble_timeout, status_addr,<br>
+  					 &amp;rcv-&gt;nibble, &amp;lbuf[rcv-&gt;byte]))<br>
+  				return TIMEOUT;<br>
+  		while (++rcv-&gt;byte &lt; rcv-&gt;length.h);<br>
+***************<br>
+*** 607,613 ****<br>
+  	return OK;<br>
+  }<br>
+<p>
+! /* PLIP_SEND --- send a byte (two nibbles)<br>
+     Returns OK on success, TIMEOUT when timeout    */<br>
+  inline static int<br>
+  plip_send(unsigned short nibble_timeout, unsigned short data_addr,<br>
+--- 612,618 ----<br>
+  	return OK;<br>
+  }<br>
+<p>
+! /* PLIP_SEND --- send a byte (two nibbles)<br>
+     Returns OK on success, TIMEOUT when timeout    */<br>
+  inline static int<br>
+  plip_send(unsigned short nibble_timeout, unsigned short data_addr,<br>
+***************<br>
+*** 627,633 ****<br>
+  		data_addr++;<br>
+  		while (1) {<br>
+  			c0 = inb(data_addr);<br>
+! 			if ((c0 &amp; 0x80) == 0)<br>
+  				break;<br>
+  			if (--cx == 0)<br>
+  				return TIMEOUT;<br>
+--- 632,638 ----<br>
+  		data_addr++;<br>
+  		while (1) {<br>
+  			c0 = inb(data_addr);<br>
+! 			if ((c0 &amp; 0x80) == 0)<br>
+  				break;<br>
+  			if (--cx == 0)<br>
+  				return TIMEOUT;<br>
+***************<br>
+*** 799,805 ****<br>
+<p>
+  	return OK;<br>
+  }<br>
+!<br>
+  /* Handle the parallel port interrupts. */<br>
+  static void<br>
+  plip_interrupt(int irq, void *dev_id, struct pt_regs * regs)<br>
+--- 804,810 ----<br>
+<p>
+  	return OK;<br>
+  }<br>
+!<br>
+  /* Handle the parallel port interrupts. */<br>
+  static void<br>
+  plip_interrupt(int irq, void *dev_id, struct pt_regs * regs)<br>
+***************<br>
+*** 844,850 ****<br>
+<p>
+  	case PLIP_CN_RECEIVE:<br>
+  		sti();<br>
+! 		printk("%s: receive interrupt when receiving packet\n",<br>
+dev-&gt;name);<br>
+  		break;<br>
+<p>
+  	case PLIP_CN_ERROR:<br>
+--- 849,856 ----<br>
+<p>
+  	case PLIP_CN_RECEIVE:<br>
+  		sti();<br>
+! 		printk("%s: receive interrupt when receiving packet\n",<br>
+! dev-&gt;name);<br>
+  		break;<br>
+<p>
+  	case PLIP_CN_ERROR:<br>
+***************<br>
+*** 853,862 ****<br>
+  		break;<br>
+  	}<br>
+  }<br>
+!<br>
+  /* We don't need to send arp, for plip is point-to-point. */<br>
+  static int<br>
+! plip_rebuild_header(void *buff, struct device *dev, unsigned long dst,<br>
+  		    struct sk_buff *skb)<br>
+  {<br>
+  	struct net_local *nl = (struct net_local *)dev-&gt;priv;<br>
+--- 859,868 ----<br>
+  		break;<br>
+  	}<br>
+  }<br>
+!<br>
+  /* We don't need to send arp, for plip is point-to-point. */<br>
+  static int<br>
+! plip_rebuild_header(void *buff, struct device *dev, unsigned int dst,<br>
+  		    struct sk_buff *skb)<br>
+  {<br>
+  	struct net_local *nl = (struct net_local *)dev-&gt;priv;<br>
+***************<br>
+*** 867,880 ****<br>
+  		return nl-&gt;orig_rebuild_header(buff, dev, dst, skb);<br>
+<p>
+  	if (eth-&gt;h_proto != htons(ETH_P_IP)) {<br>
+! 		printk("plip_rebuild_header: Don't know how to resolve type %d<br>
+addresses?\n", (int)eth-&gt;h_proto);<br>
+  		memcpy(eth-&gt;h_source, dev-&gt;dev_addr, dev-&gt;addr_len);<br>
+  		return 0;<br>
+  	}<br>
+<p>
+! 	for (i=0; i &lt; ETH_ALEN - sizeof(unsigned long); i++)<br>
+  		eth-&gt;h_dest[i] = 0xfc;<br>
+! 	memcpy(&amp;(eth-&gt;h_dest[i]), &amp;dst, sizeof(unsigned long));<br>
+  	return 0;<br>
+  }<br>
+<p>
+--- 873,887 ----<br>
+  		return nl-&gt;orig_rebuild_header(buff, dev, dst, skb);<br>
+<p>
+  	if (eth-&gt;h_proto != htons(ETH_P_IP)) {<br>
+! 		printk("plip_rebuild_header: Don't know how to resolve type %d<br>
+! addresses?\n", (int)eth-&gt;h_proto);<br>
+  		memcpy(eth-&gt;h_source, dev-&gt;dev_addr, dev-&gt;addr_len);<br>
+  		return 0;<br>
+  	}<br>
+<p>
+! 	for (i=0; i &lt; ETH_ALEN - sizeof(unsigned int); i++)<br>
+  		eth-&gt;h_dest[i] = 0xfc;<br>
+! 	memcpy(&amp;(eth-&gt;h_dest[i]), &amp;dst, sizeof(unsigned int));<br>
+  	return 0;<br>
+  }<br>
+<p>
+***************<br>
+*** 938,944 ****<br>
+  	int i;<br>
+<p>
+  	if (dev-&gt;irq == 0) {<br>
+! 		printk("%s: IRQ is not set.  Please set it by ifconfig.\n",<br>
+dev-&gt;name);<br>
+  		return -EAGAIN;<br>
+  	}<br>
+  	cli();<br>
+--- 945,952 ----<br>
+  	int i;<br>
+<p>
+  	if (dev-&gt;irq == 0) {<br>
+! 		printk("%s: IRQ is not set.  Please set it by ifconfig.\n",<br>
+! dev-&gt;name);<br>
+  		return -EAGAIN;<br>
+  	}<br>
+  	cli();<br>
+***************<br>
+*** 963,971 ****<br>
+  	nl-&gt;is_deferred = 0;<br>
+<p>
+  	/* Fill in the MAC-level header. */<br>
+! 	for (i=0; i &lt; ETH_ALEN - sizeof(unsigned long); i++)<br>
+  		dev-&gt;dev_addr[i] = 0xfc;<br>
+! 	memcpy(&amp;(dev-&gt;dev_addr[i]), &amp;dev-&gt;pa_addr, sizeof(unsigned long));<br>
+<p>
+  	dev-&gt;interrupt = 0;<br>
+  	dev-&gt;start = 1;<br>
+--- 971,979 ----<br>
+  	nl-&gt;is_deferred = 0;<br>
+<p>
+  	/* Fill in the MAC-level header. */<br>
+! 	for (i=0; i &lt; ETH_ALEN - sizeof(unsigned int); i++)<br>
+  		dev-&gt;dev_addr[i] = 0xfc;<br>
+! 	memcpy(&amp;(dev-&gt;dev_addr[i]), &amp;dev-&gt;pa_addr, sizeof(unsigned int));<br>
+<p>
+  	dev-&gt;interrupt = 0;<br>
+  	dev-&gt;start = 1;<br>
+***************<br>
+*** 1025,1033 ****<br>
+  	if (dev-&gt;flags &amp; IFF_UP)<br>
+  		return -EBUSY;<br>
+<p>
+! 	if (map-&gt;base_addr != (unsigned long)-1<br>
+  	    &amp;&amp; map-&gt;base_addr != dev-&gt;base_addr)<br>
+! 		printk("%s: You cannot change base_addr of this interface<br>
+(ignored).\n", dev-&gt;name);<br>
+<p>
+  	if (map-&gt;irq != (unsigned char)-1)<br>
+  		dev-&gt;irq = map-&gt;irq;<br>
+--- 1033,1042 ----<br>
+  	if (dev-&gt;flags &amp; IFF_UP)<br>
+  		return -EBUSY;<br>
+<p>
+! 	if (map-&gt;base_addr != (unsigned short)-1<br>
+  	    &amp;&amp; map-&gt;base_addr != dev-&gt;base_addr)<br>
+! 		printk("%s: You cannot change base_addr of this interface<br>
+! (ignored).\n", dev-&gt;name);<br>
+<p>
+  	if (map-&gt;irq != (unsigned char)-1)<br>
+  		dev-&gt;irq = map-&gt;irq;<br>
+***************<br>
+*** 1039,1045 ****<br>
+  {<br>
+  	struct net_local *nl = (struct net_local *) dev-&gt;priv;<br>
+  	struct plipconf *pc = (struct plipconf *) &amp;rq-&gt;ifr_data;<br>
+!<br>
+  	switch(pc-&gt;pcmd) {<br>
+  	case PLIP_GET_TIMEOUT:<br>
+  		pc-&gt;trigger = nl-&gt;trigger;<br>
+--- 1048,1054 ----<br>
+  {<br>
+  	struct net_local *nl = (struct net_local *) dev-&gt;priv;<br>
+  	struct plipconf *pc = (struct plipconf *) &amp;rq-&gt;ifr_data;<br>
+!<br>
+  	switch(pc-&gt;pcmd) {<br>
+  	case PLIP_GET_TIMEOUT:<br>
+  		pc-&gt;trigger = nl-&gt;trigger;<br>
+***************<br>
+*** 1054,1060 ****<br>
+  	}<br>
+  	return 0;<br>
+  }<br>
+!<br>
+  #ifdef MODULE<br>
+  static int io[] = {0, 0, 0};<br>
+  static int irq[] = {0, 0, 0};<br>
+--- 1063,1069 ----<br>
+  	}<br>
+  	return 0;<br>
+  }<br>
+!<br>
+  #ifdef MODULE<br>
+  static int io[] = {0, 0, 0};<br>
+  static int irq[] = {0, 0, 0};<br>
+***************<br>
+*** 1064,1082 ****<br>
+  		"plip0",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x3BC, 5,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	},<br>
+  	{<br>
+  		"plip1",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x378, 7,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	},<br>
+  	{<br>
+  		"plip2",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x278, 2,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	}<br>
+  };<br>
+<p>
+--- 1073,1091 ----<br>
+  		"plip0",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x3BC, 5,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	},<br>
+  	{<br>
+  		"plip1",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x378, 7,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	},<br>
+  	{<br>
+  		"plip2",<br>
+  		0, 0, 0, 0,		/* memory */<br>
+  		0x278, 2,		/* base, irq */<br>
+! 		0, 0, 0, NULL, plip_init<br>
+  	}<br>
+  };<br>
+<p>
+***************<br>
+*** 1111,1117 ****<br>
+  		return 0;<br>
+<p>
+  	/* No parameters.  Default action is probing all interfaces. */<br>
+! 	for (i=0; i &lt; 3; i++) {<br>
+  		if (register_netdev(&amp;dev_plip[i]) == 0)<br>
+  			devices++;<br>
+  	}<br>
+--- 1120,1126 ----<br>
+  		return 0;<br>
+<p>
+  	/* No parameters.  Default action is probing all interfaces. */<br>
+! 	for (i=0; i &lt; 3; i++) {<br>
+  		if (register_netdev(&amp;dev_plip[i]) == 0)<br>
+  			devices++;<br>
+  	}<br>
+***************<br>
+*** 1130,1136 ****<br>
+  	for (i=0; i &lt; 3; i++) {<br>
+  		if (dev_plip[i].priv) {<br>
+  			unregister_netdev(&amp;dev_plip[i]);<br>
+! 			release_region(PAR_DATA(&amp;dev_plip[i]),<br>
+(PAR_DATA(&amp;dev_plip[i]) == 0x3bc)? 3 : 8);<br>
+  			kfree_s(dev_plip[i].priv, sizeof(struct net_local));<br>
+  			dev_plip[i].priv = NULL;<br>
+  		}<br>
+--- 1139,1146 ----<br>
+  	for (i=0; i &lt; 3; i++) {<br>
+  		if (dev_plip[i].priv) {<br>
+  			unregister_netdev(&amp;dev_plip[i]);<br>
+! 			release_region(PAR_DATA(&amp;dev_plip[i]),<br>
+! (PAR_DATA(&amp;dev_plip[i]) == 0x3bc)? 3 : 8);<br>
+  			kfree_s(dev_plip[i].priv, sizeof(struct net_local));<br>
+  			dev_plip[i].priv = NULL;<br>
+  		}<br>
+***************<br>
+*** 1137,1145 ****<br>
+  	}<br>
+  }<br>
+  #endif /* MODULE */<br>
+!<br>
+  /*<br>
+   * Local variables:<br>
+!  * compile-command: "gcc -DMODULE -DMODVERSIONS -D__KERNEL__ -Wall<br>
+-Wstrict-prototypes -O2 -g -fomit-frame-pointer -pipe -m486 -c plip.c"<br>
+   * End:<br>
+   */<br>
+--- 1147,1156 ----<br>
+  	}<br>
+  }<br>
+  #endif /* MODULE */<br>
+!<br>
+  /*<br>
+   * Local variables:<br>
+!  * compile-command: "gcc -DMODULE -DMODVERSIONS -D__KERNEL__ -Wall<br>
+! -Wstrict-prototypes -O2 -g -fomit-frame-pointer -pipe -m486 -c plip.c"<br>
+   * End:<br>
+   */<br>
+------------------------------------------------------------------&gt;8------------<br>
+<p>
+<p>
+<pre>
+-- 
+<p>
+_______________________________________________________________________________
+<p>
+Stephan Kanthak
+Department of Computer Science VI
+Pattern- and Speech Recognition Research
+RWTH Aachen, Germany                                              """""
+e-mail: <a href="mailto:kanthak@i6.informatik.rwth-aachen.de">kanthak@i6.informatik.rwth-aachen.de</a>                      |   |
+<a href="http://www.informatik.rwth-aachen.de/I6/Colleagues/kanthak/">http://www.informatik.rwth-aachen.de/I6/Colleagues/kanthak/</a>        O -
+______________________________________________________________.oO_| u |_Oo.____
+                                                                   \_/
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0244.html">Eric Tenenbaum: "Re: VRT19HA works on UDB"</a>
+<li> <b>Previous message:</b> <a href="0242.html">Craig Ruff: "Re: SCSI Tape Drive Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0260.html">David Andrew Bushnell: "A question about large disks?"</a>
+<li> <b>Reply:</b> <a href="0260.html">David Andrew Bushnell: "A question about large disks?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

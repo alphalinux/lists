@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: [suse-axp] Some success with ATI Rage Pro acceleratio</TITLE>
+<META NAME="Author" CONTENT="Champigny, Michael (Michael.Champigny@compaq.com)">
+<META NAME="Subject" CONTENT="[suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX</H1>
+<HR>
+<P>
+<!-- received="Tue Aug 29 15:18:23 2000" -->
+<!-- isoreceived="20000829221823" -->
+<!-- sent="Tue, 29 Aug 2000 10:38:25 -0400" -->
+<!-- isosent="20000829143825" -->
+<!-- name="Champigny, Michael" -->
+<!-- email="Michael.Champigny@compaq.com" -->
+<!-- subject="[suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX" -->
+<!-- id="1B15C62CF9A0D311BD210008C7CF02E5360562@tayexc04.tay.dec.com" -->
+<STRONG>Subject: </STRONG>[suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX<BR>
+<STRONG>From: </STRONG>Champigny, Michael (<EM>Michael.Champigny@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Aug 29 2000 - 07:38:25 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#48">[ date ]</A>
+<A HREF="index.html#48">[ thread ]</A>
+<A HREF="subject.html#48">[ subject ]</A>
+<A HREF="author.html#48">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0049.html">Champigny, Michael: "[suse-axp] Update on ATI Rage Pro: typo in my instructions..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0047.html">Champigny, Michael: "RE: [suse-axp] upgrade to 6.4 broke X"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0050.html">Robb Romans: "Re: [suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+FYI,
+<BR>
+<P>I seem to have had at least some success with the ATI Rage Pro
+<BR>
+driver from Utal-GLX on an Alpha XP1000. Everything seems to
+<BR>
+be in order, but performance seems to have *dropped* relative
+<BR>
+to straight unaccelerated Mesa. I'm using the particles demo
+<BR>
+as a benchmark.
+<BR>
+<P>I did this on a SuSE 6.4 box, since they ship Utah-GLX on the
+<BR>
+Alpha. I'm sure the latest Utah-GLX could be made to work with
+<BR>
+Red Hat as well.
+<BR>
+<P>The card I used was an 8M ATI Xpert 98 PCI, with the Rage Pro
+<BR>
+chipset. Machine tested was an XP1000 with 256M.
+<BR>
+<P>First use Yast or RPM to remove mesasoft (Mesa software drivers).
+<BR>
+Install glx.rpm or built Utah-GLX is using Red Hat. On SuSE there
+<BR>
+is nothing more to do for installation.
+<BR>
+<P>Edit /etc/XF86Config and add:
+<BR>
+<P>Load &quot;glx.so&quot;
+<BR>
+<P>to the Module section.
+<BR>
+<P>You also need to disable pixmap and font cacheing in the card itself.
+<BR>
+Add this to the Device section:
+<BR>
+<P>Option &quot;no_pixmap_cache&quot;
+<BR>
+Option &quot;no_font_cache&quot;
+<BR>
+<P>If you're using SuSE's SaX tool, just choose these options from the list
+<BR>
+when configuring the server (check the Expert option).
+<BR>
+<P>No you need to set up /etc/glx.conf.
+<BR>
+<P>Add these lines:
+<BR>
+<P>mach64_dma = 3
+<BR>
+mach64_addr = 224
+<BR>
+mach64_size = 32
+<BR>
+<P>These are from memory...but you get the idea. Check the spelling by looking
+<BR>
+at
+<BR>
+the s3virge example at the end of the glx.conf file. Here I've set up DMA 
+<BR>
+transfers using 32M of my system memory (256M - 32M = 224M leftover).
+<BR>
+<P>You might want to enable debugging and uncomment the line for setting up the
+<BR>
+glx.log file. This is a good idea for a first run.
+<BR>
+<P>Now edit /etc/aboot.conf and change your boot line by adding the following
+<BR>
+to it:
+<BR>
+<P>mem=224M
+<BR>
+<P>This will reserve 32M of DMA space for the ATI card. I actually edited
+<BR>
+another
+<BR>
+entry in /etc/aboot.conf so that I could get back to my old setup if I
+<BR>
+mistyped
+<BR>
+something. This is a sane thing to do.
+<BR>
+<P>Reboot the system, login as root, and do the following to check everything
+<BR>
+is cool:
+<BR>
+<P>xdpyinfo | grep GLX
+<BR>
+<P>You should get back GLX. Check the glx.log and glx_debug.log files too if
+<BR>
+you set
+<BR>
+those up.
+<BR>
+<P>Run an OpenGL linked program. You may have to relink your app to get the new
+<BR>
+OpenGL
+<BR>
+libs.
+<BR>
+<P>When you run an OpenGL app you'll see a @@Create GLX context... written to
+<BR>
+your
+<BR>
+xterm. If you get that you're done. :-)
+<BR>
+<P>Now enjoy how much slower your system renders. ;-)
+<BR>
+<P>I only tried this in 1280x1024 resolution and 32bpp depth. Maybe that was
+<BR>
+too much
+<BR>
+for it. But it worked, and I think in theory it's supposed to be
+<BR>
+accelerated.
+<BR>
+<P>In SuSE this takes about 5 minutes. :-)
+<BR>
+<P>Red Hat folks...build Utah-GLX and have a go at it.
+<BR>
+<P>-Michael
+<BR>
+<P>&nbsp;
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0049.html">Champigny, Michael: "[suse-axp] Update on ATI Rage Pro: typo in my instructions..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0047.html">Champigny, Michael: "RE: [suse-axp] upgrade to 6.4 broke X"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0050.html">Robb Romans: "Re: [suse-axp] Some success with ATI Rage Pro acceleration with Utah-GLX"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Fri Sep 01 2000 - 05:04:01 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

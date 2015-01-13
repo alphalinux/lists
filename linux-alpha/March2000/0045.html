@@ -1,0 +1,188 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 16:07:49 2000" -->
+<!-- isoreceived="20000314000749" -->
+<!-- sent="Mon, 13 Mar 2000 15:25:16 +0100 (CET)" -->
+<!-- isosent="20000313142516" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131505030.2069-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.21.0003091325320.1608-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 06:25:16 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#45">[ date ]</A>
+<A HREF="index.html#45">[ thread ]</A>
+<A HREF="subject.html#45">[ subject ]</A>
+<A HREF="author.html#45">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0046.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0051.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0049.html">Jeff Garzik: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0051.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 9 Mar 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt; &gt;no. First, this is definitely not going to happen before 2.5. And even in
+</EM><BR>
+<EM>&gt; &gt;that case we do not care about copy_user latencies. Adding 'may preempt'
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So why the lowlatency patch is doing this stuff if you think
+</EM><BR>
+<EM>&gt; current-&gt;need_reshed is going to be zero during the copy_user business?
+</EM><BR>
+<P>i think you might be misunderstanding the point i (and others) tried to
+<BR>
+make. Of course uaccess.h generates latencies in a non-preemptible kernel.
+<BR>
+But a preemptible kernel is not about moving uaccess.h and similar simple
+<BR>
+latency sources into a freely preemptible space, a preemptible kernel is a
+<BR>
+solution for a problem category much bigger than that.
+<BR>
+<P><EM>&gt; Unless you want to add also a slowww conditional schedule within the
+</EM><BR>
+<EM>&gt; spin_unlock() (that will trigger at the last lock released if need_resched
+</EM><BR>
+<EM>&gt; is 1), then the preemtible kernel won't preemt anything if the timeslice
+</EM><BR>
+<EM>&gt; expired while any spinlock was held. And you also for sure payed the cost
+</EM><BR>
+<EM>&gt; to avoid preemption during the spin_lock/unlock.
+</EM><BR>
+<P>of course there is some overhead here, but it's not at all as slow as you
+<BR>
+imagine. It's these two additional (nonlocked) instructions on x86:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;decl %0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jz 1f
+<BR>
+.section offline.preempt
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;call do_reschedule
+<BR>
+<P>where %0 is current-&gt;spinlock_depth - a local cached variable in most
+<BR>
+cases, and an untaken forward conditional jump - about 1 cycle overhead
+<BR>
+and about 10 bytes icache footprint. A single (incl) instruction in
+<BR>
+spin_lock()&amp;friends. Plus possibly one instruction calculating
+<BR>
+current-&gt;spinlock_depth.
+<BR>
+<P>Additionally, as a side-effect we get a 'free' debugging check for
+<BR>
+schedule():
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (current-&gt;spinlock_depth)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BUG();
+<BR>
+<P>this temporary debugging aid catches illegal spinlock uses. (which does
+<BR>
+happen quite often)
+<BR>
+<P>(this above mechanizm also implements it also for the UP case. It would of
+<BR>
+course be a config option initially.)
+<BR>
+<P><EM>&gt; IMHO most of the code needs at least a basic kind of serialization lock
+</EM><BR>
+<EM>&gt; held so the preemtable kernel is not going to have much changes to
+</EM><BR>
+<EM>&gt; preempt.
+</EM><BR>
+<P>? see above.
+<BR>
+<P><EM>&gt; For example in the free_inodes the preemtable kernel won't buy anything.
+</EM><BR>
+<EM>&gt; The same for shrink_mmap and most other places where you correctly added
+</EM><BR>
+<EM>&gt; the conditional schedule in the lowlatency patch. You'll have to keep the
+</EM><BR>
+<EM>&gt; conditional schedule even with the preemtable kernel there. And you'll
+</EM><BR>
+<EM>&gt; also pay the double cost the lock fast path.
+</EM><BR>
+<P>no, this is a different problem category: the amount of time spinlocks are
+<BR>
+held. Obviously there are latency problems there. But with a preemptive
+<BR>
+kernel to get bound latencies we have reduced the problem to fix spinlock
+<BR>
+latencies alone - which is a much easier task.
+<BR>
+<P>To repeat: we reduce the task to a much smaller amount of code. Additional
+<BR>
+this amount of code is not only important to get good latencies, but also
+<BR>
+important to get good SMP performance - so with SMP performance
+<BR>
+optimization we will also get good latencies, basically for free. This is
+<BR>
+the point and it's also elegant and mainainable design to couple a feature
+<BR>
+(that ordinary users do not care about) transparently to another feature
+<BR>
+(that people care about).
+<BR>
+<P><EM>&gt; I currently don't believe preemptible kernel is the way to go.
+</EM><BR>
+<EM>&gt; Allowing some CPU bound part that runs with no locks to be preemtable
+</EM><BR>
+<EM>&gt; looks a nice latency optimization with no downside instead.
+</EM><BR>
+<P>no, it's an unnecessery hack comparable to conditional_schedule(). I'd
+<BR>
+like to do it right.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0046.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0051.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0049.html">Jeff Garzik: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0051.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

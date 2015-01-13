@@ -1,0 +1,178 @@
+<!-- received="Sun Nov  3 14:53:46 1996 " -->
+<!-- sent="Sun, 3 Nov 1996 20:48:44 +0100" -->
+<!-- name="Franz Sirl" -->
+<!-- email="franz.sirl@lauterbach.com" -->
+<!-- subject="Re: Tulip driver in 2.0.24" -->
+<!-- id="v03007802aea2a3ffff90@DialupEudora" -->
+<!-- inreplyto="torvalds@cs.helsinki.fi" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Tulip driver in 2.0.24</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Tulip driver in 2.0.24</h2>
+
+<b>Franz Sirl</b> (<a href="mailto:franz.sirl@lauterbach.com"><i>franz.sirl@lauterbach.com</i></a>)<br>
+<i>Sun, 3 Nov 1996 20:48:44 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#112">[ date ]</a><a href="index.html#112">[ thread ]</a><a href="subject.html#112">[ subject ]</a><a href="author.html#112">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0113.html">Ville Steudle: "compiling xli"</a>
+<li> <b>Previous message:</b> <a href="0111.html">Eric Youngdale: "Re: Multia"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+and when will the following patch go into tulip.c:<br>
+-----&gt;<br>
+--- tulip.c.orig       Sun Jun  9 20:15:22 1996<br>
++++ tulip.c     Mon Jun 10 00:26:27 1996<br>
+@@ -394,6 +394,8 @@<br>
+                 0x0000c000, PCI_DEVICE_ID_DEC_TULIP, "old smc8432", 0},<br>
+        {auto21140_select, generic21140_fail,<br>
+                 0x0000f400, PCI_DEVICE_ID_DEC_TULIP_FAST, "LA100PCI", 0},<br>
++       {generic21040_select, generic21040_fail,<br>
++                0x00009200, PCI_DEVICE_ID_DEC_TULIP, "Cogent EM96x", 1},<br>
+        {cogent21140_select, generic21140_fail,<br>
+                 0x00009200, PCI_DEVICE_ID_DEC_TULIP_FAST, "cogent_em110", 0},<br>
+        {generic21140_select, generic21140_fail,<br>
+@@ -1177,6 +1179,7 @@<br>
+ {<br>
+        /* See note below on the Znyx 315 etherarray. */<br>
+        static unsigned char last_phys_addr[6] = {0x00, 'L', 'i', 'n', 'u',<br>
+'x'};<br>
++       static int last_irq = 0;<br>
+        char detect_mesg[80], *mesgp=detect_mesg;<br>
+        struct tulip_private *tp = (struct tulip_private *)dev-&gt;priv;<br>
+        int i;<br>
+@@ -1246,6 +1251,7 @@<br>
+                for (i = 0; i &lt; ETH_ALEN - 1; i++)<br>
+                        dev-&gt;dev_addr[i] = last_phys_addr[i];<br>
+                dev-&gt;dev_addr[i] = last_phys_addr[i] + 1;<br>
++               irq = last_irq;<br>
+        }<br>
+        for (i = 0; i &lt; ETH_ALEN - 1; i++)<br>
+                mesgp += sprintf(mesgp, "%2.2x:", dev-&gt;dev_addr[i]);<br>
+@@ -1255,8 +1261,10 @@<br>
+        /* copy ethernet address */<br>
+        if (card_type(tp, device_id,<br>
+                                  htonl((*(int*)dev-&gt;dev_addr) &amp; 0xFFFFFF)))<br>
+-               for (i = 0; i &lt; ETH_ALEN - 1; i++)<br>
++               for (i = 0; i &lt; ETH_ALEN - 1; i++) {<br>
+                        last_phys_addr[i] = dev-&gt;dev_addr[i];<br>
++                       last_irq = irq;<br>
++               }<br>
+        /* We do a request_region() only to register /proc/ioports info. */<br>
+        request_region(ioaddr, TULIP_TOTAL_SIZE, tp-&gt;signature);<br>
+------&lt;<br>
+<p>
+This makes tulip.c handle multiport cards (like the Cogent 964) work<br>
+correctly with most BIOSes. I think I've seen a more sophisticated patch<br>
+for this problem already on linux-kernel, but that one also didn't made it<br>
+into the kernel, so I give it another try.<br>
+<p>
+I think I've also found an important bug in tulip_probe(). It will only<br>
+work correctly if there's only one kind of chips in your system (21040 or<br>
+21041 or 21140 or ...). This is due a wrong arrangement of the pci_index++<br>
+and cno++ loops. They should be exchanged.<br>
+Can anyone confirm this behaviour?<br>
+Linus, should I prepare a patch for you?<br>
+<p>
+Ciao,<br>
+Franz Sirl.<br>
+<p>
+<p>
+<p>
+At 18:06 Uhr +0100 03.11.1996, Ion Badulescu wrote:<br>
+<i>&gt;Hi,</i><br>
+<i>&gt;</i><br>
+<i>&gt;On Sun, 3 Nov 1996, Linux support wrote:</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt; I was not able to get my smc8432 (DEC 21041 Tulip) card working with</i><br>
+<i>&gt;&gt; 2.0.24.</i><br>
+<i>&gt;&gt;</i><br>
+<i>&gt;&gt; After restoring tulip.c to the 2.0.23 version, it works fine again.</i><br>
+<i>&gt;&gt;</i><br>
+<i>&gt;&gt; I got the message "eth0: enabling BNC port" repeating after some seconds,</i><br>
+<i>&gt;&gt; but the interface does never come up.</i><br>
+<i>&gt;</i><br>
+<i>&gt;I've got the same problem with a 21041-based card: stock 2.0.24 does not</i><br>
+<i>&gt;work at all and instead cycles the port type; 2.0.23 works just fine as</i><br>
+<i>&gt;does 2.0.24 with tulip.c from 2.0.23; finally, 2.1.7 (which includes</i><br>
+<i>&gt;_almost_ the same changes to tulip.c as 2.0.24) again works fine.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Now, there is a catch here: the difference between tulip.c in 2.1.7 and</i><br>
+<i>&gt;2.0.24 is a constant. 2.1.7 has the correct value (as Linus pointed out in</i><br>
+<i>&gt;a previous message). This is the patch for 2.0.24 (apply it with -p1):</i><br>
+<i>&gt;</i><br>
+<i>&gt;--- linux/drivers/net/tulip.c.orig	Sun Nov  3 12:02:47 1996</i><br>
+<i>&gt;+++ linux/drivers/net/tulip.c	Fri Nov  1 06:58:44 1996</i><br>
+<i>&gt;@@ -1145,7 +1145,7 @@</i><br>
+<i>&gt; 			tp-&gt;tx_skbuff[entry] = 0;</i><br>
+<i>&gt; 			/* Put the setup frame on the Tx list. */</i><br>
+<i>&gt; 			tp-&gt;tx_ring[entry].length = 192 |</i><br>
+<i>&gt;-			      (entry == TX_RING_SIZE-1 ? 0x0a000000 : 0x08000);</i><br>
+<i>&gt;+			      (entry == TX_RING_SIZE-1 ? 0x0a000000 :</i><br>
+<i>&gt;0x08000000);</i><br>
+<i>&gt; 			tp-&gt;tx_ring[entry].buffer1 = virt_to_bus((char</i><br>
+<i>&gt;*)tp-&gt;setup_frame);</i><br>
+<i>&gt; 			tp-&gt;tx_ring[entry].buffer2 = 0;</i><br>
+<i>&gt; 			tp-&gt;tx_ring[entry].status = TRING_OWN;</i><br>
+<i>&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt;Ionut</i><br>
+<i>&gt;</i><br>
+<i>&gt;--</i><br>
+<i>&gt;Ionut Badulescu - Columbia College '98	    <a href="mailto:E-mail:ib42@columbia.edu">E-mail:ib42@columbia.edu</a></i><br>
+<i>&gt;Phone: (212)853-7875			    Snail mail: 4A4 Wallach Hall</i><br>
+<i>&gt;Fax: (212)695-5560					1116 Amsterdam Ave</i><br>
+<i>&gt;PGP key available on request				New York, NY 10027</i><br>
+<i>&gt;  It is better to keep your mouth shut and be thought a fool,</i><br>
+<i>&gt;            than to open it and remove all doubt.</i><br>
+<p>
+<p>
+<pre>
+--
+--------------------------------------------------------------------------
+phone	++49 8104 8943-0	        mail	Lauterbach Datentechnik GmbH
+fax	++49 8104 8943-49		c/o Franz Sirl
+email	<a href="mailto:franz.sirl@lauterbach.com">franz.sirl@lauterbach.com</a>	Fichtenstr. 27
+web	<a href="http://www.lauterbach.com">http://www.lauterbach.com</a>	D-85649 Hofolding
+	<a href="ftp://ftp.lauterbach.com">ftp://ftp.lauterbach.com</a>	Germany
+--------------------------------------------------------------------------
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0113.html">Ville Steudle: "compiling xli"</a>
+<li> <b>Previous message:</b> <a href="0111.html">Eric Youngdale: "Re: Multia"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

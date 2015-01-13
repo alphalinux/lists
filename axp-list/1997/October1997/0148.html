@@ -1,0 +1,138 @@
+<!-- received="Tue Oct  7 09:56:18 1997 " -->
+<!-- sent="Tue, 07 Oct 1997 13:33:52 +0500" -->
+<!-- name="jestabro@amt.tay1.dec.com" -->
+<!-- email="jestabro@amt.tay1.dec.com" -->
+<!-- subject="Re: "shutdown -r now" not reliable on a PC164" -->
+<!-- id="199710071733.NAA06819@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="3.0.3.32.19971006213130.0092c860@pop4.ibm.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: "shutdown -r now" not reliable on a PC164</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: "shutdown -r now" not reliable on a PC164</h2>
+
+<a href="mailto:jestabro@amt.tay1.dec.com"><i>jestabro@amt.tay1.dec.com</i></a><br>
+<i>Tue, 07 Oct 1997 13:33:52 +0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#148">[ date ]</a><a href="index.html#148">[ thread ]</a><a href="subject.html#148">[ subject ]</a><a href="author.html#148">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0149.html">Aaron: "Re: Quake"</a>
+<li> <b>Previous message:</b> <a href="0147.html">jestabro@amt.tay1.dec.com: "Re: A few questions"</a>
+<li> <b>In reply to:</b> <a href="0135.html">Kristian Vilmann: "keyboard dying during install on miata"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt; "Jim. Shipman" said:</i><br>
+<i>&gt;</i><br>
+<i>&gt; I am building a system consisting of lots and lots of PC164 boards (up to</i><br>
+<i>&gt; 1000) containing nothing more than a network card and need a good reliable</i><br>
+<i>&gt; software reset.  I've been trying to use "shutdown -r now", but most of the</i><br>
+<i>&gt; time it just says it is rebooting, but in fact, hangs.  This system is</i><br>
+<i>&gt; running SRM and a remote booted kernel with nfsroot file system, but it</i><br>
+<i>&gt; seems to have trouble even when I run it "normally".  Do other people have</i><br>
+<i>&gt; trouble getting "shutdown -r now" to work?  Is there a more robust way to</i><br>
+<i>&gt; cause a soft reboot from a telnet connections?</i><br>
+<p>
+This is a known problem.<br>
+<p>
+I'm currently working on a set of patches that will fix it.<br>
+<p>
+They are not ready yet.<br>
+<p>
+In the meantime, you might be surprised to find that the reboot actually<br>
+*did* get back into SRM (at least it does on some of my systems). The fact<br>
+that you don't see it reboot is because:<br>
+<p>
+1. the VGA screen management under LINUX conflicts with that under SRM,<br>
+   such that SRM may be using the top of video memory, while LINUX left<br>
+   the display showing the *bottom* of video memory.<br>
+<p>
+2. the "reboot" code in the LINUX kernel doesn't pass the correct value<br>
+   to the callPal_HALT entry point in SRM, so it doesn't think you *want*<br>
+   to reboot. See attached at the end a snippit of code for doing the correct<br>
+   argmument passing. <br>
+<p>
+To check whether you really *are* getting back into SRM but just can't see<br>
+it, type in "init" on the keyboard (blind, of course :-), and see if the<br>
+console comes back to life.<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools - LINUX Project<br>
+Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202<br>
+151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+/*<br>
+ * this is in arch/alpha/kernel/process.c<br>
+ */<br>
+<p>
+void hard_reset_now(void)<br>
+{<br>
+#if defined(CONFIG_ALPHA_SRM)<br>
+        extern struct hwrpb_struct *hwrpb;<br>
+        struct percpu_struct *cpup;<br>
+        unsigned long flags;<br>
+<p>
+        cpup = (struct percpu_struct *)<br>
+          ((unsigned long)hwrpb + hwrpb-&gt;processor_offset);<br>
+        flags = cpup-&gt;flags;<br>
+#if 1<br>
+        printk("hard_reset_now: flags 0x%lx\n", flags);<br>
+#endif<br>
+        flags &amp;= ~0x0000000000ff0001UL; /* clear reason to "default" */<br>
+        flags |=  0x0000000000020000UL; /* this is "cold bootstrap" */<br>
+/*      flags |=  0x0000000000030000UL; *//* this is "warm bootstrap" */<br>
+/*      flags |=  0x0000000000040000UL; *//* this is "remain halted" */<br>
+        cpup-&gt;flags = flags;<br>
+        mb();<br>
+#endif /* SRM */<br>
+#if defined(CONFIG_ALPHA_SRM) &amp;&amp; defined(CONFIG_ALPHA_ALCOR)<br>
+        /* who said DEC engineers have no sense of humor? ;-)) */<br>
+        *(int *) GRU_RESET = 0x0000dead;<br>
+        mb();<br>
+#endif<br>
+        halt();<br>
+}<br>
+<p>
+-----------------------------------------------------------------------------<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0149.html">Aaron: "Re: Quake"</a>
+<li> <b>Previous message:</b> <a href="0147.html">jestabro@amt.tay1.dec.com: "Re: A few questions"</a>
+<li> <b>In reply to:</b> <a href="0135.html">Kristian Vilmann: "keyboard dying during install on miata"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

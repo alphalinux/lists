@@ -1,0 +1,76 @@
+--- linux/include/linux/sched.h.orig	Mon Mar 13 16:49:12 2000
++++ linux/include/linux/sched.h	Mon Mar 13 16:49:12 2000
+@@ -268,6 +268,7 @@
+ 					 */
+ 	struct exec_domain *exec_domain;
+ 	volatile long need_resched;
++	int allow_preempt;
+ 
+ 	cycles_t avg_slice;
+ 	int lock_depth;		/* Lock depth. We can context switch in and out of holding a syscall kernel lock... */	
+--- linux/include/asm-i386/uaccess.h.orig	Mon Mar 13 16:49:12 2000
++++ linux/include/asm-i386/uaccess.h	Mon Mar 13 16:54:48 2000
+@@ -253,6 +253,7 @@
+ #define __copy_user(to,from,size)					\
+ do {									\
+ 	int __d0, __d1;							\
++	current->allow_preempt++;					\
+ 	__asm__ __volatile__(						\
+ 		"0:	rep; movsl\n"					\
+ 		"	movl %3,%0\n"					\
+@@ -270,11 +271,13 @@
+ 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\
+ 		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\
+ 		: "memory");						\
++	current->allow_preempt--;					\
+ } while (0)
+ 
+ #define __copy_user_zeroing(to,from,size)				\
+ do {									\
+ 	int __d0, __d1;							\
++	current->allow_preempt++;					\
+ 	__asm__ __volatile__(						\
+ 		"0:	rep; movsl\n"					\
+ 		"	movl %3,%0\n"					\
+@@ -298,6 +301,7 @@
+ 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\
+ 		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\
+ 		: "memory");						\
++	current->allow_preempt--;					\
+ } while (0)
+ 
+ /* We let the __ versions of copy_from/to_user inline, because they're often
+--- linux/arch/i386/kernel/entry.S.orig	Mon Mar 13 16:49:12 2000
++++ linux/arch/i386/kernel/entry.S	Mon Mar 13 16:51:00 2000
+@@ -76,7 +76,8 @@
+ addr_limit	= 12
+ exec_domain	= 16
+ need_resched	= 20
+-processor	= 56
++allow_preempt	= 24
++processor	= 60
+ 
+ ENOSYS = 38
+ 
+@@ -276,9 +277,21 @@
+ 	ALIGN
+ ret_from_intr:
+ 	GET_CURRENT(%ebx)
++	/*
++	 * both ->need_resched and ->sigpending are relatively
++	 * rare cases:
++	 */
++	cmpl $0,need_resched(%ebx)
++	jne maybe_slow_return
++	cmpl $0,sigpending(%ebx)
++	jne maybe_slow_return
++	jmp restore_all
++maybe_slow_return:
+ 	movl EFLAGS(%esp),%eax		# mix EFLAGS and CS
+ 	movb CS(%esp),%al
+ 	testl $(VM_MASK | 3),%eax	# return to VM86 mode or non-supervisor?
++	jne ret_with_reschedule
++	cmpl $0, allow_preempt(%ebx)
+ 	jne ret_with_reschedule
+ 	jmp restore_all
+ 

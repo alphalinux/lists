@@ -1,0 +1,109 @@
+<!-- received="Tue Aug  6 03:20:37 1996 " -->
+<!-- sent="Tue, 6 Aug 1996 00:20:38 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: new elf gcc patches" -->
+<!-- id="199608060720.AAA02210@panda.azstarnet.com" -->
+<!-- inreplyto="new elf gcc patches" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: new elf gcc patches</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: new elf gcc patches</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Tue, 6 Aug 1996 00:20:38 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#128">[ date ]</a><a href="index.html#128">[ thread ]</a><a href="subject.html#128">[ subject ]</a><a href="author.html#128">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0129.html">David Mosberger-Tang: "libg++ up!"</a>
+<li> <b>Previous message:</b> <a href="0127.html">Linus Torvalds: "Re: telnet and rlogin problem"</a>
+<li> <b>Maybe in reply to:</b> <a href="0097.html">Richard Henderson: "new elf gcc patches"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I think the snapshot gcc (I used 960707 or thereabouts) has some<br>
+serious trouble with subwords.  E.g., for glibc<br>
+stdio-common/printf_fp.c:703, the snapshot gcc generates:<br>
+<p>
+    if (tolower (info-&gt;spec) == 'e')<br>
+0000000000001620 &lt;__printf_fp..ng+1450&gt;         a43d0000  ldq        t0,0(gp)<br>
+0000000000001624 &lt;__printf_fp..ng+1454&gt;         a50f00b8  ldq        t7,184(fp)<br>
+0000000000001628 &lt;__printf_fp..ng+1458&gt;         a4210000  ldq        t0,0(t0)<br>
+000000000000162c &lt;__printf_fp..ng+145c&gt;         a0480008  ldl        t1,8(t7)<br>
+0000000000001630 &lt;__printf_fp..ng+1460&gt;         40410441  s4addq     t1,t0,t0<br>
+0000000000001634 &lt;__printf_fp..ng+1464&gt;         a0210000  ldl        t0,0(t0)<br>
+0000000000001638 &lt;__printf_fp..ng+1468&gt;         a0e80004  ldl        t6,4(t7)<br>
+000000000000163c &lt;__printf_fp..ng+146c&gt;         47ff040c  clr        s3<br>
+0000000000001640 &lt;__printf_fp..ng+1470&gt;         b7ef0108  stq        zero,264(fp<br>
+)<br>
+0000000000001644 &lt;__printf_fp..ng+1474&gt;         402cb521  subq       t0,0x65,t0<br>
+0000000000001648 &lt;__printf_fp..ng+1478&gt;         b4ef0100  stq        t6,256(fp)<br>
+000000000000164c &lt;__printf_fp..ng+147c&gt;         f4200010  bne        t0,00000000<br>
+00001690 &lt;__printf_fp..ng+14c0&gt;<br>
+<p>
+whereas gcc-2.7.2 generates:<br>
+<p>
+    if (tolower (info-&gt;spec) == 'e')<br>
+0000000000001640 &lt;__printf_fp..ng+1470&gt;         a50f00b0  ldq        t7,176(fp)<br>
+0000000000001644 &lt;__printf_fp..ng+1474&gt;         41011402  addq       t7,0x8,t1<br>
+0000000000001648 &lt;__printf_fp..ng+1478&gt;         4440d101  andnot     t1,0x6,t0<br>
+000000000000164c &lt;__printf_fp..ng+147c&gt;         a47d0000  ldq        t2,0(gp)<br>
+0000000000001650 &lt;__printf_fp..ng+1480&gt;         a4810000  ldq        t3,0(t0)<br>
+0000000000001654 &lt;__printf_fp..ng+1484&gt;         44403102  andnot     t1,0x1,t1<br>
+0000000000001658 &lt;__printf_fp..ng+1488&gt;         a4230000  ldq        t0,0(t2)<br>
+000000000000165c &lt;__printf_fp..ng+148c&gt;         488202c4  extwl      t3,t1,t3<br>
+0000000000001660 &lt;__printf_fp..ng+1490&gt;         40810441  s4addq     t3,t0,t0<br>
+0000000000001664 &lt;__printf_fp..ng+1494&gt;         a0210000  ldl        t0,0(t0)<br>
+0000000000001668 &lt;__printf_fp..ng+1498&gt;         a0e80004  ldl        t6,4(t7)<br>
+000000000000166c &lt;__printf_fp..ng+149c&gt;         47ff040e  clr        s5<br>
+0000000000001670 &lt;__printf_fp..ng+14a0&gt;         b7ef0108  stq        zero,264(fp<br>
+)<br>
+0000000000001674 &lt;__printf_fp..ng+14a4&gt;         402cb521  subq       t0,0x65,t0<br>
+0000000000001678 &lt;__printf_fp..ng+14a8&gt;         b4ef0100  stq        t6,256(fp)<br>
+000000000000167c &lt;__printf_fp..ng+14ac&gt;         f4200010  bne        t0,00000000<br>
+000016c0 &lt;__printf_fp..ng+14f0&gt;<br>
+<p>
+Note that the former code loads info-&gt;spec (8(t7)) as an integer<br>
+_without_ masking out the highword!  The gcc-2.7.2 code is quite a bit<br>
+longer, but also quite a bit more correct.  I'm surprised we haven't<br>
+seen serious problems because of this (I do know that gs had tons of<br>
+unaligned accesses; maybe the same is also causing unaligned accesses<br>
+in ELF gdb).<br>
+<p>
+	--david<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0129.html">David Mosberger-Tang: "libg++ up!"</a>
+<li> <b>Previous message:</b> <a href="0127.html">Linus Torvalds: "Re: telnet and rlogin problem"</a>
+<li> <b>Maybe in reply to:</b> <a href="0097.html">Richard Henderson: "new elf gcc patches"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

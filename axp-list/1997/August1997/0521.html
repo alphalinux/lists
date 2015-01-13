@@ -1,0 +1,155 @@
+<!-- received="Wed Aug 27 04:19:31 1997 " -->
+<!-- sent="Wed, 27 Aug 1997 10:17:55 +0200 (MET DST)" -->
+<!-- name="D. Unger" -->
+<!-- email="unger@tfa.th-darmstadt.de" -->
+<!-- subject="Re: PC164 and YP/NIS" -->
+<!-- id="199708270817.KAA26361@luchs.ttm.maschinenbau.th-darmstadt.de" -->
+<!-- inreplyto="9708262329.AA14069@typhon.ind.rwth-aachen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: PC164 and YP/NIS</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: PC164 and YP/NIS</h2>
+
+<b>D. Unger</b> (<a href="mailto:unger@tfa.th-darmstadt.de"><i>unger@tfa.th-darmstadt.de</i></a>)<br>
+<i>Wed, 27 Aug 1997 10:17:55 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#521">[ date ]</a><a href="index.html#521">[ thread ]</a><a href="subject.html#521">[ subject ]</a><a href="author.html#521">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0522.html">Ronny Ranerup: "Re: PC164 and YP/NIS"</a>
+<li> <b>Previous message:</b> <a href="0520.html">Benoit E. Donnette: "Re: Booting avanti 200 from cd problem"</a>
+<li> <b>In reply to:</b> <a href="0505.html">Andreas Welbers: "PC164 and YP/NIS"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0522.html">Ronny Ranerup: "Re: PC164 and YP/NIS"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; Hello!</i><br>
+<i>&gt; </i><br>
+<i>&gt; I am using a Vobis PC164 Alpha with Redhat 4.2, an I have really big</i><br>
+<i>&gt; problems to get the NIS/YP-Support running.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I can start ypbind without any problems, but if I try to use any</i><br>
+<i>&gt; yp-client I get thousands of error messages.</i><br>
+<i>&gt; </i><br>
+<i>&gt; If I try to login on another shell as root (local passwd) or any other</i><br>
+<i>&gt; person (using yp) I get an memory violation error.</i><br>
+<i>&gt; If I start any other yp-client like ypcat or ypwhich I get the right</i><br>
+<i>&gt; context (for example the whole output of ypcat passwd) of the</i><br>
+<i>&gt; concerning yp-map and the following error message:</i><br>
+<i>&gt; </i><br>
+<i>&gt; yp_all: clnt_call: RPC: (unknown error code); s1 = 0, s2 = 0</i><br>
+<i>&gt; Illegal Instruction (core dumped).</i><br>
+<i>&gt; </i><br>
+<i>&gt; Any help is really welcome! Has anyone similar problems and/or</i><br>
+<i>&gt; solutions?</i><br>
+<i>&gt; </i><br>
+ I use the same machine (Vobis Alpha, RH 4.2 with kernel 2.0.30 <br>
+ compiled from the original linux-2.0.30 sources with the <br>
+ alpha-patches-2.0.30-0.1.gz from Jay, although I didn't have <br>
+ NIS-problems when using the orig. RH4.2 kernel before upgrading, <br>
+ 256MB RAM, UW-SCSI)<br>
+ and use the machine as a NIS-client (Solaris machines are master and slave)<br>
+ WITHOUT PROBLEMS so far.<br>
+ I distribute passwd, group, amd.home, aliases and a few more <br>
+ and all these reach the alpha.<br>
+ Every few hours<br>
+   ypbind[2270]: unknown: RPC: Unable to send; \<br>
+                 errno = Resource temporarily unavailable<br>
+ is logged in /var/log/messages ONCE and<br>
+ the processes running after starting ypbind as shown below are:<br>
+	rpc.yppasswdd, ypbind (master), ypbind (slave) <br>
+ I removed the "+" from the files passwd and group as they don't seem<br>
+ to be necessary and use the order files nis in nsswitch.conf for passwd and Co.<br>
+<p>
+ All I did was adding<br>
+	NIS_DOMAIN=tfa.th-darmstadt.de<br>
+ in /etc/sysconfig/network and sligthly changing <br>
+ /etc/rc.d/init.d/ypbind.init:<br>
+<p>
+	# Source function library.<br>
+	. /etc/rc.d/init.d/functions<br>
+	<br>
+<i>&gt;	# eingefuegt und NIS_DOMAIN in network gesetzt (20.6.97, D.U.)</i><br>
+<i>&gt;	# getting the YP-Domainname</i><br>
+<i>&gt;	. /etc/sysconfig/network</i><br>
+	<br>
+	# See how we were called.<br>
+	case "$1" in<br>
+	  start)<br>
+	<br>
+<i>&gt;		echo -n "Setting the domainname to: ${NIS_DOMAIN}"</i><br>
+<i>&gt;		domainname ${NIS_DOMAIN}</i><br>
+<i>&gt;		echo done</i><br>
+		echo -n "Starting YPBIND services: "<br>
+		daemon ypbind<br>
+		echo "...done"<br>
+		touch /var/lock/subsys/ypbind<br>
+		;;<br>
+	  stop)<br>
+		echo -n "Stopping YPBIND services: "<br>
+		killproc ypbind<br>
+		rm -f /var/lock/subsys/ypbind<br>
+		echo "... done"<br>
+		;;<br>
+	  *)<br>
+		echo "*** Usage: ypbind {start|stop}"<br>
+		exit 1<br>
+	esac<br>
+	<br>
+	exit 0<br>
+<p>
+<p>
+<pre>
+-- 
+                                \\\|///
+                               \\ ~ ~ //
+                               (/ @ @ /)
+ ----------------------------oOOo-(_)-oOOo-------------------------------
+|                                                                        |
+|   Ditmar Unger                           E-mail:                       |
+|   Fachgebiet Turbomaschinen              <a href="mailto:unger@tfa.th-darmstadt.de">unger@tfa.th-darmstadt.de</a>     |
+|   und Fluidantriebstechnik                                             | 
+|   TH Darmstadt                           Tel.  +49  (0) 6151 16-2603   |
+|   Petersenstr. 30                        Fax.                16-5559   |
+|   D - 64287 Darmstadt                                                  |
+|                                                                        |
+|   WWW:	<a href="http://www.th-darmstadt.de/fb/mb/tfa/Welcome.html">http://www.th-darmstadt.de/fb/mb/tfa/Welcome.html</a>        |
+ ------------------------------------------------------------------------
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0522.html">Ronny Ranerup: "Re: PC164 and YP/NIS"</a>
+<li> <b>Previous message:</b> <a href="0520.html">Benoit E. Donnette: "Re: Booting avanti 200 from cd problem"</a>
+<li> <b>In reply to:</b> <a href="0505.html">Andreas Welbers: "PC164 and YP/NIS"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0522.html">Ronny Ranerup: "Re: PC164 and YP/NIS"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

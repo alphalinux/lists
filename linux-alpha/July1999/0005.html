@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Questions from an Alpha beginner</TITLE>
+<META NAME="Author" CONTENT="Adam C. Powell, IV (adam.powell@nist.gov)">
+<META NAME="Subject" CONTENT="Re: Questions from an Alpha beginner">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Questions from an Alpha beginner</H1>
+<HR>
+<P>
+<!-- received="Wed Jul 07 17:50:50 1999" -->
+<!-- isoreceived="19990708005050" -->
+<!-- sent="Wed, 07 Jul 1999 11:46:52 -0400" -->
+<!-- isosent="19990707154652" -->
+<!-- name="Adam C. Powell, IV" -->
+<!-- email="adam.powell@nist.gov" -->
+<!-- subject="Re: Questions from an Alpha beginner" -->
+<!-- id="3783766C.315E1593@nist.gov" -->
+<!-- inreplyto="37809201.BF63675C@onera.fr" -->
+<STRONG>Subject: </STRONG>Re: Questions from an Alpha beginner<BR>
+<STRONG>From: </STRONG>Adam C. Powell, IV (<EM>adam.powell@nist.gov</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jul 07 1999 - 08:46:52 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#5">[ date ]</A>
+<A HREF="index.html#5">[ thread ]</A>
+<A HREF="subject.html#5">[ subject ]</A>
+<A HREF="author.html#5">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">Brian Candler: "Kernel 2.2.5 and ping problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Jacques Bouchard: "Questions from an Alpha beginner"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0004.html">Jacques Bouchard: "Questions from an Alpha beginner"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0004.html">Adam C. Powell, IV: "Re: Questions from an Alpha beginner"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Jacques Bouchard wrote:
+<BR>
+<P><EM>&gt; Hi all,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; I just ran speed tests on a Compaq XP1000 (CPU 21264) that has been lent to
+</EM><BR>
+<EM>&gt; me (I will buy one if it suits me).  I installed beforehand Redhat 6.0, which
+</EM><BR>
+<EM>&gt; I downloaded from a redhat mirror. 2 problems arose:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; 1) The math library seems *very* slow:
+</EM><BR>
+<P>Indeed.  Get either the Compaq Portable Math Library, or if you prefer free
+<BR>
+software and/or your code can make use of vectorized sqrt/sin/cos (i.e. perform
+<BR>
+sin on these 100 numbers) then get libffm, both from <A HREF="http://www.alphalinux.org/">http://www.alphalinux.org/</A>
+<BR>
+(ALO).
+<BR>
+<P><EM>&gt; So I downloaded the glibc sources from GNU and compiled with different
+</EM><BR>
+<EM>&gt; options (I added '-O2 -mcpu=21264', and removed -mieee), but the speed
+</EM><BR>
+<EM>&gt; increase was only 7%.
+</EM><BR>
+<P>My, you're brave!  And you call yourself a &quot;beginner&quot;? :-)
+<BR>
+<P>I think the optimizations you want are '-O6 -mcpu=ev6' but 21264 and ev6 may do
+<BR>
+the same thing.  I think -O6 includes -ffast-math which is needed to get the
+<BR>
+hardware sqrt on 21264.  But CPML and libffm are hand-coded assembly which
+<BR>
+should give you significantly better performance than optimized glibc- and they
+<BR>
+avoid some of the floating exceptions such as the exp (-large) underflow.
+<BR>
+<P><EM>&gt; 2) I tried to run a very large program, but I failed: it crashes with this
+</EM><BR>
+<EM>&gt; error message:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Floating point exception (core dumped)
+</EM><BR>
+<P>Yup, a common problem on Alpha.  Here's a recent post from the high-performance
+<BR>
+list (instructions also on ALO):
+<BR>
+<P>Richard Gorton wrote:
+<BR>
+<P><EM>&gt; Martin Kahlert &lt;martin.kahlert@mchp.siemens.de&gt; writes:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;  &gt; Why is -mieee compiled code so slow? I thought, only when an execption is
+</EM><BR>
+<EM>&gt;  &gt; generated, the mieee routines should provide values like inf, NaN.
+</EM><BR>
+<EM>&gt;  &gt; Otherwise the FPU could proceed as usual?
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Since &quot;exceptions&quot; are exceptional, they are, by definition very infrequent.
+</EM><BR>
+<EM>&gt; If they were meant to be commonplace, they would be called &quot;commons&quot; or
+</EM><BR>
+<EM>&gt; some such.  Unfortunately, there _is_ a fair amount of sloppy code in the
+</EM><BR>
+<EM>&gt; world where specific integer values are used to trigger termination
+</EM><BR>
+<EM>&gt; conditions, and are freely operated on as if they are floating point
+</EM><BR>
+<EM>&gt; values.  Some processors/architectures silently convert NaNs/denorms
+</EM><BR>
+<EM>&gt; into zero results, or ignore them.  In my opinion, encouraging sloppy
+</EM><BR>
+<EM>&gt; programming habits by masking such effects is bad.  This silent
+</EM><BR>
+<EM>&gt; behavior can hide nastiness like memory leaks elsewhere in the code.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; In Alpha implementations prior to the 21264, floating point exceptions
+</EM><BR>
+<EM>&gt; were imprecise.  That is, they were not necessarily reported until after
+</EM><BR>
+<EM>&gt; the instruction which may have caused them has been retired.  The trade-off
+</EM><BR>
+<EM>&gt; here is that fp-intensive code which operates with 'normal' values
+</EM><BR>
+<EM>&gt; can really scream.  But fixing up exceptions is going to be more complex,
+</EM><BR>
+<EM>&gt; and will consume a bunch of cycles.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; In the Alpha Architecture Reference Manual, there is a section about
+</EM><BR>
+<EM>&gt; arithmetic traps &amp; trap shadows, etc. which goes into a lot of detail
+</EM><BR>
+<EM>&gt; about the code sequences to fix these up.  One of the requirements of
+</EM><BR>
+<EM>&gt; code to handle such behavior is (on alpha prior to the 21264) to insert
+</EM><BR>
+<EM>&gt; 'trapb' (trap barrier) instructions in lots of places.  The trapb
+</EM><BR>
+<EM>&gt; instruction forces the processor to wait (stalling it!) until all
+</EM><BR>
+<EM>&gt; exceptions have been reported before continuing.  There are also some
+</EM><BR>
+<EM>&gt; rules about register re-use among instructions between trap shadows.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; On the 21264, exceptions are precise, and trapb instructions are
+</EM><BR>
+<EM>&gt; effectively nops, which will significantly improve things (assuming
+</EM><BR>
+<EM>&gt; you eventually get one).
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; The net requirement of -mieee is to generate more conservative code,
+</EM><BR>
+<EM>&gt; and to insert trapb instructions.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; If your code generates lots of exceptions at a small number of locations,
+</EM><BR>
+<EM>&gt; you could put that code into a single file, and only compile that file
+</EM><BR>
+<EM>&gt; with -mieee.  If you really care about floating point performance,
+</EM><BR>
+<EM>&gt; it's probably worth the effort to debug and modify your code to not
+</EM><BR>
+<EM>&gt; do NaN/denorm operations.  You might inadvertently fix some bugs as well.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; I hope this helps some,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;         Rick
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Richard Gorton                  <A HREF="http://www.digital.com/amt">http://www.digital.com/amt</A>
+</EM><BR>
+<EM>&gt; Compaq Computer Corporation     All standard disclaimers apply.
+</EM><BR>
+<EM>&gt; Reply-to: gorton@scrugs.lkg.dec.com
+</EM><BR>
+<P><EM>&gt; I get the same errors on Intel, but the program doesn't stop, and that suits
+</EM><BR>
+<EM>&gt; me very well.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; So I tried to catch the exception with the signal function (signal(SIGFPE,
+</EM><BR>
+<EM>&gt; handler)): the handler function is actually called, but that doesn't prevent
+</EM><BR>
+<EM>&gt; the program from crashing with the same message.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Is there a way to prevent the crash (and if possible, without reducing the
+</EM><BR>
+<EM>&gt; program speed) ?
+</EM><BR>
+<P>You can prevent the crash by compiling with -mieee but with a significant
+<BR>
+performance hit- see above.
+<BR>
+<P>I'm ccing this reply to axp-list@redhat.com, because for some reason that list
+<BR>
+has a much greater population and AFAICT more knowledgable subscribers than any
+<BR>
+other I have found, and because you're using RedHat.
+<BR>
+<P>Zeen,
+<BR>
+<P>-Adam `Cold Fusion' Powell, IV <A HREF="http://www.ctcms.nist.gov/~powell/">http://www.ctcms.nist.gov/~powell/</A> ____
+<BR>
+USDoC, National Institute of Standards &amp; Technology (NIST)  |\ ||&lt;  |
+<BR>
+Center for Theoretical and Computational Materials Science  | \||_&gt; |
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">Brian Candler: "Kernel 2.2.5 and ping problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Jacques Bouchard: "Questions from an Alpha beginner"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0004.html">Jacques Bouchard: "Questions from an Alpha beginner"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0004.html">Adam C. Powell, IV: "Re: Questions from an Alpha beginner"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:39 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

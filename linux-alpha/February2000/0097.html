@@ -1,0 +1,566 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.42 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Manfred Spraul (manfreds@colorfullife.com)">
+<META NAME="Subject" CONTENT="Re: 2.3.42 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.42 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Sat Feb 05 11:14:27 2000" -->
+<!-- isoreceived="20000205191427" -->
+<!-- sent="Sat, 05 Feb 2000 11:57:34 +0100" -->
+<!-- isosent="20000205105734" -->
+<!-- name="Manfred Spraul" -->
+<!-- email="manfreds@colorfullife.com" -->
+<!-- subject="Re: 2.3.42 alpha updates" -->
+<!-- id="389C021E.8729264B@colorfullife.com" -->
+<!-- inreplyto="200002050108.RAA26054@pizda.ninka.net" -->
+<STRONG>Subject: </STRONG>Re: 2.3.42 alpha updates<BR>
+<STRONG>From: </STRONG>Manfred Spraul (<EM>manfreds@colorfullife.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Feb 05 2000 - 02:57:34 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#97">[ date ]</A>
+<A HREF="index.html#97">[ thread ]</A>
+<A HREF="subject.html#97">[ subject ]</A>
+<A HREF="author.html#97">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0098.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0096.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0096.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0098.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0096.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I have a unrelated question about TLB flushes: I think I found a problem
+<BR>
+for architectures that access &quot;current-&gt;active_mm&quot; from the tlb flush
+<BR>
+IPI:
+<BR>
+Between switch_mm() and switch_to(), &quot;current-&gt;active_mm&quot; and the loaded
+<BR>
+mm can differ. 
+<BR>
+<P>i386 was broken, and I sent a patch to Linus last week.
+<BR>
+Could you check if Alpha/Sparc have the same problem?
+<BR>
+<P>It seems that Alpha is broken, because it relies on &quot;current-&gt;active_mm&quot;
+<BR>
+to check if a flush is required.
+<BR>
+<P><PRE>
+--
+	Manfred
+<P></PRE>
+<P>
+// $Header$
+// Kernel Version:
+//  VERSION = 2
+//  PATCHLEVEL = 3
+//  SUBLEVEL = 41
+//  EXTRAVERSION =
+--- 2.3/arch/i386/kernel/smp.c	Fri Jan 21 12:59:23 2000
++++ build-2.3/arch/i386/kernel/smp.c	Fri Jan 28 20:21:46 2000
+@@ -103,8 +103,7 @@
+ /* The 'big kernel lock' */
+ spinlock_t kernel_flag = SPIN_LOCK_UNLOCKED;
+ 
+-volatile unsigned long smp_invalidate_needed; /* immediate flush required */
+-unsigned int cpu_tlbbad[NR_CPUS]; /* flush before returning to user space */
++struct tlb_state cpu_tlbstate[NR_CPUS];
+ 
+ /*
+  * the following functions deal with sending IPIs between CPUs.
+@@ -282,74 +281,140 @@
+ }
+ 
+ /*
+- * This is fraught with deadlocks. Probably the situation is not that
+- * bad as in the early days of SMP, so we might ease some of the
+- * paranoia here.
++ *	Smarter SMP flushing macros. 
++ *		c/o Linus Torvalds.
++ *
++ *	These mean you can really definitely utterly forget about
++ *	writing to user space from interrupts. (Its not allowed anyway).
++ *
++ *	Optimizations Manfred Spraul &lt;manfreds@colorfullife.com&gt;
+  */
+-static void flush_tlb_others(unsigned int cpumask)
++#define TLB_PARANOIA 1
++
++static volatile unsigned long flush_cpumask;
++static struct mm_struct * flush_mm;
++static unsigned long flush_va;
++#define FLUSH_ALL	0xFFFFffff
++
++static void inline leave_mm(unsigned long cpu)
+ {
+-	int cpu = smp_processor_id();
+-	int stuck;
+-	unsigned long flags;
++#ifdef TLB_PARANOIA
++	if(cpu_tlbstate[cpu].state == TLBSTATE_OK)
++		BUG();
++#endif
++	clear_bit(cpu, &amp;cpu_tlbstate[cpu].active_mm-&gt;cpu_vm_mask);
++	cpu_tlbstate[cpu].state = TLBSTATE_OLD;
++}
++
++/*
++ *
++ * The flush IPI assumes that a thread switch happens in this order:
++ * 1) set_bit(cpu, &amp;new_mm-&gt;cpu_vm_mask);
++ * 2) update cpu_tlbstate
++ * [now the cpu can accept tlb flush request for the new mm]
++ * 3) change cr3 (if required, or flush local tlb,...)
++ * 4) clear_bit(cpu, &amp;old_mm-&gt;cpu_vm_mask);
++ * 5) switch %%esp, ie current
++ *
++ * The interrupt must handle 2 special cases:
++ * - cr3 is changed before %%esp, ie. it cannot use current-&gt;{active_,}mm.
++ * - the cpu performs speculative tlb reads, i.e. even if the cpu only
++ *   runs in kernel space, the cpu could load tlb entries for user space
++ *   pages.
++ *
++ * The good news is that cpu_tlbstate is local to each cpu, no
++ * write/read ordering problems.
++ */
++
++/*
++ * TLB flush IPI:
++ *
++ * 1) Flush the tlb entries if the cpu uses the mm that's being flushed.
++ * 2) Leave the mm if we are in the lazy tlb mode.
++ * We cannot call mmdrop() because we are in interrupt context, 
++ * instead update cpu_tlbstate.
++ */
++
++asmlinkage void smp_invalidate_interrupt(void)
++{
++	unsigned long cpu = smp_processor_id();
++
++	if (flush_mm == cpu_tlbstate[cpu].active_mm) {
++		if (cpu_tlbstate[cpu].state == TLBSTATE_OK) {
++			if(flush_va == FLUSH_ALL)
++				local_flush_tlb();
++			 else
++			 	__flush_tlb_one(flush_va);
++		} else {
++			leave_mm(cpu);
++		}
++	}
++	ack_APIC_irq();
++	clear_bit(cpu, &amp;flush_cpumask);
++}
++
++static void flush_tlb_others(unsigned long cpumask, struct mm_struct *mm, unsigned long va)
++{
++#ifdef TLB_PARANOIA
++	if(in_interrupt()) {
++		printk(KERN_EMERG &quot;tlb flush from interrupt: %d,%d&quot;,
++			local_bh_count[smp_processor_id()],
++			local_irq_count[smp_processor_id()]);
++	}
++	if(cpumask &amp; (1&lt;&lt;smp_processor_id())) {
++		printk(KERN_EMERG &quot;flush_tlb_others: bad cpumask!&quot;);
++		cpumask &amp;= ~(1&lt;&lt;smp_processor_id());	
++		local_flush_tlb();
++	}
++	{
++		int flags;
++
++		save_flags(flags);
++		if(flags != 1) {
++static int limit=10;
++			if(limit &gt; 0) {
++				limit--;
++				printk(KERN_EMERG &quot;flush_tlb_others: possible lock-up, broken!(%d)&quot;,
++						flags);
++/*				show_stack(NULL);*/
++			}
++			sti();
++		}
++	}
++#endif
++	cpumask &amp;= cpu_online_map;
+ 
+ 	/*
+ 	 * it's important that we do not generate any APIC traffic
+ 	 * until the AP CPUs have booted up!
+ 	 */
+-	cpumask &amp;= cpu_online_map;
+ 	if (cpumask) {
+-		atomic_set_mask(cpumask, &amp;smp_invalidate_needed);
+-
+-		/*
+-		 * Processors spinning on some lock with IRQs disabled
+-		 * will see this IRQ late. The smp_invalidate_needed
+-		 * map will ensure they don't do a spurious flush tlb
+-		 * or miss one.
+-		 */
+-	
+-		__save_flags(flags);
+-		__cli();
+-
++static spinlock_t lock = SPIN_LOCK_UNLOCKED;
++		spin_lock(&amp;lock);
++		
++		flush_mm = mm;
++		flush_va = va;
++		atomic_set_mask(cpumask, &amp;flush_cpumask);
+ 		send_IPI_allbutself(INVALIDATE_TLB_VECTOR);
+ 
+-		/*
+-		 * Spin waiting for completion
+-		 */
+-
+-		stuck = 50000000;
+-		while (smp_invalidate_needed) {
+-			/*
+-			 * Take care of &quot;crossing&quot; invalidates
++		while (flush_cpumask) {
++			/* FIXME: lockup-detection, print backtrace on
++			 * lock-up
+ 			 */
+-			if (test_bit(cpu, &amp;smp_invalidate_needed))
+-				do_flush_tlb_local();
+-
+-			--stuck;
+-			if (!stuck) {
+-				printk(&quot;stuck on TLB IPI wait (CPU#%d)\n&quot;,cpu);
+-				break;
+-			}
+ 		}
+-		__restore_flags(flags);
++		flush_mm = flush_va = 0;
++		spin_unlock(&amp;lock);
+ 	}
+ }
+-
+-/*
+- *	Smarter SMP flushing macros. 
+- *		c/o Linus Torvalds.
+- *
+- *	These mean you can really definitely utterly forget about
+- *	writing to user space from interrupts. (Its not allowed anyway).
+- */	
++	
+ void flush_tlb_current_task(void)
+ {
+ 	unsigned long vm_mask = 1 &lt;&lt; smp_processor_id();
+ 	struct mm_struct *mm = current-&gt;mm;
+ 	unsigned long cpu_mask = mm-&gt;cpu_vm_mask &amp; ~vm_mask;
+ 
+-	mm-&gt;cpu_vm_mask = vm_mask;
+-	flush_tlb_others(cpu_mask);
+ 	local_flush_tlb();
++	flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
+ }
+ 
+ void flush_tlb_mm(struct mm_struct * mm)
+@@ -357,12 +422,14 @@
+ 	unsigned long vm_mask = 1 &lt;&lt; smp_processor_id();
+ 	unsigned long cpu_mask = mm-&gt;cpu_vm_mask &amp; ~vm_mask;
+ 
+-	mm-&gt;cpu_vm_mask = 0;
+ 	if (current-&gt;active_mm == mm) {
+-		mm-&gt;cpu_vm_mask = vm_mask;
+-		local_flush_tlb();
++		if(current-&gt;mm)
++			local_flush_tlb();
++		 else
++			leave_mm(smp_processor_id());
+ 	}
+-	flush_tlb_others(cpu_mask);
++		
++	flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
+ }
+ 
+ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
+@@ -371,23 +438,22 @@
+ 	struct mm_struct *mm = vma-&gt;vm_mm;
+ 	unsigned long cpu_mask = mm-&gt;cpu_vm_mask &amp; ~vm_mask;
+ 
+-	mm-&gt;cpu_vm_mask = 0;
+ 	if (current-&gt;active_mm == mm) {
+-		__flush_tlb_one(va);
+-		mm-&gt;cpu_vm_mask = vm_mask;
++		if(current-&gt;mm)
++			__flush_tlb_one(va);
++		 else
++		 	leave_mm(smp_processor_id());
+ 	}
+-	flush_tlb_others(cpu_mask);
++
++	flush_tlb_others(cpu_mask, mm, va);
+ }
+ 
+ static inline void do_flush_tlb_all_local(void)
+ {
++	unsigned long cpu = smp_processor_id();
+ 	__flush_tlb_all();
+-	if (!current-&gt;mm &amp;&amp; current-&gt;active_mm) {
+-		unsigned long cpu = smp_processor_id();
+-
+-		clear_bit(cpu, &amp;current-&gt;active_mm-&gt;cpu_vm_mask);
+-		cpu_tlbbad[cpu] = 1;
+-	}
++	if (cpu_tlbstate[cpu].state == TLBSTATE_LAZY)
++		leave_mm(cpu);
+ }
+ 
+ static void flush_tlb_all_ipi(void* info)
+@@ -512,23 +578,6 @@
+ asmlinkage void smp_reschedule_interrupt(void)
+ {
+ 	ack_APIC_irq();
+-}
+-
+-/*
+- * Invalidate call-back.
+- *
+- * Mark the CPU as a VM user if there is a active
+- * thread holding on to an mm at this time. This
+- * allows us to optimize CPU cross-calls even in the
+- * presense of lazy TLB handling.
+- */
+-asmlinkage void smp_invalidate_interrupt(void)
+-{
+-	if (test_bit(smp_processor_id(), &amp;smp_invalidate_needed))
+-		do_flush_tlb_local();
+-
+-	ack_APIC_irq();
+-
+ }
+ 
+ asmlinkage void smp_call_function_interrupt(void)
+--- 2.3/arch/i386/kernel/setup.c	Fri Jan 21 12:59:23 2000
++++ build-2.3/arch/i386/kernel/setup.c	Fri Jan 28 20:53:14 2000
+@@ -75,7 +75,7 @@
+ #include &lt;asm/e820.h&gt;
+ #include &lt;asm/dma.h&gt;
+ #include &lt;asm/mpspec.h&gt;
+-
++#include &lt;asm/mmu_context.h&gt;
+ /*
+  * Machine setup..
+  */
+@@ -1543,6 +1543,10 @@
+ 	 */
+ 	atomic_inc(&amp;init_mm.mm_count);
+ 	current-&gt;active_mm = &amp;init_mm;
++	if(current-&gt;mm)
++		BUG();
++	enter_lazy_tlb(&amp;init_mm, current, nr);
++
+ 	t-&gt;esp0 = current-&gt;thread.esp0;
+ 	set_tss_desc(nr,t);
+ 	gdt_table[__TSS(nr)].b &amp;= 0xfffffdff;
+--- 2.3/arch/i386/kernel/irq.c	Fri Jan 21 12:59:23 2000
++++ build-2.3/arch/i386/kernel/irq.c	Fri Jan 28 20:21:46 2000
+@@ -192,20 +192,6 @@
+ atomic_t global_bh_count;
+ atomic_t global_bh_lock;
+ 
+-/*
+- * &quot;global_cli()&quot; is a special case, in that it can hold the
+- * interrupts disabled for a longish time, and also because
+- * we may be doing TLB invalidates when holding the global
+- * IRQ lock for historical reasons. Thus we may need to check
+- * SMP invalidate events specially by hand here (but not in
+- * any normal spinlocks)
+- */
+-static inline void check_smp_invalidate(int cpu)
+-{
+-	if (test_bit(cpu, &amp;smp_invalidate_needed))
+-		do_flush_tlb_local();
+-}
+-
+ static void show(char * str)
+ {
+ 	int i;
+@@ -294,7 +280,6 @@
+ 			__sti();
+ 			SYNC_OTHER_CORES(cpu);
+ 			__cli();
+-			check_smp_invalidate(cpu);
+ 			if (atomic_read(&amp;global_irq_count))
+ 				continue;
+ 			if (global_irq_lock)
+@@ -346,7 +331,6 @@
+ 		/* Uhhuh.. Somebody else got it. Wait.. */
+ 		do {
+ 			do {
+-				check_smp_invalidate(cpu);
+ 			} while (test_bit(0,&amp;global_irq_lock));
+ 		} while (test_and_set_bit(0,&amp;global_irq_lock));		
+ 	}
+--- 2.3/kernel/sched.c	Fri Jan 21 12:59:26 2000
++++ build-2.3/kernel/sched.c	Fri Jan 28 20:52:50 2000
+@@ -581,6 +581,7 @@
+ 			if (next-&gt;active_mm) BUG();
+ 			next-&gt;active_mm = oldmm;
+ 			atomic_inc(&amp;oldmm-&gt;mm_count);
++			enter_lazy_tlb(oldmm, next, this_cpu);
+ 		} else {
+ 			if (next-&gt;active_mm != mm) BUG();
+ 			switch_mm(oldmm, mm, next, this_cpu);
+@@ -1184,5 +1185,6 @@
+ 	 * The boot idle thread does lazy MMU switching as well:
+ 	 */
+ 	atomic_inc(&amp;init_mm.mm_count);
++	enter_lazy_tlb(&amp;init_mm, current, cpu);
+ }
+ 
+--- 2.3/kernel/exit.c	Tue Dec  7 10:43:36 1999
++++ build-2.3/kernel/exit.c	Fri Jan 28 20:21:47 2000
+@@ -247,6 +247,7 @@
+ 	current-&gt;mm = NULL;
+ 	/* active_mm is still 'mm' */
+ 	atomic_inc(&amp;mm-&gt;mm_count);
++	enter_lazy_tlb(mm, current, smp_processor_id());
+ 	return mm;
+ }
+ 
+@@ -275,6 +276,7 @@
+ 		mm_release();
+ 		if (mm != tsk-&gt;active_mm) BUG();
+ 		tsk-&gt;mm = NULL;
++		enter_lazy_tlb(mm, current, smp_processor_id());
+ 		mmput(mm);
+ 	}
+ }
+--- 2.3/include/asm-i386/pgalloc.h	Fri Jan 21 12:59:26 2000
++++ build-2.3/include/asm-i386/pgalloc.h	Fri Jan 28 20:21:47 2000
+@@ -220,11 +220,6 @@
+ 
+ #else
+ 
+-/*
+- * We aren't very clever about this yet -  SMP could certainly
+- * avoid some global flushes..
+- */
+-
+ #include &lt;asm/smp.h&gt;
+ 
+ #define local_flush_tlb() \
+@@ -242,22 +237,17 @@
+ 	flush_tlb_mm(mm);
+ }
+ 
+-extern volatile unsigned long smp_invalidate_needed;
+-extern unsigned int cpu_tlbbad[NR_CPUS];
++#define TLBSTATE_OK	1
++#define TLBSTATE_LAZY	2
++#define TLBSTATE_OLD	3
+ 
+-static inline void do_flush_tlb_local(void)
++struct tlb_state
+ {
+-	unsigned long cpu = smp_processor_id();
+-	struct mm_struct *mm = current-&gt;mm;
++	struct mm_struct *active_mm;
++	int state;
++};
++extern struct tlb_state cpu_tlbstate[NR_CPUS];
+ 
+-	clear_bit(cpu, &amp;smp_invalidate_needed);
+-	if (mm) {
+-		set_bit(cpu, &amp;mm-&gt;cpu_vm_mask);
+-		local_flush_tlb();
+-	} else {
+-		cpu_tlbbad[cpu] = 1;
+-	}
+-}
+ 
+ #endif
+ 
+--- 2.3/include/asm-i386/mmu_context.h	Tue Dec  7 10:49:04 1999
++++ build-2.3/include/asm-i386/mmu_context.h	Fri Jan 28 20:51:12 2000
+@@ -12,30 +12,46 @@
+ #define init_new_context(tsk,mm)	do { } while (0)
+ 
+ #ifdef __SMP__
+-extern unsigned int cpu_tlbbad[NR_CPUS];
++
++static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
++{
++	if(cpu_tlbstate[cpu].state == TLBSTATE_OK)
++		cpu_tlbstate[cpu].state = TLBSTATE_LAZY;	
++}
++#else
++static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
++{
++}
+ #endif
+ 
+ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next, struct task_struct *tsk, unsigned cpu)
+ {
++	set_bit(cpu, &amp;next-&gt;cpu_vm_mask);
+ 	if (prev != next) {
+ 		/*
+ 		 * Re-load LDT if necessary
+ 		 */
+ 		if (prev-&gt;segments != next-&gt;segments)
+ 			load_LDT(next);
+-
++#ifdef CONFIG_SMP
++		cpu_tlbstate[cpu].state = TLBSTATE_OK;
++		cpu_tlbstate[cpu].active_mm = next;
++#endif
+ 		/* Re-load page tables */
+ 		asm volatile(&quot;movl %0,%%cr3&quot;: :&quot;r&quot; (__pa(next-&gt;pgd)));
+ 		clear_bit(cpu, &amp;prev-&gt;cpu_vm_mask);
+ 	}
+ #ifdef __SMP__
+ 	else {
+-		if(cpu_tlbbad[cpu])
++		int old_state = cpu_tlbstate[cpu].state;
++		cpu_tlbstate[cpu].state = TLBSTATE_OK;
++		if(cpu_tlbstate[cpu].active_mm != next)
++			BUG();
++		if(old_state == TLBSTATE_OLD)
+ 			local_flush_tlb();
+ 	}
+-	cpu_tlbbad[cpu] = 0;
++
+ #endif
+-	set_bit(cpu, &amp;next-&gt;cpu_vm_mask);
+ }
+ 
+ #define activate_mm(prev, next) \
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0098.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0096.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0096.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0098.html">David S. Miller: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0096.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:27 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

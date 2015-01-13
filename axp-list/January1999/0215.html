@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Alpha: 2.2.0-pre4-ac1 ok but ATAPI CD not quite</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Alpha: 2.2.0-pre4-ac1 ok but ATAPI CD not quite">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Alpha: 2.2.0-pre4-ac1 ok but ATAPI CD not quite</H1>
+<HR>
+<P>
+<!-- received="Mon Jan 04 09:02:02 1999 PST" -->
+<!-- sent="Mon, 4 Jan 1999 02:00:52 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Alpha: 2.2.0-pre4-ac1 ok but ATAPI CD not quite" -->
+<!-- id="199901040900.CAA22193@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20Alpha:%202.2.0-pre4-ac1%20ok%20but%20ATAPI%20CD%20not%20quite"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Mon, 4 Jan 1999 02:00:52 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#215">[ date ]</A>
+<A HREF="index.html#215">[ thread ]</A>
+<A HREF="subject.html#215">[ subject ]</A>
+<A HREF="author.html#215">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0216.html">Arsene Gschwind: "Re: 2 SCSI Controllers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0214.html">Arsene Gschwind: "Re: 2 SCSI Controllers"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here are results of tests of 2.2.0-pre4-ac1 on two different types,
+<BR>
+UX (a.k.a. Ruffian) and EB64+, of Alpha.  The following patch is
+<BR>
+required for a succesful compilation:
+<BR>
+<P>--- linux-2.2.0-pre4/ipc/util.c~	Sun Jan  3 19:26:46 1999
+<BR>
++++ linux-2.2.0-pre4/ipc/util.c	Sun Jan  3 19:51:02 1999
+<BR>
+@@ -13,8 +13,10 @@
+<BR>
+&nbsp;#include &lt;linux/shm.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/msg.h&gt;
+<BR>
+-#include &lt;asm/ipc.h&gt;
+<BR>
+&nbsp;#include &lt;asm/uaccess.h&gt;
+<BR>
++#ifndef __alpha__
+<BR>
++#include &lt;asm/ipc.h&gt;
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined(CONFIG_SYSVIPC)
+<BR>
+&nbsp;
+<BR>
+as the header in question does not exist on Alpha.
+<BR>
+<P>After this fix on each machine both &quot;platform specific&quot; and &quot;generic&quot;
+<BR>
+kernels compiled and booted.  Compiler used on UX was egcs-1.1.1, with
+<BR>
+a fix to 'collect.c'; on EB64+ egcs-2.92.33 19981226 (gcc2 ss-980609
+<BR>
+experimental).
+<BR>
+<P>There is, though, one weird problem.  EB64+ has disks on SCSI
+<BR>
+controller (ncr53c875) but ATAPI CD-ROM.  When I am booting
+<BR>
+&quot;generic Alpha&quot; kernel this CD is identified like this:
+<BR>
+<P>hda: NEC CD-ROM DRIVE:284, ATAPI CDROM drive
+<BR>
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 14
+<BR>
+hda: ATAPI 8X CDROM drive, 128kB Cache
+<BR>
+Uniform CDROM driver Revision: 2.51
+<BR>
+<P>and CDs are accesible as expected.  With identically configured
+<BR>
+kernel where only &quot;generic&quot; board type was replaced with &quot;eb64+&quot;
+<BR>
+I see:
+<BR>
+<P>hda: NEC CD-ROM DRIVE:284, ATAPI CDROM drive
+<BR>
+ide0: UNABLE TO GET IRQ -14
+<BR>
+hda: ERROR, PORTS ALREADY IN USE
+<BR>
+<P>and the device is dead.  Both results are consistent through
+<BR>
+many attempts to boot.  I do not have comparison with UX as
+<BR>
+there is no hooked up CD on this box at the moment. :-(
+<BR>
+<P>I should add that with all 2.0.x series kernels I get this
+<BR>
+on eb64+ machine:
+<BR>
+<P>hda: IRQ probe failed (-14)
+<BR>
+hda: IRQ probe failed (-14)
+<BR>
+hda: NEC CD-ROM DRIVE:284, ATAPI CDROM drive
+<BR>
+hda: IRQ probe failed (-14)
+<BR>
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 14
+<BR>
+<P>always in the same order; i.e. IRQ probe fails in 75% of cases but
+<BR>
+CD drive works. :-)
+<BR>
+<P>Floppy is also detected in somewhat weird manner (2.88M is bogus
+<BR>
+as this info is really not available on Alpha):
+<BR>
+<P>Floppy drive(s): fd0 is 2.88M
+<BR>
+DOR0=4
+<BR>
+floppy interrupt on bizarre fdc 1
+<BR>
+handler=0000000000000000
+<BR>
+FDC 0 is a National Semiconductor PC87306
+<BR>
+<P>whereas in 2.0.x kernels this simply looks like this:
+<BR>
+<P>Floppy drive(s): fd0 is 2.88M
+<BR>
+FDC 0 is a National Semiconductor PC87306
+<BR>
+<P>but that drive works. :-)
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:michal@harddata.com?subject=Re:%20Alpha:%202.2.0-pre4-ac1%20ok%20but%20ATAPI%20CD%20not%20quite">michal@harddata.com</A>
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20Alpha:%202.2.0-pre4-ac1%20ok%20but%20ATAPI%20CD%20not%20quite">michal@ellpspace.math.ualberta.ca</A>
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Alpha:%202.2.0-pre4-ac1%20ok%20but%20ATAPI%20CD%20not%20quite">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Alpha:%202.2.0-pre4-ac1%20ok%20but%20ATAPI%20CD%20not%20quite">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0216.html">Arsene Gschwind: "Re: 2 SCSI Controllers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0214.html">Arsene Gschwind: "Re: 2 SCSI Controllers"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:46 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

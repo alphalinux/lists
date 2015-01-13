@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>AXP-List Hypermail Archive: Re: Assembly errors with lockmeter</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: Assembly errors with lockmeter">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Assembly errors with lockmeter</H1>
+<HR>
+<P>
+<!-- received="Sun Nov  7 15:59:56 1999" -->
+<!-- isoreceived="19991108005956" -->
+<!-- sent="Sun, 7 Nov 1999 16:47:13 -0800" -->
+<!-- isosent="19991108004713" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: Assembly errors with lockmeter" -->
+<!-- id="19991107164713.A7248@twiddle.net" -->
+<!-- inreplyto="381F4C6B.E64E925D@zk3.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Assembly errors with lockmeter<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Nov 07 1999 - 15:47:13 AKST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#295">[ date ]</A>
+<A HREF="index.html#295">[ thread ]</A>
+<A HREF="subject.html#295">[ subject ]</A>
+<A HREF="author.html#295">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0296.html">Richard Henderson: "Re: Boot failure on AS2100"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0294.html">Praveen Srinivasan: "SB 16 Midi"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0073.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0303.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0073.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0295.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+</PRE>
+<P>
+On Tue, Nov 02, 1999 at 08:41:15PM +0000, Peter Rival wrote:
+<BR>
+<EM>&gt;         mb
+</EM><BR>
+<EM>&gt; .section .text2,&quot;ax&quot;
+</EM><BR>
+<EM>&gt; 6:
+</EM><BR>
+<EM>&gt; .previous
+</EM><BR>
+<EM>&gt;         addl $1,$31,$1    &lt;-- Line 655
+</EM><BR>
+<P>This fixes it.  I do wonder what exactly you're doing with
+<BR>
+labels in sections with no code attached to them...
+<BR>
+<P><P>r~
+<BR>
+<P><P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* config/tc-alpha.c (alpha_align): Check, don't assert, that
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the previous label was in the current section before playing
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;with auto-alignment.
+<BR>
+<P>Index: gas/config/tc-alpha.c
+<BR>
+===================================================================
+<BR>
+RCS file: /cvs/binutils/binutils/gas/config/tc-alpha.c,v
+<BR>
+retrieving revision 1.6
+<BR>
+diff -c -p -d -r1.6 tc-alpha.c
+<BR>
+*** tc-alpha.c	1999/10/18 22:29:14	1.6
+<BR>
+--- tc-alpha.c	1999/11/08 00:42:40
+<BR>
+*************** alpha_align (n, pfill, label, force)
+<BR>
+*** 4756,4769 ****
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;alpha_current_align = n;
+<BR>
+&nbsp;&nbsp;
+<BR>
+!   if (label != NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-       assert (S_GET_SEGMENT (label) == now_seg);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;symbol_set_frag (label, frag_now);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S_SET_VALUE (label, (valueT) frag_now_fix ());
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+!   record_alignment(now_seg, n);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;/* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp; elf, record the requested alignment
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in a reloc for the linker to see.  */
+<BR>
+--- 4756,4768 ----
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;alpha_current_align = n;
+<BR>
+&nbsp;&nbsp;
+<BR>
+!   if (label != NULL &amp;&amp; S_GET_SEGMENT (label) == now_seg)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;symbol_set_frag (label, frag_now);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S_SET_VALUE (label, (valueT) frag_now_fix ());
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+!   record_alignment (now_seg, n);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;/* ??? if alpha_flag_relax &amp;&amp; force &amp;&amp; elf, record the requested alignment
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in a reloc for the linker to see.  */
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0296.html">Richard Henderson: "Re: Boot failure on AS2100"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0294.html">Praveen Srinivasan: "SB 16 Midi"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0073.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0303.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0073.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0295.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a23</A> 
+: <EM>Sun Nov 07 1999 - 15:59:56 AKST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,152 @@
+<!-- received="Thu Mar 20 21:37:35 1997 " -->
+<!-- sent="Thu, 20 Mar 1997 21:34:03 -0500 (EST)" -->
+<!-- name="Alvin Starr" -->
+<!-- email="alvin@iplink.net" -->
+<!-- subject="perl for RH4.1" -->
+<!-- id="3331DBC4.4487@agapesystems.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>perl for RH4.1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>perl for RH4.1</h2>
+
+<b>Alvin Starr</b> (<a href="mailto:alvin@iplink.net"><i>alvin@iplink.net</i></a>)<br>
+<i>Thu, 20 Mar 1997 21:34:03 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#599">[ date ]</a><a href="index.html#599">[ thread ]</a><a href="subject.html#599">[ subject ]</a><a href="author.html#599">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0600.html">Bryan Liles: "mem= option"</a>
+<li> <b>Previous message:</b> <a href="0598.html">Alvin Starr: "Unidentified subject!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Perl on RH4.1 was compiled with a library that did not include the crypt <br>
+function. In the process of getting the SRPM and recompiling it I found <br>
+that I had to modify the spec file.<br>
+<p>
+The following is for those folks at RedHat. <br>
+<p>
+Description: Practical Extraction and Report Language<br>
+Name: perl<br>
+Version: 5.003<br>
+Release: 7<br>
+Copyright: GPL<br>
+Group: Utilities/Text<br>
+Source: <a href="ftp://ftp.funet.fi/pub/languages/perl/CPAN/src/5.0/perl5.003.tar.gz">ftp://ftp.funet.fi/pub/languages/perl/CPAN/src/5.0/perl5.003.tar.gz</a><br>
+<p>
+%prep<br>
+%setup -n perl5.003<br>
+<p>
+%build<br>
+<p>
+# Perl doesn't find dlopen() in /lib/libdl.so, so we have to force it to.<br>
+<p>
+%ifarch i386<br>
+sh Configure -des -Dprefix=/usr -Darchlib=/usr/lib/perl5/i386-linux/5.003 -Dd_dosuid<br>
+%endif<br>
+%ifarch sparc<br>
+sh Configure -des -Dprefix=/usr -Darchlib=/usr/lib/perl5/sparc-linux/5.003 -Dd_dosuid<br>
+%endif<br>
+%ifarch alpha<br>
+sh Configure -des -Dprefix=/usr -Darchlib=/usr/lib/perl5/alpha-linux/5.003 -Dd_dosuid -Ud_setruid -Ud_setrgid<br>
+%endif<br>
+%ifarch m68k<br>
+sh Configure -des -Dprefix=/usr -Darchlib=/usr/lib/perl5/m68k-linux/5.003 <br>
+-Dd_dosuid<br>
+%endif<br>
+<p>
+make<br>
+<p>
+# Strip binaries (done now rather than at install)<br>
+strip perl<br>
+strip suidperl<br>
+strip x2p/a2p<br>
+<p>
+%install<br>
+<p>
+rm -rf /usr/lib/perl5<br>
+make install<br>
+install -m 755 utils/pl2pm /usr/bin/pl2pm<br>
+#install -s -m 6755 suidperl /usr/bin/suidperl<br>
+(cd /usr/include ; h2ph *.h sys/*.h linux/*.h asm/*.h)<br>
+<p>
+# Fix the header file that declares NULL...<br>
+%ifarch i386<br>
+sed 's/( \&amp;void \*) //' \<br>
+/usr/lib/perl5/i386-linux/5.003/linux/posix_types.ph &gt; /tmp/$$.change<br>
+mv -f /tmp/$$.change /usr/lib/perl5/i386-linux/5.003/linux/posix_types.ph<br>
+%endif<br>
+%ifarch alpha<br>
+sed 's/( \&amp;void \*) //' \<br>
+/usr/lib/perl5/alpha-linux/5.003/linux/posix_types.ph &gt; /tmp/$$.change<br>
+mv -f /tmp/$$.change /usr/lib/perl5/alpha-linux/5.003/linux/posix_types.ph<br>
+%endif<br>
+%ifarch sparc<br>
+sed 's/( \&amp;void \*) //' \<br>
+/usr/lib/perl5/sparc-linux/5.003/linux/posix_types.ph &gt; /tmp/$$.change<br>
+mv -f /tmp/$$.change /usr/lib/perl5/sparc-linux/5.003/linux/posix_types.ph<br>
+%endif<br>
+<p>
+%files<br>
+/usr/bin/sperl5.003<br>
+/usr/bin/perl5.003<br>
+/usr/bin/suidperl<br>
+/usr/bin/perl<br>
+/usr/bin/a2p<br>
+/usr/bin/c2ph<br>
+/usr/bin/pstruct<br>
+/usr/bin/s2p<br>
+/usr/bin/find2perl<br>
+/usr/bin/h2xs<br>
+/usr/bin/h2ph<br>
+/usr/bin/pl2pm<br>
+/usr/bin/perldoc<br>
+/usr/bin/pod2man<br>
+/usr/bin/pod2html<br>
+/usr/bin/pod2latex<br>
+/usr/lib/perl5<br>
+/usr/man/man1/a2p.1<br>
+/usr/man/man1/s2p.1<br>
+/usr/man/man1/perl*.1<br>
+<p>
+<p>
+<p>
+Alvin Starr                   ||   voice: (416)493-3325<br>
+Interlink Connectivity        ||   fax:   (416)493-7974<br>
+<a href="mailto:alvin@iplink.net">alvin@iplink.net</a>              ||<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0600.html">Bryan Liles: "mem= option"</a>
+<li> <b>Previous message:</b> <a href="0598.html">Alvin Starr: "Unidentified subject!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,138 @@
+<!-- received="Wed Sep 24 05:06:07 1997 " -->
+<!-- sent="Wed, 24 Sep 1997 15:05:21 +0200" -->
+<!-- name="Harvey J. Stein" -->
+<!-- email="abel@netvision.net.il" -->
+<!-- subject="messy include files - pid_t undefined?" -->
+<!-- id="199709241305.PAA04758@blinky.bfr.co.il" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>messy include files - pid_t undefined?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>messy include files - pid_t undefined?</h2>
+
+<b>Harvey J. Stein</b> (<a href="mailto:abel@netvision.net.il"><i>abel@netvision.net.il</i></a>)<br>
+<i>Wed, 24 Sep 1997 15:05:21 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#461">[ date ]</a><a href="index.html#461">[ thread ]</a><a href="subject.html#461">[ subject ]</a><a href="author.html#461">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0462.html">Tim Sullivan: "Re: kernel configuration on UDB (for use of em86)"</a>
+<li> <b>Previous message:</b> <a href="0460.html">Roman Martonak: "Re: kernel configuration on UDB (for use of em86)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0463.html">Ronny Ranerup: "Re: messy include files - pid_t undefined?"</a>
+<li> <b>Maybe reply:</b> <a href="0463.html">Ronny Ranerup: "Re: messy include files - pid_t undefined?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+It seems that pid_t is undefined by default on linux/axp, even though<br>
+the man pages say it should be defined in unistd.h:<br>
+<p>
+   hjstein@randy:~$ uname -a<br>
+   Linux randy.bloomberg.com 2.0.30 #1 Tue Apr 22 16:32:38 EDT 1997 alpha unknown<br>
+   hjstein@randy:~$ cat ppid_test.c<br>
+   #include &lt;unistd.h&gt;<br>
+<p>
+   foo (void) {<br>
+       pid_t n;<br>
+   }<br>
+   hjstein@randy:~$  gcc -c -o ppid_test.o ppid_test.c <br>
+   ppid_test.c: In function `foo':<br>
+   ppid_test.c:4: `pid_t' undeclared (first use this function)<br>
+   ppid_test.c:4: (Each undeclared identifier is reported only once<br>
+   ppid_test.c:4: for each function it appears in.)<br>
+   ppid_test.c:4: parse error before `n'<br>
+<p>
+Compare this to linux/intel:<br>
+<p>
+   hjstein@blinky:~$ uname -a<br>
+   Linux blinky 2.0.30 #1 Thu Jul 10 18:38:08 IDT 1997 i586<br>
+   hjstein@blinky:~$ gcc -c -o ppid_test.o ppid_test.c<br>
+<p>
+Eventually, I discovered pid_t declared in /usr/include/linux/types.h,<br>
+but wrapped with an #ifndef __KERNEL_STRICT_NAMES/#endif.<br>
+<p>
+I then found that on the alpha, __KERNEL_STRICT_NAMES is defined in<br>
+/usr/include/features.h, but is not defined anywhere in the<br>
+linux/intel headers.<br>
+<p>
+It says in /usr/include/features.h on the alpha that:<br>
+<p>
+<p>
+   #undef  __KERNEL_STRICT_NAMES<br>
+<p>
+   /* Suppress kernel-name space pollution unless user expressedly asks<br>
+      for it.  */<br>
+   #ifndef _LOOSE_KERNEL_NAMES<br>
+   # define __KERNEL_STRICT_NAMES<br>
+   #endif<br>
+<p>
+However, if I define _LOOSE_KERNEL_NAMES then although the above<br>
+compiles, it still gives a warning:<br>
+<p>
+   hjstein@randy:~$ gcc -D_LOOSE_KERNEL_NAMES -c -o ppid_test.o ppid_test.c <br>
+   In file included from ppid_test.c:1:<br>
+   /usr/include/unistd.h:151: warning: redefinition of `ssize_t'<br>
+   /usr/include/linux/types.h:35: warning: `ssize_t' previously declared here<br>
+<p>
+Finally, if I add #include &lt;sys/types.h&gt; to the top of the code (as<br>
+Donald Lewine's POSIX Programmer's Guide indicates is needed), the<br>
+code compiles without problem *without* -D_LOOSE_KERNEL_NAMES, and<br>
+causes *many* warnings when compiled *with* -D_LOOSE_KERNEL_NAMES.<br>
+<p>
+Of course, the alpha box is using glibc-0.961212, and the intel box is<br>
+using libc-5.3.12.  So evidently there is a bug either in the glibc<br>
+headers, or the libc headers &amp; the man pages.<br>
+<p>
+So, which is it &amp; who should I email about it?  Is there someone on<br>
+this list looking into/fixing such things, or should I email a glibc<br>
+mailing list or the linux libc mailing list or a particular person or<br>
+...?<br>
+<p>
+In general I've been seeing various warnings from the standard header<br>
+files when compiling on the alpha.  Again, are they being fixed, or<br>
+should I email this list, or some other list, or someone in particular<br>
+with the ones I've seen?<br>
+<p>
+Thanks,<br>
+<p>
+<pre>
+-- 
+Harvey J. Stein
+Berger Financial Research
+<a href="mailto:hjstein@bfr.co.il">hjstein@bfr.co.il</a>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0462.html">Tim Sullivan: "Re: kernel configuration on UDB (for use of em86)"</a>
+<li> <b>Previous message:</b> <a href="0460.html">Roman Martonak: "Re: kernel configuration on UDB (for use of em86)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0463.html">Ronny Ranerup: "Re: messy include files - pid_t undefined?"</a>
+<li> <b>Maybe reply:</b> <a href="0463.html">Ronny Ranerup: "Re: messy include files - pid_t undefined?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

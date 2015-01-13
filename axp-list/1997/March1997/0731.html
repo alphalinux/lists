@@ -1,0 +1,292 @@
+<!-- received="Tue Mar 25 20:55:46 1997 " -->
+<!-- sent="Tue, 25 Mar 1997 20:50:51 -0500 (EST)" -->
+<!-- name="Jim Nance" -->
+<!-- email="jlnance@avanticorp.com" -->
+<!-- subject="Re: Problems with POV and related question." -->
+<!-- id="9703260150.AA25873@halfpint.rtp.avanticorp.com" -->
+<!-- inreplyto="Pine.LNX.3.93.970325174153.1905A-100000@Toy" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Problems with POV and related question.</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Problems with POV and related question.</h2>
+
+<b>Jim Nance</b> (<a href="mailto:jlnance@avanticorp.com"><i>jlnance@avanticorp.com</i></a>)<br>
+<i>Tue, 25 Mar 1997 20:50:51 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#731">[ date ]</a><a href="index.html#731">[ thread ]</a><a href="subject.html#731">[ subject ]</a><a href="author.html#731">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0732.html">Randall Shutt: "Re: UDB clock woes... (Its 2017) (no, not the usual)"</a>
+<li> <b>Previous message:</b> <a href="0730.html">Michal Jaegermann: "Re: Linux/Alpha vs Linux/Intel..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0735.html">Matthew X. Economou: "Re: Problems with POV and related question."</a>
+<li> <b>Reply:</b> <a href="0735.html">Matthew X. Economou: "Re: Problems with POV and related question."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Glad you'll be having a look at it, Jim.  Line 84, eh?</i><br>
+<i>&gt; Interesting.  Most of the time, it seems to crash between</i><br>
+<i>&gt; line 350 and 400.  Anyway, the error itself is the same, the</i><br>
+<i>&gt; floating point exception.  </i><br>
+<i>&gt; </i><br>
+<i>&gt; Good luck.  </i><br>
+<p>
+Well, it looks like I will be needing it.  I have made a few discoveries.<br>
+First, if I compile the code with -g it runs fine.  I can debug optimized<br>
+executables, but only in a limited fashion.  I have tried using the -taso<br>
+flag, and it makes no difference.  This means its not a 32/64 bit issue.<br>
+I also tried using the -scope_safe -ieee flags to get ieee compliant math<br>
+like most other platforms provide.  That did not help either.  Depending<br>
+on how I compile, I get an FPE on line 1590 or 1592 of the following code.<br>
+Dont take that too literally, with optimized code you get the FPE at some<br>
+point after it actually happens.  All the Finish-&gt;* fields look good,<br>
+but Finish-&gt;Phong_Size==80 which may be causing an overflow.<br>
+Unfortunatly I can not print out Cos_Angle_Of_Incidence as the compiler<br>
+seems to have removed it.<br>
+<p>
+(ladebug) w<br>
+   1587<br>
+   1588   if (Cos_Angle_Of_Incidence &gt; 0.0)<br>
+   1589   {<br>
+   1590     Intensity = Finish-&gt;Phong * pow(Cos_Angle_Of_Incidence, Finish-&gt;Phong_Size);<br>
+   1591<br>
+<i>&gt;  1592     if (Finish-&gt;Metallic &gt; 0.0)</i><br>
+   1593     {<br>
+   1594       /*<br>
+   1595        * Calculate the reflected color by interpolating between<br>
+   1596        * the light source color and the surface color according<br>
+<p>
+Also, here is a output of third degree, a Purify-like tool.  It does not<br>
+help find this FPE, but it may be of interst to someone.  I will keep looking<br>
+at this, but I will be out of town for a few days, so I thought I would<br>
+post what I found.<br>
+<p>
+Thanks,<br>
+<p>
+Jim<br>
+<p>
+<p>
+Third Degree version 4.2<br>
+povray.third run by jlnance on halfpint.rtp.avanticorp.com, Tue Mar 25 16:33:29 1997<br>
+<p>
+//////////////  begin /afs/rtp/users/jlnance/.third  ///////////////////<br>
+-----------------------------------------------<br>
+no leaks at_exit<br>
+-----------------------------------------------<br>
+//////////////   end /afs/rtp/users/jlnance/.third   ///////////////////<br>
+<p>
+---------------------------------------------------------------- rus -- 0 --<br>
+../userio.c: 64: reading uninitialized stack at byte 467 of 1888 in frame of _doprnt<br>
+    memcpy                         povray<br>
+    _doprnt                        povray<br>
+    vsprintf                       povray<br>
+    Banner                         povray, userio.c, line 64<br>
+    Print_Credits                  povray, optout.c, line 499<br>
+    main                           povray, povray.c, line 228<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- rus -- 1 --<br>
+../povray.c: 1806: reading uninitialized stack at byte 432 of 704 in frame of Locate_File<br>
+    strcpy                         povray<br>
+    Locate_File                    povray, povray.c, line 1806<br>
+    parse_ini_file                 povray, optin.c, line 2049<br>
+    main                           povray, povray.c, line 250<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- ruh -- 2 --<br>
+../tokenize.c: 636: reading uninitialized heap at byte 24 of 28-byte block<br>
+    strcpy                         povray<br>
+    Initialize_Tokenizer           povray, tokenize.c, line 636<br>
+    Parse                          povray, parse.c, line 177<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+This block at address 0x140027bd0 was allocated at:<br>
+    malloc                         povray<br>
+    pov_malloc                     povray, mem.c, line 328<br>
+    Initialize_Tokenizer           povray, tokenize.c, line 634<br>
+    Parse                          povray, parse.c, line 177<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- ruh -- 3 --<br>
+../triangle.c: 131: reading uninitialized heap at byte 128 of 304-byte block<br>
+    find_triangle_dominant_axis    povray, triangle.c, line 131<br>
+    Compute_Triangle               povray, triangle.c, line 255<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1211<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+This block at address 0x140262b10 was allocated at:<br>
+    malloc                         povray<br>
+    pov_malloc                     povray, mem.c, line 328<br>
+    Create_Smooth_Triangle         povray, triangle.c, line 1291<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1177<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- ruh -- 4 --<br>
+../triangle.c: 259: reading uninitialized heap at byte 128 of 304-byte block<br>
+    Compute_Triangle               povray, triangle.c, line 259<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1211<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+This block at address 0x140263110 was allocated at:<br>
+    malloc                         povray<br>
+    pov_malloc                     povray, mem.c, line 328<br>
+    Create_Smooth_Triangle         povray, triangle.c, line 1291<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1177<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- ruh -- 5 --<br>
+../triangle.c: 174: reading uninitialized heap at byte 128 of 304-byte block<br>
+    compute_smooth_triangle        povray, triangle.c, line 174<br>
+    Compute_Triangle               povray, triangle.c, line 308<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1211<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+This block at address 0x140263110 was allocated at:<br>
+    malloc                         povray<br>
+    pov_malloc                     povray, mem.c, line 328<br>
+    Create_Smooth_Triangle         povray, triangle.c, line 1291<br>
+    Parse_Smooth_Triangle          povray, parse.c, line 1177<br>
+    Parse_Object                   povray, parse.c, line 3750<br>
+    Parse_CSG                      povray, parse.c, line 3368<br>
+    Parse_Object                   povray, parse.c, line 3714<br>
+    Parse_Declare                  povray, parse.c, line 5043<br>
+    Parse_Directive                povray, tokenize.c, line 2377<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Directive                povray, tokenize.c, line 2397<br>
+    Get_Token                      povray, tokenize.c, line 977<br>
+    Parse_Frame                    povray, parse.c, line 3911<br>
+    Parse                          povray, parse.c, line 197<br>
+    FrameRender                    povray, povray.c, line 418<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- rus -- 6 --<br>
+../lbuffer.c: 1023: reading uninitialized stack at byte 56 of 128 in frame of project_bounding_slab<br>
+    project_bounding_slab          povray, lbuffer.c, line 1023<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    Build_Light_Buffers            povray, lbuffer.c, line 1158<br>
+    FrameRender                    povray, povray.c, line 457<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+---------------------------------------------------------------- rus -- 7 --<br>
+../lbuffer.c: 1025: reading uninitialized stack at byte 52 of 128 in frame of project_bounding_slab<br>
+    project_bounding_slab          povray, lbuffer.c, line 1025<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    project_bounding_slab          povray, lbuffer.c, line 1016<br>
+    Build_Light_Buffers            povray, lbuffer.c, line 1158<br>
+    FrameRender                    povray, povray.c, line 457<br>
+    main                           povray, povray.c, line 337<br>
+    __start                        povray<br>
+<p>
+------------------------------------------------------------------------<br>
+------------------------------------------------------------------------<br>
+<p>
+*** Fatal signal SIGFPE detected.<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0732.html">Randall Shutt: "Re: UDB clock woes... (Its 2017) (no, not the usual)"</a>
+<li> <b>Previous message:</b> <a href="0730.html">Michal Jaegermann: "Re: Linux/Alpha vs Linux/Intel..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0735.html">Matthew X. Economou: "Re: Problems with POV and related question."</a>
+<li> <b>Reply:</b> <a href="0735.html">Matthew X. Economou: "Re: Problems with POV and related question."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

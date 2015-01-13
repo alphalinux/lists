@@ -1,0 +1,305 @@
+<!-- received="Tue Sep 15 18:53:39 1998 " -->
+<!-- sent="Tue, 15 Sep 1998 23:45:25 +0200" -->
+<!-- name="Stefan Traby" -->
+<!-- email="stefan@sime.com" -->
+<!-- subject="Re: Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?" -->
+<!-- id="199809152145.XAA03025@stefan.sime.com" -->
+<!-- inreplyto="Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?</h2>
+
+<b>Stefan Traby</b> (<a href="mailto:stefan@sime.com"><i>stefan@sime.com</i></a>)<br>
+<i>Tue, 15 Sep 1998 23:45:25 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#314">[ date ]</a><a href="index.html#314">[ thread ]</a><a href="subject.html#314">[ subject ]</a><a href="author.html#314">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0315.html">Mark Dohojda: "RE: ANA-6944A/TX"</a>
+<li> <b>Previous message:</b> <a href="0313.html">Maciej W. Rozycki: "Re: aboot problems with AlphaStation 200"</a>
+<li> <b>Maybe in reply to:</b> <a href="0222.html">Neil Harkins: "Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Peter !<br>
+<p>
+<i>&gt; &gt; I am trying to get 1.1.121 to work.  It compiles, but will not boot after</i><br>
+<i>&gt; &gt; it unzips.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Same problem here (SX164, egcs-1.1b). </i><br>
+<i>&gt; Currently running 2.1.120.</i><br>
+<i>&gt; Linux picu-sgh.demon.co.uk 2.1.120 #3 Mon Sep 7 17:27:20 BST 1998 alpha unknown</i><br>
+<p>
+The problem lies in the IRQ setup. Please apply the following patch<br>
+made by --Jay++ (it will be hopefully included in 2.1.122)<br>
+<p>
+<p>
+diff -ur TEMP/rth-120-14/arch/alpha/kernel/irq.c PATCH/rth-120-14/arch/alpha/kernel/irq.c<br>
+--- TEMP/rth-120-14/arch/alpha/kernel/irq.c	Mon Sep  7 22:33:40 1998<br>
++++ PATCH/rth-120-14/arch/alpha/kernel/irq.c	Tue Sep  8 17:21:42 1998<br>
+@@ -311,26 +311,39 @@<br>
+ <br>
+ int get_irq_list(char *buf)<br>
+ {<br>
+-	int i, len = 0;<br>
++	int i, j;<br>
+ 	struct irqaction * action;<br>
+-	int cpu = smp_processor_id();<br>
++	char *p = buf;<br>
++<br>
++	p += sprintf(p, "           ");<br>
++	for (j = 0; j &lt; smp_num_cpus; j++)<br>
++		p += sprintf(p, "CPU%d       ", j);<br>
++	*p++ = '\n';<br>
+ <br>
+ 	for (i = 0; i &lt; NR_IRQS; i++) {<br>
+ 		action = irq_action[i];<br>
+ 		if (!action) <br>
+ 			continue;<br>
+-		len += sprintf(buf+len, "%2d: %10u %c %s",<br>
+-			       i, kstat.irqs[cpu][i],<br>
+-			       (action-&gt;flags &amp; SA_INTERRUPT) ? '+' : ' ',<br>
+-			       action-&gt;name);<br>
++		p += sprintf(p, "%3d: ",i);<br>
++#ifndef __SMP__<br>
++		p += sprintf(p, "%10u ", kstat_irqs(i));<br>
++#else<br>
++		for (j = 0; j &lt; smp_num_cpus; j++)<br>
++			p += sprintf(p, "%10u ",<br>
++				     kstat.irqs[cpu_logical_map(j)][i]);<br>
++#endif<br>
++		p += sprintf(p, "  %c%s",<br>
++			     (action-&gt;flags &amp; SA_INTERRUPT)?'+':' ',<br>
++			     action-&gt;name);<br>
++<br>
+ 		for (action=action-&gt;next; action; action = action-&gt;next) {<br>
+-			len += sprintf(buf+len, ", %s%s",<br>
+-				       (action-&gt;flags &amp; SA_INTERRUPT) ? "+":"",<br>
+-				       action-&gt;name);<br>
++			p += sprintf(p, ", %c%s",<br>
++				     (action-&gt;flags &amp; SA_INTERRUPT)?'+':' ',<br>
++				     action-&gt;name);<br>
+ 		}<br>
+-		len += sprintf(buf+len, "\n");<br>
++		*p++ = '\n';<br>
+ 	}<br>
+-	return len;<br>
++	return p - buf;<br>
+ }<br>
+ <br>
+ #ifdef __SMP__<br>
+diff -ur TEMP/rth-120-14/arch/alpha/kernel/irq.h PATCH/rth-120-14/arch/alpha/kernel/irq.h<br>
+--- TEMP/rth-120-14/arch/alpha/kernel/irq.h	Mon Sep  7 22:33:40 1998<br>
++++ PATCH/rth-120-14/arch/alpha/kernel/irq.h	Wed Sep  9 20:47:11 1998<br>
+@@ -11,11 +11,8 @@<br>
+ #define STANDARD_INIT_IRQ_PROLOG	\<br>
+ 	outb(0, DMA1_RESET_REG);	\<br>
+ 	outb(0, DMA2_RESET_REG);	\<br>
+-	outb(0, DMA1_MASK_REG);		\<br>
+-	outb(0, DMA2_MASK_REG);		\<br>
+ 	outb(0, DMA1_CLR_MASK_REG);	\<br>
+-	outb(0, DMA2_CLR_MASK_REG);	\<br>
+-	outb(DMA_MODE_CASCADE, DMA2_MODE_REG)<br>
++	outb(0, DMA2_CLR_MASK_REG);<br>
+ <br>
+ <br>
+ extern unsigned long alpha_irq_mask;<br>
+diff -ur TEMP/rth-120-14/arch/alpha/kernel/smc37c93x.c PATCH/rth-120-14/arch/alpha/kernel/smc37c93x.c<br>
+--- TEMP/rth-120-14/arch/alpha/kernel/smc37c93x.c	Mon Sep  7 22:33:41 1998<br>
++++ PATCH/rth-120-14/arch/alpha/kernel/smc37c93x.c	Thu Sep 10 09:57:56 1998<br>
+@@ -8,6 +8,7 @@<br>
+ #include &lt;linux/malloc.h&gt;<br>
+ #include &lt;linux/mm.h&gt;<br>
+ #include &lt;linux/init.h&gt;<br>
++#include &lt;linux/delay.h&gt;<br>
+ <br>
+ #include &lt;asm/hwrpb.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+@@ -86,21 +87,28 @@<br>
+ 	unsigned long indexPort;<br>
+ 	unsigned long dataPort;<br>
+ <br>
++	int i;<br>
++<br>
+ 	configPort = indexPort = baseAddr;<br>
+ 	dataPort = configPort + 1;<br>
+ <br>
+-	outb(CONFIG_ON_KEY, configPort);<br>
+-	outb(CONFIG_ON_KEY, configPort);<br>
+-	outb(DEVICE_ID, indexPort);<br>
+-	devId = inb(dataPort);<br>
+-	if ( devId == VALID_DEVICE_ID ) {<br>
+-		outb(DEVICE_REV, indexPort);<br>
+-		devRev = inb(dataPort);<br>
+-	}<br>
+-	else {<br>
+-		baseAddr = 0;<br>
++#define NUM_RETRIES 5<br>
++<br>
++	for (i = 0; i &lt; NUM_RETRIES; i++)<br>
++	{<br>
++		outb(CONFIG_ON_KEY, configPort);<br>
++		outb(CONFIG_ON_KEY, configPort);<br>
++		outb(DEVICE_ID, indexPort);<br>
++		devId = inb(dataPort);<br>
++		if (devId == VALID_DEVICE_ID) {<br>
++			outb(DEVICE_REV, indexPort);<br>
++			devRev = inb(dataPort);<br>
++			break;<br>
++		}<br>
++		else<br>
++			udelay(100);<br>
+ 	}<br>
+-	return baseAddr;<br>
++	return (i != NUM_RETRIES) ? baseAddr : 0L;<br>
+ }<br>
+ <br>
+ static void __init SMCRunState(unsigned long baseAddr)<br>
+diff -ur TEMP/rth-120-14/arch/alpha/kernel/smp.c PATCH/rth-120-14/arch/alpha/kernel/smp.c<br>
+--- TEMP/rth-120-14/arch/alpha/kernel/smp.c	Mon Sep  7 22:33:41 1998<br>
++++ PATCH/rth-120-14/arch/alpha/kernel/smp.c	Wed Sep  9 12:48:53 1998<br>
+@@ -39,6 +39,7 @@<br>
+ <br>
+ unsigned int boot_cpu_id = 0;<br>
+ static int smp_activated = 0;<br>
++static unsigned long ipicnt[NR_CPUS] = {0,}; /* IPI counts */<br>
+ <br>
+ int smp_found_config = 0; /* Have we found an SMP box */<br>
+ static int max_cpus = -1;<br>
+@@ -702,6 +703,8 @@<br>
+ 	int ops;<br>
+ <br>
+ 	mb();<br>
++<br>
++	ipicnt[this_cpu]++;<br>
+ #if 0<br>
+ 	printk("handle_ipi: on CPU %d ops 0x%x PC 0x%lx\n",<br>
+ 	       this_cpu, *pending_ipis, regs-&gt;pc);<br>
+@@ -737,8 +740,13 @@<br>
+ <br>
+ int smp_info(char *buffer)<br>
+ {<br>
+-        return sprintf(buffer, "CPUs probed %d active %d map 0x%x\n",<br>
+-		       smp_num_probed, smp_num_cpus, cpu_present_map);<br>
++	int i;<br>
++	unsigned long sum = 0;<br>
++	for (i = 0; i &lt; NR_CPUS; i++)<br>
++		sum += ipicnt[i];<br>
++<br>
++        return sprintf(buffer, "CPUs probed %d active %d map 0x%x IPIs %ld\n",<br>
++		       smp_num_probed, smp_num_cpus, cpu_present_map, sum);<br>
+ }<br>
+ <br>
+ /* wrapper for call from panic() */<br>
+@@ -876,6 +884,8 @@<br>
+ 	long tmp;<br>
+ 	long stuck;<br>
+ 	void *inline_pc = __builtin_return_address(0);<br>
++	int printed = 0;<br>
++	unsigned long started = jiffies;<br>
+ <br>
+  try_again:<br>
+ <br>
+@@ -905,12 +915,23 @@<br>
+ 	: "2" (stuck));<br>
+ <br>
+ 	if (stuck &lt; 0) {<br>
+-		printk("spinlock stuck at %p (cur=%p, own=%p, prev=%p)\n",<br>
+-		       inline_pc, current, lock-&gt;task, lock-&gt;previous);<br>
++		if (!printed) {<br>
++			printk("spinlock stuck at %p on %x, "<br>
++			       "owned at %p on %x\n",<br>
++			       inline_pc, smp_processor_id(),<br>
++			       lock-&gt;previous, lock-&gt;task);<br>
++			printed = 1;<br>
++		}<br>
+ 		goto try_again;<br>
+ 	} else {<br>
+ 		lock-&gt;previous = inline_pc;<br>
+-		lock-&gt;task = current;<br>
++		lock-&gt;task = smp_processor_id();<br>
++		if (printed) {<br>
++			printk("spinlock waited at %p on %x "<br>
++			       "for %ld ticks\n",<br>
++			       inline_pc, smp_processor_id(),<br>
++			       jiffies - started);<br>
++		}<br>
+ 	}<br>
+ }<br>
+ #endif /* DEBUG_SPINLOCK */<br>
+diff -ur TEMP/rth-120-14/arch/alpha/kernel/sys_sx164.c PATCH/rth-120-14/arch/alpha/kernel/sys_sx164.c<br>
+--- TEMP/rth-120-14/arch/alpha/kernel/sys_sx164.c	Mon Sep  7 22:33:41 1998<br>
++++ PATCH/rth-120-14/arch/alpha/kernel/sys_sx164.c	Thu Sep 10 13:34:23 1998<br>
+@@ -103,7 +103,10 @@<br>
+ static void<br>
+ sx164_init_irq(void)<br>
+ {<br>
+-	STANDARD_INIT_IRQ_PROLOG;<br>
++	outb(0, DMA1_RESET_REG);<br>
++	outb(0, DMA2_RESET_REG);<br>
++	outb(DMA_MODE_CASCADE, DMA2_MODE_REG);<br>
++	outb(0, DMA2_MASK_REG);<br>
+ <br>
+ 	if (alpha_using_srm) {<br>
+ 		alpha_mv.update_irq_hw = sx164_srm_update_irq_hw;<br>
+Only in PATCH/rth-120-14/arch/alpha/kernel: sys_sx164.c~<br>
+diff -ur TEMP/rth-120-14/include/asm-alpha/hardirq.h PATCH/rth-120-14/include/asm-alpha/hardirq.h<br>
+--- TEMP/rth-120-14/include/asm-alpha/hardirq.h	Mon Sep  7 22:33:42 1998<br>
++++ PATCH/rth-120-14/include/asm-alpha/hardirq.h	Tue Sep  8 18:18:16 1998<br>
+@@ -32,6 +32,7 @@<br>
+ <br>
+ #include &lt;asm/atomic.h&gt;<br>
+ #include &lt;asm/spinlock.h&gt;<br>
++#include &lt;asm/smp.h&gt;<br>
+ <br>
+ extern int global_irq_holder;<br>
+ extern spinlock_t global_irq_lock;<br>
+<p>
+<p>
+----------------------------------------------------------------------<br>
+<pre>
+-- 
+  ciao - 
+    Stefan
+<p>
+Stefan Traby                            phone:  +43-3133-6107-2
+Mitterlasznitzstr. 13                     fax:  +43-3133-6107-9
+8302 Nestelbach                        <a href="mailto://stefan@sime.com">mailto://stefan@sime.com</a>
+Austria
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0315.html">Mark Dohojda: "RE: ANA-6944A/TX"</a>
+<li> <b>Previous message:</b> <a href="0313.html">Maciej W. Rozycki: "Re: aboot problems with AlphaStation 200"</a>
+<li> <b>Maybe in reply to:</b> <a href="0222.html">Neil Harkins: "Problem rebooting AlphaStation 200 with SRM from RedHat 5.1?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

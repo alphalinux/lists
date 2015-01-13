@@ -1,0 +1,124 @@
+<!-- received="Tue Oct  8 16:25:10 1996 " -->
+<!-- sent="08 Oct 1996 22:08:16 +0200" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="Re: redhat-4.0: /sbin/clock for the Jensen (again)" -->
+<!-- id="199610081721.NAA29147@postman.osf.org" -->
+<!-- inreplyto="Tue, 8 Oct 1996 08:11:01 -0700" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: redhat-4.0: /sbin/clock for the Jensen (again)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: redhat-4.0: /sbin/clock for the Jensen (again)</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>08 Oct 1996 22:08:16 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#278">[ date ]</a><a href="index.html#278">[ thread ]</a><a href="subject.html#278">[ subject ]</a><a href="author.html#278">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0279.html">Richard Henderson: "Re: YP on Linux/AXP anyone?"</a>
+<li> <b>Previous message:</b> <a href="0277.html">Fred Roy: "Re: which web browser?"</a>
+<li> <b>In reply to:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0280.html">Linus Torvalds: "Linux-2.0.22 and Linux-2.1.2"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+David Mosberger-Tang &lt;<a href="mailto:davidm@AZStarNet.COM">davidm@AZStarNet.COM</a>&gt; writes:<br>
+<i>&gt; &gt;&gt;&gt;&gt;&gt; On 08 Oct 1996 10:44:14 +0200, Martin Ostermann &lt;<a href="mailto:ost@comnets.rwth-aachen.de">ost@comnets.rwth-aachen.de</a>&gt; said:</i><br>
+<i>&gt; </i><br>
+<i>&gt;   Martin&gt; Hmm, I'm afraid this is going to be the runnig gag of this</i><br>
+<i>&gt;   Martin&gt; list ...  The following patch is still missing in Colgate:</i><br>
+<i>&gt; </i><br>
+<i>&gt; I don't think that patch is correct.  While I don't have the cmos</i><br>
+<i>&gt; datasheet, somebody else (I believe it was Miquel) pointed out that</i><br>
+<i>&gt; the 0x70 value that your patch changes is simply a bitmask that is</i><br>
+<i>&gt; unrelated to the port address.  </i><br>
+<p>
+Yes, exactly! Please look at the patch again:<br>
+<p>
+-  cmos_write (10, (save_freq_select | clockport));<br>
++  cmos_write (10, (save_freq_select | 0x70));<br>
+<p>
+Its changing it back to 0x70! Actually I believed it was you who<br>
+erroneously changed it to clockport, after I pointed out a different<br>
+line; I never made that change, and only detected it when Miquel had<br>
+problems with the patch from azstartnet.<br>
+<p>
+<i>&gt; Also, not all Alpha platforms need to</i><br>
+<i>&gt; use the dev port.  With the dev port, you loose atomicity of the</i><br>
+<i>&gt; update, which in my opinion is a nice feature to have.</i><br>
+<p>
+Ok, I see. When I patched clock the first time, USE_DEV_PORT was<br>
+standard on the Alpha platform. The comments suggested, that it was<br>
+needed on non EV4 machines.<br>
+<p>
+<i>&gt; Are you saying the existing clock doesn't work at all for the Jensen?</i><br>
+<p>
+Yes. I think I know what the problem is: (clock.c)<br>
+<p>
+#ifdef USE_DEV_PORT<br>
+# include &lt;asm/fcntl.h&gt;<br>
+#else<br>
+# include &lt;asm/io.h&gt;<br>
+#endif<br>
+<p>
+Because of &lt;asm/io.h&gt;, the kernel i/o functions get used instead of<br>
+the ones in glibc. Thus it only works on the i/o-architecture it was<br>
+compiled on (or similar ones). But even if I compile it on my Jensen,<br>
+it doesn't work. I need USE_DEV_PORT. I am going to take a look at it.<br>
+<p>
+<i>&gt; I know Miquel was working on a modified clock utility that uses</i><br>
+<i>&gt; /dev/rtc.  I'm not sure what solution is better (/dev/port or</i><br>
+<i>&gt; /dev/rtc) but maybe the Jensen folks could get together and present a</i><br>
+<i>&gt; coherent solution?</i><br>
+<p>
+Miquel didn't mail his patches, so I don't know how it's<br>
+working. I recall, he also had problems with interrupts. <br>
+IMHO, using a kernel device would probably be the best solution, indeed.<br>
+<p>
+I see if I can clock working with glibc's i/o functions. Should be no<br>
+problem. <br>
+<p>
+Martin<br>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0279.html">Richard Henderson: "Re: YP on Linux/AXP anyone?"</a>
+<li> <b>Previous message:</b> <a href="0277.html">Fred Roy: "Re: which web browser?"</a>
+<li> <b>In reply to:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0280.html">Linus Torvalds: "Linux-2.0.22 and Linux-2.1.2"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

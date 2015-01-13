@@ -1,0 +1,210 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Emacs from RH 6.1 throwing unaligned access - solved</H1> 
+	
+<!-- received="Fri Feb 04 13:05:45 2000" -->
+<!-- isoreceived="20000204210545" -->
+<!-- sent="Thu, 3 Feb 2000 19:10:08 -0700 (MST)" -->
+<!-- isosent="20000204021008" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Emacs from RH 6.1 throwing unaligned access - solved" -->
+<!-- id="200002040210.TAA14950@ellpspace.math.ualberta.ca" -->
+<STRONG>Subject: </STRONG>Emacs from RH 6.1 throwing unaligned access - solved<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb  3 18:10:08 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#57">[ date ]</A>
+<A HREF="index.shtml#57">[ thread ]</A>
+<A HREF="subject.shtml#57">[ subject ]</A>
+<A HREF="author.shtml#57">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0058.shtml">Ivan Kokshaysky: "Mysterious exec bug [Re: axp patch for 2.3.41]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0056.shtml">Kevin Wood: "AXP-Kickstart has Succeeded"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Ok, I found that bugger at last.  Don't even try to ask me how much time
+<BR>
+I spent exploring blind alleys (it looked for a while as a weird ncurses
+<BR>
+library bug) as I am ashamed even to admit. :-)
+<BR>
+<P>Below is a bug description from the stuff I submitted to
+<BR>
+bugzilla.redhat.com.
+<BR>
+<P>A file emacs-20.4/src/ChangeLog includes the following entry:
+<BR>
+<P>1997-07-28  Richard Stallman  &lt;rms@psilocin.gnu.ai.mit.edu&gt;
+<BR>
+........................
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* cm.h, sysdep.c, terminfo.c [HAVE_LIBNCURSES]:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Declare ospeed as short, unless NCURSES_OSPEED_T.
+<BR>
+<P>Unfortunately nothing in 'configure' for emacs seems to be checking
+<BR>
+for that.  The net effect is that emacs declares 'ospeed' as 'short'
+<BR>
+while libraries, which access the same global variable, treat that
+<BR>
+as 'speed_t'.  At least with ncurses-4.2-25, as included in RH 6.1
+<BR>
+distribution, these two types are not the same.
+<BR>
+<P>On Alpha, in particular, this has an effect of generating &quot;unaligned
+<BR>
+access&quot; messages from a kernel on every access from libraries to that
+<BR>
+variable.  In general it seems that this version of binaries for emacs
+<BR>
+works more by a sheer luck than anything else as some not entirely
+<BR>
+random memory is clobbered on every write and a garbage retrieved on
+<BR>
+reads.
+<BR>
+<P>This can be fixed by adding NCURSES_OSPEED_T to compilation flags
+<BR>
+in emacs.spec file and recompiling emacs binaries.  A patch to spec
+<BR>
+file is included below.
+<BR>
+<P><P><P>So, here is a recipe to fix the problem:
+<BR>
+&nbsp;&nbsp;- install emacs sources (rpm -i emacs-20.4-4.src.rpm)
+<BR>
+&nbsp;&nbsp;- cd /usr/src/redhat/SPECS and 'patch -p1 &lt; ....' using the patch
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;below (you can use this whole message for that)
+<BR>
+&nbsp;&nbsp;- type 'rpm -ba emacs.spec' and wait for a while (various development
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tools and libraries have to be installed for that to succeed)
+<BR>
+&nbsp;&nbsp;- install what you need from resulting rpm files which you will
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;find in /usr/src/redhat/RPMS/alpha
+<BR>
+<P>This will solve that problem.
+<BR>
+<P>If somebody with a handy RH 6.1 installation on ev4 machine (so this
+<BR>
+will be ok for all processors around) wants to submit recompiled
+<BR>
+binaries to ftp.alphalinux.org - go ahead.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P>=========================================================================
+<BR>
+<P>--- SPECS/emacs.spec.orig	Sat Sep 25 07:55:28 1999
+<BR>
++++ SPECS/emacs.spec	Thu Feb  3 17:17:37 2000
+<BR>
+@@ -2,7 +2,7 @@
+<BR>
+&nbsp;Name: emacs
+<BR>
+&nbsp;%define	version	20.4
+<BR>
+&nbsp;Version: %{version}
+<BR>
+-Release: 4
+<BR>
++Release: 4hd
+<BR>
+&nbsp;Copyright: GPL
+<BR>
+&nbsp;Group: Applications/Editors
+<BR>
+&nbsp;Source0: <A HREF="ftp://ftp.gnu.org/pub/gnu/emacs-%{version}.tar.gz">ftp://ftp.gnu.org/pub/gnu/emacs-%{version}.tar.gz</A>
+<BR>
+@@ -91,8 +91,8 @@
+<BR>
+&nbsp;find . -name &quot;*.orig&quot; -exec rm -f {} \;
+<BR>
+&nbsp;
+<BR>
+&nbsp;%build
+<BR>
+-PUREDEF=&quot;&quot;
+<BR>
+-XPUREDEF=&quot;&quot;
+<BR>
++PUREDEF=&quot;-DNCURSES_OSPEED_T&quot;
+<BR>
++XPUREDEF=&quot;-DNCURSES_OSPEED_T&quot;
+<BR>
+&nbsp;libtoolize --force --copy
+<BR>
+&nbsp;CONFOPTS=&quot;--prefix=/usr --libexecdir=/usr/lib --sharedstatedir=/var --with-gcc --with-pop&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -296,6 +296,12 @@
+<BR>
+&nbsp;%config(missingok) /etc/X11/applnk/Applications/emacs.desktop
+<BR>
+&nbsp;
+<BR>
+&nbsp;%changelog
+<BR>
++* Thu Feb  3 2000 Michal Jaegermann &lt;michal@harddata.com&gt;
+<BR>
++- added missing, as per emacs Changelog, NCURSES_OSPEED_T compilation
+<BR>
++  flag; without it emacs on Linux is making global 'ospeed' short which
+<BR>
++  is not the same as 'speed_t' expected by libraries.
+<BR>
++  Unfortunately current 'configure' does not pick up that.
+<BR>
++
+<BR>
+&nbsp;* Sat Sep 25 1999 Preston Brown &lt;pbrown@redhat.com&gt;
+<BR>
+&nbsp;- added desktop entry
+<BR>
+&nbsp;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0058.shtml">Ivan Kokshaysky: "Mysterious exec bug [Re: axp patch for 2.3.41]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0056.shtml">Kevin Wood: "AXP-Kickstart has Succeeded"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Mar  1 06:26:22 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

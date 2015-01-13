@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: FIX #2: XF-4.0 doesn't like my Permedia 2</H1> 
+	
+<!-- received="Fri Mar 17 15:25:41 2000" -->
+<!-- isoreceived="20000317232541" -->
+<!-- sent="Fri, 17 Mar 2000 14:54:48 +0000" -->
+<!-- isosent="20000317145448" -->
+<!-- name="Hannes Reinecke" -->
+<!-- email="civhr@civ.hw.ac.uk" -->
+<!-- subject="Re: FIX #2: XF-4.0 doesn't like my Permedia 2" -->
+<!-- id="38D24738.A2D3D586@civ.hw.ac.uk" -->
+<!-- inreplyto="38D24644.B5B3747F@civ.hw.ac.uk" -->
+<STRONG>Subject: </STRONG>Re: FIX #2: XF-4.0 doesn't like my Permedia 2<BR>
+<STRONG>From: </STRONG>Hannes Reinecke (<EM>civhr@civ.hw.ac.uk</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Mar 17 06:54:48 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#419">[ date ]</A>
+<A HREF="index.shtml#419">[ thread ]</A>
+<A HREF="subject.shtml#419">[ subject ]</A>
+<A HREF="author.shtml#419">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0420.shtml">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0418.shtml">Hannes Reinecke: "Re: FIX: Permedia 2 driver XFree-4.0"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0425.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hiya,
+<BR>
+<P>this is the cleaner version of that one presented by Michel.
+<BR>
+(And next time quote me correctly, Michel, 'cause the previous thing
+<BR>
+wasn't meant to be a proper fix).
+<BR>
+It does work for 164SX-machines, should for 164LX. Miata is possible,
+<BR>
+but someone should send me an output of /proc/cpuinfo to incorporate it.
+<BR>
+<P>It would also be quite helpful if I could have some feedback from people
+<BR>
+with older machines on whether XFree86-4.0 works for them.
+<BR>
+<P>Cheers,
+<BR>
+<P>Hannes
+<BR>
+<PRE>
+-- 
+Hannes Reinecke                                 &lt;civhr@civ.hw.ac.uk&gt;
+Fluid Loading and Instrumentation Center  Tel: (+44) 131 449 5111 x4430
+Dept. of Civil &amp; Offshore Engineering           Fax: (+44) 131 451 3154
+Heriot Watt University, Edinburgh EH14 4AS
+</PRE>
+<P>
+diff -u xc/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c.orig xc/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c
+--- xc/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c.orig	Sat Feb 26 05:43:53 2000
++++ xc/programs/Xserver/hw/xfree86/os-support/linux/lnx_video.c	Thu Mar 16 23:28:15 2000
+@@ -66,9 +66,8 @@
+ #  define isJensen (!_bus_base())
+ # endif
+ 
+-# define needSparse (_bus_base_sparse() != 0)
+-
+-# define BUS_BASE _bus_base()
++static unsigned long xf86_axp_IOBase;
++# define BUS_BASE xf86_axp_IOBase
+ 
+ #else 
+ 
+@@ -83,6 +82,7 @@
+ static pointer mapVidMem(int, unsigned long, unsigned long);
+ static void unmapVidMem(int, pointer, unsigned long);
+ #if defined (__alpha__) 
++static int checkSparseVidMemBase( void );
+ static pointer mapVidMemSparse(int, unsigned long, unsigned long);
+ static void unmapVidMemSparse(int, pointer, unsigned long);
+ # if defined(JENSEN_SUPPORT)
+@@ -298,15 +298,15 @@
+ 	if (isJensen) {
+ # ifndef JENSEN_SUPPORT
+ 	  FatalError(&quot;Jensen is not supported any more\n&quot;
+-		     &quot;If you are interesetd in fixing Jensen support\n&quot;
++		     &quot;If you are interested in fixing Jensen support\n&quot;
+ 		     &quot;please contact xfree86@xfree86.org\n&quot;);
+ # else
+ 	  xf86Msg(X_INFO,&quot;Machine type is Jensen\n&quot;);
+ 	  pVidMem-&gt;mapMem = mapVidMemJensen;
+ 	  pVidMem-&gt;unmapMem = unmapVidMemJensen;
+ # endif /* JENSEN_SUPPORT */
+-	} else if (needSparse) {
+-	  xf86Msg(X_INFO,&quot;Machine needs sparse mapping\n&quot;);
++	} else if (checkSparseVidMemBase()) {
++	    xf86Msg(X_INFO,&quot;Machine needs sparse mapping\n&quot;);
+ 	  pVidMem-&gt;mapMem = mapVidMemSparse;
+ 	  pVidMem-&gt;unmapMem = unmapVidMemSparse;
+ 	} else {
+@@ -508,6 +508,82 @@
+ writeSparse16(int Value, pointer Base, register unsigned long Offset);
+ static void
+ writeSparse32(int Value, pointer Base, register unsigned long Offset);
++
++static int checkSparseVidMemBase( void )
++{
++    char buf[256];
++    char cpu_model[64];
++    char sys_type[64];
++    char sys_var[64];
++    FILE *info_fptr;
++    int has_bwx = 1;
++    int can_bwa = 1;
++
++    if (_bus_base_sparse()) {
++	/* Open /proc/cpuinfo to find out about where we are running on */
++	info_fptr = fopen(&quot;/proc/cpuinfo&quot;,&quot;r&quot;);
++	if (!info_fptr) {
++	    xf86Msg(X_WARNING,
++		    &quot;Could not open /proc/cpuinfo, falling back to default\n&quot;);
++	    xf86_axp_IOBase = _bus_base_sparse();
++	    return 1;
++	}
++
++	*cpu_model = '\0';
++	*sys_type = '\0';
++	*sys_var = '\0';
++
++	while (!feof(info_fptr)) {
++	    fgets(buf,255,info_fptr);
++	    if (sscanf(buf,&quot;cpu model : %s &quot;,cpu_model) == 1) {
++		if (!strcmp(cpu_model,&quot;EV3&quot;) ||
++		    !strcmp(cpu_model,&quot;EV4&quot;) ||
++		    !strcmp(cpu_model,&quot;Simulate&quot;) ||
++		    !strcmp(cpu_model,&quot;LCA4&quot;) ||
++		    !strcmp(cpu_model,&quot;EV5&quot;) ||
++		    !strcmp(cpu_model,&quot;EV45&quot;) ) {
++		    has_bwx = 0;
++		}
++	    }
++	    if (sscanf(buf,&quot;system type : %s &quot;,sys_type) == 1) {
++		if (strcmp(sys_type, &quot;EB164&quot;)) {
++		    can_bwa = 0;
++		} else {
++		    can_bwa = 1;
++		}
++	    }
++	    if (sscanf(buf,&quot;system variation : %s &quot;,sys_var) == 1) {
++		if (!strcmp(sys_var,&quot;EB164&quot;) || 
++		    !strcmp(sys_var,&quot;PC164&quot;) ) {
++		    can_bwa = 0;
++		}
++	    }
++	}
++	fclose(info_fptr);
++
++	xf86Msg(X_INFO,&quot;Alpha %s cpu on a %s (variation %s)\n&quot;,
++		cpu_model, sys_type,
++		*sys_var?sys_var:&quot;default&quot;);
++
++	if (!has_bwx) {
++	    xf86Msg(X_INFO,&quot;CPU does not support BWX extension\n&quot;);
++	    xf86_axp_IOBase = _bus_base_sparse();
++	    return 1;
++	}
++	
++	if (!can_bwa) {
++	    xf86Msg(X_INFO,
++		    &quot;System does not support 21164 Byte/Word addressing\n&quot;);
++	    xf86_axp_IOBase = _bus_base_sparse();
++	    return 1;
++	}
++	xf86_axp_IOBase = _bus_base() + 0x200000000;
++	return 0;
++    } else {
++	xf86_axp_IOBase = _bus_base();
++	return 0;
++    }
++}
+ 
+ static pointer
+ mapVidMemSparse(int ScreenNum, unsigned long Base, unsigned long Size)
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0420.shtml">Brian Pomerantz: "Re: 2.3.99-pre1 axp misc patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0418.shtml">Hannes Reinecke: "Re: FIX: Permedia 2 driver XFree-4.0"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0425.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:01 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

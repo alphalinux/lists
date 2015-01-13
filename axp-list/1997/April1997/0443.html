@@ -1,0 +1,247 @@
+<!-- received="Thu Apr 10 05:16:46 1997 " -->
+<!-- sent="Thu, 10 Apr 1997 11:12:51 +0200" -->
+<!-- name="Patrick Kessen" -->
+<!-- email="patrickk@simplex.nl" -->
+<!-- subject="RE: 2.1.32 troubles, make boot doesn't finish (hardly starts)" -->
+<!-- id="9704100714.AA16206@falcon.comm.eng.osaka-u.ac.jp" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RE: 2.1.32 troubles, make boot doesn't finish (hardly starts)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RE: 2.1.32 troubles, make boot doesn't finish (hardly starts)</h2>
+
+<b>Patrick Kessen</b> (<a href="mailto:patrickk@simplex.nl"><i>patrickk@simplex.nl</i></a>)<br>
+<i>Thu, 10 Apr 1997 11:12:51 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#443">[ date ]</a><a href="index.html#443">[ thread ]</a><a href="subject.html#443">[ subject ]</a><a href="author.html#443">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0444.html">Joni Mikael Virtanen: "Re: ipfwadm (maybe not axp specific problem?)"</a>
+<li> <b>Previous message:</b> <a href="0442.html">Terry L. Ridder: "Lesstif &amp; Mosaic Question"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+would you email me the ifup scripts?<br>
+<p>
+thanks,<br>
+<p>
+Patrick<br>
+<p>
+<p>
+----------<br>
+From: 	D. Champion<br>
+Sent: 	donderdag 10 april 1997 8:03<br>
+To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a><br>
+Subject: 	Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)<br>
+<p>
+<i>&gt;make config, make dep, make clean all goes well...... until...</i><br>
+<i>&gt;</i><br>
+<i>&gt;...</i><br>
+<i>&gt;/usr/src/linux-2.1.32/include/asm/io.h: In function 'set_hae':</i><br>
+<i>&gt;In file included from init/main.c:40:</i><br>
+<i>&gt;/usr/src/linux-2.1.32/include/asm/io.h:41: parse error before '__asm__'</i><br>
+<i>&gt;make: *** [init/main.o] Error 1</i><br>
+<p>
+To play the facilitator and integrate things, Tim Waugh and Jeff Odom<br>
+have suggested parts of this, which is what I used:<br>
+<p>
+*** include/asm-alpha/hardirq.h.orig	Mon Apr  7 21:01:11 1997<br>
+--- include/asm-alpha/hardirq.h	Mon Apr  7 21:00:27 1997<br>
+***************<br>
+*** 12,17 ****<br>
+--- 12,19 ----<br>
+  #define hardirq_enter(cpu)	(local_irq_count[cpu]++)<br>
+  #define hardirq_exit(cpu)	(local_irq_count[cpu]--)<br>
+  <br>
++ #define synchronize_irq()	do { } while (0)<br>
++ <br>
+  #else<br>
+  <br>
+  #error FIXME<br>
+*** arch/alpha/kernel/irq.c.orig	Wed Oct 16 01:05:09 1996<br>
+--- arch/alpha/kernel/irq.c	Mon Apr  7 20:57:46 1997<br>
+***************<br>
+*** 28,33 ****<br>
+--- 28,35 ----<br>
+  <br>
+  extern void timer_interrupt(struct pt_regs * regs);<br>
+  <br>
++ unsigned int local_irq_count[NR_CPUS];<br>
++ <br>
+  #if NR_IRQS &gt; 64<br>
+  #  error Unable to handle more than 64 irq levels.<br>
+  #endif<br>
+*** include/asm-alpha/io.h.orig	Wed Apr  9 19:57:20 1997<br>
+--- include/asm-alpha/io.h	Tue Apr  8 05:30:00 1997<br>
+***************<br>
+*** 38,44 ****<br>
+   */<br>
+  extern inline void set_hae(unsigned long new_hae)<br>
+  {<br>
+! 	unsigned long ipl = swpipl(7);<br>
+  	hae.cache = new_hae;<br>
+  	*hae.reg = new_hae;<br>
+  	mb();<br>
+--- 38,45 ----<br>
+   */<br>
+  extern inline void set_hae(unsigned long new_hae)<br>
+  {<br>
+! 	unsigned long ipl;<br>
+! 	swpipl(ipl, 7);<br>
+  	hae.cache = new_hae;<br>
+  	*hae.reg = new_hae;<br>
+  	mb();<br>
+<p>
+That will build the kernel.  Recent alpha 2.1.x-series kernels are<br>
+doing something different in the networking, too; Red Hat's (for one)<br>
+network startup scripts will hang when you ifconfig the loopback.<br>
+To fix this, install a /etc/sysconfig/network-scripts/ifup-lo that<br>
+checks your kernel revision, and manages the ifconfig differently<br>
+for the new ones.  I copied stuff (starting with the actual ifconfig,<br>
+and ending with the end) from the regular ifup script, and put it in<br>
+a function called<br>
+	ifup_lo_complex () {<br>
+		...<br>
+	}<br>
+(Don't know whether I can replicate RH's code on this list....)<br>
+<p>
+I then added:<br>
+	ifup_lo_simple () {<br>
+		ifconfig lo up<br>
+	}<br>
+<p>
+	case `uname -r` in<br>
+		2.1.[3-9]?)     :<br>
+			ifup_lo_simple<br>
+			;;<br>
+		*)      :<br>
+			ifup_lo_complex ifcfg-lo<br>
+			;;<br>
+	esac<br>
+<p>
+My network starts up fine now.<br>
+<p>
+As you might expect, if you're using pppd you'll have to recompile it<br>
+for the dynamic routes in later 2.1-series kernels.<br>
+<p>
+HTH.<br>
+<p>
+-D.<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+<p>
+<p>
+<p>
+begin 600 WINMAIL.DAT
+M&gt;)\^(AT)`0:0" `$```````!``$``0&gt;0!@`(````Y 0```````#H``$(@ &lt;`
+M&amp; ```$E032Y-:6-R;W-O9G0@36%I;"Y.;W1E`#$(`0V ! `"`````@`"``$$
+MD 8`' $```$````,`````P``, (````+``\.``````(!_P\!````10``````
+M``"!*Q^DOJ,0&amp;9UN`-T!#U0"`````&amp;%X&lt;"UL:7-T0')E9&amp;AA="YC;VT`4TU4
+M4 !A&gt;' M;&amp;ES=$!R961H870N8V]M`````!X``C !````!0```%--5% `````
+M'@`#, $````4````87AP+6QI&lt;W1 &lt;F5D:&amp;%T+F-O;0`#`!4,`0````,`_@\&amp;
+M````'@`!, $````6````)V%X&lt;"UL:7-T0')E9&amp;AA="YC;VTG`````@$+, $`
+M```9````4TU44#I!6% M3$E35$!2141(050N0T]-``````,``#D`````"P! 
+<a href="mailto:M.@$````">M.@$````</a>"`?8/`0````0````````"E3(!!( !`#X```!213H@,BXQ+C,R('1R
+M;W5B;&amp;5S+"!M86ME(&amp;)O;W0@9&amp;]E&lt;VXG="!F:6YI&lt;V@@*&amp;AA&lt;F1L&gt;2!S=&amp;%R
+M=',I`(X4`06 `P`.````S0&lt;$``H`"P`,`#,`! `P`0$@@ ,`#@```,T'! `*
+M``L`# `$``0``0$!"8 !`"$```!%.4(U1D(U03)"0C%$,#$Q03&lt;X,C P03 R
+M-#&lt;P0D0U-0`@!P$#D 8`\ D``!0````+`",```````,`)@``````"P`I````
+M```#`"X```````,`-@``````0 `Y`* *Q%V/1;P!'@!P``$````^````4D4Z
+M(#(N,2XS,B!T&lt;F]U8FQE&lt;RP@;6%K92!B;V]T(&amp;1O97-N)W0@9FEN:7-H("AH
+M87)D;'D@&lt;W1A&lt;G1S*0````(!&lt;0`!````%@````&amp;\18]=O%K[M&gt;JQ*Q'0IX(`
+MH"1PO54``!X`'@P!````!0```%--5% `````'@`?# $````4````&lt;&amp;%T&lt;FEC
+M:VM &lt;VEM&lt;&amp;QE&gt;"YN; `#``801&amp;J;6 ,`!Q"," ``'@`($ $```!E````2$DL
+M5T]53$193U5%34%)3$U%5$A%24954%-#4DE05%,_5$A!3DM3+%!!5%))0TLM
+M+2TM+2TM+2TM1E)/33I$0TA!35!)3TY314Y4.D1/3D1%4D1!1S$P05!224PQ
+M.3DW.#HP,P`````"`0D0`0```#X(```Z" ``U! ``$Q:1G4"36WC_P`*`0\"
+M%0*D`^0%ZP*#`% 3`U0"`&amp;-H"L!S973N,@8`!L,"@S(#Q@&lt;3`H,B,P]Z:&amp;5L
+M`R!$;.IG`H,T$PU]"H (SPG9XCL7GS(U-0* "H$-L&lt;$+8&amp;YG,3 T%" +"@L2
+M\@P!8P! ($AI+ L*A0J%=PA@;&amp;0@&gt;3D(8"!E`, #$0&gt; ('1%%/ @!I!U&lt;" $
+M]'-./QR\'L `&lt;&amp;MS'*U09&amp;%T!1!C:QR\"HML$&amp;DQ.# "T6DM,3PT- WP#- D
+MPPM9,3;;"J #8'0%D 5 +2;G"H?7)9L,,"9F1@-A.B?N)F8C#((5,"X@0Q' 
+M;7#^:0(@)X\HG09@`C ISRK;AF0"( 2!9&amp;%G(!K #"!A)F #$3$Y.3=@(#@Z
+M,#,L7RB=5(9O+I\JVV%X&lt;"TD()AS=$ 7H1' ="X%H,9M,C\M;G5B:B:A-%\)
+M*MM293G0,BXQ+KXS$B B( A@`F 'D"P&gt;@'QA:QZ@!N F@#!A!Y!N#B&lt;%0"20
+M`P!S:" H&lt;1'!9&amp;QY'T !D `@&lt;^8I(N\C\S,V)6&lt;5P@P!K29F/CT#!:!N))!G
+M/.7U#;!P/.5C/+ #D0= `R N9SVQ'8 5`2Y%@R!U;P(P`Q!%@0J%/D9V1DDO
+MD'5S&lt;B](0&amp;,O)"#0;G5X+3OT+PN 1%!"=0VP+V%S;4EP;<a href="mailto:_0N:#G020.@'Q!">_0N:#G020.@'Q!</a>)
+MD$80*0(@("&lt;1\5\1P&amp;4G_CI&amp;=DJB`Q &gt;X4F4'= #4E%,\6ET+QY!;C&lt;@.I\D
+MX$OW2"])/TI#-#$YT+&lt;*L1'P'B!R`V %P&amp;(-P&amp;,%L!Z@)U]?2@%30"&gt;71G8]
+M`CG0*E2@(%M-Z-!O72!%4G,Q'+PT,.]1\ M@/O &gt;PF8`T ,03@#_(A %L0!P
+M'= +@":0"&lt; B$!L&gt;H@N 9SS1!V$@5V$L=6&lt;^&lt;%B22@W!($]7,' W5A' =AZ@
+M&lt;UI09Y\'D":0'= *L1^@(&amp;];`/M9&lt;3S1=UF $; &gt;\$4A-O'W2I!%X!'P9$OV
+M"H54HE"Y*BT'0' 1P"\^HFERKG%*8%6 !1!G*U--2S%2029@(" QT#)1T##]
+M4= Q'&amp; QH@J%)N%@'V$I]V(O8S%.L#(QT&amp;.Y5*%HFN%?&gt;3$R+#$QT&amp;E)9&amp;+=
+M:C(Y)M,*A6+@(PVQ"X ;'J!A15\N8020*&amp;-P5'4I*U,H%S!C!T!?%VUR!:!%
+M\5MN$5TK*_&lt;_=FR?;:!X3@!N#V\&lt;)N!+&lt;!@*A2MPIW-Y29!HTP-@`P!Z96\"
+M*'(T,' U`S![`S!]7:),T2@P_S]V=1!P*!4`$?!T'GDR4G/@1DE8345?&gt;0K 
+M$;!_2?!@\ST@!* 5`%"@89%CM6'85TUA3R:Q)C @8U'&lt;,#4R`&amp;O ,:$V8_E\
+M/^=]1&amp;9?3K U-TZ0?M!G[X-H_U2Q,C@L,S-JCGV%PC5KW' G&lt;;!MT0.@=MQO
+M:1W01A '@')O`&amp;W"?G(?(''@-I"*0":Q!3!?EQ&gt;@6;!4D""+,BD[=!];1&gt;$`
+MD&amp;=M`%BS('*N3H!27T-055-=B_:/&gt;*H&amp;D &gt;PCP!)4E$%\' ^(#8T&lt;"B(L5)S
+M5?YN`:!,T5A06\$PD$S1!&amp;"_4P$@LI%Q'O!AD(W@95OP_WEP1F9Y,C"0!I!?
+M?V4*2D+_?:QBLW]B@P(!T&amp;.OEP]*0FTK4U0*4&amp;*D.'[@?S SWTZP)&amp;"#;X1_
+M5*(SA= DT/-JBG"!*B^(3@N 3^$&gt;H+N)0TMU*(TG%S :H"!M`-YW2Z)P&amp;'= 
+M"H4A*T2D#&amp;L%( ,@/1] =RP0"U H_C&gt;+Z2M32[$W( #0'M&amp;H$/NDY:C-*JFR
+MBS&amp;J3ZDV!M#_=J"+]IKBH&amp;*'7:&amp;?HJ^CO_^DSZ7?IN\"&lt;+2&lt;J#6GT3S@_ZBO
+MJ;^LWZO?K.^M^5:F7E+S`_ 5$6)U`Q")&lt;1[1?.3[*[ [H6,N842A80$[XU @
+M_Q'P"($$('SD!" *P'F6,'!_69$?0 -P$@!9@C!@!I!F7P20P*(+@!ZS;0!T
+<a href="mailto:M'9!RSFM9D3S@6%!O.SNA'">M'9!RSFM9D3S@6%!O.SNA'</a>=#^2"(02V ^@%+A71!M`#]V_\5%/P0?*+[D(,$P
+M\%VP"? ?'&gt;,&amp;D$+D'K,7,&amp;]P8MT`T&amp;M&amp;9E&lt;1))!X744+@/&lt;_$141P2 O$@!/
+MP'6P!/#]0O,OQ47!D!]D4* ?$39@^U&lt;@(+%T"H6YH2)0!" =\?&lt;%P'SDBY%V
+M! `L(3S@6)+_`X$PX &gt;1'L3*Q&lt;0W/N *A?_'`L4$!^#'094P8N!&gt;D 6@]RP0
+M36$VD'5:\8J!/S'#4O\#\![ 'K,`T,BP!T#*EQRF[UB2E?+8&amp;I7Q*4V$'L*+
+M,?\=L K!'PG2M'(0Q+'$LMG6=TK(&lt;L$\L&amp;0*ABMB'P)?_Q&lt;P;T$L`#RPS,!V
+MH+1H*U.?*U-&amp;2.*$&amp;A(*LBA$`B#Q/?%K;F\'X,H1'L$%P#_6L0.1%Z +4") 
+M63)22/_&amp;P06@#;#',5U#C&gt; V@46"[S]]7I &gt;P4219$U12_;@&gt;_\`D.%BX;_@
+M9LK%T"$?(.-?[S^Z*V)RP%(Q8$7P*_ &gt;H#@M&lt;F#&gt;6.*(._);,_ M.5T_V["O
+MXNH[[+JWZRKSCRM3.XOVXH@J\Q3/\V_T?&gt;%&amp;RJ%F9] 1^._?]M\K@ &gt;0`- &lt;
+MO$T^\,?[OP0@'R%LX^4A1F8*A4'14]L&gt;@$,@: 5 &lt;;!P)J'-(;M;`!WQ)U,!
+M3V##4G $,/T=TR?)DUOQDS$7H.%"3,/[T(;5AF1UP"OPYH"+D!V@_R:0PG#$
+MT0M@;=$[XL&amp;=`/WH2%1(`/TM*Z *_2=V_\QQC2$Y&lt;-TR4L YT!'PVE*&gt;+1Y#
+MDS$V-O$`97$8@-&lt;VF]@S-V4G#:DG,3#3=/\-P3F2P$'DL "Q*S .&lt;]XQ_P\Y
+M-K\BWT"/&amp;]4F9C=E[P$"`!HP```#`! 0``````,`$1 `````0 `',,#X_D&amp;/
+M1;P!0 `(,,#X_D&amp;/1;P!'@`]``$````%````4D4Z( `````#``TT_3&lt;``+"7
+`
+end
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0444.html">Joni Mikael Virtanen: "Re: ipfwadm (maybe not axp specific problem?)"</a>
+<li> <b>Previous message:</b> <a href="0442.html">Terry L. Ridder: "Lesstif &amp; Mosaic Question"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,54 @@
+--- configure.in.orig	Mon Nov 20 21:36:12 2000
++++ configure.in	Mon Nov 20 21:38:53 2000
+@@ -50,6 +50,7 @@
+ case "$host" in
+ i*86-*-*) TR_CFLAGS="$TR_CFLAGS -malign-loops=2 -malign-jumps=2 -malign-functions=2";
+           TR_CXXFLAGS="$TR_CXXFLAGS -malign-loops=2 -malign-jumps=2 -malign-functions=2";;
++alpha*-*-linux-*) TR_CFLAGS="$TR_CFLAGS -mieee";;
+ esac
+ 
+ AC_ARG_ENABLE(debug,     [  --enable-debug          Produce an executable with debugging symbols], [TR_CFLAGS="-g -Wall"; TR_CXXFLAGS="-g -Wall"])
+--- src/image.c.orig	Mon Nov 20 19:54:02 2000
++++ src/image.c	Mon Nov 20 19:55:59 2000
+@@ -46,15 +46,15 @@
+        FILE *file;
+        unsigned char *tmp[5];
+        unsigned long rleEnd;
+-       unsigned long *rowStart;
+-       unsigned long *rowSize;
++       unsigned int *rowStart;
++       unsigned int *rowSize;
+      } Image;
+ 
+ 
+ static Image *ImageOpen(char *fileName)
+ {
+   Image *image;
+-  unsigned long *rowStart, *rowSize, ulTmp;
++  unsigned int *rowStart, *rowSize, ulTmp;
+   int x, i;
+ 
+   image = (Image *)malloc(sizeof(Image));
+@@ -96,9 +96,9 @@
+ 
+   if ((image->type & 0xFF00) == 0x0100) /* RLE image */
+     {
+-      x = image->sizeY * image->sizeZ * sizeof(long);
+-      image->rowStart = (unsigned long *)malloc(x);
+-      image->rowSize = (unsigned long *)malloc(x);
++      x = image->sizeY * image->sizeZ * sizeof(int);
++      image->rowStart = (unsigned int *)malloc(x);
++      image->rowSize = (unsigned int *)malloc(x);
+       if (image->rowStart == NULL || image->rowSize == NULL) 
+ 	{
+ 	  fprintf(stderr, "Out of memory!\n");
+@@ -110,7 +110,7 @@
+       fread(image->rowSize, 1, x, image->file);
+       if (image->imagic == IMAGIC_SWAP) 
+ 	{
+-	  x /= sizeof(long);
++	  x /= sizeof(int);
+ 	  rowStart = image->rowStart;
+ 	  rowSize = image->rowSize;
+ 	  while (x--) 
+

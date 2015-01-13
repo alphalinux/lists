@@ -1,0 +1,261 @@
+<!-- received="Fri Feb 14 08:23:08 1997 " -->
+<!-- sent="Fri, 14 Feb 1997 14:20:18 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="New Patch for gdb-4.16 on Linux-Alpha ( debugging shared libs )" -->
+<!-- id="9702141420.ZM9224@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>New Patch for gdb-4.16 on Linux-Alpha ( debugging shared libs )</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>New Patch for gdb-4.16 on Linux-Alpha ( debugging shared libs )</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 14 Feb 1997 14:20:18 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#477">[ date ]</a><a href="index.html#477">[ thread ]</a><a href="subject.html#477">[ subject ]</a><a href="author.html#477">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0478.html">Michael Schwingen: "Advertising with addresses off this list?"</a>
+<li> <b>Previous message:</b> <a href="0476.html">Marin Purgar - PMC: "Re: AfterStep for Alpha/AXP (UDB)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi there, last night i hacked a little at gdb  to make<br>
+stepping into shared libs possible at my linux-alpha box.<br>
+<p>
+The maintainers of gdb will likely call this an ugly hack. There are still many<br>
+Fixme32x64 lines in the source i haven't even looked at - but, it seems to<br>
+work for my purposes, what makes me happy.<br>
+<p>
+Besides that, i noticed gdb mostly always didn't display function arguments <br>
+when printing frame infomations, e.g in backtraces or when hitting breakpoints.<br>
+Some lines in file stack.c are responsible for this behaviour, which should prevent gdb<br>
+from printing wrong frame information in 'certain pathological cases'.<br>
+I simply threw them away, maybe that breaks something else. If  you want the original<br>
+code that does the (obviously not always appropriate) checks, don't apply the patch to stacks.c.<br>
+<p>
+Compiler used: gcc-2.7.2.1 and binutils 2.7.0.9.<br>
+<p>
+Files used:<br>
+<p>
+the gdb-4.16 source.<br>
+binutils 2.7.0.9 source <br>
+the 3 axp-patches contained in the redhat-4.1 gdb-4.16 SRPM<br>
+the following patch<br>
+glibc-2.01 installed ( maybe it compiles against older Versions, not tried )<br>
+<p>
+options to ./configure:<br>
+--prefix=/usr 	( only to be compliant with redhat )<br>
+<p>
+after unpacking the gdb-source, you have to replace the 3 directorys<br>
+bfd, include, and opcodes by their counterparts from binutils-2.7.0.9.<br>
+First apply the three patches from the redhat-SRPM, then the following<br>
+one:<br>
+<p>
+diff -u -r gdb-4.16/gdb/breakpoint.c gdb-4.16-hacked/gdb/breakpoint.c<br>
+--- gdb-4.16/gdb/breakpoint.c	Sat Mar 30 06:58:09 1996<br>
++++ gdb-4.16-hacked/gdb/breakpoint.c	Fri Feb 14 12:46:26 1997<br>
+@@ -1671,7 +1671,7 @@<br>
+             if (addressprint)<br>
+               {<br>
+                 annotate_field (4);<br>
+-                printf_filtered ("Address    ");<br>
++                printf_filtered ("Address            ");<br>
+               }<br>
+             annotate_field (5);<br>
+             printf_filtered ("What\n");<br>
+@@ -1691,7 +1691,7 @@<br>
+ <br>
+ 	strcpy (wrap_indent, "                           ");<br>
+ 	if (addressprint)<br>
+-	  strcat (wrap_indent, "           ");<br>
++	  strcat (wrap_indent, "                   ");<br>
+ 	switch (b-&gt;type)<br>
+ 	  {<br>
+ 	  case bp_watchpoint:<br>
+@@ -1724,7 +1724,7 @@<br>
+ 		printf_filtered<br>
+ 		  ("%s ",<br>
+ 		   local_hex_string_custom<br>
+-		   ((unsigned long) b-&gt;address, "08l"));<br>
++		   ((unsigned long) b-&gt;address, "016l"));<br>
+ 	      }<br>
+ <br>
+ 	    annotate_field (5);<br>
+diff -u -r gdb-4.16/gdb/solib.c gdb-4.16-hacked/gdb/solib.c<br>
+--- gdb-4.16/gdb/solib.c	Sat Mar 30 06:58:51 1996<br>
++++ gdb-4.16-hacked/gdb/solib.c	Fri Feb 14 12:40:22 1997<br>
+@@ -645,22 +645,21 @@<br>
+   /* Find the DT_DEBUG entry in the the .dynamic section.<br>
+      For mips elf we look for DT_MIPS_RLD_MAP, mips elf apparently has<br>
+      no DT_DEBUG entries.  */<br>
+-  /* FIXME: In lack of a 64 bit ELF ABI the following code assumes<br>
+-     a 32 bit ELF ABI target.  */<br>
++ <br>
+   for (bufend = buf + dyninfo_sect_size;<br>
+        buf &lt; bufend;<br>
+-       buf += sizeof (Elf32_External_Dyn))<br>
++       buf += sizeof (Elf64_External_Dyn))<br>
+     {<br>
+-      Elf32_External_Dyn *x_dynp = (Elf32_External_Dyn *)buf;<br>
++      Elf64_External_Dyn *x_dynp = (Elf64_External_Dyn *)buf;<br>
+       long dyn_tag;<br>
+       CORE_ADDR dyn_ptr;<br>
+ <br>
+-      dyn_tag = bfd_h_get_32 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_tag);<br>
++      dyn_tag = bfd_h_get_64 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_tag);<br>
+       if (dyn_tag == DT_NULL)<br>
+ 	break;<br>
+       else if (dyn_tag == DT_DEBUG)<br>
+ 	{<br>
+-	  dyn_ptr = bfd_h_get_32 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_un.d_ptr);<br>
++	  dyn_ptr = bfd_h_get_64 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_un.d_ptr);<br>
+ 	  return dyn_ptr;<br>
+ 	}<br>
+ #ifdef DT_MIPS_RLD_MAP<br>
+@@ -670,7 +669,7 @@<br>
+ <br>
+ 	  /* DT_MIPS_RLD_MAP contains a pointer to the address<br>
+ 	     of the dynamic link structure.  */<br>
+-	  dyn_ptr = bfd_h_get_32 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_un.d_ptr);<br>
++	  dyn_ptr = bfd_h_get_64 (exec_bfd, (bfd_byte *) x_dynp-&gt;d_un.d_ptr);<br>
+ 	  if (target_read_memory (dyn_ptr, pbuf, sizeof (pbuf)))<br>
+ 	    return 0;<br>
+ 	  return extract_unsigned_integer (pbuf, sizeof (pbuf));<br>
+@@ -941,7 +940,7 @@<br>
+     symbol_file_add (so -&gt; so_name, so -&gt; from_tty,<br>
+ 		     (so-&gt;textsection == NULL<br>
+ 		      ? 0<br>
+-		      : (unsigned int) so -&gt; textsection -&gt; addr),<br>
++		      : so -&gt; textsection -&gt; addr),<br>
+ 		     0, 0, 0);<br>
+   return (1);<br>
+ }<br>
+@@ -1130,18 +1129,18 @@<br>
+ 	{<br>
+ 	  if (!header_done)<br>
+ 	    {<br>
+-	      printf_unfiltered("%-12s%-12s%-12s%s\n", "From", "To", "Syms Read",<br>
++	      printf_unfiltered("%-20s%-20s%-12s%s\n", "From", "To", "Syms Read",<br>
+ 		     "Shared Object Library");<br>
+ 	      header_done++;<br>
+ 	    }<br>
+ 	  /* FIXME-32x64: need print_address_numeric with field width or<br>
+ 	     some such.  */<br>
+-	  printf_unfiltered ("%-12s",<br>
++	  printf_unfiltered ("%-20s",<br>
+ 		  local_hex_string_custom ((unsigned long) LM_ADDR (so),<br>
+-					   "08l"));<br>
+-	  printf_unfiltered ("%-12s",<br>
++					   "016l"));<br>
++	  printf_unfiltered ("%-20s",<br>
+ 		  local_hex_string_custom ((unsigned long) so -&gt; lmend,<br>
+-					   "08l"));<br>
++					   "016l"));<br>
+ 	  printf_unfiltered ("%-12s", so -&gt; symbols_loaded ? "Yes" : "No");<br>
+ 	  printf_unfiltered ("%s\n",  so -&gt; so_name);<br>
+ 	}<br>
+diff -u -r gdb-4.16/gdb/stack.c gdb-4.16-hacked/gdb/stack.c<br>
+--- gdb-4.16/gdb/stack.c	Sat Jan  6 02:58:24 1996<br>
++++ gdb-4.16-hacked/gdb/stack.c	Fri Feb 14 00:11:09 1997<br>
+@@ -260,29 +260,9 @@<br>
+ 	 create a find_pc_minimal_function or some such).  */<br>
+ <br>
+       struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi-&gt;pc);<br>
+-      if (msymbol != NULL<br>
+-	  &amp;&amp; (SYMBOL_VALUE_ADDRESS (msymbol) <br>
+-	      &gt; BLOCK_START (SYMBOL_BLOCK_VALUE (func))))<br>
+-	{<br>
+-#if 0<br>
+-	  /* There is no particular reason to think the line number<br>
+-	     information is wrong.  Someone might have just put in<br>
+-	     a label with asm() but left the line numbers alone.  */<br>
+-	  /* In this case we have no way of knowing the source file<br>
+-	     and line number, so don't print them.  */<br>
+-	  sal.symtab = 0;<br>
+-#endif<br>
+-	  /* We also don't know anything about the function besides<br>
+-	     its address and name.  */<br>
+-	  func = 0;<br>
+-	  funname = SYMBOL_NAME (msymbol);<br>
+-	  funlang = SYMBOL_LANGUAGE (msymbol);<br>
+-	}<br>
+-      else<br>
+-	{<br>
+-	  funname = SYMBOL_NAME (func);<br>
+-	  funlang = SYMBOL_LANGUAGE (func);<br>
+-	}<br>
++<br>
++      funname = SYMBOL_NAME (func);<br>
++      funlang = SYMBOL_LANGUAGE (func);<br>
+     }<br>
+   else<br>
+     {<br>
+diff -u -r gdb-4.16/gdb/utils.c gdb-4.16-hacked/gdb/utils.c<br>
+--- gdb-4.16/gdb/utils.c	Tue Apr 23 06:35:13 1996<br>
++++ gdb-4.16-hacked/gdb/utils.c	Wed Feb 12 18:09:10 1997<br>
+@@ -772,7 +772,7 @@<br>
+ <br>
+ PTR<br>
+ xmalloc (size)<br>
+-     long size;<br>
++     size_t size;<br>
+ {<br>
+   return (xmmalloc ((PTR) NULL, size));<br>
+ }<br>
+@@ -782,7 +782,7 @@<br>
+ PTR<br>
+ xrealloc (ptr, size)<br>
+      PTR ptr;<br>
+-     long size;<br>
++     size_t size;<br>
+ {<br>
+   return (xmrealloc ((PTR) NULL, ptr, size));<br>
+ }<br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0478.html">Michael Schwingen: "Advertising with addresses off this list?"</a>
+<li> <b>Previous message:</b> <a href="0476.html">Marin Purgar - PMC: "Re: AfterStep for Alpha/AXP (UDB)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

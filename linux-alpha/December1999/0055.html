@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.2.14pre13 - exception in __copy_user wh</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: 2.2.14pre13 - exception in __copy_user when running mount()">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.2.14pre13 - exception in __copy_user when running mount()</H1>
+<HR>
+<P>
+<!-- received="Fri Dec 17 02:43:13 1999" -->
+<!-- isoreceived="19991217104313" -->
+<!-- sent="Thu, 16 Dec 1999 16:04:46 -0700 (MST)" -->
+<!-- isosent="19991216230446" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: 2.2.14pre13 - exception in __copy_user when running mount()" -->
+<!-- id="199912162304.QAA07583@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="2.2.14pre13 - exception in __copy_user when running mount()" -->
+<STRONG>Subject: </STRONG>Re: 2.2.14pre13 - exception in __copy_user when running mount()<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Dec 16 1999 - 15:04:46 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#55">[ date ]</A>
+<A HREF="index.html#55">[ thread ]</A>
+<A HREF="subject.html#55">[ subject ]</A>
+<A HREF="author.html#55">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0056.html">Alan Cox: "Re: 2.2.14pre13 - exception in __copy_user when running mount()"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0054.html">Nerijus: "RE: vesafb on archs !ia32"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0057.html">David S. Miller: "Re: 2.2.14pre13 - exception in __copy_user when running mount()"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Ok, this particular code change in 2.2.14-pre1[34] is responsible
+<BR>
+for an exception in __copy_user on every attemp to mount or unmount
+<BR>
+a file system (at least ext2 file system).
+<BR>
+<P>--- linux-2.2.14/fs/super.c	Sun Dec  5 15:24:34 1999
+<BR>
++++ linux-2.2.14p/fs/super.c	Thu Dec 16 10:21:38 1999
+<BR>
+@@ -983,6 +983,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!data)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;
+<BR>
++#if 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vma = find_vma(current-&gt;mm, (unsigned long) data);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!vma || (unsigned long) data &lt; vma-&gt;vm_start)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFAULT;
+<BR>
+@@ -991,13 +992,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = vma-&gt;vm_end - (unsigned long) data;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (PAGE_SIZE &lt;= (unsigned long) i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i = PAGE_SIZE-1;
+<BR>
+-	if (!(page = __get_free_page(GFP_KERNEL))) {
+<BR>
++#else
+<BR>
++	i = PAGE_SIZE;		
+<BR>
++#endif		
+<BR>
++	if (!(page = get_free_page(GFP_KERNEL))) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -ENOMEM;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	if (copy_from_user((void *) page,data,i)) {
+<BR>
+-		free_page(page); 
+<BR>
+-		return -EFAULT;
+<BR>
+-	}
+<BR>
++	copy_from_user((void *) page,data,i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*where = page;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+<P>Who own to this change, why it was done and what is missing?
+<BR>
+<P>An exception in question appears to happen in the follwing code
+<BR>
+from arch/alpha/lib/copy_user.S:
+<BR>
+<P>........
+<BR>
+&nbsp;&nbsp;&nbsp;100		subq $0,1,$0
+<BR>
+&nbsp;&nbsp;&nbsp;101		addq $6,1,$6
+<BR>
+&nbsp;&nbsp;&nbsp;102		addq $7,1,$7
+<BR>
+&nbsp;&nbsp;&nbsp;103		bne $0,$57
+<BR>
+&nbsp;&nbsp;&nbsp;104		br $31,$41
+<BR>
+&nbsp;&nbsp;&nbsp;105		.align 4
+<BR>
+&nbsp;&nbsp;&nbsp;106	$43:
+<BR>
+&nbsp;&nbsp;&nbsp;107		beq $4,$65
+<BR>
+&nbsp;&nbsp;&nbsp;108		.align 5
+<BR>
+&nbsp;&nbsp;&nbsp;109	$66:
+<BR>
+&nbsp;&nbsp;&nbsp;110		EXI( ldq $1,0($7) )   &lt;---- here!!!
+<BR>
+&nbsp;&nbsp;&nbsp;111		subq $4,8,$4
+<BR>
+&nbsp;&nbsp;&nbsp;112		EXO( stq $1,0($6) )
+<BR>
+&nbsp;&nbsp;&nbsp;113		addq $7,8,$7
+<BR>
+&nbsp;&nbsp;&nbsp;114		subq $0,8,$0
+<BR>
+&nbsp;&nbsp;&nbsp;115		addq $6,8,$6
+<BR>
+&nbsp;&nbsp;&nbsp;116		bne $4,$66
+<BR>
+................
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Michal
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0056.html">Alan Cox: "Re: 2.2.14pre13 - exception in __copy_user when running mount()"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0054.html">Nerijus: "RE: vesafb on archs !ia32"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0057.html">David S. Miller: "Re: 2.2.14pre13 - exception in __copy_user when running mount()"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

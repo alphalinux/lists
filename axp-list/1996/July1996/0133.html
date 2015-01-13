@@ -1,0 +1,252 @@
+<!-- received="Thu Jul 18 06:34:26 1996 " -->
+<!-- sent="Thu, 18 Jul 1996 12:32:06 +0200 (MET DST)" -->
+<!-- name="Michael Schwingen" -->
+<!-- email="m.schwingen@stochastik.rwth-aachen.de" -->
+<!-- subject="Re: Iomega zip drive?" -->
+<!-- id="199607181032.MAA02749@jupiter.stochastik.rwth-aachen.de" -->
+<!-- inreplyto="Pine.SGI.3.94.960717232236.6243A-100000@groucho.pci.uni-hannover.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Iomega zip drive?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Iomega zip drive?</h2>
+
+<b>Michael Schwingen</b> (<a href="mailto:m.schwingen@stochastik.rwth-aachen.de"><i>m.schwingen@stochastik.rwth-aachen.de</i></a>)<br>
+<i>Thu, 18 Jul 1996 12:32:06 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#133">[ date ]</a><a href="index.html#133">[ thread ]</a><a href="subject.html#133">[ subject ]</a><a href="author.html#133">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0134.html">Linus Torvalds: "Re: Running Digital Unix Binaries on Red Hat Linux 3.0.3"</a>
+<li> <b>Previous message:</b> <a href="0132.html">Joshua M. Thompson: "Soon-to-be new Alpha owner with some Alpha Linux questions"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Is it possible to publish/post/mail your program ?</i><br>
+<p>
+I did once on the linux/scsi list - apparently noone wanted to maintain it.<br>
+As I don't have a ZIP drive, I won't do much with it - it could need some<br>
+improvements.<br>
+<p>
+I hope I have the latest version here:<br>
+<p>
+/* ex:set ts=2: */<br>
+/*<br>
+ *   $Id: zip.c,v 1.4 1995/11/27 23:10:13 rincewind Exp $<br>
+ *<br>
+ *   zip.c: access special protection features on IOMEGA ZIP drives<br>
+ *   written 1995 by Michael Schwingen, <a href="mailto:rincewind@discworld.oche.de">rincewind@discworld.oche.de</a><br>
+ *<br>
+ *   SCSI routines based on scsiinfo.c 1.0 by Eric Youngdale<br>
+ *<br>
+ *<br>
+ *   This program is free software; you can redistribute it and/or modify<br>
+ *   it under the terms of the GNU General Public License as published by<br>
+ *   the Free Software Foundation; either version 2, or (at your option)<br>
+ *   any later version.<br>
+ *<br>
+ *   This program is distributed in the hope that it will be useful,<br>
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of<br>
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the<br>
+ *   GNU General Public License for more details.<br>
+ *<br>
+ *   You should have received a copy of the GNU General Public License<br>
+ *   along with this program; if not, write to the Free Software<br>
+ *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.<br>
+ */<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+#include &lt;string.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;sys/ioctl.h&gt;<br>
+#include &lt;sys/fcntl.h&gt;<br>
+#include &lt;linux/hdreg.h&gt;<br>
+<p>
+#define SCSI_IOCTL_SEND_COMMAND 1<br>
+<p>
+/* <br>
+ * check if this is really a ZIP drive, since we would not want to <br>
+ * send undocumented SCSI commands to a different target<br>
+ *<br>
+ * return value: 1 = ZIP, 0 = other<br>
+*/<br>
+int check_zip(int file)<br>
+{<br>
+	int status;<br>
+	unsigned char *cmd;<br>
+	char buffer[2000];<br>
+<p>
+	memset(buffer,0,2000);<br>
+	<br>
+	*( (int *) buffer ) = 0;          /* length of input data */<br>
+	*( ((int *) buffer) + 1 ) = 1000; /* length of output buffer */<br>
+<p>
+	cmd = (char *) ( ((int *) buffer) + 2);<br>
+	<br>
+	cmd[0] = 0x12;	/* INQUIRY */<br>
+	cmd[1] = 0x00;	/* lun=0, evpd=0 */<br>
+	cmd[2] = 0x00;	/* page code = 0 */<br>
+	cmd[3] = 0x00;	/* (reserved) */<br>
+	cmd[4] = 0xff;	/* allocation length */<br>
+	cmd[5] = 0x00;	/* control */<br>
+<p>
+	status = ioctl( file, SCSI_IOCTL_SEND_COMMAND, buffer);<br>
+	if(status) <br>
+		return 0;<br>
+	/* check Vendor */<br>
+	if (strncmp(buffer+16,"IOMEGA",6) != 0)<br>
+		return 0;<br>
+	if (strncmp(buffer+24,"ZIP 100",7) != 0)<br>
+		return 0; <br>
+<p>
+	return 1;<br>
+}<br>
+<p>
+/*<br>
+ *  send the ZIP special SCSI command <br>
+ *  mode specifies what to do:<br>
+ *  0 = unlock (password optional)<br>
+ *  2 = write protect (no password)<br>
+ *  3 = write protect (password = 1..33 chars)<br>
+ *  5 = lock (password = 1..33 chars)<br>
+ *<br>
+ *  return value: 0 = success <br>
+ */<br>
+int zipspecial(int file, int mode, char *pwd)<br>
+{<br>
+	int status, len;<br>
+	unsigned char *cmd;<br>
+	char buffer[2000];<br>
+<p>
+	memset(buffer,0,2000);<br>
+<p>
+	len = strlen(pwd);<br>
+	if (len &gt; 33)<br>
+		return -1;<br>
+	*( (int *) buffer) = len;        /* length of input data */<br>
+	*( (int *) buffer) + 1 ) = 1000; /* length of output buffer */<br>
+<p>
+	cmd = (char *) ( ((int *) buffer) + 2 );<br>
+	<br>
+	cmd[0] = 0x0C;	/* ZIP special OpCode */<br>
+	cmd[1] = mode;		<br>
+	cmd[2] = 0x00;	/* page code = 0 */<br>
+	cmd[3] = 0x00;	/* (reserved) */<br>
+	cmd[4] = len;	/* allocation length */<br>
+	cmd[5] = 0x00;	/* control */<br>
+	memcpy(cmd+6, pwd, len);<br>
+<p>
+	status = ioctl(file, SCSI_IOCTL_SEND_COMMAND, buffer );<br>
+	#if 0<br>
+	if(status) printf("ioctl(SCSI_IOCTL_SEND_COMMAND) status\t= %d\n", status );<br>
+	#endif<br>
+<p>
+	return status; /* 0 = OK */<br>
+}<br>
+<p>
+void usage(char *name)<br>
+{<br>
+	fprintf(stderr,<br>
+	        "Usage: %s device cmd [password]\n"<br>
+	        "valid values for cmd: lock unlock wrprot\n"<br>
+	        "password may be 1-33 characters long\n",name);<br>
+}<br>
+<p>
+int main(int argc, char *argv[])<br>
+{<br>
+	int f;<br>
+	char *passwd = "";<br>
+	int cmd=0,status;<br>
+<p>
+	if (argc != 4 &amp;&amp; argc != 3)<br>
+	{<br>
+		usage(argv[1]);<br>
+		return 1;<br>
+	}<br>
+	if (strcmp(argv[2],"lock") == 0)<br>
+	{<br>
+		cmd = 5;<br>
+		if (argc == 3)<br>
+		{<br>
+			fprintf(stderr,"lock requires password!\n");<br>
+			return 1;<br>
+		}<br>
+	}<br>
+	else if (strcmp(argv[2],"unlock") == 0)<br>
+		cmd = 0;<br>
+	else if (strcmp(argv[2],"wrprot") == 0)<br>
+	{<br>
+		cmd = 3;<br>
+		if (argc == 3)<br>
+			cmd = 2;<br>
+	}<br>
+	else<br>
+	{<br>
+		usage(argv[1]);<br>
+		return 1;<br>
+	}<br>
+	if (argc == 4)<br>
+		passwd = argv[3];<br>
+	if (strlen(passwd) &gt; 33)<br>
+	{<br>
+		fprintf(stderr,"%s: passwd must be 33 chars or less\n",argv[1]);<br>
+		return 1;<br>
+	}<br>
+	f = open(argv[1],O_RDONLY);<br>
+	if (f&lt;0)<br>
+	{<br>
+		perror("open");<br>
+		return 1;<br>
+	}<br>
+	if (!check_zip(f))<br>
+	{<br>
+		fprintf(stderr,"error: %s is not a ZIP drive!\n",argv[1]);<br>
+		return 1;<br>
+	}<br>
+<p>
+	status = zipspecial(f,cmd,passwd);<br>
+	fprintf(stderr,"%s %s\n",argv[2],status?"failed":"succeded");<br>
+	<br>
+	close(f);<br>
+	return 0;<br>
+}<br>
+<p>
+<p>
+<pre>
+-- 
+Michael Schwingen                       &lt;<a href="mailto:m.schwingen@stochastik.rwth-aachen.de">m.schwingen@stochastik.rwth-aachen.de</a>&gt;
+Institut fuer Statistik und Wirtschaftsmathematik, | In the beginning there was
+Wuellnerstr. 3, 52056 Aachen                       | nothing, which exploded.
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0134.html">Linus Torvalds: "Re: Running Digital Unix Binaries on Red Hat Linux 3.0.3"</a>
+<li> <b>Previous message:</b> <a href="0132.html">Joshua M. Thompson: "Soon-to-be new Alpha owner with some Alpha Linux questions"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

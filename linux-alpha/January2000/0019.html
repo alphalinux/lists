@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Some (maybe related) problems on AXPpci33</TITLE>
+<META NAME="Author" CONTENT="Thorsten Kranzkowski (th@Marvin.DL8BCU.ampr.org)">
+<META NAME="Subject" CONTENT="Re: Some (maybe related) problems on AXPpci33 (aka NoName)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Some (maybe related) problems on AXPpci33 (aka NoName)</H1>
+<HR>
+<P>
+<!-- received="Mon Jan 17 20:16:15 2000" -->
+<!-- isoreceived="20000118041615" -->
+<!-- sent="Sun, 16 Jan 2000 20:57:31 +0000" -->
+<!-- isosent="20000116205731" -->
+<!-- name="Thorsten Kranzkowski" -->
+<!-- email="th@Marvin.DL8BCU.ampr.org" -->
+<!-- subject="Re: Some (maybe related) problems on AXPpci33 (aka NoName)" -->
+<!-- id="20000116205731.A1553@Marvin.DL8BCU.ampr.org" -->
+<!-- inreplyto="20000116150713.B24983@ev-stift-gymn.guetersloh.de" -->
+<STRONG>Subject: </STRONG>Re: Some (maybe related) problems on AXPpci33 (aka NoName)<BR>
+<STRONG>From: </STRONG>Thorsten Kranzkowski (<EM>th@Marvin.DL8BCU.ampr.org</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Jan 16 2000 - 12:57:31 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#19">[ date ]</A>
+<A HREF="index.html#19">[ thread ]</A>
+<A HREF="subject.html#19">[ subject ]</A>
+<A HREF="author.html#19">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Tenhave, Tim: "RE: boot from SRM &amp; system date [ update ]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Andrea Arcangeli: "RE: boot from SRM &amp; system date [ update ]"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0016.html">Jan-Benedict Glaw: "Some (maybe related) problems on AXPpci33 (aka NoName)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0016.html">Thorsten Kranzkowski: "Re: Some (maybe related) problems on AXPpci33 (aka NoName)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, Jan 16, 2000 at 03:07:13PM +0100, Jan-Benedict Glaw wrote:
+<BR>
+<EM>&gt; Hi!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I got an old AXPpci33 board some time ago, mounted it and faced some 
+</EM><BR>
+<EM>&gt; problems;(
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; First of all, I do not get interrupts from a number of devices (serial, 
+</EM><BR>
+<EM>&gt; any of the tested ISA cound cards, PCI 3c905 network card) while others
+</EM><BR>
+<EM>&gt; (NCR based SCSI chip, timer, floppy, IDE) operate as usual. I think this
+</EM><BR>
+<P>Ok - What interrupts are your isa cards supposed to use? On the Noname all
+<BR>
+PCI interrupts are routed through the isa-bridge. As a consequence not all
+<BR>
+interrupts are available to ISA devices. And this routing is currently
+<BR>
+hardwired. I currently use the following patch to get the IRQ-routing
+<BR>
+right for me (I don't use ide but I need irq 15 for an extra serial card):
+<BR>
+<P><P>diff -ur linux-2.3.34/arch/alpha/kernel/sys_sio.c linux-2.3.34-work/arch/alpha/kernel/sys_sio.c
+<BR>
+--- linux-2.3.34/arch/alpha/kernel/sys_sio.c	Tue Dec 14 12:51:36 1999
+<BR>
++++ linux-2.3.34-work/arch/alpha/kernel/sys_sio.c	Thu Dec 23 14:43:17 1999
+<BR>
+@@ -404,7 +404,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;they are co-indicated when the platform type &quot;Noname&quot; is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;selected... :-(  */
+<BR>
+&nbsp;
+<BR>
+-		route_tab:	0x0b0a0f0d,
+<BR>
++		route_tab:	0x0b0e0e0e,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}}
+<BR>
+&nbsp;};
+<BR>
+&nbsp;ALIAS_MV(noname)
+<BR>
+<P>This value assigns each of the 4 PCI interrupts the wanted IRQ-number. Thus my
+<BR>
+replacement uses INT11 (=0x0b) for one PCI interrupt (happens to be the 
+<BR>
+onboard scsi controller) and INT14 (=0x0e) for the other PCI interrupts (i.e.
+<BR>
+they are shared!).
+<BR>
+<P>The original value is just wrong because INT13 (=0x0d) can't be used at all
+<BR>
+(ugh, Intel math coprocessor stuff :-/) That may well explain why your 3c905
+<BR>
+doesn't work - it picked INT13. Swap it to another slot and that other card
+<BR>
+will fail....
+<BR>
+&nbsp;
+<BR>
+<P><EM>&gt; might be a problem of a PCI bridge not being set up properly.  At the moment
+</EM><BR>
+<EM>&gt; I use the SRM console (maybe here is the problem with setting up IRQs?)
+</EM><BR>
+<P>No. The kernel does that itself.
+<BR>
+<P>[...]
+<BR>
+<EM>&gt; Well, I think there might be a jumper set which forbids me to write to the
+</EM><BR>
+<EM>&gt; flash. But I can't find it anywhere. Even my docs don't tell where to locate
+</EM><BR>
+<EM>&gt; it. Can anybody help?
+</EM><BR>
+<P>Count the jumpers - they are all explained in your docs :-) i.e. No write-
+<BR>
+protect jumper.
+<BR>
+I had no problems (apart from learning booting basics for alpha :-)) putting
+<BR>
+MILO into flash. 
+<BR>
+<P><EM>&gt; It is some kind of annoying to transport all data by a floppy disc... Please
+</EM><BR>
+<EM>&gt; give me some hints;)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; MfG, JBG
+</EM><BR>
+<P>Viel Erfolg!
+<BR>
+Thorsten
+<BR>
+<P><PRE>
+-- 
+| Thorsten Kranzkowski         Internet: dl8bcu@gmx.net                        |
+| Mobile: ++49 161 7210230        Snail: Niemannsweg 30, 49201 Dissen, Germany |
+| Ampr: dl8bcu@db0lj.#rpl.deu.eu, dl8bcu@marvin.dl8bcu.ampr.org [44.130.8.19]  |
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Tenhave, Tim: "RE: boot from SRM &amp; system date [ update ]"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Andrea Arcangeli: "RE: boot from SRM &amp; system date [ update ]"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0016.html">Jan-Benedict Glaw: "Some (maybe related) problems on AXPpci33 (aka NoName)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0016.html">Thorsten Kranzkowski: "Re: Some (maybe related) problems on AXPpci33 (aka NoName)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Feb 01 2000 - 05:33:35 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

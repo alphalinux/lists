@@ -1,0 +1,235 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: instability</TITLE>
+<META NAME="Author" CONTENT="Peter Rival (frival@zk3.dec.com)">
+<META NAME="Subject" CONTENT="Re: instability">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: instability</H1>
+<HR>
+<P>
+<!-- received="Mon Jun 21 20:59:40 1999" -->
+<!-- isoreceived="19990622035940" -->
+<!-- sent="Mon, 21 Jun 1999 14:48:26 -0400" -->
+<!-- isosent="19990621184826" -->
+<!-- name="Peter Rival" -->
+<!-- email="frival@zk3.dec.com" -->
+<!-- subject="Re: instability" -->
+<!-- id="376E88FA.9D75E4DD@zk3.dec.com" -->
+<!-- inreplyto="19990619125843.A8357@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: instability<BR>
+<STRONG>From: </STRONG>Peter Rival (<EM>frival@zk3.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jun 21 1999 - 11:48:26 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#433">[ date ]</A>
+<A HREF="index.html#433">[ thread ]</A>
+<A HREF="subject.html#433">[ subject ]</A>
+<A HREF="author.html#433">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0434.html">Charles E "Rick" Taylor IV: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0432.html">Ivan Kokshaysky: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0406.html">Richard Henderson: "Re: instability"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0447.html">Richard Henderson: "Re: instability"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0406.html">Peter Rival: "Re: instability"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Richard Henderson wrote:
+<BR>
+<P><EM>&gt; On Sat, Jun 19, 1999 at 01:08:38PM -0400, Jay Estabrook wrote:
+</EM><BR>
+<EM>&gt; &gt; Any progress on the ASN/TLB stuff we were discussing?
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Yes.  I sent a message to axp-list in the wee hours Friday morning, but
+</EM><BR>
+<EM>&gt; sent it from the wrong account and it bounced.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; It's because we made no effort to validate p-&gt;tss.asn, only p-&gt;mm-&gt;context.
+</EM><BR>
+<EM>&gt; This is a mistake whenever there exist multiple processes that share VM, as
+</EM><BR>
+<EM>&gt; with threads or vfork.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Consider two processes A and B sharing a VM.  Allow that both have slept
+</EM><BR>
+<EM>&gt; across the asn rollover.  Process A gets scheduled first, notes that
+</EM><BR>
+<EM>&gt; A-&gt;mm-&gt;context is out of date, allocates a new one, and updates A-&gt;tss.asn
+</EM><BR>
+<EM>&gt; and A-&gt;mm-&gt;context.  Process B gets scheduled, notes that B-&gt;mm-&gt;context
+</EM><BR>
+<EM>&gt; is up to date, and proceeds to use an out of date asn, causing all sorts
+</EM><BR>
+<EM>&gt; of havok.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; A similar problem occurs on SMP when a pair of threads migrates to a
+</EM><BR>
+<EM>&gt; different processor.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; I've played around with a couple of variations on a patch.  Attached
+</EM><BR>
+<EM>&gt; is my favourite so far.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; A variant that I'm considering relies on the fact that the PALcode only
+</EM><BR>
+<EM>&gt; reads tss.asn, and that the hardware ignores bits outside the supported
+</EM><BR>
+<EM>&gt; range.  As it is, we have to also keep a shadow field in tss with the
+</EM><BR>
+<EM>&gt; full context.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; One problem that variant is that it narrows the context from 64 bits
+</EM><BR>
+<EM>&gt; to 32 bits, due to the field width of tss.asn.  Which means there are
+</EM><BR>
+<EM>&gt; now only 19 instead of 51 bits of serial number, which means that the
+</EM><BR>
+<EM>&gt; possibility of a process sleeping through serial number rollover and
+</EM><BR>
+<EM>&gt; running with an invalid asn is real.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; I'm half convinced that the cure (detecting serial number rollover and
+</EM><BR>
+<EM>&gt; walking the process list to reset everyone's context) is worse than
+</EM><BR>
+<EM>&gt; just keeping a second field in the tss.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; (Linus, this is different from the patch I sent Friday -- that one
+</EM><BR>
+<EM>&gt; had a silly thinko that allocated asn contexts more often than needed,
+</EM><BR>
+<EM>&gt; and in the SMP case where two threads run on different processors
+</EM><BR>
+<EM>&gt; would allocate new contexts every time they are scheduled.)
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; In addition to solving this problem, the patch also fixes EV4, which
+</EM><BR>
+<EM>&gt; was broken when the tbia was removed from alpha_switch_to.  Also,
+</EM><BR>
+<EM>&gt; the SMP last_asn array is dispersed into per-cpu local data to avoid
+</EM><BR>
+<EM>&gt; fighting over cache lines.  Also, __reload_tss is cleaned up to
+</EM><BR>
+<EM>&gt; properly use virt_to_phys instead of doing some silly masking thing.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;Grabbed the patch, applied it, got the following when compiling for
+<BR>
+rawhide.  I'll look into it as soon as I have a chance (hopefully today...).
+<BR>
+<P>....
+<BR>
+&nbsp;/usr/src/linux/arch/alpha/lib/lib.a /usr/src/linux/lib/lib.a
+<BR>
+/usr/src/linux/arch/alpha/lib/lib.a \
+<BR>
+&nbsp;--end-group \
+<BR>
+&nbsp;-o vmlinux
+<BR>
+arch/alpha/kernel/kernel.o: In function `exit_thread':
+<BR>
+process.c(.text.init+0x216c): undefined reference to `mcpcia_srm_readb'
+<BR>
+arch/alpha/kernel/kernel.o: In function `flush_thread':
+<BR>
+process.c(.text.init+0x2184): undefined reference to `mcpcia_srm_readw'
+<BR>
+process.c(.text.init+0x2190): undefined reference to `mcpcia_srm_writeb'
+<BR>
+process.c(.text.init+0x21a0): undefined reference to `mcpcia_srm_writew'
+<BR>
+arch/alpha/kernel/kernel.o: In function `get_irq_list':
+<BR>
+irq.c(.data+0x5e00): undefined reference to `mcpcia_virt_to_bus'
+<BR>
+irq.c(.data+0x5e08): undefined reference to `mcpcia_bus_to_virt'
+<BR>
+irq.c(.data+0x5e10): undefined reference to `mcpcia_inb'
+<BR>
+irq.c(.data+0x5e18): undefined reference to `mcpcia_inw'
+<BR>
+irq.c(.data+0x5e20): undefined reference to `mcpcia_inl'
+<BR>
+irq.c(.data+0x5e28): undefined reference to `mcpcia_outb'
+<BR>
+irq.c(.data+0x5e30): undefined reference to `mcpcia_outw'
+<BR>
+irq.c(.data+0x5e38): undefined reference to `mcpcia_outl'
+<BR>
+irq.c(.data+0x5e40): undefined reference to `mcpcia_readb'
+<BR>
+irq.c(.data+0x5e48): undefined reference to `mcpcia_readw'
+<BR>
+irq.c(.data+0x5e50): undefined reference to `mcpcia_readl'
+<BR>
+irq.c(.data+0x5e58): undefined reference to `mcpcia_readq'
+<BR>
+irq.c(.data+0x5e60): undefined reference to `mcpcia_writeb'
+<BR>
+irq.c(.data+0x5e68): undefined reference to `mcpcia_writew'
+<BR>
+irq.c(.data+0x5e70): undefined reference to `mcpcia_writel'
+<BR>
+irq.c(.data+0x5e78): undefined reference to `mcpcia_writeq'
+<BR>
+irq.c(.data+0x5e80): undefined reference to `mcpcia_dense_mem'
+<BR>
+make: *** [vmlinux] Error 1
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0434.html">Charles E "Rick" Taylor IV: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0432.html">Ivan Kokshaysky: "Re: Problems with mpg123 (or is the multia too slow to decode MP3?)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0406.html">Richard Henderson: "Re: instability"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0447.html">Richard Henderson: "Re: instability"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0406.html">Peter Rival: "Re: instability"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

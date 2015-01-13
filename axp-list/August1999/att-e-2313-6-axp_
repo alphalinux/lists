@@ -1,0 +1,510 @@
+diff -ruNp 2.3.13-6/arch/alpha/kernel/bios32.c 2.3.13-axp/arch/alpha/kernel/bios32.c
+--- 2.3.13-6/arch/alpha/kernel/bios32.c	Thu Aug  5 21:42:32 1999
++++ 2.3.13-axp/arch/alpha/kernel/bios32.c	Thu Aug  5 20:48:36 1999
+@@ -492,8 +492,10 @@ layout_dev(struct pci_dev *dev)
+ 					   0xffffffff);
+ 		pcibios_read_config_dword(bus->number, dev->devfn, off, &base);
+ 		if (!base) {
+-			/* this base-address register is unused */
+-			dev->base_address[idx] = 0;
++			/* This base-address register is unused.  */
++			dev->resource[idx].start = 0;
++			dev->resource[idx].end = 0;
++			dev->resource[idx].flags = 0;
+ 			continue;
+ 		}
+ 
+@@ -542,7 +544,12 @@ layout_dev(struct pci_dev *dev)
+ 			new_io_reset(dev, off, orig_base);
+ 
+ 			handle = PCI_HANDLE(bus->number) | base | 1;
+-			dev->base_address[idx] = handle;
++			dev->resource[idx].start
++			  = handle & PCI_BASE_ADDRESS_IO_MASK;
++			dev->resource[idx].end
++			  = dev->resource[idx].start + size - 1;
++			dev->resource[idx].flags
++			  = handle & ~PCI_BASE_ADDRESS_IO_MASK;
+ 
+ 			DBG_DEVS(("layout_dev: dev 0x%x IO @ 0x%lx (0x%x)\n",
+ 				  dev->device, handle, size));
+@@ -622,7 +629,12 @@ layout_dev(struct pci_dev *dev)
+ 			new_io_reset(dev, off, orig_base);
+ 
+ 			handle = PCI_HANDLE(bus->number) | base;
+-			dev->base_address[idx] = handle;
++			dev->resource[idx].start
++			  = handle & PCI_BASE_ADDRESS_MEM_MASK;
++			dev->resource[idx].end
++			  = dev->resource[idx].start + size - 1;
++			dev->resource[idx].flags
++			  = handle & ~PCI_BASE_ADDRESS_MEM_MASK;
+ 
+ 			/*
+ 			 * Currently for 64-bit cards, we simply do the usual
+@@ -644,7 +656,9 @@ layout_dev(struct pci_dev *dev)
+ 					new_io_reset (dev, off+4, orig_base2);
+ 				}
+ 				/* Bypass hi reg in the loop.  */
+-				dev->base_address[++idx] = 0;
++				dev->resource[++idx].start = 0;
++				dev->resource[idx].end = 0;
++				dev->resource[idx].flags = 0;
+ 
+ 				printk("bios32 WARNING: "
+ 				       "handling 64-bit device in "
+diff -ruNp 2.3.13-6/arch/alpha/kernel/smp.c 2.3.13-axp/arch/alpha/kernel/smp.c
+--- 2.3.13-6/arch/alpha/kernel/smp.c	Thu Aug  5 21:42:32 1999
++++ 2.3.13-axp/arch/alpha/kernel/smp.c	Thu Aug  5 21:21:08 1999
+@@ -75,18 +75,23 @@ extern void calibrate_delay(void);
+ extern asmlinkage void entInt(void);
+ 
+ 
+-/*
+- * Process bootcommand SMP options, like "nosmp" and "maxcpus=".
+- */
+-void __init
+-smp_setup(char *str, int *ints)
++static int __init nosmp(char *str)
+ {
+-	if (ints && ints[0] > 0)
+-		max_cpus = ints[1];
+-	else
+-		max_cpus = 0;
++	max_cpus = 0;
++	return 1;
+ }
+ 
++__setup("nosmp", nosmp);
++
++static int __init maxcpus(char *str)
++{
++	get_option(&str, &max_cpus);
++	return 1;
++}
++
++__setup("maxcpus", maxcpus);
++
++
+ /*
+  * Called by both boot and secondaries to move global data into
+  *  per-processor storage.
+@@ -133,6 +138,10 @@ smp_callin(void)
+ 	/* Setup the scheduler for this processor.  */
+ 	init_idle();
+ 
++	/* ??? This should be in init_idle.  */
++	atomic_inc(&init_mm.mm_count);
++	current->active_mm = &init_mm;
++
+ 	/* Get our local ticker going. */
+ 	smp_setup_percpu_timer(cpuid);
+ 
+@@ -515,6 +524,10 @@ smp_boot_cpus(void)
+ 
+ 	init_idle();
+ 
++	/* ??? This should be in init_idle.  */
++	atomic_inc(&init_mm.mm_count);
++	current->active_mm = &init_mm;
++
+ 	/* Nothing to do on a UP box, or when told not to.  */
+ 	if (smp_num_probed == 1 || max_cpus == 0) {
+ 	        printk(KERN_INFO "SMP mode deactivated.\n");
+@@ -862,16 +875,16 @@ static void
+ ipi_flush_tlb_mm(void *x)
+ {
+ 	struct mm_struct *mm = (struct mm_struct *) x;
+-	if (mm == current->mm)
++	if (mm == current->active_mm)
+ 		flush_tlb_current(mm);
+ }
+ 
+ void
+ flush_tlb_mm(struct mm_struct *mm)
+ {
+-	if (mm == current->mm) {
++	if (mm == current->active_mm) {
+ 		flush_tlb_current(mm);
+-		if (atomic_read(&mm->count) == 1)
++		if (atomic_read(&mm->mm_users) <= 1)
+ 			return;
+ 	} else
+ 		flush_tlb_other(mm);
+@@ -891,7 +904,7 @@ static void
+ ipi_flush_tlb_page(void *x)
+ {
+ 	struct flush_tlb_page_struct *data = (struct flush_tlb_page_struct *)x;
+-	if (data->mm == current->mm)
++	if (data->mm == current->active_mm)
+ 		flush_tlb_current_page(data->mm, data->vma, data->addr);
+ }
+ 
+@@ -901,9 +914,9 @@ flush_tlb_page(struct vm_area_struct *vm
+ 	struct flush_tlb_page_struct data;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	if (mm == current->mm) {
++	if (mm == current->active_mm) {
+ 		flush_tlb_current_page(mm, vma, addr);
+-		if (atomic_read(&mm->count) == 1)
++		if (atomic_read(&mm->mm_users) <= 1)
+ 			return;
+ 	} else
+ 		flush_tlb_other(mm);
+diff -ruNp 2.3.13-6/arch/alpha/lib/Makefile 2.3.13-axp/arch/alpha/lib/Makefile
+--- 2.3.13-6/arch/alpha/lib/Makefile	Sat Jan 16 17:02:51 1999
++++ 2.3.13-axp/arch/alpha/lib/Makefile	Thu Aug  5 20:09:09 1999
+@@ -5,7 +5,7 @@
+ OBJS  = __divqu.o __remqu.o __divlu.o __remlu.o memset.o memcpy.o io.o \
+ 	checksum.o csum_partial_copy.o strlen.o \
+ 	strcat.o strcpy.o strncat.o strncpy.o stxcpy.o stxncpy.o \
+-	strchr.o strrchr.o \
++	strchr.o strrchr.o memchr.o \
+ 	copy_user.o clear_user.o strncpy_from_user.o strlen_user.o \
+ 	csum_ipv6_magic.o strcasecmp.o semaphore.o \
+ 	srm_dispatch.o srm_fixup.o srm_puts.o srm_printk.o
+diff -ruNp 2.3.13-6/arch/alpha/lib/memchr.S 2.3.13-axp/arch/alpha/lib/memchr.S
+--- 2.3.13-6/arch/alpha/lib/memchr.S	Wed Dec 31 16:00:00 1969
++++ 2.3.13-axp/arch/alpha/lib/memchr.S	Thu Aug  5 20:50:22 1999
+@@ -0,0 +1,164 @@
++/* Copyright (C) 1996 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++   Contributed by David Mosberger (davidm@cs.arizona.edu).
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Library General Public License as
++   published by the Free Software Foundation; either version 2 of the
++   License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Library General Public License for more details.
++
++   You should have received a copy of the GNU Library General Public
++   License along with the GNU C Library; see the file COPYING.LIB.  If not,
++   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
++   Boston, MA 02111-1307, USA.  */
++
++/* Finds characters in a memory area.  Optimized for the Alpha:
++
++      - memory accessed as aligned quadwords only
++      - uses cmpbge to compare 8 bytes in parallel
++      - does binary search to find 0 byte in last
++        quadword (HAKMEM needed 12 instructions to
++        do this instead of the 9 instructions that
++        binary search needs).
++
++For correctness consider that:
++
++      - only minimum number of quadwords may be accessed
++      - the third argument is an unsigned long
++*/
++
++        .set noreorder
++        .set noat
++
++	.globl memchr
++	.ent memchr
++memchr:
++	.frame $30,0,$26,0
++	.prologue 0
++
++	# Hack -- if someone passes in (size_t)-1, hoping to just
++	# search til the end of the address space, we will overflow
++	# below when we find the address of the last byte.  Given
++	# that we will never have a 56-bit address space, cropping
++	# the length is the easiest way to avoid trouble.
++	zap	$18, 0x80, $5	#-e0	:
++
++	beq	$18, $not_found	# .. e1 :
++        ldq_u   $1, 0($16)	# e1	: load first quadword
++	insbl	$17, 1, $2	# .. e0 : $2 = 000000000000ch00
++	and	$17, 0xff, $17	#-e0    : $17 = 00000000000000ch
++	cmpult	$18, 9, $4	# .. e1 :
++	or	$2, $17, $17	# e0    : $17 = 000000000000chch
++        lda     $3, -1($31)	# .. e1 :
++	sll	$17, 16, $2	#-e0    : $2 = 00000000chch0000
++	addq	$16, $5, $5	# .. e1 :
++	or	$2, $17, $17	# e1    : $17 = 00000000chchchch
++	unop			#	:
++	sll	$17, 32, $2	#-e0    : $2 = chchchch00000000
++	or	$2, $17, $17	# e1	: $17 = chchchchchchchch
++	extql	$1, $16, $7	# e0    : 
++	beq	$4, $first_quad	# .. e1 :
++
++	ldq_u	$6, -1($5)	#-e1	: eight or less bytes to search
++	extqh	$6, $16, $6	# .. e0 :
++	mov	$16, $0		# e0	:
++	or	$7, $6, $1	# .. e1 : $1 = quadword starting at $16
++
++	# Deal with the case where at most 8 bytes remain to be searched
++	# in $1.  E.g.:
++	#	$18 = 6
++	#	$1 = ????c6c5c4c3c2c1
++$last_quad:
++	negq	$18, $6		#-e0	:
++        xor	$17, $1, $1	# .. e1 :
++	srl	$3, $6, $6	# e0    : $6 = mask of $18 bits set
++        cmpbge  $31, $1, $2	# .. e1 :
++	and	$2, $6, $2	#-e0	:
++        beq     $2, $not_found	# .. e1 :
++
++$found_it:
++	# Now, determine which byte matched:
++        negq    $2, $3		# e0	:
++        and     $2, $3, $2	# e1	:
++
++        and     $2, 0x0f, $1	#-e0	:
++        addq    $0, 4, $3	# .. e1 :
++        cmoveq  $1, $3, $0	# e0	:
++
++        addq    $0, 2, $3	# .. e1 :
++        and     $2, 0x33, $1	#-e0	:
++        cmoveq  $1, $3, $0	# .. e1 :
++
++        and     $2, 0x55, $1	# e0	:
++        addq    $0, 1, $3	# .. e1 :
++        cmoveq  $1, $3, $0	#-e0	:
++
++$done:	ret			# .. e1 :
++
++	# Deal with the case where $18 > 8 bytes remain to be
++	# searched.  $16 may not be aligned.
++	.align 4
++$first_quad:
++	andnot	$16, 0x7, $0	#-e1	:
++        insqh   $3, $16, $2	# .. e0	: $2 = 0000ffffffffffff ($16<0:2> ff)
++        xor	$1, $17, $1	# e0	:
++	or	$1, $2, $1	# e1	: $1 = ====ffffffffffff
++        cmpbge  $31, $1, $2	#-e0	:
++        bne     $2, $found_it	# .. e1 :
++
++	# At least one byte left to process.
++
++	ldq	$1, 8($0)	# e0	:
++	subq	$5, 1, $18	# .. e1 :
++	addq	$0, 8, $0	#-e0	:
++
++	# Make $18 point to last quad to be accessed (the
++	# last quad may or may not be partial).
++
++	andnot	$18, 0x7, $18	# .. e1 :
++	cmpult	$0, $18, $2	# e0	:
++	beq	$2, $final	# .. e1 :
++
++	# At least two quads remain to be accessed.
++
++	subq	$18, $0, $4	#-e0	: $4 <- nr quads to be processed
++	and	$4, 8, $4	# e1	: odd number of quads?
++	bne	$4, $odd_quad_count # e1 :
++
++	# At least three quads remain to be accessed
++
++	mov	$1, $4		# e0	: move prefetched value to correct reg
++
++	.align	4
++$unrolled_loop:
++	ldq	$1, 8($0)	#-e0	: prefetch $1
++	xor	$17, $4, $2	# .. e1 :
++	cmpbge	$31, $2, $2	# e0	:
++	bne	$2, $found_it	# .. e1 :
++
++	addq	$0, 8, $0	#-e0	:
++$odd_quad_count:
++	xor	$17, $1, $2	# .. e1 :
++	ldq	$4, 8($0)	# e0	: prefetch $4
++	cmpbge	$31, $2, $2	# .. e1 :
++	addq	$0, 8, $6	#-e0	:
++	bne	$2, $found_it	# .. e1	:
++
++	cmpult	$6, $18, $6	# e0	:
++	addq	$0, 8, $0	# .. e1 :
++	bne	$6, $unrolled_loop #-e1 :
++
++	mov	$4, $1		# e0	: move prefetched value into $1
++$final:	subq	$5, $0, $18	# .. e1	: $18 <- number of bytes left to do
++	bne	$18, $last_quad	# e1	:
++
++$not_found:
++	mov	$31, $0		#-e0	:
++	ret			# .. e1 :
++
++        .end memchr
+diff -ruNp 2.3.13-6/arch/alpha/mm/fault.c 2.3.13-axp/arch/alpha/mm/fault.c
+--- 2.3.13-6/arch/alpha/mm/fault.c	Thu Aug  5 21:42:32 1999
++++ 2.3.13-axp/arch/alpha/mm/fault.c	Thu Aug  5 20:40:57 1999
+@@ -75,7 +75,8 @@ do_page_fault(unsigned long address, uns
+ {
+ 	struct vm_area_struct * vma;
+ 	struct mm_struct *mm = current->mm;
+-	unsigned fixup;
++	unsigned int fixup;
++	int fault;
+ 
+ 	/* As of EV6, a load into $31/$f31 is a prefetch, and never faults
+ 	   (or is suppressed by the PALcode).  Support that for older CPUs
+@@ -91,8 +92,12 @@ do_page_fault(unsigned long address, uns
+ 		}
+ 	}
+ 
++	/* If we're in an interrupt context, or have no user context,
++	   we must not take the fault.  */
++	if (!mm || in_interrupt())
++		goto no_context;
++
+ 	down(&mm->mmap_sem);
+-	lock_kernel();
+ 	vma = find_vma(mm, address);
+ 	if (!vma)
+ 		goto bad_area;
+@@ -118,9 +123,21 @@ good_area:
+ 		if (!(vma->vm_flags & VM_WRITE))
+ 			goto bad_area;
+ 	}
+-	handle_mm_fault(current, vma, address, cause > 0);
++
++	/*
++	 * If for any reason at all we couldn't handle the fault,
++	 * make sure we exit gracefully rather than endlessly redo
++	 * the fault.
++	 */
++	fault = handle_mm_fault(current, vma, address, cause > 0);
+ 	up(&mm->mmap_sem);
+-	goto out;
++
++	if (fault < 0)
++		goto out_of_memory;
++	if (fault == 0)
++		goto do_sigbus;
++
++	return;
+ 
+ /*
+  * Something tried to access memory that isn't in our memory map..
+@@ -131,9 +148,10 @@ bad_area:
+ 
+ 	if (user_mode(regs)) {
+ 		force_sig(SIGSEGV, current);
+-		goto out;
++		return;
+ 	}
+ 
++no_context:
+ 	/* Are we prepared to handle this fault as an exception?  */
+ 	if ((fixup = search_exception_table(regs->pc)) != 0) {
+ 		unsigned long newpc;
+@@ -141,7 +159,7 @@ bad_area:
+ 		printk("%s: Exception at [<%lx>] (%lx)\n",
+ 		       current->comm, regs->pc, newpc);
+ 		regs->pc = newpc;
+-		goto out;
++		return;
+ 	}
+ 
+ /*
+@@ -152,7 +170,25 @@ bad_area:
+ 	       "virtual address %016lx\n", address);
+ 	die_if_kernel("Oops", regs, cause, (unsigned long*)regs - 16);
+ 	do_exit(SIGKILL);
+- out:
+-	unlock_kernel();
+-}
+ 
++/*
++ * We ran out of memory, or some other thing happened to us that made
++ * us unable to handle the page fault gracefully.
++ */
++out_of_memory:
++	printk(KERN_ALERT "VM: killing process %s(%d)\n",
++	       current->comm, current->pid);
++	if (!user_mode(regs))
++		goto no_context;
++	do_exit(SIGKILL);
++
++do_sigbus:
++	/*
++	 * Send a sigbus, regardless of whether we were in kernel
++	 * or user mode.
++	 */
++	force_sig(SIGBUS, current);
++	if (!user_mode(regs))
++		goto no_context;
++	return;
++}
+diff -ruNp 2.3.13-6/drivers/block/ide-dma.c 2.3.13-axp/drivers/block/ide-dma.c
+--- 2.3.13-6/drivers/block/ide-dma.c	Thu Jul  1 10:25:38 1999
++++ 2.3.13-axp/drivers/block/ide-dma.c	Thu Aug  5 20:15:26 1999
+@@ -518,7 +518,7 @@ __initfunc(unsigned long ide_get_or_set_
+ 	if (hwif->mate && hwif->mate->dma_base) {
+ 		dma_base = hwif->mate->dma_base - (hwif->channel ? 0 : 8);
+ 	} else {
+-		dma_base = dev->base_address[4] & PCI_BASE_ADDRESS_IO_MASK;
++		dma_base = dev->resource[4].start & PCI_BASE_ADDRESS_IO_MASK;
+ 		if (!dma_base || dma_base == PCI_BASE_ADDRESS_IO_MASK) {
+ 			printk("%s: dma_base is invalid (0x%04lx)\n", name, dma_base);
+ 			dma_base = 0;
+diff -ruNp 2.3.13-6/drivers/net/tulip.c 2.3.13-axp/drivers/net/tulip.c
+--- 2.3.13-6/drivers/net/tulip.c	Mon Jul  5 19:56:46 1999
++++ 2.3.13-axp/drivers/net/tulip.c	Thu Aug  5 20:18:45 1999
+@@ -496,7 +496,9 @@ int tulip_probe(struct device *dev)
+ 					   vendor, device);
+ 			continue;
+ 		}
+-#if LINUX_VERSION_CODE >= 0x20155
++#if LINUX_VERSION_CODE >= 0x2030D
++		pci_ioaddr = pci_find_slot(pci_bus, pci_device_fn)->resource[0].start;
++#elif LINUX_VERSION_CODE >= 0x20155
+ 		pci_ioaddr = pci_find_slot(pci_bus, pci_device_fn)->base_address[0];
+ #else
+ 		pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_0,
+@@ -574,7 +576,11 @@ static struct device *tulip_probe1(int p
+ 
+ #if LINUX_VERSION_CODE >= 0x20155
+ 	irq = pci_find_slot(pci_bus, pci_device_fn)->irq;
++#if LINUX_VERSION_CODE >= 0x2030D
++	ioaddr = pci_find_slot(pci_bus, pci_device_fn)->resource[0].start;
++#else
+ 	ioaddr = pci_find_slot(pci_bus, pci_device_fn)->base_address[0];
++#endif
+ #else
+ 	{
+ 		u8 pci_irq_line;
+diff -ruNp 2.3.13-6/include/asm-alpha/cache.h 2.3.13-axp/include/asm-alpha/cache.h
+--- 2.3.13-6/include/asm-alpha/cache.h	Thu Aug  5 21:42:33 1999
++++ 2.3.13-axp/include/asm-alpha/cache.h	Thu Aug  5 19:49:02 1999
+@@ -10,12 +10,6 @@
+ #define L1_CACHE_ALIGN(x)  (((x)+(L1_CACHE_BYTES-1))&~(L1_CACHE_BYTES-1))
+ #define SMP_CACHE_BYTES    L1_CACHE_BYTES
+ 
+-#ifdef MODULE
+ #define __cacheline_aligned __attribute__((__aligned__(L1_CACHE_BYTES)))
+-#else
+-#define __cacheline_aligned					\
+-  __attribute__((__aligned__(L1_CACHE_BYTES),			\
+-		 __section__(".data.cacheline_aligned")))
+-#endif
+ 
+ #endif
+diff -ruNp 2.3.13-6/include/asm-alpha/string.h 2.3.13-axp/include/asm-alpha/string.h
+--- 2.3.13-6/include/asm-alpha/string.h	Mon Jun  7 11:37:13 1999
++++ 2.3.13-axp/include/asm-alpha/string.h	Thu Aug  5 20:09:29 1999
+@@ -44,6 +44,7 @@ extern void * __memset(void *, int, size
+ #define __HAVE_ARCH_STRCHR
+ #define __HAVE_ARCH_STRRCHR
+ #define __HAVE_ARCH_STRLEN
++#define __HAVE_ARCH_MEMCHR
+ 
+ /* The following routine is like memset except that it writes 16-bit
+    aligned values.  The DEST and COUNT parameters must be even for 
+
+--EeQfGwPcQSOJBaQU--
+
+--qDbXVdCdHGoSgWSk--
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+

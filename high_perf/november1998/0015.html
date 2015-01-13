@@ -1,0 +1,299 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: Re: Questions on performance meth</TITLE>
+<META NAME="Author" CONTENT="pshimizu@fa2.so-net.ne.jp (pshimizu@fa2.so-net.ne.jp)">
+<META NAME="Subject" CONTENT="Re: Questions on performance methods">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Questions on performance methods</H1>
+<HR>
+<P>
+<!-- received="Mon Nov 30 22:10:02 1998 EST" -->
+<!-- sent="Mon, 30 Nov 1998 03:09:03 +0900" -->
+<!-- name="pshimizu@fa2.so-net.ne.jp" -->
+<!-- email="pshimizu@fa2.so-net.ne.jp" -->
+<!-- subject="Re: Questions on performance methods" -->
+<!-- id="199811291821.DAA16533@mail.fa2.so-net.ne.jp" -->
+<!-- inreplyto="19981129124047T.goto@statabo.rim.or.jp" -->
+<A HREF="mailto:pshimizu@fa2.so-net.ne.jp?subject=Re:%20Questions%20on%20performance%20methods"><EM>pshimizu@fa2.so-net.ne.jp</EM></A><BR>
+<EM>Mon, 30 Nov 1998 03:09:03 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#15">[ date ]</A>
+<A HREF="index.html#15">[ thread ]</A>
+<A HREF="subject.html#15">[ subject ]</A>
+<A HREF="author.html#15">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">naohiko shimizu: "Re: Questions on performance methods"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Johannes G.D. Hausmann: "Superscalar gemm-based BLAS"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0016.html">naohiko shimizu: "Re: Questions on performance methods"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+In article &lt;<A HREF="mailto:19981129124047T.goto@statabo.rim.or.jp?subject=Re:%20Questions%20on%20performance%20methods">19981129124047T.goto@statabo.rim.or.jp</A>&gt;
+<BR>
+<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20Questions%20on%20performance%20methods">goto@statabo.rim.or.jp</A> writes:
+<BR>
+<P><EM>&gt;&gt; 
+</EM><BR>
+<EM>&gt;&gt; 3. using vectorlized sqrtiv routine.
+</EM><BR>
+<EM>&gt;&gt; 
+</EM><BR>
+<EM>&gt;&gt; The sqrti routine is still bottle neck.  We can modify to use
+</EM><BR>
+<EM>&gt;&gt; vectorlized sqrti routine.  But it'll be slower if the probability of
+</EM><BR>
+<EM>&gt;&gt; &quot;rij &lt; bi&quot; is low.  If it's much improved(depend on your source
+</EM><BR>
+<EM>&gt;&gt; parameter), this routine can be faster still more.
+</EM><BR>
+<EM>&gt;&gt; 
+</EM><BR>
+<P>In practice, the vectorlized sqrt/sqrti may need a (optional) mask 
+<BR>
+vector argument.  In that case, we can set the mask for 
+<BR>
+((rijp2 &gt; bp2) &amp;&amp; (i != j)), where rijp2 is the 2nd power of rij and
+<BR>
+bp2 is the 2nd power of b.
+<BR>
+<P>When I disscussed about vectorlised sqrt with Mr. Yamada in the Japanese 
+<BR>
+mailing list, the prototype routine was coded only to test the 
+<BR>
+effectiveness of the vectorlised routines. Both I and Mr.Yamada are
+<BR>
+familliar with these conditional vectorlising and we intended not to
+<BR>
+make the prototype as conditional routine for simplicity.
+<BR>
+The masked vector routines will be useful when a vectorlizing
+<BR>
+compiler is published to RISC communities.
+<BR>
+<P>But the limited memory band width may restrict the performance of the
+<BR>
+code when the vector is too sparse. If one has time to tune, some compaction 
+<BR>
+of the vector with using the dense vector routine will be more effective.
+<BR>
+I show the modified Goto's routine below (without debugging).
+<BR>
+<P>Naohiko Shimizu
+<BR>
+<A HREF="http://shimizu-lab.et.u-tokai.ac.jp/">http://shimizu-lab.et.u-tokai.ac.jp/</A>
+<BR>
+----------------------------------------------------------------------------
+<BR>
+void dsqrtiv(double *, double *, int);
+<BR>
+<P>int find_jastrow(double *result,int j,struct coord *q,double r[3],double b){
+<BR>
+<P>&nbsp;&nbsp;int i,vcnt;
+<BR>
+&nbsp;&nbsp;double tmp, tmp1, tmp2, tmp3;
+<BR>
+&nbsp;&nbsp;double tmp4, tmp5, tmp6, tmp7;
+<BR>
+&nbsp;&nbsp;double vtmp[8];
+<BR>
+&nbsp;&nbsp;double r1, r2, r3;
+<BR>
+&nbsp;&nbsp;double bi,bp2;
+<BR>
+&nbsp;&nbsp;double vtemp[N+8];
+<BR>
+<P>&nbsp;&nbsp;r1 = r[0];
+<BR>
+&nbsp;&nbsp;r2 = r[1];
+<BR>
+&nbsp;&nbsp;r3 = r[2];
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;tmp  =  1.0;
+<BR>
+<P>&nbsp;&nbsp;vcnt = 0;
+<BR>
+&nbsp;&nbsp;bp2 = b*b;
+<BR>
+<P>&nbsp;&nbsp;if(b&gt;0){
+<BR>
+/*
+<BR>
+&nbsp;To reduce inner loop conditional branch, I separate the loop.
+<BR>
+&nbsp;This may not be required if the compiler is smart enough.
+<BR>
+&nbsp;When b**2 &lt; rij, we should return immediately, without calling sqrt.
+<BR>
+&nbsp;Then I add one conditional branch *_*.
+<BR>
+*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i=0;i &lt; j;i++){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp1 = q[i].x[0]-r1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp1 = tmp1*tmp1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp2 = q[i].x[1]-r2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp2 = tmp2*tmp2;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp3 = q[i].x[2]-r3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp3 = tmp3*tmp3;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if((vtemp[vcnt++] = tmp1 + tmp2 + tmp3) &gt; bp2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*result = 0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i=j+1;i &lt; N;i++){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp1 = q[i].x[0]-r1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp1 = tmp1*tmp1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp2 = q[i].x[1]-r2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp2 = tmp2*tmp2;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp3 = q[i].x[2]-r3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp3 = tmp3*tmp3;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if((vtemp[vcnt++] = tmp1 + tmp2 + tmp3) &gt; bp2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*result = 0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;dsqrtiv(vtemp, vtemp, vcnt);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;bi = 1.0/b;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tmp  = tmp1 = tmp2 = tmp3 = 1.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tmp4 = tmp5 = tmp6 = tmp7 = 1.0;
+<BR>
+<P>/*
+<BR>
+Unrolling and software pipelining the loop. 
+<BR>
+*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;i = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[0] =  vtemp[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[1] =  vtemp[i+1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[2] =  vtemp[i+2];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[3] =  vtemp[i+3];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[4] =  vtemp[i+4];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[5] =  vtemp[i+5];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[6] =  vtemp[i+6];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vtmp[7] =  vtemp[i+7];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i=0;i &lt; vcnt-8; i+=8){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp *= (1.0 - b * vtemp[0]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp1 *= (1.0 - b * vtemp[1]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp2 *= (1.0 - b * vtemp[2]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp3 *= (1.0 - b * vtemp[3]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp4 *= (1.0 - b * vtemp[4]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp5 *= (1.0 - b * vtemp[5]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp6 *= (1.0 - b * vtemp[6]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp7 *= (1.0 - b * vtemp[7]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[0] =  vtemp[i+8];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[1] =  vtemp[i+9];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[2] =  vtemp[i+10];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[3] =  vtemp[i+11];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[4] =  vtemp[i+12];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[5] =  vtemp[i+13];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[6] =  vtemp[i+14];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vtmp[7] =  vtemp[i+15];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+/*
+<BR>
+The rest of the loop will be here.
+<BR>
+*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i=0;i &lt; vcnt - i;i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp *= (1.0 - b * vtmp[i]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tmp = tmp*tmp1*tmp2*tmp3*tmp4*tmp5*tmp6*tmp7;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;*result = tmp;
+<BR>
+&nbsp;&nbsp;return 1;
+<BR>
+}
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">naohiko shimizu: "Re: Questions on performance methods"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Johannes G.D. Hausmann: "Superscalar gemm-based BLAS"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0016.html">naohiko shimizu: "Re: Questions on performance methods"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Nov 30 1998 - 22:10:34 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: non-executable stack on alpha (was Re: Se</TITLE>
+<META NAME="Author" CONTENT="Michael H. Warfield (mhw@wittsend.com)">
+<META NAME="Subject" CONTENT="Re: non-executable stack on alpha (was Re: Security in general ..)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: non-executable stack on alpha (was Re: Security in general ..)</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 21 03:28:17 2000" -->
+<!-- isoreceived="20000421102817" -->
+<!-- sent="Thu, 20 Apr 2000 12:11:43 -0400" -->
+<!-- isosent="20000420161143" -->
+<!-- name="Michael H. Warfield" -->
+<!-- email="mhw@wittsend.com" -->
+<!-- subject="Re: non-executable stack on alpha (was Re: Security in general ..)" -->
+<!-- id="20000420121143.B21644@alcove.wittsend.com" -->
+<!-- inreplyto="20000420203753.A571@jurassic.park.msu.ru" -->
+<STRONG>Subject: </STRONG>Re: non-executable stack on alpha (was Re: Security in general ..)<BR>
+<STRONG>From: </STRONG>Michael H. Warfield (<EM>mhw@wittsend.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 20 2000 - 09:11:43 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#7">[ date ]</A>
+<A HREF="index.html#7">[ thread ]</A>
+<A HREF="subject.html#7">[ subject ]</A>
+<A HREF="author.html#7">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">Soohoon Lee: "Alpha clock problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Ivan Kokshaysky: "non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0006.html">Ivan Kokshaysky: "non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0009.html">Ivan Kokshaysky: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0006.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, Apr 20, 2000 at 08:37:53PM +0400, Ivan Kokshaysky wrote:
+<BR>
+<EM>&gt; On Tue, Apr 18, 2000 at 09:42:53AM -0400, Michael H. Warfield wrote:
+</EM><BR>
+<EM>&gt; &gt; 	Smash the stack so the function returns back into the system()
+</EM><BR>
+<EM>&gt; &gt; function with the parameter pointing at that string and it's game over.
+</EM><BR>
+<EM>&gt; &gt; The attacker now can have as many shells on your system that he wants
+</EM><BR>
+<EM>&gt; &gt; and you didn't execute a single byte of code on the stack.
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; I don't see how this could be exploited on alpha where function takes
+</EM><BR>
+<EM>&gt; its first 6 arguments from registers not from stack.
+</EM><BR>
+<EM>&gt; So I became curious and tried to run with the non-executable stack
+</EM><BR>
+<EM>&gt; (trivially for architectures with the _real_ page protection). So far
+</EM><BR>
+<EM>&gt; I have the only application which breaks - DU Netscape :-/
+</EM><BR>
+<EM>&gt; The patch I run at the moment is kinda quick hack and breaks other
+</EM><BR>
+<EM>&gt; platforms but could be easily cleaned up.
+</EM><BR>
+<EM>&gt; Maybe it worth making &quot;non-executable stack&quot; a config option for alpha?
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;So then all you need is a location in code which pops values into
+<BR>
+the registers from the stack and returns?  Somewhat more difficult to
+<BR>
+pull off, but not much.  Just like the hack to get around the zeros
+<BR>
+in the library function addresses, remember, you can generally exploit some
+<BR>
+segment of code in the program to do small tasks like poping registers or
+<BR>
+calling library functions for you.
+<BR>
+<P><EM>&gt; Ivan.
+</EM><BR>
+<P><EM>&gt; --- 2.3.99-pre6-2/fs/exec.c	Sat Apr  8 00:38:00 2000
+</EM><BR>
+<EM>&gt; +++ linux/fs/exec.c	Thu Apr 20 14:25:27 2000
+</EM><BR>
+<EM>&gt; @@ -267,7 +267,7 @@
+</EM><BR>
+<EM>&gt;  		return;
+</EM><BR>
+<EM>&gt;  	}
+</EM><BR>
+<EM>&gt;  	flush_page_to_ram(page);
+</EM><BR>
+<EM>&gt; -	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, PAGE_COPY))));
+</EM><BR>
+<EM>&gt; +	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, PAGE_COPY_NOEX))));
+</EM><BR>
+<EM>&gt;  /* no need for flush_tlb */
+</EM><BR>
+<EM>&gt;  }
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; @@ -292,7 +292,7 @@
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_mm = current-&gt;mm;
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_start = PAGE_MASK &amp; (unsigned long) bprm-&gt;p;
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_end = STACK_TOP;
+</EM><BR>
+<EM>&gt; -		mpnt-&gt;vm_page_prot = PAGE_COPY;
+</EM><BR>
+<EM>&gt; +		mpnt-&gt;vm_page_prot = PAGE_COPY_NOEX;
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_flags = VM_STACK_FLAGS;
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_ops = NULL;
+</EM><BR>
+<EM>&gt;  		mpnt-&gt;vm_pgoff = 0;
+</EM><BR>
+<EM>&gt; --- 2.3.99-pre6-2/include/linux/mm.h	Thu Apr 13 12:46:10 2000
+</EM><BR>
+<EM>&gt; +++ linux/include/linux/mm.h	Thu Apr 20 14:28:33 2000
+</EM><BR>
+<EM>&gt; @@ -89,7 +89,7 @@
+</EM><BR>
+<EM>&gt;  #define VM_SEQ_READ	0x00008000	/* App will access data sequentially */
+</EM><BR>
+<EM>&gt;  #define VM_RAND_READ	0x00010000	/* App will not benefit from clustered reads */
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; -#define VM_STACK_FLAGS	0x00000177
+</EM><BR>
+<EM>&gt; +#define VM_STACK_FLAGS	0x00000133
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt;  #define VM_READHINTMASK			(VM_SEQ_READ | VM_RAND_READ)
+</EM><BR>
+<EM>&gt;  #define VM_ClearReadHint(v)		(v)-&gt;vm_flags &amp;= ~VM_READHINTMASK
+</EM><BR>
+<EM>&gt; --- 2.3.99-pre6-2/include/asm-alpha/pgtable.h	Thu Apr 13 12:46:10 2000
+</EM><BR>
+<EM>&gt; +++ linux/include/asm-alpha/pgtable.h	Thu Apr 20 14:22:17 2000
+</EM><BR>
+<EM>&gt; @@ -92,6 +92,7 @@
+</EM><BR>
+<EM>&gt;  #define PAGE_NONE	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE)
+</EM><BR>
+<EM>&gt;  #define PAGE_SHARED	__pgprot(_PAGE_VALID | __ACCESS_BITS)
+</EM><BR>
+<EM>&gt;  #define PAGE_COPY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
+</EM><BR>
+<EM>&gt; +#define PAGE_COPY_NOEX	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW | _PAGE_FOE)
+</EM><BR>
+<EM>&gt;  #define PAGE_READONLY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
+</EM><BR>
+<EM>&gt;  #define PAGE_KERNEL	__pgprot(_PAGE_VALID | _PAGE_ASM | _PAGE_KRE | _PAGE_KWE)
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mike
+<BR>
+<PRE>
+-- 
+ Michael H. Warfield    |  (770) 985-6132   |  mhw@WittsEnd.com
+  (The Mad Wizard)      |  (770) 331-2437   |  <A HREF="http://www.wittsend.com/mhw/">http://www.wittsend.com/mhw/</A>
+  NIC whois:  MHW9      |  An optimist believes we live in the best of all
+ PGP Key: 0xDF1DD471    |  possible worlds.  A pessimist is sure of it!
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">Soohoon Lee: "Alpha clock problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Ivan Kokshaysky: "non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0006.html">Ivan Kokshaysky: "non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0009.html">Ivan Kokshaysky: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0006.html">Michael H. Warfield: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

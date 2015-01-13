@@ -1,0 +1,408 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Bug#43401: (c++ unaligned traps) DWARF2 exce</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@eradicator.org)">
+<META NAME="Subject" CONTENT="Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken</H1>
+<HR>
+<P>
+<!-- received="Sun Feb 20 08:30:15 2000" -->
+<!-- isoreceived="20000220163015" -->
+<!-- sent="Sat, 19 Feb 2000 20:30:11 -0500" -->
+<!-- isosent="20000220013011" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@eradicator.org" -->
+<!-- subject="Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken" -->
+<!-- id="E12MLCN-0005kd-00@blood-axp.eradicator.org" -->
+<STRONG>Subject: </STRONG>Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@eradicator.org</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Feb 19 2000 - 17:30:11 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#183">[ date ]</A>
+<A HREF="index.html#183">[ thread ]</A>
+<A HREF="subject.html#183">[ subject ]</A>
+<A HREF="author.html#183">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0184.html">Joel Klecker: "Re: Grave concerns on releasing alpha with the rest of potato"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0182.html">Doug Larrick: "MILO 000209: works great"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0185.html">Paul Slootman: "Re: Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I've been tracing this bug down today, and here is what I have found.
+<BR>
+Sorry it's kind of long, but there's a lot of information involved...
+<BR>
+<P>First, a minimal testcase:
+<BR>
+<P>--- begin Makefile ---
+<BR>
+topdir   := $(shell pwd)
+<BR>
+<P>all:: libtest.so test
+<BR>
+<P># note, we use 'gcc' not 'g++' to link so that we don't see the
+<BR>
+# unaligned access errors that are caused by the simple act of linking
+<BR>
+# against libstdc++.
+<BR>
+<P>libtest.so: libtest.o
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gcc -shared -o $@ $&lt;
+<BR>
+<P>test: test.o
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gcc -o $@ $&lt; -L. -Wl,-rpath -Wl,$(topdir) -ltest
+<BR>
+<P>clean:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rm -f libtest.so test *.o
+<BR>
+--- end Makefile ---
+<BR>
+--- begin libtest.cc ---
+<BR>
+class Random_Lossage {};
+<BR>
+<P>void foo()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;throw Random_Lossage();
+<BR>
+}
+<BR>
+--- end libtest.cc ---
+<BR>
+--- begin test.cc ---
+<BR>
+#include &lt;cstdio&gt;
+<BR>
+using namespace std;
+<BR>
+<P>/* from libtest.cc */
+<BR>
+class Random_Lossage {};
+<BR>
+extern void foo();
+<BR>
+<P>int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;try {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;foo();
+<BR>
+&nbsp;&nbsp;} catch(Random_Lossage) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;caught random lossage\n&quot;);
+<BR>
+&nbsp;&nbsp;};    
+<BR>
+&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+--- end test.cc ---
+<BR>
+<P>Running the 'test' program gives me these errors in syslog:
+<BR>
+<P>Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e954: 000002000022b534 29 1
+<BR>
+Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e95c: 000002000022b534 2d 1
+<BR>
+Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e954: 000002000022ba44 29 1
+<BR>
+Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e95c: 000002000022ba44 2d 1
+<BR>
+Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e954: 000002000022bdbc 29 1
+<BR>
+Feb 19 20:05:21 blood-axp kernel: test(22028): unaligned trap at 000002000000e95c: 000002000022bdbc 2d 1
+<BR>
+<P>Now, when we trace down the address that faults, we find this code, in
+<BR>
+glibc-2.1.3/elf/dl-reloc.c (but actually in
+<BR>
+glibc-2.1.3/sysdeps/alpha/dl-machine.h):
+<BR>
+<P>&nbsp;&nbsp;if (r_type == R_ALPHA_RELATIVE)
+<BR>
+&nbsp;46c:	a1 75 23 41 	cmpeq	s0,0x1b,t0
+<BR>
+&nbsp;470:	07 00 20 e4 	beq	t0,490 &lt;_dl_relocate_object+0x470&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+#ifndef RTLD_BOOTSTRAP
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Already done in dynamic linker.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (map != &amp;_dl_rtld_map)
+<BR>
+&nbsp;474:	a6 00 e0 f5 	bne	fp,710 &lt;_dl_relocate_object+0x6f0&gt;
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*reloc_addr += map-&gt;l_addr;
+<BR>
+&nbsp;478:	00 00 2a a4 	ldq	t0,0(s1) # 0x2000000e954 - trap #1
+<BR>
+&nbsp;47c:	01 04 27 40 	addq	t0,t6,t0
+<BR>
+&nbsp;480:	00 00 2a b4 	stq	t0,0(s1) # 0x2000000e95c - trap #1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>(annotations mine)
+<BR>
+<P>Basically we are seeing lots of unaligned R_ALPHA_RELATIVE relocations
+<BR>
+being generated by either g++ or binutils when linking programs that
+<BR>
+use exceptions.  Note that a C++ program that does not link with
+<BR>
+libstdc++ and does not itself use any shared libraries with exceptions
+<BR>
+will not see these errors.  So they must be in the exception handling
+<BR>
+info.  And in fact, our friend objdump will tell us this:
+<BR>
+<P>dhd@blood-axp:~/work/g++-brokenness$ objdump -R libtest.so | grep '[4c] RELATIVE'
+<BR>
+000000000010b534 RELATIVE          *ABS*
+<BR>
+000000000010ba44 RELATIVE          *ABS*
+<BR>
+000000000010bdbc RELATIVE          *ABS*
+<BR>
+<P>(note: RELATIVE relocations add the base address of the loaded object,
+<BR>
+thus they are *obviously* 8 bytes wide, and on machines like the Alpha
+<BR>
+that require data to be naturally aligned, must therefore be 8 byte
+<BR>
+aligned)
+<BR>
+<P>You'll notice that those addresses match up exactly with the three
+<BR>
+sets of unaligned traps we saw in syslog.
+<BR>
+<P>So hmm, where in the object file are those unaligned relocations?
+<BR>
+<P>dhd@blood-axp:~/work/g++-brokenness$ objdump -h libtest.so
+<BR>
+&lt;... snip ...&gt;
+<BR>
+&nbsp;17 .eh_frame     00001150  000000000010b528  000000000010b528  0000b528  2**3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CONTENTS, ALLOC, LOAD, DATA
+<BR>
+<P>So let's look at the actual assembler output shall we...
+<BR>
+<P>dhd@blood-axp:~/work/g++-brokenness$ g++ -dA -S libtest.cc
+<BR>
+<P>(from resulting libtest.s)
+<BR>
+.section	.eh_frame,&quot;aw&quot;,@progbits
+<BR>
+__FRAME_BEGIN__:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.4byte	$LECIE1-$LSCIE1	 # Length of Common Information Entry
+<BR>
+$LSCIE1:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.4byte	0x0	 # CIE Identifier Tag
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.byte	0x1	 # CIE Version
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ascii &quot;eh\0&quot;	 # CIE Augmentation
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.8byte	__EXCEPTION_TABLE__	 # pointer to exception region info
+<BR>
+<P>Now, do you see the problem? :-)
+<BR>
+<P>So, some work with grep -r on the gcc source reveals the culprit
+<BR>
+... dwarf2out.c (lines 1765 to 1808, in output_call_frame_info()):
+<BR>
+<P>&nbsp;&nbsp;if (flag_debug_asm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fprintf (asm_out_file, &quot;\t%s CIE Identifier Tag&quot;, ASM_COMMENT_START);
+<BR>
+<P>&nbsp;&nbsp;fputc ('\n', asm_out_file);
+<BR>
+&nbsp;&nbsp;if (! for_eh &amp;&amp; DWARF_OFFSET_SIZE == 8)
+<BR>
+&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_OUTPUT_DWARF_DATA4 (asm_out_file, DW_CIE_ID);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fputc ('\n', asm_out_file);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;ASM_OUTPUT_DWARF_DATA1 (asm_out_file, DW_CIE_VERSION);
+<BR>
+&nbsp;&nbsp;if (flag_debug_asm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fprintf (asm_out_file, &quot;\t%s CIE Version&quot;, ASM_COMMENT_START);
+<BR>
+<P>&nbsp;&nbsp;fputc ('\n', asm_out_file);
+<BR>
+&nbsp;&nbsp;if (eh_ptr)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* The CIE contains a pointer to the exception region info for the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;frame.  Make the augmentation string three bytes (including the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;trailing null) so the pointer is 4-byte aligned.  The Solaris ld
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;can't handle unaligned relocs.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (flag_debug_asm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_OUTPUT_DWARF_STRING (asm_out_file, &quot;eh&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf (asm_out_file, &quot;\t%s CIE Augmentation&quot;, ASM_COMMENT_START);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_OUTPUT_ASCII (asm_out_file, &quot;eh&quot;, 3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fputc ('\n', asm_out_file);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_OUTPUT_DWARF_ADDR (asm_out_file, &quot;__EXCEPTION_TABLE__&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (flag_debug_asm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf (asm_out_file, &quot;\t%s pointer to exception region info&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_COMMENT_START);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_OUTPUT_DWARF_DATA1 (asm_out_file, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (flag_debug_asm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf (asm_out_file, &quot;\t%s CIE Augmentation (none)&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ASM_COMMENT_START);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>Also see the comment in the top of dwarf2out.c:
+<BR>
+<P>/* The size in bytes of a DWARF field indicating an offset or length
+<BR>
+&nbsp;&nbsp;&nbsp;relative to a debug info section, specified to be 4 bytes in the DWARF-2
+<BR>
+&nbsp;&nbsp;&nbsp;specification.  The SGI/MIPS ABI defines it to be the same as PTR_SIZE.  */
+<BR>
+<P>#ifndef DWARF_OFFSET_SIZE
+<BR>
+#define DWARF_OFFSET_SIZE 4
+<BR>
+#endif
+<BR>
+<P>However, on Alpha, DWARF_OFFSET_SIZE is not defined to PTR_SIZE.  I
+<BR>
+think this is an oversight on the part of the gcc maintainers.  Since
+<BR>
+it appears that this DWARF2 stuff is mostly used for debugging it
+<BR>
+should hopefully be safe to change it so long as BFD is updated to
+<BR>
+know about this.  One strange thing I noticed is that while comments
+<BR>
+in the sparc64 code suggest that this is the right thing to do, the
+<BR>
+relevant line of code is actually commented out (from
+<BR>
+gcc/config/sparc/linux64.h):
+<BR>
+<P>/* DWARF bits.  */
+<BR>
+<P>/* Follow Irix 6 and not the Dwarf2 draft in using 64-bit offsets. 
+<BR>
+&nbsp;&nbsp;&nbsp;Obviously the Dwarf2 folks havn't tried to actually build systems
+<BR>
+&nbsp;&nbsp;&nbsp;with their spec.  On a 64-bit system, only 64-bit relocs become
+<BR>
+&nbsp;&nbsp;&nbsp;RELATIVE relocations.  */
+<BR>
+<P>/* #define DWARF_OFFSET_SIZE PTR_SIZE */
+<BR>
+<P>Since the 64-bit ELF ABI for Alpha is not standardized, I suggest that
+<BR>
+we fix this by doing the same thing as MIPS and defining
+<BR>
+DWARF_OFFSET_SIZE to be the same as PTR_SIZE.  Note that since gas
+<BR>
+tries to &quot;optimize&quot; DWARF CIE exception info in some rather evil ways
+<BR>
+(see gas/ehopt.c in the binutils source), we probably need to fix
+<BR>
+binutils too.  I haven't tried this yet, but I will tonight or
+<BR>
+tomorrow.
+<BR>
+<P>GCC maintainers: can you forward this report upstream?
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0184.html">Joel Klecker: "Re: Grave concerns on releasing alpha with the rest of potato"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0182.html">Doug Larrick: "MILO 000209: works great"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0185.html">Paul Slootman: "Re: Bug#43401: (c++ unaligned traps) DWARF2 exception support in gcc is broken"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 16:00:06 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

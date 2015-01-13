@@ -1,0 +1,421 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [patch] 2.3.30pre3 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="[patch] 2.3.30pre3 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] 2.3.30pre3 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Sun Nov 28 03:37:07 1999" -->
+<!-- isoreceived="19991128113707" -->
+<!-- sent="Sun, 28 Nov 1999 03:41:36 +0100 (CET)" -->
+<!-- isosent="19991128024136" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="[patch] 2.3.30pre3 alpha updates" -->
+<!-- id="Pine.LNX.4.10.9911280255130.479-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>[patch] 2.3.30pre3 alpha updates<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Nov 27 1999 - 18:41:36 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#31">[ date ]</A>
+<A HREF="index.html#31">[ thread ]</A>
+<A HREF="subject.html#31">[ subject ]</A>
+<A HREF="author.html#31">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0032.html">Linus Torvalds: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0030.html">Richard Henderson: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Linus Torvalds: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+2.3.30pre3 doesn't boot anymore on my Alpha.
+<BR>
+<P>There are two showstoppers:
+<BR>
+<P>o	sysdata is not set for PCI bridges
+<BR>
+o	the IO address space is larger than 0xffff with the 21272
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tsunami PCI chip (precisely it's 32mbyte large) so some device gets
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;booted by the SRM with an I/O base address after 0xffff and so our
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pdev_assign_unassigned_resources() can't find a root for the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;device via pci_find_parent_resource() and so the resources
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gets not allocated for the device
+<BR>
+<P>The sysdata gets fixed by allowing the the devices and bridges of a bus to
+<BR>
+inerith the bus-&gt;sysdata that we provided to pci_scan_bus(). This avoid us
+<BR>
+to do ugly stuff too. I don't see why sparc gets broken by this as sparc
+<BR>
+always overwrite all the sysdata and it seems it never check for null
+<BR>
+after reading it. So IMHO sparc and sparc64 should be just fine even with
+<BR>
+the natural way to set the sysdata inside pci.c. Setting the sysdata in
+<BR>
+the common code make sense to me as the sysdata should be a per-PCI bus
+<BR>
+information and as all pci devices and bridges that we find in the
+<BR>
+pci_scan_bus path are effectively beloging to such pci bus it make sense
+<BR>
+they also share the same sysdata info. And if somebody needs different
+<BR>
+sysdata per device and per bridge he can simply overwrite it in the arch
+<BR>
+spec section. Actually the sysdata remains NULL. Having a NULL sysdata or
+<BR>
+a sysdata set to the `void * sysdata' that we passed as parameter to
+<BR>
+pci_scan_bus() make no difference at all as he knows the `void * sysdata'
+<BR>
+value in the arch section. Can somebody with a Sparc try to run 2.3.30pre3
+<BR>
++ my patch attached and see if it works fine or not?
+<BR>
+<P>IMHO in the worst case an #ifndef __sparc__ (or an #ifdef __alpha__)  
+<BR>
+around the two sysdata assignment in pci.c would be less ugly that what
+<BR>
+alpha is doing in 2.3.30pre3 to overcome the lack of sysdata assignment
+<BR>
+before calling the pci controler operations.
+<BR>
+<P>The iospace problem gets fixed by setting correctly the iospace range of
+<BR>
+the tsunami chip. I quote the specs:
+<BR>
+<P>-------------------------------------------------------------------------
+<BR>
+Pchip0 PCI I/O	32MB	801.FC00.0000-801.FDFF.FFFF	Linear Addressing
+<BR>
+-------------------------------------------------------------------------
+<BR>
+<P>With this patch against 2.3.30pre3 I can boot the machine again:
+<BR>
+<P>diff -urN 2.3.30pre3/arch/alpha/kernel/core_mcpcia.c 2.3.30pre3-alpha/arch/alpha/kernel/core_mcpcia.c
+<BR>
+--- 2.3.30pre3/arch/alpha/kernel/core_mcpcia.c	Sun Nov 28 02:18:59 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/core_mcpcia.c	Sun Nov 28 02:19:05 1999
+<BR>
+@@ -205,7 +205,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_byte(struct pci_dev *dev, int where, u8 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr, w;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -221,7 +221,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_word(struct pci_dev *dev, int where, u16 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr, w;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -237,7 +237,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_read_config_dword(struct pci_dev *dev, int where, u32 *value)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+@@ -252,7 +252,7 @@
+<BR>
+&nbsp;static int
+<BR>
+&nbsp;mcpcia_write_config(struct pci_dev *dev, int where, u32 value, long mask)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char type1;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre3/arch/alpha/kernel/core_tsunami.c 2.3.30pre3-alpha/arch/alpha/kernel/core_tsunami.c
+<BR>
+--- 2.3.30pre3/arch/alpha/kernel/core_tsunami.c	Sun Nov 28 02:18:59 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/core_tsunami.c	Sun Nov 28 03:31:12 1999
+<BR>
+@@ -84,7 +84,7 @@
+<BR>
+&nbsp;mk_conf_addr(struct pci_dev *dev, int where, unsigned long *pci_addr,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *type1)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_controler *hose = dev-&gt;sysdata ? : probing_hose;
+<BR>
++	struct pci_controler *hose = dev-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 bus = dev-&gt;bus-&gt;number;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 device_fn = dev-&gt;devfn;
+<BR>
+@@ -264,7 +264,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;index = index;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space-&gt;start = TSUNAMI_IO(index) - TSUNAMI_IO_BIAS;
+<BR>
+-	hose-&gt;io_space-&gt;end = hose-&gt;io_space-&gt;start + 0xffff;
+<BR>
++	hose-&gt;io_space-&gt;end = hose-&gt;io_space-&gt;start + TSUNAMI_IO_SPACE;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space-&gt;name = pci_io_names[index];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;io_space-&gt;flags = IORESOURCE_IO;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre3/arch/alpha/kernel/pci.c 2.3.30pre3-alpha/arch/alpha/kernel/pci.c
+<BR>
+--- 2.3.30pre3/arch/alpha/kernel/pci.c	Sun Nov 28 01:53:25 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/pci.c	Sun Nov 28 02:48:03 1999
+<BR>
+@@ -40,7 +40,6 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct pci_controler *hose_head, **hose_tail = &amp;hose_head;
+<BR>
+-struct pci_controler *probing_hose;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Quirks.
+<BR>
+@@ -213,13 +212,12 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Propogate hose info into the subordinate devices.  */
+<BR>
+&nbsp;
+<BR>
+-	struct pci_controler *hose = probing_hose;
+<BR>
++	struct pci_controler *hose = (struct pci_controler *) bus-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev *dev;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus-&gt;resource[0] = hose-&gt;io_space;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus-&gt;resource[1] = hose-&gt;mem_space;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (dev = bus-&gt;devices; dev; dev = dev-&gt;sibling) {
+<BR>
+-		dev-&gt;sysdata = hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((dev-&gt;class &gt;&gt; 8) != PCI_CLASS_BRIDGE_PCI)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_fixup_device_resources(dev, bus);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -297,13 +295,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (next_busno = 0, hose = hose_head; hose; hose = hose-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;first_busno = next_busno;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;last_busno = 0xff;
+<BR>
+-		probing_hose = hose;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus = pci_scan_bus(next_busno, alpha_mv.pci_ops, hose);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose-&gt;bus = bus;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next_busno = hose-&gt;last_busno = bus-&gt;subordinate;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next_busno += 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	probing_hose = NULL;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_assign_unassigned_resources(alpha_mv.min_io_address,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.min_mem_address);
+<BR>
+diff -urN 2.3.30pre3/arch/alpha/kernel/pci_impl.h 2.3.30pre3-alpha/arch/alpha/kernel/pci_impl.h
+<BR>
+--- 2.3.30pre3/arch/alpha/kernel/pci_impl.h	Sun Nov 28 01:53:25 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/pci_impl.h	Sun Nov 28 02:18:37 1999
+<BR>
+@@ -125,7 +125,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* The hose list.  */
+<BR>
+&nbsp;extern struct pci_controler *hose_head, **hose_tail;
+<BR>
+-extern struct pci_controler *probing_hose;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void common_init_pci(void);
+<BR>
+&nbsp;extern u8 common_swizzle(struct pci_dev *, u8 *);
+<BR>
+diff -urN 2.3.30pre3/drivers/pci/pci.c 2.3.30pre3-alpha/drivers/pci/pci.c
+<BR>
+--- 2.3.30pre3/drivers/pci/pci.c	Sun Nov 28 02:18:59 1999
+<BR>
++++ 2.3.30pre3-alpha/drivers/pci/pci.c	Sun Nov 28 02:19:05 1999
+<BR>
+@@ -437,6 +437,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev = dev_cache;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(dev, 0, sizeof(*dev));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;bus = bus;
+<BR>
++		dev-&gt;sysdata = bus-&gt;sysdata;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;devfn  = devfn;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pci_read_config_byte(dev, PCI_HEADER_TYPE, &amp;hdr_type))
+<BR>
+@@ -556,6 +557,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;self = dev;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;parent = bus;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child-&gt;ops = bus-&gt;ops;
+<BR>
++			child-&gt;sysdata = bus-&gt;sysdata;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the primary, secondary and subordinate
+<BR>
+diff -urN 2.3.30pre3/include/asm-alpha/core_tsunami.h 2.3.30pre3-alpha/include/asm-alpha/core_tsunami.h
+<BR>
+--- 2.3.30pre3/include/asm-alpha/core_tsunami.h	Sun Nov 28 01:53:26 1999
+<BR>
++++ 2.3.30pre3-alpha/include/asm-alpha/core_tsunami.h	Sun Nov 28 03:30:57 1999
+<BR>
+@@ -291,6 +291,8 @@
+<BR>
+&nbsp;#define TSUNAMI_IO_BIAS          TSUNAMI_IO(0)
+<BR>
+&nbsp;#define TSUNAMI_MEM_BIAS         TSUNAMI_MEM(0)
+<BR>
+&nbsp;
+<BR>
++/* The IO address space is larger than 0xffff */
+<BR>
++#define TSUNAMI_IO_SPACE	(TSUNAMI_CONF(0) - TSUNAMI_IO(0))
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Data structure for handling TSUNAMI machine checks:
+<BR>
+<P>Downloadable from here too:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://ftp.*.kernel.org/pub/linux/kernel/people/andrea/patches/v2.3/2.3.30pre3/alpha-1.gz">ftp://ftp.*.kernel.org/pub/linux/kernel/people/andrea/patches/v2.3/2.3.30pre3/alpha-1.gz</A>
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0032.html">Linus Torvalds: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0030.html">Richard Henderson: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Linus Torvalds: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Dec 01 1999 - 06:08:10 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

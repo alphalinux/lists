@@ -1,0 +1,279 @@
+<!-- received="Sat Oct 18 11:21:20 1997 " -->
+<!-- sent="Sat, 18 Oct 1997 12:20:45 -0700" -->
+<!-- name="Christopher J. Grayce" -->
+<!-- email="cgrayce@wasatch.ps.uci.edu" -->
+<!-- subject="foo=malloc(),realloc(foo) =&gt; SIGSEGV ?!" -->
+<!-- id="199710181920.MAA07898@wasatch.ps.uci.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>foo=malloc(),realloc(foo) =&gt; SIGSEGV ?!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>foo=malloc(),realloc(foo) =&gt; SIGSEGV ?!</h2>
+
+<b>Christopher J. Grayce</b> (<a href="mailto:cgrayce@wasatch.ps.uci.edu"><i>cgrayce@wasatch.ps.uci.edu</i></a>)<br>
+<i>Sat, 18 Oct 1997 12:20:45 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#278">[ date ]</a><a href="index.html#278">[ thread ]</a><a href="subject.html#278">[ subject ]</a><a href="author.html#278">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0279.html">Stephen Zedalis: "Re: 2.0.31"</a>
+<li> <b>Previous message:</b> <a href="0277.html">Christopher Curtis: "Re: 2.0.31"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Dear Folks,<br>
+<p>
+Can anyone shed light on this?  I get SIGSEGV when calling realloc<br>
+with what I reall think is a legitimate pointer.  The source is <br>
+rather long, and I haven't been able to duplicate the bug with a <br>
+short program, alas, but it seems to me this behaviour is incorrect <br>
+no matter what my code does.  I'd be glad to stand corrected, of <br>
+course.<br>
+<p>
+The program runs without error on this exact same system when it is <br>
+compiled by Digital's C compiler instead of gcc.<br>
+<p>
+If I run my program under gdb then gdb itself gets SIGSEGV and dies.<br>
+<p>
+The system is a PC164 + 128 Mb RAM, more or less stock RH 4.2.<br>
+Here is a description of the system, the relevant sections of the <br>
+C source code, the compiling command, the output, and the result of <br>
+strace.  Any help would be, of course, greatly appreciated.<br>
+<p>
+Christopher Grayce<br>
+UCI Dept of Chemistry<br>
+<p>
+------------------ the system -----------------------------------------<br>
+% uname -a<br>
+Linux wasatch.ps.uci.edu 2.0.31 #2 Mon Aug 18 08:45:37 PDT 1997 alpha<br>
+<p>
+% rpm -q gcc<br>
+gcc-2.7.2.1-2<br>
+<p>
+% rpm -q glibc<br>
+glibc-0.961212-5<br>
+<p>
+% rpm -q binutils<br>
+binutils-2.7.0.2-4<br>
+<p>
+% cat /proc/cpuinfo<br>
+cpu                     : Alpha<br>
+cpu model               : EV5<br>
+cpu variation           : 0<br>
+cpu revision            : 0<br>
+cpu serial number       : Linux_is_Great!<br>
+system type             : EB164<br>
+system variation        : 0<br>
+system revision         : 0<br>
+system serial number    : MILO-0000<br>
+cycle frequency [Hz]    : 0<br>
+timer frequency [Hz]    : 1024.00<br>
+page size [bytes]       : 8192<br>
+phys. address bits      : 40<br>
+max. addr. space #      : 127<br>
+BogoMIPS                : 497.02<br>
+kernel unaligned acc    : 0 (pc=0,va=0)<br>
+user unaligned acc      : 22931684 (pc=2d,va=1555611c5b0)<br>
+<p>
+------------------ the C source -----------------------------------------<br>
+/*********************************************************************<br>
+ file main.c<br>
+ */<br>
+	<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+<p>
+#ifndef XYZ_DEFINED<br>
+typedef struct { double x ; double y ; double z ; } xyz_triple ;<br>
+#define XYZ_DEFINED<br>
+#endif<br>
+<p>
+int main(int argc, char *argv[]) {<br>
+<p>
+  static xyz_triple *fluid = 0 ;<br>
+  int ns = 0 ;<br>
+  double drmax ;<br>
+  int want,check ;<br>
+  /* prototype for smove */<br>
+  int smove(xyz_triple **,int *, double) ;<br>
+<p>
+  want = 1 ;<br>
+  printf("&amp;fluid = %p, fluid = %p, want = %d, sizeof(xyz_triple) = %d\n",<br>
+     &amp;fluid,fluid,want,sizeof(xyz_triple)) ;<br>
+<p>
+  fluid = realloc(fluid,want * sizeof(xyz_triple)) ;<br>
+<p>
+  printf("&amp;fluid = %p, fluid = %p, want = %d, sizeof(xyz_triple) = %d\n",<br>
+     &amp;fluid, fluid,want,sizeof(xyz_triple)) ;<br>
+<p>
+  [...]<br>
+<p>
+  printf("&amp;fluid = %p, fluid = %p, ns = %d, drmax = %f\n",<br>
+     &amp;fluid,fluid,ns,drmax) ;<br>
+<p>
+  check = smove(&amp;fluid,&amp;ns,drmax) ;<br>
+<p>
+  [...]<br>
+<p>
+}<br>
+<p>
+/**************************************************************************<br>
+ file smove.c<br>
+ */<br>
+<p>
+static int nex ;<br>
+<p>
+static int check_memory(xyz_triple **fluidp) {<br>
+  <br>
+  static int list_sz = 0 ;<br>
+  int want ;<br>
+<p>
+  if (nex+2 &lt; list_sz) return(0) ;<br>
+  want = list_sz + 100 ;<br>
+  printf("fluidp = %p, *fluidp = %p, want = %d, sizeof(xyz_triple) = %d\n",<br>
+     fluidp,*fluidp,want,sizeof(xyz_triple)) ;<br>
+<p>
+  *fluidp = (xyz_triple *)realloc((*fluidp),want * sizeof(xyz_triple)) ;<br>
+<p>
+  exit(1) ;<br>
+<p>
+  [...]<br>
+<p>
+}<br>
+<p>
+int smove(xyz_triple **fluidp, int *ns, double drmax) {<br>
+<p>
+  nex = *ns ;<br>
+  printf("fluidp = %p, *fluidp = %p, ns = %d, drmax = %f\n",<br>
+	 fluidp,*fluidp,*ns,drmax) ;<br>
+<p>
+  check_memory(fluidp) ;<br>
+<p>
+  [...]<br>
+<p>
+}<br>
+<p>
+------------------ the compiling command ---------------------------------------<br>
+% cc -c -g -Wall -o /home/cgrayce/bin/bound main.c smove.c<br>
+<p>
+------------------ the standard output ---------------------------------------<br>
+% strace -o tracefile ~/bin/bound<br>
+  [...]<br>
+&amp;fluid = 0x1201106e8,  fluid  = (nil), want = 1, sizeof(xyz_triple) = 24<br>
+&amp;fluid = 0x1201106e8,  fluid  = 0x120111f00, want = 1, sizeof(xyz_triple) = 24<br>
+  [...]<br>
+&amp;fluid = 0x1201106e8,  fluid  = 0x120111f00, ns = 0, drmax = 0.250000<br>
+fluidp = 0x1201106e8, *fluidp = 0x120111f00, ns = 0, drmax = 0.250000<br>
+fluidp = 0x1201106e8, *fluidp = 0x120111f00, want = 100, sizeof(xyz_triple) = 24<br>
+Segmentation fault (core dumped)<br>
+<p>
+------------------ the last line in /var/log/messages ------------------------<br>
+Oct 18 11:34:55 wasatch kernel: bound: memory violation at pc=155557f128c <br>
+rp=120002c2c (bad address = 120112868)<br>
+<p>
+------------------ the output of strace ---------------------------<br>
+execve("/home/cgrayce/bin/bound", ["/home/cgrayce/bin/bound"], [/* 23 vars */]) = 0<br>
+brk(0)                                  = 0x120111ee8<br>
+open("/etc/ld.so.preload", O_RDONLY)    = -1 ENOENT (No such file or directory)<br>
+open("/usr/lib/libm.so.6", O_RDONLY)    = -1 ENOENT (No such file or directory)<br>
+open("/etc/ld.so.cache", O_RDONLY)      = 4<br>
+fstat(4, {st_mode=S_IFREG|0644, st_size=5354, ...}) = 0<br>
+mmap(0, 4831835704, PROT_READ, 0 /* MAP_??? */, 0, 0) = 0x15555564000<br>
+close(4)                                = 0<br>
+open("/lib/libm.so.6", O_RDONLY)        = 4<br>
+mmap(0, 0, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555566000<br>
+munmap(0x15555566000, 8192)             = 0<br>
+mmap(0, 8192, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555666000<br>
+mprotect(0x1555568e000, 1060372, PROT_NONE) = 0<br>
+mmap(0x15555766000, 1060372, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555766000<br>
+close(4)                                = 0<br>
+open("/usr/lib/libc.so.6", O_RDONLY)    = -1 ENOENT (No such file or directory)<br>
+open("/lib/libc.so.6", O_RDONLY)        = 4<br>
+mmap(0, 0, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555566000<br>
+munmap(0x15555566000, 8192)             = 0<br>
+mmap(0, 8192, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555792000<br>
+mprotect(0x1555584e000, 1119448, PROT_NONE) = 0<br>
+mmap(0x15555892000, 1119448, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555892000<br>
+mmap(0x15555958000, 1119448, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x15555958000<br>
+close(4)                                = 0<br>
+mprotect(0x15555792000, 770048, PROT_READ|PROT_WRITE) = 0<br>
+mprotect(0x15555792000, 770048, PROT_READ|PROT_EXEC) = 0<br>
+personality(PER_LINUX)                  = 0<br>
+osf_getsysinfo(0x2d, 0x11ffffae8, 0x11ffffb50, 0, 0x2) = 0<br>
+osf_setsysinfo(0xe, 0x11ffffae8, 0x11ffffb50, 0, 0x2) = 0<br>
+fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(3, 1), ...}) = 0<br>
+mmap(0, 4831834440, 0x1ffffb50, 0 /* MAP_??? */, 2, 0) = 0x15555566000<br>
+ioctl(1, TCGETS, {B38400 opost isig icanon echo ...}) = 0<br>
+write(1, "  This is bound version 1.\n", 27) = 27<br>
+write(1, "  main() source file bound_spt3."..., 63) = 63<br>
+write(1, "  solute: ``flexible 3mer\'\' 1-"..., 50) = 50<br>
+write(1, "  solvent: 0 1-mers (diam 1.0000"..., 34) = 34<br>
+write(1, "  box: length = 10.000000\n", 26) = 26<br>
+write(1, "  density: 0.200000 (compiled) 0"..., 67) = 67<br>
+write(1, "&gt; calculating p2_us(r)\n", 23) = 23<br>
+write(1, "&gt; no solute moves\n", 18)     = 18<br>
+gettimeofday({877199691, 70312}, NULL)  = 0<br>
+write(1, "  seeded RNG with 877199691.\n", 29) = 29<br>
+write(1, "  building new configuration. . "..., 34) = 34<br>
+write(1, "&amp;fluid = 0x1201106e8, fluid = (n"..., 71) = 71<br>
+brk(0)                                  = 0x120111ee8<br>
+brk(0x120111f28)                        = 0x120111f28<br>
+brk(0x120112000)                        = 0x120112000<br>
+write(1, "&amp;fluid = 0x1201106e8, fluid = 0x"..., 77) = 77<br>
+write(1, "&gt; sinit_dummy: no solvent initia"..., 39) = 39<br>
+write(1, "  checking initial configuration"..., 53) = 53<br>
+write(1, "  ensemble size (10000): ", 25) = 25<br>
+fstat(0, {st_mode=S_IFCHR|0620, st_rdev=makedev(3, 1), ...}) = 0<br>
+mmap(0, 4831836056, PROT_READ|0x18, 0 /* MAP_??? */, 2, 0) = 0x15555568000<br>
+ioctl(0, TCGETS, {B38400 opost isig icanon echo ...}) = 0<br>
+read(0, "\n", 8192)                     = 1<br>
+write(1, "  sampling interval (1): ", 25) = 25<br>
+read(0, "\n", 8192)                     = 1<br>
+write(1, "  solvent max trial move distanc"..., 46) = 46<br>
+read(0, "\n", 8192)                     = 1<br>
+write(1, "  p2_us(r) binsize (0.025000): ", 31) = 31<br>
+read(0, "\n", 8192)                     = 1<br>
+sigaction(SIGINT, {0x120006c28, [], SA_RESTART}, {SIG_DFL}) = 0<br>
+write(1, "&gt; catch_signals: program will ca"..., 49) = 49<br>
+sigaction(SIGHUP, {0x120006d00, [], SA_RESTART}, {SIG_DFL}) = 0<br>
+write(1, "&gt; catch_signals: program will ig"..., 47) = 47<br>
+write(1, "&amp;fluid = 0x1201106e8, fluid = 0x"..., 68) = 68<br>
+write(1, "fluidp = 0x1201106e8, *fluidp = "..., 78) = 78<br>
+write(1, "fluidp = 0x1201106e8, want = 100"..., 58) = 58<br>
+--- SIGSEGV (Segmentation fault) ---<br>
++++ killed by SIGSEGV +++<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0279.html">Stephen Zedalis: "Re: 2.0.31"</a>
+<li> <b>Previous message:</b> <a href="0277.html">Christopher Curtis: "Re: 2.0.31"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

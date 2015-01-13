@@ -1,0 +1,141 @@
+<!-- received="Thu May  9 10:55:15 1996 " -->
+<!-- sent="Thu, 9 May 1996 10:55:15 -0400" -->
+<!-- name="Eric Youngdale" -->
+<!-- email="eric@aib.com" -->
+<!-- subject="Re: gdb" -->
+<!-- id="9605091055.ZM24522@aib.com" -->
+<!-- inreplyto="richard@atheist.tamu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Eric Youngdale</b> (<a href="mailto:eric@aib.com"><i>eric@aib.com</i></a>)<br>
+<i>Thu, 9 May 1996 10:55:15 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#157">[ date ]</a><a href="index.html#157">[ thread ]</a><a href="subject.html#157">[ subject ]</a><a href="author.html#157">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0158.html">Ka'plaagh  09-May-1996 1618 +0100: "RE: UDB milo images"</a>
+<li> <b>Previous message:</b> <a href="0156.html">Michael Schwingen: "Re: newbie"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;Well, that's obviously not true.. You said it yourself: the linker _does_</i><br>
+<i>&gt;need to know about it, so the assembler is wrong.</i><br>
+<p>
+	If you assume the linker doesn't remove any code, then I don't<br>
+see how the linker would need to know about local branches.<br>
+<p>
+<i>&gt;Now, I don't want to be the linker who tries to find local labels in the</i><br>
+<i>&gt;above. Maybe the data values happen to have patterns that match a "bsr"</i><br>
+<i>&gt;instruction, and then the linker "fixes" it because there is some jsr we</i><br>
+<i>&gt;optimized somewhere.. Uggh..</i><br>
+<i>&gt;</i><br>
+<i>&gt;So, making the linker fix things up is not only hard as h*ll, it's</i><br>
+<i>&gt;actually impossible.</i><br>
+<p>
+	No, it isn't impossible - this is getting close to the sort of<br>
+thing I get paid to do in my day job, and I know it can be done given<br>
+enough care and persistance.  I will agree that it is damn hard, however.<br>
+<p>
+	One thing I could suggest however is that if the compiler is<br>
+absolutely 100% strict about only putting executable code into the .text<br>
+segment, then the problem becomes significantly easier.  I would say<br>
+that it is even doable.  The question is how easy it would be to impose<br>
+this restriction.  On some architectures, it is not terribly complicated,<br>
+but on others it imposes a significant hardship.<br>
+<p>
+	If it is not possible to eliminate the use of non-executable<br>
+code from the .text segment, then it would be possible to add special<br>
+relocations to mark those regions of non-executable code in the text<br>
+segment, so the linker still knows to do the right thing.<br>
+<p>
+<i>&gt;So, now think of the problem without a fixed assembler.. What do we get?</i><br>
+ We<br>
+<i>&gt;get an assembler that isn't a "traditional" assembler any more: we just get</i><br>
+<i>&gt;a smart pre-processor. Essentially, the assembler shouldn't emit runnable</i><br>
+<i>&gt;code, it should emit runnable code _fragments_, and then the linker would</i><br>
+be &gt;free to pad those as it sees fit. You said the hpux setup did something<br>
+that<br>
+<i>&gt;sounded like this (and take a look at the currently fastest single-CPU</i><br>
+<i>&gt;machine - it's not made by Digital. It's the HP PA-8000, so they have done</i><br>
+<i>&gt;some things _right_, and the compiler is probably one of those things</i><br>
+<i>&gt;even though the memory subsystem seems to be quite good).</i><br>
+<p>
+	I agree, they have done some things right.  The older<br>
+32 bit versions had some very strange features which must have driven<br>
+the compiler and linker people crazy.  Things like how their address space<br>
+is divided into 4 1Gb quadrants - it is very expensive to call from one<br>
+quadrant to another, especially when floating point is involved, so they<br>
+added some hacks which basically allow certain functions to be performed<br>
+without branching outside of the quadrant.  With the 8000 series machine,<br>
+they now have a 64 bit machine, and I am told that some of this stupidity<br>
+goes away.   The compiler people from HP that I have spoken to seem to get<br>
+rather excited about no longer having to worry about this sort of crap :-).<br>
+I have been told in all seriousness by people from HP that you should<br>
+consider static linking programs for optimum performance (basically to<br>
+avoid the overhead of branching to another quadrant - the executable<br>
+is normally in quadrant 0, and shared libs are in quadrant 1 or 2 depending<br>
+upon whether the debugger is in use or not).  Anyways, let me explain some<br>
+of the things they have done in their compilers and related tools.<br>
+<p>
+	If you compile a program with the highest optimziation (+O4) under<br>
+SoftBench, the compiler itself doesn't actually generate any code.  It<br>
+generates an internal representation of the parse tree, and it isn't<br>
+easy for me to tell whether much in the way of optimization has been done<br>
+at this point.<br>
+<p>
+	When you go to link such a file, the linker itself collects all of<br>
+the intermediate code that is supposed to go into the output image, and<br>
+invokes the code generator (the same one the compiler invokes if lower<br>
+levels of optimization are selected).  The code generator is able to do all<br>
+of the<br>
+proper optimizations in order to optimize the *entire* image.  I have<br>
+been told by people from HP that there are limits to how large a program<br>
+you can link in this manner - as you might imagine the VM usage can get<br>
+rather impressively large.<br>
+<p>
+	Anyways, to sum up, I think this is still a tractible problem for<br>
+the linker to handle completely without any help from the assembler<br>
+(other than some special relocation types to indicate non-executable code<br>
+in the .text section).  It is highly academic at this point anyways, since<br>
+I have much more important things I need to be hacking right now anyways.<br>
+I guess we are still looking for that elusive volunteer :-).<br>
+<p>
+-Eric<br>
+<p>
+<pre>
+-- 
+"The woods are lovely, dark and deep.  But I have promises to keep,
+And lines to code before I sleep, And lines to code before I sleep."
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0158.html">Ka'plaagh  09-May-1996 1618 +0100: "RE: UDB milo images"</a>
+<li> <b>Previous message:</b> <a href="0156.html">Michael Schwingen: "Re: newbie"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

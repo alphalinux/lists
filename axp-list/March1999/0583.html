@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: dlopen() et al loads multiple copies of same shared l</TITLE>
+<META NAME="Author" CONTENT="Uncle George (gatgul@voicenet.com)">
+<META NAME="Subject" CONTENT="dlopen() et al loads multiple copies of same shared lib">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>dlopen() et al loads multiple copies of same shared lib</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 11 11:46:48 1999 PST" -->
+<!-- sent="Thu, 11 Mar 1999 06:39:52 -0500" -->
+<!-- name="Uncle George" -->
+<!-- email="gatgul@voicenet.com" -->
+<!-- subject="dlopen() et al loads multiple copies of same shared lib" -->
+<!-- id="36E7AB88.6716E1F8@voicenet.com" -->
+<!-- inreplyto="" -->
+<STRONG>Uncle George</STRONG> (<A HREF="mailto:gatgul@voicenet.com?subject=Re:%20dlopen()%20et%20al%20loads%20multiple%20copies%20of%20same%20shared%20lib"><EM>gatgul@voicenet.com</EM></A>)<BR>
+<EM>Thu, 11 Mar 1999 06:39:52 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#583">[ date ]</A>
+<A HREF="index.html#583">[ thread ]</A>
+<A HREF="subject.html#583">[ subject ]</A>
+<A HREF="author.html#583">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0582.html">Gavin Woodhatch: "Strange Network Hang"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+my cwd is /usr/JAVA/d/jsrc12a/build/genunix
+<BR>
+<P>with LD_LIBRARY_PATH=lib/alpha/green_threads:lib/alpha/classic
+<BR>
+<P>with a
+<BR>
+dlopen(&quot;/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libjava_g.so&quot;, ... )
+<BR>
+<P>I am able to load up the expected &quot;libjava_g.so&quot; shared file.
+<BR>
+<P>Later on there is a
+<BR>
+dlopen(&quot;/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libzip_g.so&quot;, ... )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;BUT there is a hitch. in libzip_g.so - there is a ref to
+<BR>
+libjava_g.so
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;then the loader also loads in another copy if libjava_g.so. This
+<BR>
+copy is created from a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;composite of the LD_LIBRARY_PATH &amp; the required share library.
+<BR>
+It opens
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;lib/alpha/green_threads/libjava_g.so&quot;, tries to match the names
+<BR>
+in the _dl_loaded
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;table, but none of them  match
+<BR>
+<P>&quot;/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/green_threads/libjava_g.so&quot;
+<BR>
+-
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ergo 2 copies
+<BR>
+<P>with gdb u get from an &quot;info share&quot;
+<BR>
+<P>Program exited normally.
+<BR>
+(gdb) info share
+<BR>
+<EM>&gt;&gt;From                To                  Syms Read   Shared Object
+</EM><BR>
+Library
+<BR>
+0x0000020000110000  0x0000020000233c70  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/green_threads/libhpi_g.so
+<BR>
+0x0000020000234000  0x00000200003cd864  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/classic/libjvm_g.so
+<BR>
+0x00000200003ce000  0x00000200004d4570  Yes         /lib/libdl.so.2.1
+<BR>
+0x00000200004d6000  0x00000200006ab098  Yes         /lib/libc.so.6.1
+<BR>
+0x00000200006ac000  0x00000200007b2a40  Yes         /lib/libnsl.so.1.1
+<BR>
+0x00000200007b4000  0x00000200008df790  Yes         /lib/libm.so.6.1
+<BR>
+0x0000020000000000  0x000002000010edd8  Yes         /lib/ld-linux.so.2
+<BR>
+0x00000200048e0000  0x0000020004a1d0b8  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libjava_g.so
+<BR>
+&lt;==== COPY 1
+<BR>
+0x0000020004a1e000  0x0000020004b31ab8  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libzip_g.so
+<BR>
+0x0000020004b32000  0x0000020004c6f0b8  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libjava_g.so
+<BR>
+&lt;=====COPY 2
+<BR>
+0x0000020004cb4000  0x0000020004dbeea0  Yes
+<BR>
+/lib/libnss_files.so.1.1
+<BR>
+0x0000020004dc0000  0x0000020004f2cb60  Yes
+<BR>
+/usr/JAVA/d/jsrc12a/build/genunix/lib/alpha/libaudio_g.so
+<BR>
+<P><P>I'd like to fix it, but i like my philosophy, and dont know what the
+<BR>
+current standards to searchorder/techniques are to the dlopen() et al.
+<BR>
+It would probably be good to match the library names absolutely, and
+<BR>
+maybe the paths to the shared libraries separately.
+<BR>
+<P>gat
+<BR>
+<P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20dlopen()%20et%20al%20loads%20multiple%20copies%20of%20same%20shared%20lib">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20dlopen()%20et%20al%20loads%20multiple%20copies%20of%20same%20shared%20lib">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0582.html">Gavin Woodhatch: "Strange Network Hang"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Mar 11 1999 - 04:00:16 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

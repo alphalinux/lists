@@ -1,0 +1,298 @@
+diff -ruNp linux/Documentation/Configure.help 2.4.0-2-ac1/Documentation/Configure.help
+--- linux/Documentation/Configure.help	Thu Jun 22 07:21:12 2000
++++ 2.4.0-2-ac1/Documentation/Configure.help	Sat Jun 24 13:00:46 2000
+@@ -2126,6 +2126,20 @@ CONFIG_ALPHA_SRM
+ 
+   If unsure, say N.
+ 
++Legacy kernel start address
++CONFIG_ALPHA_LEGACY_START_ADDRESS
++  The 2.4 kernel changed the kernel start address from 0x310000
++  to 0x810000 to make room for the Wildfire's larger SRM console.
++
++  If you're using aboot 0.7 or later, the bootloader will examine
++  the ELF headers to determine where to transfer control.  Unfortunately,
++  most older bootloaders -- APB, or MILO -- hardcoded the kernel
++  start address rather than examining the ELF headers, and the result
++  is a hard lockup.
++
++  Say Y if you have a broken bootloader.  Say N if you do not, or
++  if you wish to run on Wildfire.
++
+ Non-standard serial port support
+ CONFIG_SERIAL_NONSTANDARD
+   Say Y here if you have any non-standard serial boards -- boards
+diff -ruNp linux/arch/alpha/Makefile 2.4.0-2-ac1/arch/alpha/Makefile
+--- linux/arch/alpha/Makefile	Wed Dec 15 10:32:47 1999
++++ 2.4.0-2-ac1/arch/alpha/Makefile	Sat Jun 24 13:29:32 2000
+@@ -10,7 +10,7 @@
+ 
+ NM := nm -B
+ 
+-LINKFLAGS = -static -T arch/alpha/vmlinux.lds #-N -relax
++LINKFLAGS = -static -T arch/alpha/vmlinux.lds -N #-relax
+ CFLAGS := $(CFLAGS) -pipe -mno-fp-regs -ffixed-8
+ 
+ # Determine if we can use the BWX instructions with GAS.
+@@ -90,7 +90,7 @@ endif
+ 
+ LIBS := $(TOPDIR)/arch/alpha/lib/lib.a $(LIBS) $(TOPDIR)/arch/alpha/lib/lib.a
+ 
+-MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
++MAKEBOOT = $(MAKE) -C arch/alpha/boot
+ 
+ rawboot:
+ 	@$(MAKEBOOT) rawboot
+@@ -109,13 +109,15 @@ srmboot:
+ 	@$(MAKEBOOT) srmboot
+ 
+ archclean:
+-	@$(MAKE) -C arch/$(ARCH)/kernel clean
++	@$(MAKE) -C arch/alpha/kernel clean
+ 	@$(MAKEBOOT) clean
++	rm -f arch/alpha/vmlinux.lds
+ 
+ archmrproper:
+ 
+ archdep:
+ 	@$(MAKEBOOT) dep
++	$(CPP) $(CPPFLAGS) -xc -P arch/alpha/vmlinux.lds.in -o arch/alpha/vmlinux.lds
+ 
+ bootpfile:
+ 	@$(MAKEBOOT) bootpfile
+diff -ruNp linux/arch/alpha/config.in 2.4.0-2-ac1/arch/alpha/config.in
+--- linux/arch/alpha/config.in	Mon Jun 19 17:59:32 2000
++++ 2.4.0-2-ac1/arch/alpha/config.in	Sat Jun 24 12:52:46 2000
+@@ -331,7 +331,6 @@ source drivers/usb/Config.in
+ mainmenu_option next_comment
+ comment 'Kernel hacking'
+ 
+-#bool 'Debug kmalloc/kfree' CONFIG_DEBUG_MALLOC
+ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+   tristate 'Kernel FP software completion' CONFIG_MATHEMU
+ else
+@@ -339,4 +338,7 @@ else
+ fi
+ 
+ bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ
++
++bool 'Legacy kernel start address' CONFIG_ALPHA_LEGACY_START_ADDRESS
++
+ endmenu
+diff -ruNp linux/arch/alpha/vmlinux.lds 2.4.0-2-ac1/arch/alpha/vmlinux.lds
+--- linux/arch/alpha/vmlinux.lds	Mon Jun 19 17:59:33 2000
++++ 2.4.0-2-ac1/arch/alpha/vmlinux.lds	Wed Dec 31 16:00:00 1969
+@@ -1,88 +0,0 @@
+-OUTPUT_FORMAT("elf64-alpha")
+-ENTRY(__start)
+-SECTIONS
+-{
+-  . = 0xfffffc0000810000;
+-  _text = .;
+-  .text : { *(.text) }
+-  _etext = .;
+-
+-  /* Exception table */
+-  . = ALIGN(16);
+-  __start___ex_table = .;
+-  __ex_table : { *(__ex_table) }
+-  __stop___ex_table = .;
+-
+-  /* Kernel symbol table */
+-  . = ALIGN(8);
+-  __start___ksymtab = .;
+-  __ksymtab : { *(__ksymtab) }
+-  __stop___ksymtab = .;
+-  .kstrtab : { *(.kstrtab) }
+-
+-  /* Startup code */
+-  . = ALIGN(8192);
+-  __init_begin = .;
+-  .text.init : { *(.text.init) }
+-  .data.init : { *(.data.init) }
+-
+-  . = ALIGN(16);
+-  __setup_start = .;
+-  .setup.init : { *(.setup.init) }
+-  __setup_end = .;
+-
+-  . = ALIGN(8);
+-  __initcall_start = .;
+-  .initcall.init : { *(.initcall.init) }
+-  __initcall_end = .;
+-
+-  . = ALIGN(2*8192);	/* Align double page for init_task_union */
+-  __init_end = .;
+-
+-  /* The initial task and kernel stack */
+-  init_task : { *(init_task) }
+-
+-  /* Global data */
+-  _data = .;
+-  .data.cacheline_aligned : { *(.data.cacheline_aligned) }
+-  .rodata : { *(.rodata) }
+-  .data : { *(.data) CONSTRUCTORS }
+-  .got : { *(.got) }
+-  .sdata : { *(.sdata) }
+-  _edata = .;
+-
+-  __bss_start = .;
+-  .sbss : { *(.sbss) *(.scommon) }
+-  .bss : { *(.bss) *(COMMON) }
+-  __bss_stop = .;
+-  _end = .;
+-
+-  .mdebug 0 : { *(.mdebug) }
+-  .note 0 : { *(.note) }
+-  .comment 0 : { *(.comment) }
+-
+-  /* DWARF 1 */
+-  .debug          0 : { *(.debug) }
+-  .line           0 : { *(.line) }
+-  /* GNU DWARF 1 extensions */
+-  .debug_srcinfo  0 : { *(.debug_srcinfo) }
+-  .debug_sfnames  0 : { *(.debug_sfnames) }
+-  /* DWARF 1.1 and DWARF 2 */
+-  .debug_aranges  0 : { *(.debug_aranges) }
+-  .debug_pubnames 0 : { *(.debug_pubnames) }
+-  /* DWARF 2 */
+-  .debug_info     0 : { *(.debug_info) }
+-  .debug_abbrev   0 : { *(.debug_abbrev) }
+-  .debug_line     0 : { *(.debug_line) }
+-  .debug_frame    0 : { *(.debug_frame) }
+-  .debug_str      0 : { *(.debug_str) }
+-  .debug_loc      0 : { *(.debug_loc) }
+-  .debug_macinfo  0 : { *(.debug_macinfo) }
+-  /* SGI/MIPS DWARF 2 extensions */
+-  .debug_weaknames 0 : { *(.debug_weaknames) }
+-  .debug_funcnames 0 : { *(.debug_funcnames) }
+-  .debug_typenames 0 : { *(.debug_typenames) }
+-  .debug_varnames  0 : { *(.debug_varnames) }
+-
+-  /DISCARD/ : { *(.text.exit) *(.data.exit) }
+-}
+diff -ruNp linux/arch/alpha/vmlinux.lds.in 2.4.0-2-ac1/arch/alpha/vmlinux.lds.in
+--- linux/arch/alpha/vmlinux.lds.in	Wed Dec 31 16:00:00 1969
++++ 2.4.0-2-ac1/arch/alpha/vmlinux.lds.in	Sat Jun 24 14:23:59 2000
+@@ -0,0 +1,96 @@
++#include <linux/config.h>
++
++OUTPUT_FORMAT("elf64-alpha")
++ENTRY(__start)
++PHDRS { kernel PT_LOAD ; }
++SECTIONS
++{
++#ifdef CONFIG_ALPHA_LEGACY_START_ADDRESS
++  . = 0xfffffc0000310000;
++#else
++  . = 0xfffffc0000810000;
++#endif
++
++  _text = .;
++  .text : { *(.text) } :kernel
++  _etext = .;
++
++  /* Exception table */
++  . = ALIGN(16);
++  __start___ex_table = .;
++  __ex_table : { *(__ex_table) }
++  __stop___ex_table = .;
++
++  /* Kernel symbol table */
++  . = ALIGN(8);
++  __start___ksymtab = .;
++  __ksymtab : { *(__ksymtab) }
++  __stop___ksymtab = .;
++  .kstrtab : { *(.kstrtab) }
++
++  /* Startup code */
++  . = ALIGN(8192);
++  __init_begin = .;
++  .text.init : { *(.text.init) }
++  .data.init : { *(.data.init) }
++
++  . = ALIGN(16);
++  __setup_start = .;
++  .setup.init : { *(.setup.init) }
++  __setup_end = .;
++
++  . = ALIGN(8);
++  __initcall_start = .;
++  .initcall.init : { *(.initcall.init) }
++  __initcall_end = .;
++
++  . = ALIGN(2*8192);	/* Align double page for init_task_union */
++  __init_end = .;
++
++  /* The initial task and kernel stack */
++  init_task : { *(init_task) }
++
++  /* Global data */
++  _data = .;
++  .data.cacheline_aligned : { *(.data.cacheline_aligned) }
++  .rodata : { *(.rodata) }
++  .data : { *(.data) CONSTRUCTORS }
++  .got : { *(.got) }
++  .sdata : { *(.sdata) }
++  _edata = .;
++
++  __bss_start = .;
++  .sbss : { *(.sbss) *(.scommon) }
++  .bss : { *(.bss) *(COMMON) }
++  __bss_stop = .;
++  _end = .;
++
++  .mdebug 0 : { *(.mdebug) }
++  .note 0 : { *(.note) }
++  .comment 0 : { *(.comment) }
++
++  /* DWARF 1 */
++  .debug          0 : { *(.debug) }
++  .line           0 : { *(.line) }
++  /* GNU DWARF 1 extensions */
++  .debug_srcinfo  0 : { *(.debug_srcinfo) }
++  .debug_sfnames  0 : { *(.debug_sfnames) }
++  /* DWARF 1.1 and DWARF 2 */
++  .debug_aranges  0 : { *(.debug_aranges) }
++  .debug_pubnames 0 : { *(.debug_pubnames) }
++  /* DWARF 2 */
++  .debug_info     0 : { *(.debug_info) }
++  .debug_abbrev   0 : { *(.debug_abbrev) }
++  .debug_line     0 : { *(.debug_line) }
++  .debug_frame    0 : { *(.debug_frame) }
++  .debug_str      0 : { *(.debug_str) }
++  .debug_loc      0 : { *(.debug_loc) }
++  .debug_macinfo  0 : { *(.debug_macinfo) }
++  /* SGI/MIPS DWARF 2 extensions */
++  .debug_weaknames 0 : { *(.debug_weaknames) }
++  .debug_funcnames 0 : { *(.debug_funcnames) }
++  .debug_typenames 0 : { *(.debug_typenames) }
++  .debug_varnames  0 : { *(.debug_varnames) }
++
++  /DISCARD/ : { *(.text.exit) *(.data.exit) }
++}
+diff -ruNp linux/include/asm-alpha/system.h 2.4.0-2-ac1/include/asm-alpha/system.h
+--- linux/include/asm-alpha/system.h	Mon Jun 19 17:59:33 2000
++++ 2.4.0-2-ac1/include/asm-alpha/system.h	Sat Jun 24 13:09:46 2000
+@@ -14,16 +14,17 @@
+  * We leave one page for the initial stack page, and one page for
+  * the initial process structure. Also, the console eats 3 MB for
+  * the initial bootloader (one of which we can reclaim later).
+- * With a few other pages for various reasons, we'll use an initial
+- * load address of PAGE_OFFSET+0x310000UL
+  */
+ #define BOOT_PCB	0x20000000
+ #define BOOT_ADDR	0x20000000
+ /* Remove when official MILO sources have ELF support: */
+ #define BOOT_SIZE	(16*1024)
+ 
+-
++#ifdef CONFIG_ALPHA_LEGACY_START_ADDRESS
++#define KERNEL_START_PHYS	0x300000 /* Old bootloaders hardcoded this.  */
++#else
+ #define KERNEL_START_PHYS	0x800000 /* Wildfire has a huge console */
++#endif
+ 
+ #define KERNEL_START	(PAGE_OFFSET+KERNEL_START_PHYS)
+ #define SWAPPER_PGD	KERNEL_START
+

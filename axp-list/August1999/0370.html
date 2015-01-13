@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: tbia() on DEC 3000 question</TITLE>
+<META NAME="Author" CONTENT="Craig P Prescott (prescott@phys.ufl.edu)">
+<META NAME="Subject" CONTENT="tbia() on DEC 3000 question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>tbia() on DEC 3000 question</H1>
+<HR>
+<P>
+<!-- received="Mon Aug 16 08:31:00 1999" -->
+<!-- isoreceived="19990816153100" -->
+<!-- sent="Mon, 16 Aug 1999 03:24:38 -0400" -->
+<!-- isosent="19990816072438" -->
+<!-- name="Craig P Prescott" -->
+<!-- email="prescott@phys.ufl.edu" -->
+<!-- subject="tbia() on DEC 3000 question" -->
+<!-- id="199908160724.DAA04846@neptune.phys.ufl.edu" -->
+<STRONG>Subject: </STRONG>tbia() on DEC 3000 question<BR>
+<STRONG>From: </STRONG>Craig P Prescott (<EM>prescott@phys.ufl.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Aug 16 1999 - 00:24:38 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#370">[ date ]</A>
+<A HREF="index.html#370">[ thread ]</A>
+<A HREF="subject.html#370">[ subject ]</A>
+<A HREF="author.html#370">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0371.html">Martin Ostermann: "Re: Dead in water on Jensen..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0369.html">Flavio Pescuma: "2.2.10-ac-12 kernel panic"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0373.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Plodding forward trying to get linux to netboot on the on the DEC 3000...
+<BR>
+<P>In paging_init (arch/alpha/mm/init.c), the call to tbia() results in a
+<BR>
+machine check on the model 500 and model 600 DEC 3000 machines I am
+<BR>
+using for development.  I am not sure why (I am a *complete* newbie to
+<BR>
+assembly.).
+<BR>
+<P>Anyhow, changing tbia() in include/asm-alpha/system.h from
+<BR>
+<P>&lt;snip&gt;
+<BR>
+<P>#define __tbi(nr,arg,arg1...)					\
+<BR>
+({								\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register unsigned long __r16 __asm__(&quot;$16&quot;) = (nr);	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register unsigned long __r17 __asm__(&quot;$17&quot;); arg;	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;call_pal %3 #__tbi&quot;				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;=r&quot; (__r16),&quot;=r&quot; (__r17)			\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;0&quot; (__r16),&quot;i&quot; (PAL_tbi) ,##arg1		\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;$0&quot;, &quot;$1&quot;, &quot;$22&quot;, &quot;$23&quot;, &quot;$24&quot;, &quot;$25&quot;);	\
+<BR>
+})
+<BR>
+....
+<BR>
+#define tbia()		__tbi(-2, /* no second argument */)
+<BR>
+<P>&lt;/snip&gt; 
+<BR>
+<P>to 
+<BR>
+<P>#define tbia()							\
+<BR>
+({								\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register unsigned long __r16 __asm__(&quot;$16&quot;) = -2;	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(                                   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;call_pal 0x0033&quot;                               \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:                                               \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:                                               \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&quot;$1&quot;, &quot;$16&quot;, &quot;$17&quot;, &quot;$22&quot;, &quot;$23&quot;, &quot;$24&quot;, &quot;$25&quot;);	\
+<BR>
+})
+<BR>
+<P>*seems* to work - I no longer crap out (in tbia()) when netbooting.
+<BR>
+(PAL_tbi is 0x0033).
+<BR>
+<P>So, my main two questions are:
+<BR>
+<P>1) is what I did actually &quot;correct&quot;?  (apart from the unused __r16)
+<BR>
+<P>2) why would the original tbia() fail on a DEC 3000 but work on
+<BR>
+everything else?  __tbi is generalized beyond the immediate needs of
+<BR>
+tbia() and tbiap(); could this be causing some problem?
+<BR>
+<P>Also, I am sure there is a &quot;better&quot; way to do this (if what I did was
+<BR>
+even right in the first place).  But my knowledge level is a bit too
+<BR>
+low to make full use of the examples I could find...  It sounds simple 
+<BR>
+enough - all I have to do is stick a &quot;-2&quot; into $a0 ($r16) and
+<BR>
+&quot;call_pal 0x0033&quot;? 
+<BR>
+<P>This is using linux-2.2.9, BTW, and the firmware on the DEC 3000
+<BR>
+machines is the latest.
+<BR>
+<P>Thanks in advance,
+<BR>
+Craig
+<BR>
+<P>P.S. This is a bit off-topic, but if someone could spell out in full detail
+<BR>
+__tbi above, I'd be grateful, as I could learn more from this
+<BR>
+example. I.e. what do the #__tbi and ##arg1 do?  And I learned from a
+<BR>
+gcc doc what the &quot;=r&quot; and &quot;0&quot; mean, but what about &quot;i&quot;?
+<BR>
+<P>If anyone knows where an &quot;Alpha Assembly for Dummies&quot; style tutorial
+<BR>
+is, or any other useful references, I'd appreciate it if they could
+<BR>
+point me at them.  If one wanted to learn a bit of Alpha Assembly -
+<BR>
+with no prior knowledge of any assembly language - what would one do?
+<BR>
+I have the Alpha Architecture Reference Manual and other reference
+<BR>
+materials, but I am looking for more of a tutorial with lots of
+<BR>
+examples.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0371.html">Martin Ostermann: "Re: Dead in water on Jensen..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0369.html">Flavio Pescuma: "2.2.10-ac-12 kernel panic"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0373.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:01 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

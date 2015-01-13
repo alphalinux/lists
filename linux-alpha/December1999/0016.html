@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [patch] irq rewrite</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: [patch] irq rewrite">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patch] irq rewrite</H1>
+<HR>
+<P>
+<!-- received="Tue Dec 07 04:56:29 1999" -->
+<!-- isoreceived="19991207125629" -->
+<!-- sent="Tue, 7 Dec 1999 04:25:34 +0100 (CET)" -->
+<!-- isosent="19991207032534" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: [patch] irq rewrite" -->
+<!-- id="Pine.LNX.4.10.9912070419140.426-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.10.9912070010270.1756-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: [patch] irq rewrite<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Dec 06 1999 - 19:25:34 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#16">[ date ]</A>
+<A HREF="index.html#16">[ thread ]</A>
+<A HREF="subject.html#16">[ subject ]</A>
+<A HREF="author.html#16">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0017.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0015.html">Brian Pomerantz: "Remote debugging"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0014.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0017.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0014.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 7 Dec 1999, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt;So it seems I'll have to skip paging_init plus my ugly SRM_printf hack in
+</EM><BR>
+<EM>&gt;order to see a stack trace...
+</EM><BR>
+<P>I used the above very ugly trick and I got:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kmalloc ....
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;can't alloc timer ...
+<BR>
+<P>I was calling kmalloc too early and the failed allocation was generating a
+<BR>
+panic.
+<BR>
+<P>This patch is the only fix I had to apply over the irq rewrite to make it
+<BR>
+working. I am writing this email with the resulting kernel and it run 
+<BR>
+stable so far.
+<BR>
+<P>This patch is called alpha-3-to-4 and goes on the top of the previous
+<BR>
+patches in the ftp site:
+<BR>
+<P>diff -urN 2.3.30pre6-alpha-3/arch/alpha/kernel/irq.c 2.3.30pre6-alpha/arch/alpha/kernel/irq.c
+<BR>
+--- 2.3.30pre6-alpha-3/arch/alpha/kernel/irq.c	Tue Dec  7 04:17:08 1999
+<BR>
++++ 2.3.30pre6-alpha/arch/alpha/kernel/irq.c	Tue Dec  7 03:59:36 1999
+<BR>
+@@ -28,7 +28,6 @@
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+&nbsp;#include &lt;asm/bitops.h&gt;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+-#include &lt;asm/spinlock.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6-alpha-3/arch/alpha/kernel/time.c 2.3.30pre6-alpha/arch/alpha/kernel/time.c
+<BR>
+--- 2.3.30pre6-alpha-3/arch/alpha/kernel/time.c	Tue Dec  7 04:17:08 1999
+<BR>
++++ 2.3.30pre6-alpha/arch/alpha/kernel/time.c	Tue Dec  7 04:06:14 1999
+<BR>
+@@ -32,6 +32,7 @@
+<BR>
+&nbsp;#include &lt;linux/delay.h&gt;
+<BR>
+&nbsp;#include &lt;linux/ioport.h&gt;
+<BR>
+&nbsp;#include &lt;linux/irq.h&gt;
+<BR>
++#include &lt;linux/interrupt.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/uaccess.h&gt;
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+@@ -246,10 +247,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x13, 0x42);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static struct irqaction irq0  = { timer_interrupt, SA_INTERRUPT, 0, &quot;timer&quot;, NULL, NULL};
+<BR>
++
+<BR>
+&nbsp;void
+<BR>
+&nbsp;time_init(void)
+<BR>
+&nbsp;{
+<BR>
+-	void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long cycle_freq, one_percent;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long diff;
+<BR>
+@@ -338,9 +340,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;state.partial_tick = 0L;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* setup timer */ 
+<BR>
+-	irq_handler = timer_interrupt;
+<BR>
+-	if (request_irq(TIMER_IRQ, irq_handler, 0, &quot;timer&quot;, NULL))
+<BR>
+-		panic(&quot;Could not allocate timer IRQ!&quot;);
+<BR>
++	setup_irq(TIMER_IRQ, &amp;irq0);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0017.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0015.html">Brian Pomerantz: "Remote debugging"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0014.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0017.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0014.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

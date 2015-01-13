@@ -1,0 +1,204 @@
+<!-- received="Sat Apr 19 05:49:30 1997 " -->
+<!-- sent="Sat, 19 Apr 1997 11:38:11 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: [XFree86(TM) Bug Report] S3 on Alphastation" -->
+<!-- id="199704190124.VAA00809@alpha0.estabrook.org" -->
+<!-- inreplyto="Pine.LNX.3.95.970418194937.209A-100000@hal.ge.infn.it" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: [XFree86(TM) Bug Report] S3 on Alphastation</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: [XFree86(TM) Bug Report] S3 on Alphastation</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sat, 19 Apr 1997 11:38:11 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#819">[ date ]</a><a href="index.html#819">[ thread ]</a><a href="subject.html#819">[ subject ]</a><a href="author.html#819">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0820.html">Wolfgang Dreyer: "Re: PYXIS Chipset?"</a>
+<li> <b>Previous message:</b> <a href="0818.html">Terry L. Ridder: "Radiance &amp; Linux/Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Marco and Paolo,<br>
+<p>
+On Apr 18, Marco Corte wrote:<br>
+<p>
+<i>&gt; &gt;&gt; Here is what we (I and my friend <a href="mailto:paolo@hal.ge.infn.it">paolo@hal.ge.infn.it</a> which is working</i><br>
+<i>&gt; &gt;&gt; with me on this) found in a debugging session. We followed your</i><br>
+<i>&gt; &gt;&gt; instructions (breakpoints, ...).</i><br>
+<p>
+great!  finally someone's trying to locate the problem.<br>
+<p>
+<i>&gt; (gdb) b 2837</i><br>
+<i>&gt; Breakpoint 3 at 0x12005e938: file s3init.c, line 2837.</i><br>
+<i>&gt; </i><br>
+<i>&gt; (gdb) cont</i><br>
+<i>&gt; Continuing.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Breakpoint 3, s3Init () at s3init.c:2837</i><br>
+<i>&gt; 2837          outb(vgaCRReg, n);</i><br>
+<p>
+<p>
+<i>&gt; &gt;&gt; Other very :-) interesting numbers</i><br>
+<p>
+are there any things I should realize?  looks ok to me at a first glance...<br>
+<p>
+<i>&gt; &gt;&gt; many 'step's...</i><br>
+<i>&gt; &gt;&gt;</i><br>
+<i>&gt; &gt;&gt; The last line gdb prints is</i><br>
+<i>&gt; </i><br>
+<i>&gt; 2847  mode-&gt;CrtcVTotal /= interlacedived</i><br>
+<p>
+this should be only 10 steps (or even much less?) from line 2837 to 2847.<br>
+or what am I missing ?!<br>
+<p>
+and around line 2847 there is nothing special/dengerous etc.  <br>
+<p>
+<i>&gt; &gt;&gt; As you see, we are able to use many tools. We are your humble</i><br>
+<i>&gt; &gt;&gt; servants and we are waiting for your orders :-)</i><br>
+<p>
+great! thanks!!<br>
+<p>
+<p>
+ok, first please send a full server output for plain 3.2 server using<br>
+<p>
+	X -probeonly &gt;&amp; outfile<br>
+<p>
+I hope this won't hang the machine.  then apply the small patch below<br>
+and try again (maybe specifing `MemBase 0x1800000' (value from /proc/pci)<br>
+in a 2nd run).<br>
+<p>
+if this doesn't help, we need to further trace why/where the machine cashes<br>
+as line 2847 doesn't seem to be the correct location.<br>
+<p>
+which compiler options did you use to compile the S3 code with debug ?<br>
+did you use  <br>
+<p>
+	make "CDEBUGFLAGS = -O2 -g" ?<br>
+<p>
+using -O2 may give debug problems due to code rearangements, please try using<br>
+<p>
+	make "CDEBUGFLAGS = -O0 -g3"<br>
+<p>
+if possible or at least<br>
+<p>
+	make "CDEBUGFLAGS = -O -g3"<br>
+<p>
+maybe this gives a better localisation of "the last step"...<br>
+<p>
+<p>
+also, there have been some problems before with interference of some<br>
+PCI SCSI controllers and S3 chips (which all should be fixed, but ne never knows...)<br>
+so please run the following commands in background (using bash)<br>
+when single-stepping though the server so that there is always "some" disk activity.<br>
+otherwise the server might crash e.g. only 10 or more seconds later when "sync"<br>
+tries to write some blocks to the disk next time:<br>
+<p>
+	while true ; do cat /dev/sda &gt; /dev/null ; done &amp;<br>
+	while sleep 1 ; do sync ; done &amp;<br>
+<p>
+<p>
+if this doesn't give more details, we have to start stepping on asm-instruction level<br>
+to check what's really executed.  you should run <br>
+	<br>
+	script logfile<br>
+<p>
+before entering gdb so that everything will be captured in a file (maybe even<br>
+on the remote host to avoid file corruption, but the 'sync' every second should<br>
+be ok too).<br>
+<p>
+ok, then maybe start with a breakpoint in line 2837, then use<br>
+<p>
+	set heuristic-fence-post 10000<br>
+	display/i $pc<br>
+<p>
+and then use<br>
+<p>
+	stepi <br>
+<p>
+to single-step through every instruction until "boooom"...<br>
+that's all, I'm running out of ideas and hints for now (read: need more input<br>
+or even better a success report;)<br>
+<p>
+<p>
+thanks again for volunteering and for your help!<br>
+<p>
+Harald<br>
+<p>
+<p>
+*** xc/programs/Xserver/hw/xfree86/accel/s3/s3.c~	Thu Mar 13 12:31:07 1997<br>
+--- xc/programs/Xserver/hw/xfree86/accel/s3/s3.c	Sat Apr 19 11:11:39 1997<br>
+***************<br>
+*** 673,682 ****<br>
+      * S3 868/968 only pretend to need 32MB and thus fool <br>
+      * the BIOS PCI auto configuration :-(  */<br>
+   <br>
+!    if (   info.ChipType == S3_868 <br>
+!        || info.ChipType == S3_968 <br>
+!        || info.ChipType == S3_TRIO_32_64  /* only needed for Trio64V+ */<br>
+!        /* || info.ChipType == S3_ViRGE */) {<br>
+        unsigned long base0;<br>
+        char *probed;<br>
+        char map_64m[64];<br>
+--- 673,684 ----<br>
+      * S3 868/968 only pretend to need 32MB and thus fool <br>
+      * the BIOS PCI auto configuration :-(  */<br>
+   <br>
+!    if (found <br>
+!        &amp;&amp; info.ChipType != S3_928<br>
+!        &amp;&amp; info.ChipType != S3_864<br>
+!        &amp;&amp; info.ChipType != S3_964<br>
+!        &amp;&amp; (info.ChipType == S3_TRIO_32_64 &amp;&amp; info.ChipRev &lt; 0x40)  /* only Trio64V+ */<br>
+!        ) {<br>
+        unsigned long base0;<br>
+        char *probed;<br>
+        char map_64m[64];<br>
+<p>
+<p>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0820.html">Wolfgang Dreyer: "Re: PYXIS Chipset?"</a>
+<li> <b>Previous message:</b> <a href="0818.html">Terry L. Ridder: "Radiance &amp; Linux/Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

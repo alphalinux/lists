@@ -1,0 +1,298 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Foundry ServerIron and Compay DS10/Linux - SYN Flood Troubles</H1> 
+	
+<!-- received="Thu Jan 27 14:13:06 2000" -->
+<!-- isoreceived="20000127221306" -->
+<!-- sent="Thu, 27 Jan 2000 14:34:12 +0100" -->
+<!-- isosent="20000127133412" -->
+<!-- name="Michael Rommel" -->
+<!-- email="rommel@erlm.siemens.de" -->
+<!-- subject="Foundry ServerIron and Compay DS10/Linux - SYN Flood Troubles" -->
+<!-- id="20000127143412.A11726@erlm.siemens.de" -->
+<STRONG>Subject: </STRONG>Foundry ServerIron and Compay DS10/Linux - SYN Flood Troubles<BR>
+<STRONG>From: </STRONG>Michael Rommel (<EM>rommel@erlm.siemens.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jan 27 05:34:12 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#565">[ date ]</A>
+<A HREF="index.shtml#565">[ thread ]</A>
+<A HREF="subject.shtml#565">[ subject ]</A>
+<A HREF="author.shtml#565">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0566.shtml">Rich Payne: "Re: Can't boot RedHat 6.1 alpha linux CD rom"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0564.shtml">Pierre Bergdolt: "Can't boot RedHat 6.1 alpha linux CD rom"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0625.shtml">Greg Lindahl: "RE: Foundry ServerIron and Compay DS10/Linux - SYN Flood Troubles"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi there,
+<BR>
+<P>we experience an interesting problem here, currently under heavy
+<BR>
+investigation, but I thought I'd share it with you in case
+<BR>
+it rings a bell...
+<BR>
+<P>Abstract
+<BR>
+<P>A load-balancing device suddenly stops sending incoming client
+<BR>
+requests on to a particular server. Testing the functionality
+<BR>
+of the server from a third workstation works fine. Netstat -an on
+<BR>
+the server shows an unusual high amount of tcp connections in
+<BR>
+SYN_RECV state.
+<BR>
+<P>Setup
+<BR>
+<P>&nbsp;&nbsp;+-------------------+     +--------------------+
+<BR>
+&nbsp;&nbsp;| Catalyst    + + +----------+       Router    +-----&gt; Internet
+<BR>
+&nbsp;&nbsp;+-------------|-|---+     +--------------------+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| +----------------+
+<BR>
+&nbsp;&nbsp;+-------------|-----+     +------+-------------+
+<BR>
+&nbsp;&nbsp;| Foundry   + +     |     |          Client    |
+<BR>
+&nbsp;&nbsp;+-----------|-------+     +--------------------+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
+<BR>
+&nbsp;&nbsp;+-----------|-------+
+<BR>
+&nbsp;&nbsp;| C2948   + + + + + |
+<BR>
+&nbsp;&nbsp;+---------|---|-|-|-+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|   | | +--------------+
+<BR>
+&nbsp;&nbsp;+---------+---|-|---+     +------+-------------+
+<BR>
+&nbsp;&nbsp;| sikinos     | |   |     |          santorini |
+<BR>
+&nbsp;&nbsp;+-------------|-|---+     +--------------------+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| +----------------+
+<BR>
+&nbsp;&nbsp;+-------------+-----+     +------+-------------+
+<BR>
+&nbsp;&nbsp;| syros             |     |          emporio   |
+<BR>
+&nbsp;&nbsp;+-------------------+     +--------------------+
+<BR>
+<P>Normal operation
+<BR>
+<P>The normal operation is as follows:
+<BR>
+<P>&nbsp;&nbsp;The client sends a HTTP Request to the virtual IP Address of
+<BR>
+&nbsp;&nbsp;the Foundry (e.g. GET <A HREF="http://www.foundrynetworks.com/">http://www.foundrynetworks.com/</A> HTTP/1.1)
+<BR>
+&nbsp;&nbsp;The Foundry translates the destination IP field of
+<BR>
+&nbsp;&nbsp;the incoming tcp packet to one of the real caches 
+<BR>
+&nbsp;&nbsp;(sikinos,santorini,emporio or syros) and forwards
+<BR>
+&nbsp;&nbsp;the packet there and remembers the connection somewhere.
+<BR>
+<P>&nbsp;&nbsp;For easier understanding let's assume that the object is in the
+<BR>
+&nbsp;&nbsp;cache, the server then fetches the object from disk storage and
+<BR>
+&nbsp;&nbsp;sends it back to the client.
+<BR>
+<P>&nbsp;&nbsp;The response from the cache passes the Foundry, the
+<BR>
+&nbsp;&nbsp;source address gets translated back and that's about it.
+<BR>
+<P>To know when a real cache is down for maintenance or whatever
+<BR>
+other reason, the Foundry periodically checks the function of
+<BR>
+each real cache. It uses an HTTP connection and retrieves an
+<BR>
+object from the cache. If the response code of the real cache is
+<BR>
+200-400 everything is okay. Otherwise the real cache is marked
+<BR>
+dead and excluded from the round-robin algorithm.
+<BR>
+<P>Faulty operation
+<BR>
+<P>At the moment we experience the following: 
+<BR>
+<P>The testing of a real server fails. The foundry cannot retrieve
+<BR>
+an object from a real server. Furhter debugging showed, that
+<BR>
+while opening a TCP connection the whole of the TCP handshake
+<BR>
+(SYN, SYN_ACK, ACK) is not completed.
+<BR>
+<P>Sender's (Foundry) view: After sending the SYN packet, the SYN_ACK
+<BR>
+is not received on time, the Foundry sends a RST packet and
+<BR>
+assumes the connection is taken down at the other end as well.
+<BR>
+(Which is not true :-| btw.) It then tries to open the next
+<BR>
+connection USING THE SAME SOURCE PORT 1024 !!! and fails again
+<BR>
+and again and again and ... you get the picture.
+<BR>
+<P>A dump of the tcp statistics of the foundry lokks like this, but
+<BR>
+I cannot yet comment on whether the counters are within normal range
+<BR>
+or not :-(
+<BR>
+<P>&nbsp;&nbsp;# sh ip traf
+<BR>
+&nbsp;&nbsp;TCP Statistics
+<BR>
+&nbsp;&nbsp;1 current active tcbs, 67378 tcbs allocated, 67374 tcbs freed
+<BR>
+&nbsp;&nbsp;66155 active opens, 0 passive opens, 46 failed attempts
+<BR>
+&nbsp;&nbsp;181366 active resets, 65045 passive resets, 620 input errors
+<BR>
+&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;maybe these counters are too high
+<BR>
+<P>&nbsp;&nbsp;276911 in segment, 146132 out segment, 836 retransmission
+<BR>
+&nbsp;&nbsp;keepalive: close connection 0, failure callback 0
+<BR>
+&nbsp;&nbsp;tcp connect: connection exist 0, out of tcb 0
+<BR>
+&nbsp;&nbsp;keepalive: close connection 0, failure callback 0
+<BR>
+&nbsp;&nbsp;tcp connect: connection exist 0, out of tcb 0
+<BR>
+<P>&nbsp;&nbsp;The system uptime is 20 hours 37 minutes 36 seconds
+<BR>
+<P><P>Receiver's (emporio) view: After receiving the SYN packet, the
+<BR>
+system sends out an SYN_ACK packet, receives an RST packet. What
+<BR>
+it does is not yet clearly understood, I'll debug that tomorrow,
+<BR>
+but the results are:
+<BR>
+<P>&nbsp;&nbsp;netstat -an shows a maximum of 128 tcp connections in SYN_RECV
+<BR>
+&nbsp;&nbsp;state, all coming from the same source address AND port, like
+<BR>
+&nbsp;&nbsp;that:
+<BR>
+<P>&nbsp;&nbsp;# netstat -an |grep SYN
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;tcp        0      0 193.98.99.158:81        193.98.99.47:1024 SYN_RECV
+<BR>
+&nbsp;&nbsp;...
+<BR>
+&nbsp;&nbsp;# cat /proc/sys/net/ipv4/tcp_max_syn_backlog
+<BR>
+&nbsp;&nbsp;128
+<BR>
+<P>During the buildup of these backlogs I saw SYN_RECV connections
+<BR>
+from random other ports, but they disappeared and in the final
+<BR>
+stadium, before we have to restart the process that listens on
+<BR>
+port 81, there are only connections from port 1024.
+<BR>
+<P>So my question: Has anybody experienced something like that under
+<BR>
+the condition that you haven't had a routing error. I am aware
+<BR>
+that things like that can happen when you have SYN_ACK packets go
+<BR>
+to New Zealand but the client sits in Paris. I suspect a
+<BR>
+kernel/tcp stack error in the linux kernel on Alpha Systems.
+<BR>
+<P>The system deployed is RedHat 6.0 with Kernel 2.2.14 on a Compaq
+<BR>
+DS10.
+<BR>
+<P>If you need more information, please let me know.
+<BR>
+<P>Thanks in advance,
+<BR>
+<P>&nbsp;&nbsp;Michael.
+<BR>
+<P><PRE>
+-- 
+Michael Rommel, ATD IT PS, Siemens AG, Erlangen, Germany
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0566.shtml">Rich Payne: "Re: Can't boot RedHat 6.1 alpha linux CD rom"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0564.shtml">Pierre Bergdolt: "Can't boot RedHat 6.1 alpha linux CD rom"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0625.shtml">Greg Lindahl: "RE: Foundry ServerIron and Compay DS10/Linux - SYN Flood Troubles"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Feb  1 05:33:32 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

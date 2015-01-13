@@ -1,0 +1,94 @@
+<!-- received="Sun Jun 16 22:40:10 1996 " -->
+<!-- sent="Sun, 16 Jun 1996 22:40:10 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="kernel getpriority BUGFIX" -->
+<!-- id="199606170540.WAA03261@koala.azstarnet.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>kernel getpriority BUGFIX</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>kernel getpriority BUGFIX</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Sun, 16 Jun 1996 22:40:10 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#184">[ date ]</a><a href="index.html#184">[ thread ]</a><a href="subject.html#184">[ subject ]</a><a href="author.html#184">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0185.html">Mihaly HOMONNAI: "RH 2.1 on UDB console messages"</a>
+<li> <b>Previous message:</b> <a href="0183.html">David Mosberger-Tang: "procps-1.01 patches"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+There is a silly bug in osf_getpriority() that makes it fail when<br>
+returning a negative priority.  I don't know what I was thinking when<br>
+I wrote the original code.  Anyhow, the patch below should fix it.<br>
+<p>
+BTW: even with this fix, getpriority() returns more or less random<br>
+priority values for realtime threads (notably kswapd).  Maybe it would<br>
+be better to return the maximum priority (-20) instead?  Or do you<br>
+have a better solution in mind?<br>
+<p>
+	--david<br>
+<p>
+--- 386/arch/alpha/kernel/osf_sys.c	Thu Apr 11 23:49:30 1996<br>
++++ linux/arch/alpha/kernel/osf_sys.c	Sun Jun 16 13:59:10 1996<br>
+@@ -125,14 +125,22 @@<br>
+ 	return count - buf.count;<br>
+ }<br>
+ <br>
+-asmlinkage int osf_getpriority(int which, int who)<br>
++/*<br>
++ * Alpha syscall convention has no problem returning negative<br>
++ * values:<br>
++ */<br>
++asmlinkage int osf_getpriority(int which, int who, int a2, int a3, int a4,<br>
++			       int a5, struct pt_regs regs)<br>
+ {<br>
+ 	extern int sys_getpriority(int, int);<br>
+-	/*<br>
+-	 * Alpha syscall convention has no problem returning negative<br>
+-	 * values:<br>
+-	 */<br>
+-	return 20 - sys_getpriority(which, who);<br>
++	int prio;<br>
++<br>
++	prio = sys_getpriority(which, who);<br>
++	if (prio &lt; 0)<br>
++		return prio;<br>
++<br>
++	regs.r0 = 0; /* special return: no errors */<br>
++	return 20 - prio;<br>
+ }<br>
+ <br>
+ <br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0185.html">Mihaly HOMONNAI: "RH 2.1 on UDB console messages"</a>
+<li> <b>Previous message:</b> <a href="0183.html">David Mosberger-Tang: "procps-1.01 patches"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

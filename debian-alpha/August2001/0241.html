@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: The impossibility of software raid1</TITLE>
+<META NAME="Author" CONTENT="Herbert Xu (herbert@gondor.apana.org.au)">
+<META NAME="Subject" CONTENT="Re: The impossibility of software raid1">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: The impossibility of software raid1</H1>
+<HR>
+<P>
+<!-- received="Fri Aug 31 23:44:25 2001" -->
+<!-- isoreceived="20010901064425" -->
+<!-- sent="Fri, 31 Aug 2001 21:23:52 +1000" -->
+<!-- isosent="20010831112352" -->
+<!-- name="Herbert Xu" -->
+<!-- email="herbert@gondor.apana.org.au" -->
+<!-- subject="Re: The impossibility of software raid1" -->
+<!-- id="20010831212352.A26004@gondor.apana.org.au" -->
+<!-- inreplyto="20010829092742.D4588@eye-net.com.au" -->
+<STRONG>Subject: </STRONG>Re: The impossibility of software raid1<BR>
+<STRONG>From: </STRONG>Herbert Xu (<EM>herbert@gondor.apana.org.au</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Aug 31 2001 - 04:23:52 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#241">[ date ]</A>
+<A HREF="index.html#241">[ thread ]</A>
+<A HREF="subject.html#241">[ subject ]</A>
+<A HREF="author.html#241">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0242.html">Goswin Brederlow: "[PATCH] POSIX and SVr4 compliant SIGSEGV handling"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0240.html">Alex Winbow: "my machine is going nuts"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0228.html">Craig Small: "Re: The impossibility of software raid1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0228.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Aug 29, 2001 at 09:27:42AM +1000, Craig Small wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; fffffc00004b2a8c:       00 00 e0 2f     unop
+</EM><BR>
+<EM>&gt; fffffc00004b2a90:       21 01 96 43     subl    at,t8,t0
+</EM><BR>
+<EM>&gt; fffffc00004b2a94:       43 06 18 43     s8addq  t10,t10,t2
+</EM><BR>
+<P>t10 is never initialised.
+<BR>
+<P><EM>&gt; fffffc00004b2a98:       22 05 e1 43     negq    t0,t1
+</EM><BR>
+<EM>&gt; fffffc00004b2a9c:       00 04 f7 47     mov     t9,v0
+</EM><BR>
+<EM>&gt; fffffc00004b2aa0:       c2 08 21 44     cmovge  t0,t0,t1
+</EM><BR>
+<EM>&gt; fffffc00004b2aa4:       43 14 60 40     s4addq  t2,0,t2
+</EM><BR>
+<EM>&gt; fffffc00004b2aa8:       10 00 10 23     lda     t10,16(a0)
+</EM><BR>
+<EM>&gt; fffffc00004b2aac:       17 04 f9 47     mov     t11,t9
+</EM><BR>
+<EM>&gt; fffffc00004b2ab0:       16 00 5f 40     addl    t1,zero,t8
+</EM><BR>
+<EM>&gt; fffffc00004b2ab4:       00 00 e0 2f     unop
+</EM><BR>
+<EM>&gt; fffffc00004b2ab8:       1f 04 ff 47     nop
+</EM><BR>
+<EM>&gt; fffffc00004b2abc:       00 00 e0 2f     unop
+</EM><BR>
+<EM>&gt; fffffc00004b2ac0:       1f 00 e0 ec     ble     t6,0xfffffc00004b2b40
+</EM><BR>
+<EM>&gt; fffffc00004b2ac4:       dc ff c6 20     lda     t5,-36(t5)
+</EM><BR>
+<EM>&gt; fffffc00004b2ac8:       27 31 e0 40     subl    t6,0x1,t6
+</EM><BR>
+<EM>&gt; fffffc00004b2acc:       00 00 e0 2f     unop
+</EM><BR>
+<P><EM>&gt; fffffc00004b2ad0:       02 04 06 43     addq    t10,t5,t1
+</EM><BR>
+<EM>&gt; fffffc00004b2ad4:       05 04 06 40     addq    v0,t5,t4
+</EM><BR>
+<EM>&gt; fffffc00004b2ad8:       00 00 22 a0     ldl     t0,0(t1)
+</EM><BR>
+<P>t10 = &amp;conf[16], t5 is presumably meant to be an offset.
+<BR>
+<P><EM>&gt; fffffc00004b2adc:       08 00 20 e4     beq     t0,0xfffffc00004b2b00
+</EM><BR>
+<EM>&gt; fffffc00004b2ae0:       e0 03 30 a0     ldl     t0,992(a0)
+</EM><BR>
+<P>Further down we have,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;1160:	10 00 c3 20 	lda	t5,16(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1164:	d8 03 f0 a0 	ldl	t6,984(a0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;1168:	de ff ff c3 	br	10e4 &lt;raid1_read_balance+0x164&gt;
+<BR>
+<P>Oops, t2 now contains utter crap since it's just been overwritten by the
+<BR>
+value from t10 at the top.
+<BR>
+<P><EM>&gt; Aug 28 14:25:26 fozzie kernel: t5 = ffff700230baa19c  t6 = 0000000000000001  t7 = fffffc0001f94000
+</EM><BR>
+<P>t5 is obviously not an offset anymore.
+<BR>
+<P>Conclusion: please try the latest gcc-3.0, and if it still generates this
+<BR>
+kind of crap, then report a bug.
+<BR>
+<PRE>
+-- 
+Debian GNU/Linux 2.2 is out! ( <A HREF="http://www.debian.org/">http://www.debian.org/</A> )
+Email:  Herbert Xu ~{PmV&gt;HI~} &lt;herbert@gondor.apana.org.au&gt;
+Home Page: <A HREF="http://gondor.apana.org.au/~herbert/">http://gondor.apana.org.au/~herbert/</A>
+PGP Key: <A HREF="http://gondor.apana.org.au/~herbert/pubkey.txt">http://gondor.apana.org.au/~herbert/pubkey.txt</A>
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0242.html">Goswin Brederlow: "[PATCH] POSIX and SVr4 compliant SIGSEGV handling"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0240.html">Alex Winbow: "my machine is going nuts"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0228.html">Craig Small: "Re: The impossibility of software raid1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0228.html">Herbert Xu: "Re: The impossibility of software raid1"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Sep 06 2001 - 05:03:51 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Interesting SCSI Performance Problems</H1> 
+	
+<!-- received="Sat Mar 17 15:12:02 2001" -->
+<!-- isoreceived="20010317231202" -->
+<!-- sent="Sat, 17 Mar 2001 09:25:32 -0500 (EST)" -->
+<!-- isosent="20010317142532" -->
+<!-- name="T. Daniel Crawford" -->
+<!-- email="crawdad@vt.edu" -->
+<!-- subject="Re: Interesting SCSI Performance Problems" -->
+<!-- id="Pine.LNX.4.30.0103170920470.26971-100000@orion.chem.vt.edu" -->
+<!-- inreplyto="m3wv9o8q5a.fsf@home.com" -->
+<STRONG>Subject: </STRONG>Re: Interesting SCSI Performance Problems<BR>
+<STRONG>From: </STRONG>T. Daniel Crawford (<EM>crawdad@vt.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Mar 17 06:25:32 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#238">[ date ]</A>
+<A HREF="index.shtml#238">[ thread ]</A>
+<A HREF="subject.shtml#238">[ subject ]</A>
+<A HREF="author.shtml#238">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0239.shtml">Jay Estabrook: "Re: Interesting SCSI Performance Problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0237.shtml">Alan P. Kennedy, Sr: "Re: Interesting SCSI Performance Problems"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0237.shtml">Alan P. Kennedy, Sr: "Re: Interesting SCSI Performance Problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0242.shtml">J. Hart: "/usr/sbin/mke2fs: error in loading shared libraries"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0237.shtml">T. Daniel Crawford: "Re: Interesting SCSI Performance Problems"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sat, 17 Mar 2001, Alan P. Kennedy, Sr wrote:
+<BR>
+<P><EM>&gt; &gt;&gt;&gt;&gt;&gt; &quot;T&quot; == T Daniel Crawford &lt;crawdad@vt.edu&gt; writes:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;  T&gt; I find this bothersome, to be frank. I can understand the need for
+</EM><BR>
+<EM>&gt;  T&gt; safety in the driver, but the performance I observed was pitiful.
+</EM><BR>
+<EM>&gt;  T&gt; Since many of us purchase alpha's for fast, fast, fast
+</EM><BR>
+<EM>&gt;  T&gt; calculations, this kind of problem strikes me as a serious
+</EM><BR>
+<EM>&gt;  T&gt; problem.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; This has been a most interesting thread. I would concur with the above
+</EM><BR>
+<EM>&gt; statement. Could you please post your patch for qlogic driver. I would
+</EM><BR>
+<EM>&gt; like to give it a try here.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Thanks
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P>The change to the driver is so trivial it can't even be classified as
+<BR>
+interesting.:)
+<BR>
+<P>In /usr/src/linux/drivers/scsi/qlogicisp.c, change:
+<BR>
+<P>#define USE_NVRAM_DEFAULTS      0
+<BR>
+<P>to:
+<BR>
+<P>#define USE_NVRAM_DEFAULTS      1
+<BR>
+<P>Also, here is a write-only I/O test program that does nothing but write PI
+<BR>
+in an 8k buffer to a file to fill up a 2.4 GB file.  There is an
+<BR>
+fdatasunc() call at the end so that the timings will not include buffering.
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/stat.h&gt;
+<BR>
+#include &lt;fcntl.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+#include &lt;math.h&gt;
+<BR>
+<P>int main(int argc, char *argv[])
+<BR>
+{
+<BR>
+&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;int fd;
+<BR>
+&nbsp;&nbsp;double *junk;
+<BR>
+<P>&nbsp;&nbsp;fd = open(&quot;BIGFILE&quot;, O_WRONLY|O_CREAT, 0644);
+<BR>
+<P>&nbsp;&nbsp;junk = (double *) malloc(1024*sizeof(double));
+<BR>
+&nbsp;&nbsp;for(i=0; i &lt; 1024; i++) junk[i] = acos(-1.0);
+<BR>
+<P>&nbsp;&nbsp;/* This should write out 2.4 GB of data to BIGFILE */
+<BR>
+&nbsp;&nbsp;for(i=0; i &lt; 300000; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write(fd, (char *) junk, 1024*sizeof(double));
+<BR>
+<P>&nbsp;&nbsp;fdatasync(fd);
+<BR>
+&nbsp;&nbsp;close(fd);
+<BR>
+<P>&nbsp;&nbsp;exit(0);
+<BR>
+}
+<BR>
+----------------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+T. Daniel Crawford                           Department of Chemistry
+crawdad@vt.edu                                    Virginia Tech
+www.chem.vt.edu/chem-dept/crawford    Voice: 540-231-7760  FAX: 540-231-3255
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0239.shtml">Jay Estabrook: "Re: Interesting SCSI Performance Problems"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0237.shtml">Alan P. Kennedy, Sr: "Re: Interesting SCSI Performance Problems"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0237.shtml">Alan P. Kennedy, Sr: "Re: Interesting SCSI Performance Problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0242.shtml">J. Hart: "/usr/sbin/mke2fs: error in loading shared libraries"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0237.shtml">T. Daniel Crawford: "Re: Interesting SCSI Performance Problems"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Apr 10 10:35:32 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

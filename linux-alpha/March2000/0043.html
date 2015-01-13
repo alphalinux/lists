@@ -1,0 +1,276 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 13:06:28 2000" -->
+<!-- isoreceived="20000313210628" -->
+<!-- sent="Thu, 9 Mar 2000 12:21:50 +0100 (CET)" -->
+<!-- isosent="20000309112150" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.21.0003091133380.430-100000@alpha.random" -->
+<!-- inreplyto="20000313031638.B343@hq.fsmlabs.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Mar 09 2000 - 03:21:50 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#43">[ date ]</A>
+<A HREF="index.html#43">[ thread ]</A>
+<A HREF="subject.html#43">[ subject ]</A>
+<A HREF="author.html#43">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0041.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000 yodaiken@fsmlabs.com wrote:
+<BR>
+<P><EM>&gt;&gt; do have an assert in schedule() so it's plain impossible. The lowlatency
+</EM><BR>
+<EM>&gt;&gt; patch simply works by increasing the effective frequency (occurance) of
+</EM><BR>
+<EM>&gt;&gt; rescheduling (preemption) points [without actually rescheduling more
+</EM><BR>
+<EM>&gt;&gt; often].
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;This is too subtle for me. I don't know how you can make true 
+</EM><BR>
+<EM>&gt;the first 2 things without having the third be false.
+</EM><BR>
+<P>I think Ingo meant &quot;without rescheduling more often than what we expected
+<BR>
+while looking the scheduler code&quot;.
+<BR>
+<P>The lowlatency patch simply adds the equivalent of:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (current-&gt;need_resched)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;schedule();
+<BR>
+<P>in places that are used to run for a long time without rescheduling
+<BR>
+in-between. This way the scheduler decisions gets effective immediatly
+<BR>
+and not after the lots of time.
+<BR>
+<P><EM>&gt;&gt; Having said this, i now do agree that doing a preemptible kernel (which
+</EM><BR>
+<EM>&gt;&gt; the Linux SMP kernel could become with a small amount of work) is a
+</EM><BR>
+<EM>&gt;&gt; superior solution to this, wrt. latencies.
+</EM><BR>
+<P>Ingo, how do you plan to handle the by-hand locks? You can trivially
+<BR>
+forbid rescheduling as soon as you have a spin_lock() held, but how do you
+<BR>
+handle code that uses a spinlock to serialize the accesses to a lock?
+<BR>
+<P>Suppose this is the kernel code (it's silly code I know but it's just to
+<BR>
+give you the idea of what we'll get wrong):
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static int lock;
+<BR>
+<P>&nbsp;&nbsp;again:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (lock);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock(&amp;serialize_me);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (lock) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock(&amp;serialize_me);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto again;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lock = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock(&amp;serialize_me);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do stuff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------- rescheduled by preemptive kernel
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lock = 0;
+<BR>
+<P>Another task grabs the lock while the task that is holding the lock is
+<BR>
+been rescheduled, and so the other task hangs in while(lock); for
+<BR>
+200msec!! This means very bad performance. So there may be very bad
+<BR>
+performance side effects all over the place in making the kernel
+<BR>
+preemptable. The whole section should be marked as non preemptable or the
+<BR>
+first while(lock); should be replaced with while(lock) if
+<BR>
+(current-&gt;need_resched) schedule(). With a non preemptable kernel the
+<BR>
+schedule() wasn't necessary for good performance because the behaviour we
+<BR>
+wanted was not to reschedule and we known if somebody was helding the
+<BR>
+lock, that lock was going to be released very soon (faster than a
+<BR>
+reschedule). And running the critical section without reschedule in
+<BR>
+between is also the right thing to do for most fast locks to avoid
+<BR>
+wasting CPU in poing pongs in the scheduler.
+<BR>
+<P>And since most of the stuff needs some kind of serialization it also mean
+<BR>
+for most of syscalls you are going to reschedule in the ret_from_syscall
+<BR>
+stage anyway as now.
+<BR>
+<P>I think one of the only interesting places for the preemtable kernel is
+<BR>
+copy user stuff that will effectivly be rescheduled as soon as it's
+<BR>
+necessary.
+<BR>
+<P><EM>&gt;Well, to start, it would violate Linus' rule, an old UNIX rule, and your
+</EM><BR>
+<EM>&gt;new IRQ scheme makes it more complex -- you have to make sure to not
+</EM><BR>
+<EM>&gt;switch out of tasks that are handling unacked interrupts. 
+</EM><BR>
+<P>The irq scheme is not involved at all (except we would have to forbid the
+<BR>
+try-to-reschedule in the case we got an interrupt nested in another irq as
+<BR>
+we now we are forbidding the reschedule if the irq happened on top of
+<BR>
+kernel code).
+<BR>
+<P><EM>&gt;I don't know how to trade throughput for latency without losing throughput.
+</EM><BR>
+<P>With the fact we'll have to bloat the fast path (a fast lock like the
+<BR>
+above one and all the spinlocks will need an additional
+<BR>
+forbid_preempt(smp_processor_id()) the preemtable kernel it's not likely
+<BR>
+to be a win.
+<BR>
+<P>The latency will decrease without drpping throughtput only in code that
+<BR>
+runs for long time with none lock held like the copy_user stuff. That
+<BR>
+stuff will run at the same speed as now but with zero scheduler latency.
+<BR>
+<P>The _lose_ instead will happen in _all_ the code that grabs any kind of
+<BR>
+spinlock because spin_lock/spin_unlock will be slower and the latency
+<BR>
+won't decrease for that stuff.
+<BR>
+<P><P>But now by thinking at that stuff I have an idea! Why instead of making
+<BR>
+the kernel preemtable we take the other way around? So why instead of
+<BR>
+having to forbid scheduling in locked regions, we don't simply allow
+<BR>
+rescheduling in some piece of code that we know that will benefit by the
+<BR>
+preemtable thing?
+<BR>
+<P>The kernel won't be preemtable this way (so we'll keep throughtput in the
+<BR>
+locking fast path) but we could mark special section of kernel like the
+<BR>
+copy user as preemtable.
+<BR>
+<P>It will be quite easy:
+<BR>
+<P>static atomic_t cpu_preemtable[NR_CPUS] = { [0..NR_CPUS] = ATOMIC_INIT(0), };
+<BR>
+<P>#define preemtable_copy_user(...) \
+<BR>
+do { \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_inc(&amp;cpu_preemtable[smp_processor_id()]); \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;copy_user(...); \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_dec(&amp;cpu_preemtable[smp_processor_id()]); \
+<BR>
+} while (0)
+<BR>
+<P>Then the only thing we'll have to change is the irq return path where we
+<BR>
+now are are doing:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (we are _not_ running on top of the kernel)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reschedule();
+<BR>
+<P>Now it will have to be:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (we are _not_ running on top of the kernel ||
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_read(&amp;cpu_preemtable[smp_processor_id()]))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reschedule();
+<BR>
+<P>That's all. Then we'll have copu_user preemtable with a few lines of
+<BR>
+changes. I'll try that immediatly :).
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0042.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0044.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0041.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

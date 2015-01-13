@@ -1,0 +1,256 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Floating point problems</TITLE>
+<META NAME="Author" CONTENT="Joachim Wesner (joachim.wesner@frankfurt.netsurf.de)">
+<META NAME="Subject" CONTENT="Re: Floating point problems">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Floating point problems</H1>
+<HR>
+<P>
+<!-- received="Mon Nov 30 18:13:31 1998 PST" -->
+<!-- sent="Mon, 30 Nov 1998 18:06:33 +0100" -->
+<!-- name="Joachim Wesner" -->
+<!-- email="joachim.wesner@frankfurt.netsurf.de" -->
+<!-- subject="Re: Floating point problems" -->
+<!-- id="3662D099.2CA026FA@frankfurt.netsurf.de" -->
+<!-- inreplyto="199811300816.IAA24959@ppp393.ts.rz.tu-bs.de" -->
+<STRONG>Joachim Wesner</STRONG> (<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20Floating%20point%20problems"><EM>joachim.wesner@frankfurt.netsurf.de</EM></A>)<BR>
+<EM>Mon, 30 Nov 1998 18:06:33 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#773">[ date ]</A>
+<A HREF="index.html#773">[ thread ]</A>
+<A HREF="subject.html#773">[ subject ]</A>
+<A HREF="author.html#773">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0774.html">Paul Tomblin: "Re: Multia 5.2 Out of Memory"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0772.html">David Timothy Corcoran: "Multia 5.2 Out of Memory"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0755.html">y0000218@rzsrv2.rz.tu-bs.de: "Re: Floating point problems"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<A HREF="mailto:y0000218@rzsrv2.rz.tu-bs.de?subject=Re:%20Floating%20point%20problems">y0000218@rzsrv2.rz.tu-bs.de</A> wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Heinz Ulrich Stille &lt;<A HREF="mailto:Heinz.Ulrich.Stille@mbi-os.de?subject=Re:%20Floating%20point%20problems">Heinz.Ulrich.Stille@mbi-os.de</A>&gt; wrote:
+</EM><BR>
+<EM>&gt; : Hi!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; : What's wrong with the following program?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; : main() {
+</EM><BR>
+<EM>&gt; :       double x = 1.0;
+</EM><BR>
+<EM>&gt; :       x *= 1e-310;
+</EM><BR>
+<EM>&gt; : }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; : This results in a floating point exception on my Ruffian (for values
+</EM><BR>
+<EM>&gt; : somwhere between 1e-300 and 1e-325, independent of kernel and compiler),
+</EM><BR>
+<EM>&gt; : but not on any intel. The assembler output seems to indicate that the
+</EM><BR>
+<EM>&gt; : two values are just loaded into registers and multiplied.
+</EM><BR>
+<EM>&gt; : What is going on?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>and Alvin Starr wrote:
+<BR>
+<P><EM>&gt;try the following 
+</EM><BR>
+<EM>&gt; main() {
+</EM><BR>
+<EM>&gt;       double x = 1.0;
+</EM><BR>
+<EM>&gt;       double y = 1e-155;
+</EM><BR>
+<EM>&gt;       x *=(1e-155*y);
+</EM><BR>
+<EM>&gt;       printf(&quot;%e %e %e\n&quot;,(1e-155*y),x,1e-310);
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;this generates the same result as the original program but will not &gt;cause a trap.
+</EM><BR>
+<P>This starts to look confusing........
+<BR>
+<P>However, I studied the Alpha Architecture Handbook again and - hopefully
+<BR>
+- begin to understand what is happening und a way to find the real cause
+<BR>
+of this and a way out
+<BR>
+<P>We have to distinguish 2 cases here:
+<BR>
+<P>1) Denormals as OPERANDS to a fp op
+<BR>
+<P>2) Denormals as RESULT of an fp op
+<BR>
+<P>to 1)
+<BR>
+<P>The Alpha hardware definitely cannot handle denormals as input to fp
+<BR>
+ops. This has to be fixed in software, by the trap handler AND for this
+<BR>
+to REALLY work in REAL code, due to the (damned !!) imprecise trap
+<BR>
+handling will require extensive use of trapb instructions, that
+<BR>
+basically serialize the fpu and make a scalar machine out of a pipelined
+<BR>
+one, basically what -mieee does, it slows down the code a lot.
+<BR>
+Basically, the idea of the dec engineers was that in critical code you
+<BR>
+might be able to identify the few ops that are really critical and put a
+<BR>
+trapb only here, but it seems that neither gcc/egcs or even the DEC cc
+<BR>
+is smart enough to do this efiiciently, instead, you have to clutter
+<BR>
+your code with those instructions.
+<BR>
+<P>to 2)
+<BR>
+<P>Here the DEC documentation is a bit misleading, it seems I was wrong !
+<BR>
+The fp ops have an additional qualifier /U that determines the underflow
+<BR>
+behavior. HOWEVER, at a first look (what I had done till now,, it seems,
+<BR>
+sorry), you only have two possibilities
+<BR>
+<P>- either you do not use /U, then the documentation says any fp op will
+<BR>
+trap with all the above problems when a denormal is a result of the op
+<BR>
+<P>- or you use /U, then no trap will happen, but also, the denormal will
+<BR>
+not be replaced by a true zero and the code will trap via 1) the next
+<BR>
+time the result is used in further calculations.
+<BR>
+<P>HOWEVER, reading on reveals a bit more, 1st, there is an additional
+<BR>
+underflow trap disable bit in the fp control register, and 2nd, when the
+<BR>
+trap happens, the setting by zero that I missed, will already happen by
+<BR>
+the hardware !!! Huh, why not with /U but instead vice-versa ???
+<BR>
+<P>This seems, that the way to go would be &quot;enable&quot; the underflow trap
+<BR>
+(with replacing by zero) by NOT using /u (as is usually already done),
+<BR>
+but later again DISABLE that very same trap in the fp control register.
+<BR>
+Yet, and it seems, LINUX AXP is already configured to do just this !!
+<BR>
+<P>This would explain the two codes :
+<BR>
+<P>In the code with 1e-310, which already IS a denormal 1) applies and you
+<BR>
+get a trap and as long you did not compile the stuff with trapb
+<BR>
+instructions, even a probably better trap handler could not fix it.
+<BR>
+BTW, the very same should happen also on DEC Unix, when reading 1e-310
+<BR>
+from a binary file or if you code it as a hex number (Somebody could try
+<BR>
+that ?). DEC CC seems to try to avoid such by never allowing you to
+<BR>
+input such numbers in a regular way, what explains the warning in the
+<BR>
+DEC output and that it did not print 1e-310 as last result.
+<BR>
+<P>In the code with 1e-155**2 instead, all things seems to go as they
+<BR>
+should, 2) applies.
+<BR>
+<P>BUT, so why do still many people see so many problems with denormals
+<BR>
+under AXP Linux ?? When you never input a denormal and all fp op never
+<BR>
+return a denormal, NO problems should happen !!
+<BR>
+<P>I have the impression that might be the function routines that are not
+<BR>
+written to NOT return denormals, for example exp of a large negative
+<BR>
+number could return a denormal. This should be changed.
+<BR>
+<P>Incidentially - &lt;Advertisement on&gt; the new version of libffm 0.28 is out
+<BR>
+that now fully handles illegal arguments and results. It should never
+<BR>
+return a denormal (ONLY in the linear regions for small args of sin,
+<BR>
+tan, asin, atan, where the arg is simply returned as is, but then you
+<BR>
+already HAD the problem earlier on) and anybody with the above problems
+<BR>
+should give it a try if it fixes the probs. As is does not yet contain
+<BR>
+ALL libm functions, it still could happen, in such case could somebody
+<BR>
+try to trace which function would be missing to be fixed/replaced first.
+<BR>
+<P>Actually, I HAD been wondering when designing libffm, if exp needs to
+<BR>
+return a denormal for very small arguments, and now I see, it was a good
+<BR>
+decision (to be lazy and) not to add that !! &lt;Advertisement OFF&gt;
+<BR>
+<P>Hope this turns out to be right and helps !!
+<BR>
+<P>If you still find a code that does not seem to fit to the above
+<BR>
+explanation, please send it to me.
+<BR>
+<P><P>Joachim
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Floating%20point%20problems">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Floating%20point%20problems">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0774.html">Paul Tomblin: "Re: Multia 5.2 Out of Memory"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0772.html">David Timothy Corcoran: "Multia 5.2 Out of Memory"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0755.html">y0000218@rzsrv2.rz.tu-bs.de: "Re: Floating point problems"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Nov 30 1998 - 15:59:58 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

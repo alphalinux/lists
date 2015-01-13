@@ -1,0 +1,131 @@
+<!-- received="Wed Jan  8 00:08:59 1997 " -->
+<!-- sent="Tue, 7 Jan 1997 23:04:22 -0500 (EST)" -->
+<!-- name="Daniel Gruner" -->
+<!-- email="dgruner@tikva.chem.utoronto.ca" -->
+<!-- subject="Re: modules on RedHat 4.0 axp (was Re: Serial port trouble...)" -->
+<!-- id="199701080404.XAA07022@ tikva" -->
+<!-- inreplyto="199701080355.WAA06988@ tikva" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: modules on RedHat 4.0 axp (was Re: Serial port trouble...)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: modules on RedHat 4.0 axp (was Re: Serial port trouble...)</h2>
+
+<b>Daniel Gruner</b> (<a href="mailto:dgruner@tikva.chem.utoronto.ca"><i>dgruner@tikva.chem.utoronto.ca</i></a>)<br>
+<i>Tue, 7 Jan 1997 23:04:22 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#177">[ date ]</a><a href="index.html#177">[ thread ]</a><a href="subject.html#177">[ subject ]</a><a href="author.html#177">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0178.html">Chris Gann: "PPP and Serial Connections on UDB"</a>
+<li> <b>Previous message:</b> <a href="0176.html">Eric Jones: "Crack on axp-linux"</a>
+<li> <b>In reply to:</b> <a href="0179.html">Daniel Gruner: "modules on RedHat 4.0 axp (was Re: Serial port trouble...)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0208.html">Richard Henderson: "Re: modules on RedHat 4.0 axp (was Re: Serial port trouble...)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; Michal Jaegerman wrote:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; &gt; I recall</i><br>
+<i>&gt; &gt; &gt; seeing a message saying that modules are not really supported on the </i><br>
+<i>&gt; &gt; &gt; alpha versions of linux, and that one must build monolithic kernels.</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; This is not correct.  But doing 'strip --strip-debug' on module</i><br>
+<i>&gt; &gt; object files is a good idea. :-)</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt;   --mj</i><br>
+<i>&gt; </i><br>
+<i>&gt; This actually works!  The insmod command used to complain that it</i><br>
+<i>&gt; could not load the desired modules.  Now it works properly.  I will </i><br>
+<i>&gt; make this command part of the "install_modules" section of the kernel</i><br>
+<i>&gt; Makefile from now on.  Would the guardians of the code please take</i><br>
+<i>&gt; note?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Daniel</i><br>
+<i>&gt; </i><br>
+<p>
+Here is the corrected section of the Makefile:<br>
+<p>
+.<br>
+.<br>
+.<br>
+modules_install:<br>
+        @( \<br>
+        MODLIB=/lib/modules/$(VERSION).$(PATCHLEVEL).$(SUBLEVEL); \<br>
+        cd modules; \<br>
+        MODULES=""; \<br>
+        inst_mod() { These="`cat $$1`"; MODULES="$$MODULES $$These"; \<br>
+                mkdir -p $$MODLIB/$$2; cp -p $$These $$MODLIB/$$2; \<br>
+                strip --strip-debug $$MODLIB/$$2/*; \<br>
+                echo Installing modules under $$MODLIB/$$2; \<br>
+        }; \<br>
+        \<br>
+        if [ -f BLOCK_MODULES ]; then inst_mod BLOCK_MODULES block; fi; \<br>
+        if [ -f NET_MODULES   ]; then inst_mod NET_MODULES   net;   fi; \<br>
+        if [ -f IPV4_MODULES  ]; then inst_mod IPV4_MODULES  ipv4;  fi; \<br>
+        if [ -f SCSI_MODULES  ]; then inst_mod SCSI_MODULES  scsi;  fi; \<br>
+        if [ -f FS_MODULES    ]; then inst_mod FS_MODULES    fs;    fi; \<br>
+        if [ -f CDROM_MODULES ]; then inst_mod CDROM_MODULES cdrom; fi; \<br>
+        \<br>
+        ls *.o &gt; .allmods; \<br>
+        echo $$MODULES | tr ' ' '\n' | sort | comm -23 .allmods - &gt; .misc; \<br>
+        if [ -s .misc ]; then inst_mod .misc misc; fi; \<br>
+        rm -f .misc .allmods; \<br>
+        )<br>
+.<br>
+.<br>
+.<br>
+<p>
+Or in diff format:<br>
+<p>
+ diff Makefile{,.alpha.orig}<br>
+285d284<br>
+&lt;               strip --strip-debug $$MODLIB/$$2/*; \<br>
+<p>
+<p>
+<p>
+Daniel<br>
+<p>
+<pre>
+-- 
+<p>
+Dr. Daniel Gruner                        <a href="mailto:dgruner@tikva.chem.utoronto.ca">dgruner@tikva.chem.utoronto.ca</a>
+Dept. of Chemistry                       phone:  (416)-978-8689
+University of Toronto                    fax:    (416)-978-5325
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0178.html">Chris Gann: "PPP and Serial Connections on UDB"</a>
+<li> <b>Previous message:</b> <a href="0176.html">Eric Jones: "Crack on axp-linux"</a>
+<li> <b>In reply to:</b> <a href="0179.html">Daniel Gruner: "modules on RedHat 4.0 axp (was Re: Serial port trouble...)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0208.html">Richard Henderson: "Re: modules on RedHat 4.0 axp (was Re: Serial port trouble...)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

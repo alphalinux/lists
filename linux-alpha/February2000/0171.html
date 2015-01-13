@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Feb 28 08:48:01 2000" -->
+<!-- isoreceived="20000228164801" -->
+<!-- sent="Sun, 27 Feb 2000 18:02:31 +0100 (CET)" -->
+<!-- isosent="20000227170231" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.21.0002271902550.526-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.10.10002271529220.1620-100000@chiara.csoma.elte.hu" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Feb 27 2000 - 09:02:31 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#171">[ date ]</A>
+<A HREF="index.html#171">[ thread ]</A>
+<A HREF="subject.html#171">[ subject ]</A>
+<A HREF="author.html#171">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0172.html">Richard Henderson: "Re: wh64 (slow)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0170.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0168.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0170.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0168.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, 27 Feb 2000, Ingo Molnar wrote:
+<BR>
+<P><EM>&gt;	- the irq_handler-&gt;end() semantics had to be changed slightly to
+</EM><BR>
+<EM>&gt;	  allow the fastest possible IO-APIC IRQ handling on x86.
+</EM><BR>
+<P>The -&gt;end callback is deadlock prone actually (that probably can't be
+<BR>
+reproduced on x86 though because of the ack and because irq gets delivered
+<BR>
+only to one cpu). The -&gt;end callback has to check if the irq is been
+<BR>
+disabled as it's doing in 2.3.48, but it _has_ also to check if the irq is
+<BR>
+currently in progress (and it wasn't doing that).
+<BR>
+<P>What was happening to my machine is that I was locking up in __sti() in
+<BR>
+handle_IRQ_event() due irq recursion.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPU0				CPU1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------		------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do_IRQ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;set inprogress
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&gt;ack (disable_irq
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do_IRQ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;got the lock
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is inprogress so goto end
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&gt;end
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it's not disabled so enable_irq()!!
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_IRQ_event
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__sti()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lockup: irq was enabled
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+This is the fix. But don't apply it yet. I'll include it along with the
+<BR>
+all other platform updates. Now I am running 2.3.48+alpha irq affinity and
+<BR>
+cleanups and it's rock solid here ;). I changed also the x86 since it
+<BR>
+looks more robust and more correct.
+<BR>
+<P>--- 2.3.48aa1-alpha/arch/alpha/kernel/sys_dp264.c.~1~	Sun Feb 27 17:17:23 2000
+<BR>
++++ 2.3.48aa1-alpha/arch/alpha/kernel/sys_dp264.c	Sun Feb 27 19:03:29 2000
+<BR>
+@@ -133,7 +133,7 @@
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;dp264_end_irq(unsigned int irq)
+<BR>
+&nbsp;{ 
+<BR>
+-	if (!(irq_desc[irq].status &amp; IRQ_DISABLED))
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp264_enable_irq(irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -165,7 +165,7 @@
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;clipper_end_irq(unsigned int irq)
+<BR>
+&nbsp;{ 
+<BR>
+-	if (!(irq_desc[irq].status &amp; IRQ_DISABLED))
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clipper_enable_irq(irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+--- 2.3.48aa1-alpha/arch/i386/kernel/i8259.c.~1~	Sun Feb 27 06:19:41 2000
+<BR>
++++ 2.3.48aa1-alpha/arch/i386/kernel/i8259.c	Sun Feb 27 19:04:47 2000
+<BR>
+@@ -131,7 +131,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void end_8259A_irq (unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+-	if (!(irq_desc[irq].status &amp; IRQ_DISABLED))
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable_8259A_irq(irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P><P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0172.html">Richard Henderson: "Re: wh64 (slow)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0170.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0168.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0170.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0168.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

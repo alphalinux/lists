@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Raid-1 woes</TITLE>
+<META NAME="Author" CONTENT="Craig Small (csmall@eye-net.com.au )">
+<META NAME="Subject" CONTENT="Re: Raid-1 woes">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Raid-1 woes</H1>
+<HR>
+<P>
+<!-- received="Fri Jun 08 10:39:23 2001" -->
+<!-- isoreceived="20010608173923" -->
+<!-- sent="Fri, 8 Jun 2001 09:04:44 +1000" -->
+<!-- isosent="20010607230444" -->
+<!-- name="Craig Small" -->
+<!-- email="csmall@eye-net.com.au " -->
+<!-- subject="Re: Raid-1 woes" -->
+<!-- id="20010608090444.C21424@eye-net.com.au" -->
+<!-- inreplyto="E157OLY-0001D9-00@gondolin.me.apana.org.au" -->
+<STRONG>Subject: </STRONG>Re: Raid-1 woes<BR>
+<STRONG>From: </STRONG>Craig Small (<EM>csmall@eye-net.com.au </EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jun 07 2001 - 16:04:44 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#26">[ date ]</A>
+<A HREF="index.html#26">[ thread ]</A>
+<A HREF="subject.html#26">[ subject ]</A>
+<A HREF="author.html#26">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0027.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0025.html">daniel ernhill: "why wont my soundcard work?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0014.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0027.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0014.html">Craig Small: "Re: Raid-1 woes"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Jun 06, 2001 at 07:26:40AM +1000, Herbert Xu wrote:
+<BR>
+<EM>&gt; Craig Small &lt;csmall@eye-net.com.au&gt; wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Jun  5 22:49:02 fozzie kernel: CIA machine check: vector=0x670 pc=0xfffffc00004b508c code=0x98
+</EM><BR>
+<EM>&gt; &gt; Jun  5 22:49:02 fozzie kernel: machine check type: processor detected hard error
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; fffffc00004b4de0 T raid1_end_request
+</EM><BR>
+<EM>&gt; &gt; fffffc00004b4f00 t raid1_read_balance
+</EM><BR>
+<EM>&gt; &gt; fffffc00004b5100 t raid1_make_request
+</EM><BR>
+<EM>&gt; &gt; fffffc00004b5540 t raid1_status
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; So, I think something dies in raid1_read_balance, whatever that is.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Please disassemble raid1.o to find out the exact location of the fault.
+</EM><BR>
+<P>OK, I hope I got this right.
+<BR>
+Problem at          4b508c
+<BR>
+Function Starts     4b4f00
+<BR>
+Offset (-)             18c
+<BR>
+Objdump offset         d20
+<BR>
+So look at ( + )       eac
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e94:       d8 03 f0 a0     ldl     t6,984(a0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e98:       25 95 a4 40     subq    t4,0x24,t4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e9c:       26 95 c4 40     subq    t5,0x24,t5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ea0:       00 00 25 a0     ldl     t0,0(t4)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ea4:       23 95 64 40     subq    t2,0x24,t2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ea8:       27 31 e0 40     subl    t6,0x1,t6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eac:       0d 00 20 f4     bne     t0,ee4 &lt;raid1_read_balance+0x1c4&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eb0:       00 00 23 a0     ldl     t0,0(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eb4:       0b 00 20 e4     beq     t0,ee4 &lt;raid1_read_balance+0x1c4&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eb8:       00 00 26 a0     ldl     t0,0(t5)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebc:       21 01 01 40     subl    v0,t0,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ec0:       22 05 e1 43     negq    t0,t1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ec4:       c2 08 21 44     cmovge  t0,t0,t1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ec8:       02 00 5f 40     addl    t1,zero,t1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ecc:       1f 04 ff 47     nop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ed0:       a1 03 58 40     cmpult  t1,t10,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ed4:       03 00 20 e4     beq     t0,ee4 &lt;raid1_read_balance+0x1c4&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ed8:       18 04 e2 47     mov     t1,t10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edc:       f0 03 f0 b3     stl     zero,1008(a0)
+<BR>
+<P>This is what I mean by objdump offset:
+<BR>
+<P>0000000000000d20 &lt;raid1_read_balance&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d20:       e0 03 90 a0     ldl     t3,992(a0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d24:       10 00 31 30     ldwu    t0,16(a1)
+<BR>
+&nbsp;&nbsp;
+<BR>
+<P>location 1c4 (where they're jumping to) looks like this:
+<BR>
+(well 1c4 + d20 = ee4)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ed8:       18 04 e2 47     mov     t1,t10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edc:       f0 03 f0 b3     stl     zero,1008(a0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ee0:       04 04 e7 47     mov     t6,t3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ee4:       e0 03 30 a0     ldl     t0,992(a0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ee8:       a1 05 e1 40     cmpeq   t6,t0,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eec:       e4 ff 3f e4     beq     t0,e80 &lt;raid1_read_balance+0x160&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ef0:       41 06 84 40     s8addq  t3,t3,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ef4:       02 14 03 42     addq    a0,0x18,t1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ef8:       41 04 22 40     s4addq  t0,t1,t0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efc:       03 04 14 40     addq    v0,a4,t2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;f00:       00 00 61 b0     stl     t2,0(t0)
+<BR>
+<P>Is this enough do you you want me to send the entire function?
+<BR>
+<P>&nbsp;&nbsp;- Craig
+<BR>
+<PRE>
+-- 
+Craig Small VK2XLZ  GnuPG:1C1B D893 1418 2AF4 45EE  95CB C76C E5AC 12CA DFA5
+Eye-Net Consulting <A HREF="http://www.eye-net.com.au/">http://www.eye-net.com.au/</A>        &lt;csmall@eye-net.com.au&gt;
+MIEEE &lt;csmall@ieee.org&gt;                 Debian developer &lt;csmall@debian.org&gt;
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0027.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0025.html">daniel ernhill: "why wont my soundcard work?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0014.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0027.html">Herbert Xu: "Re: Raid-1 woes"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0014.html">Craig Small: "Re: Raid-1 woes"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jul 05 2001 - 05:45:31 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

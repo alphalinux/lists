@@ -1,0 +1,132 @@
+<!-- received="Thu Sep 25 07:41:33 1997 " -->
+<!-- sent="Thu, 25 Sep 1997 11:35:28 -0400 (EDT)" -->
+<!-- name="Stephen Zedalis" -->
+<!-- email="tintype@exis.net" -->
+<!-- subject="Netstat Unaligned Trap Errors on Alpha" -->
+<!-- id="3.0.3.32.19970925032915.0092e100@pop4.ibm.net" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Netstat Unaligned Trap Errors on Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Netstat Unaligned Trap Errors on Alpha</h2>
+
+<b>Stephen Zedalis</b> (<a href="mailto:tintype@exis.net"><i>tintype@exis.net</i></a>)<br>
+<i>Thu, 25 Sep 1997 11:35:28 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#494">[ date ]</a><a href="index.html#494">[ thread ]</a><a href="subject.html#494">[ subject ]</a><a href="author.html#494">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0495.html">Tim Waugh: "Kernel oops with 2.1.52 onwards"</a>
+<li> <b>Previous message:</b> <a href="0493.html">Uncle George: "gdb &amp; _dl_debug_state &amp; redhat 4.2"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0504.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0504.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0524.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Problem summary:  There have been several reports of unaligned trap errors<br>
+on DEC Alpha machines on various user programs.  One program that is<br>
+susceptible is netstat provided in Redhat 4.2 for Alpha.  The specific<br>
+net-tools version is 1.32-alpha, rpm installed is based on<br>
+net-tools-1.3.2.alpha-2.src.rpm.  I am running kernel 2.0.31-pre9 on a DEC<br>
+PC164 (Durango) 500 Mhz 21164 machine with 256 MB of RAM.<br>
+<p>
+I was perturbed to find out that a high profile diagnostic and<br>
+administration tool like "netstat" was giving these unaligned trap errors,<br>
+and surprised to find out it got through RedHat's normally superb <br>
+QA.  On examination of one of the patches in Redhat's source rpm, I found<br>
+that some of the necessary fixes were made but not all of them.  The fix<br>
+involves replacing pointer type casts such as (unsigned long*)&amp;xxxxx with<br>
+a copy of the address to the variable involved.<br>
+<p>
+The patches provided with Redhat fixed 2 of 3 occurrences of this bug.<br>
+(fixing the udp and UNIX domain socket output) Unfortunately this still<br>
+resulted in unaligned trap errors printed to the screen and in the syslog<br>
+just before the tcp socket output messages.  I have taken the liberty of<br>
+patching the offending code and now I get zero unaligned trap errors when<br>
+using netstat.  I have provided the patch required below...  Hopefully,<br>
+this will be provided to alpha users who may still be experiencing this<br>
+problem.<br>
+<p>
+Stephen Zedalis<br>
+System Administrator - Exis Net, Inc.  <br>
+<p>
+Here is my net-tools-1.32-alpha-axp2.patch:<br>
+<p>
+*** net-tools-1.32-alpha.orig/netstat.c	Thu Sep 25 09:07:15 1997<br>
+--- net-tools-1.32-alpha/netstat.c	Thu Sep 25 09:13:43 1997<br>
+***************<br>
+*** 308,322 ****<br>
+  	}<br>
+    }<br>
+    (void) fclose(procinfo);<br>
+    lnr--; lnr--;<br>
+    while (lnr &gt;= 0) {<br>
+  	num = sscanf(line[lnr--],<br>
+  		"%d: %lX:%X %lX:%X %X %lX:%lX %X:%lX %lX %d\n",<br>
+! 		&amp;d, (unsigned long*)&amp;localaddr.sin_addr.s_addr, &amp;local_port,<br>
+! 		(unsigned long*)&amp;remaddr.sin_addr.s_addr, &amp;rem_port, &amp;state,<br>
+  		&amp;txq, &amp;rxq, &amp;timer_run, &amp;time_len, &amp;retr, &amp;uid);<br>
+  	if (flag_deb) fprintf(stderr, NLS_CATGETS(catfd, netstatSet, netstat_args,<br>
+  						  "%s -&gt; %d args"), line[lnr+1], num);<br>
+  	if (num &lt; 11) continue;		/* 13 ? */<br>
+  	localaddr.sin_family = AF_INET;<br>
+  	remaddr.sin_family = AF_INET;<br>
+--- 308,325 ----<br>
+  	}<br>
+    }<br>
+    (void) fclose(procinfo);<br>
+    lnr--; lnr--;<br>
+    while (lnr &gt;= 0) {<br>
++ 	unsigned long laddr, raddr;<br>
+  	num = sscanf(line[lnr--],<br>
+  		"%d: %lX:%X %lX:%X %X %lX:%lX %X:%lX %lX %d\n",<br>
+! 		&amp;d, &amp;laddr, &amp;local_port,<br>
+! 		&amp;raddr, &amp;rem_port, &amp;state,<br>
+  		&amp;txq, &amp;rxq, &amp;timer_run, &amp;time_len, &amp;retr, &amp;uid);<br>
++ 		localaddr.sin_addr.s_addr = laddr;<br>
++ 		remaddr.sin_addr.s_addr = raddr;<br>
+  	if (flag_deb) fprintf(stderr, NLS_CATGETS(catfd, netstatSet, netstat_args,<br>
+  						  "%s -&gt; %d args"), line[lnr+1], num);<br>
+  	if (num &lt; 11) continue;		/* 13 ? */<br>
+  	localaddr.sin_family = AF_INET;<br>
+  	remaddr.sin_family = AF_INET;<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0495.html">Tim Waugh: "Kernel oops with 2.1.52 onwards"</a>
+<li> <b>Previous message:</b> <a href="0493.html">Uncle George: "gdb &amp; _dl_debug_state &amp; redhat 4.2"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0504.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0504.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<li> <b>Maybe reply:</b> <a href="0524.html">Philip Blundell: "Re: Netstat Unaligned Trap Errors on Alpha"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

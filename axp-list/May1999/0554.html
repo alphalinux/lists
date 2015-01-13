@@ -1,0 +1,345 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: 2.3.x broken</TITLE>
+<META NAME="Author" CONTENT="Ivan Kokshaysky (ink@jurassic.park.msu.ru)">
+<META NAME="Subject" CONTENT="Re: 2.3.x broken">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.x broken</H1>
+<HR>
+<P>
+<!-- received="Mon May 17 19:13:45 1999" -->
+<!-- isoreceived="19990518021345" -->
+<!-- sent="Mon, 17 May 1999 22:01:21 +0400" -->
+<!-- isosent="19990517180121" -->
+<!-- name="Ivan Kokshaysky" -->
+<!-- email="ink@jurassic.park.msu.ru" -->
+<!-- subject="Re: 2.3.x broken" -->
+<!-- id="19990517220121.A10751@jurassic.park.msu.ru" -->
+<!-- inreplyto="000001bea046$0581cc60$cc000001@PC_VIGNAUD.xandmail.com" -->
+<STRONG>Subject: </STRONG>Re: 2.3.x broken<BR>
+<STRONG>From: </STRONG>Ivan Kokshaysky (<EM>ink@jurassic.park.msu.ru</EM>)<BR>
+<STRONG>Date: </STRONG>Mon May 17 1999 - 11:01:21 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#554">[ date ]</A>
+<A HREF="index.html#554">[ thread ]</A>
+<A HREF="subject.html#554">[ subject ]</A>
+<A HREF="author.html#554">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0555.html">Peter Petrakis: "Re: DU programs crash X, RH 6.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0553.html">Rich Payne: "Re: Ruffian 2.2 precompiled kernel?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0525.html">Jean-Baptiste Vignaud: "2.3.x broken"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0575.html">Vignaud Jean-Baptiste: "RE: 2.3.x broken"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0525.html">Ivan Kokshaysky: "Re: 2.3.x broken"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, May 17, 1999 at 11:17:01AM +0200, Jean-Baptiste Vignaud wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I'v downloaded the 2.2.8-&gt;2.3.0, 2.3.1 and 2.3.2 patches and the compilation
+</EM><BR>
+<EM>&gt; (redhat/sx164)  fails for
+</EM><BR>
+<EM>&gt; 2.3.1 and 2.3.2 in semaphore.h.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>Here is the patch against 2.3.3. It compiles, though I haven't boot it.
+<BR>
+<P>Ivan
+<BR>
+<P>diff -ur linux-2.3.3/arch/alpha/kernel/process.c linux/arch/alpha/kernel/process.c
+<BR>
+--- linux-2.3.3/arch/alpha/kernel/process.c	Fri May 14 23:41:23 1999
+<BR>
++++ linux/arch/alpha/kernel/process.c	Mon May 17 21:14:46 1999
+<BR>
+@@ -58,10 +58,10 @@
+<BR>
+&nbsp;static struct file * init_fd_array[NR_OPEN] = { NULL, };
+<BR>
+&nbsp;static struct files_struct init_files = INIT_FILES;
+<BR>
+&nbsp;static struct signal_struct init_signals = INIT_SIGNALS;
+<BR>
+-struct mm_struct init_mm = INIT_MM;
+<BR>
++struct mm_struct init_mm = INIT_MM(init_mm);
+<BR>
+&nbsp;
+<BR>
+&nbsp;union task_union init_task_union __attribute__((section(&quot;init_task&quot;)))
+<BR>
+-	 = { task: INIT_TASK };
+<BR>
++	 = { task: INIT_TASK(init_task_union.task) };
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* No need to acquire the kernel lock, we're entirely local..
+<BR>
+diff -ur linux-2.3.3/include/asm-alpha/semaphore.h linux/include/asm-alpha/semaphore.h
+<BR>
+--- linux-2.3.3/include/asm-alpha/semaphore.h	Sun May 16 02:05:37 1999
+<BR>
++++ linux/include/asm-alpha/semaphore.h	Mon May 17 21:09:19 1999
+<BR>
+@@ -11,20 +11,63 @@
+<BR>
+&nbsp;#include &lt;asm/current.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;#include &lt;asm/atomic.h&gt;
+<BR>
++#include &lt;linux/wait.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct semaphore {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Careful, inline assembly knows about the position of these two.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_t count;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_t waking;		/* biased by -1 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wait_queue_head_t wait;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	long __magic;
+<BR>
++#endif
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+-#define MUTEX ((struct semaphore) \
+<BR>
+- { ATOMIC_INIT(1), ATOMIC_INIT(-1), NULL })
+<BR>
+-#define MUTEX_LOCKED ((struct semaphore) \
+<BR>
+- { ATOMIC_INIT(0), ATOMIC_INIT(-1), NULL })
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++# define __SEM_DEBUG_INIT(name) \
+<BR>
++		, (long)&amp;(name).__magic
+<BR>
++#else
+<BR>
++# define __SEM_DEBUG_INIT(name)
+<BR>
++#endif
+<BR>
++
+<BR>
++#define __SEMAPHORE_INITIALIZER(name,count) \
+<BR>
++{ ATOMIC_INIT(count), ATOMIC_INIT(-1), __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
+<BR>
++	__SEM_DEBUG_INIT(name) }
+<BR>
++
+<BR>
++#define __MUTEX_INITIALIZER(name) \
+<BR>
++	__SEMAPHORE_INITIALIZER(name,1)
+<BR>
+&nbsp;
+<BR>
+-#define sema_init(sem, val)	atomic_set(&amp;((sem)-&gt;count), val)
+<BR>
++#define __DECLARE_SEMAPHORE_GENERIC(name,count) \
+<BR>
++	struct semaphore name = __SEMAPHORE_INITIALIZER(name,count)
+<BR>
++
+<BR>
++#define DECLARE_MUTEX(name) __DECLARE_SEMAPHORE_GENERIC(name,1)
+<BR>
++#define DECLARE_MUTEX_LOCKED(name) __DECLARE_SEMAPHORE_GENERIC(name,0)
+<BR>
++
+<BR>
++extern inline void sema_init (struct semaphore *sem, int val)
+<BR>
++{
+<BR>
++/*
+<BR>
++ *	*sem = (struct semaphore)__SEMAPHORE_INITIALIZER((*sem),val);
+<BR>
++ *
+<BR>
++ * i'd rather use the more flexible initialization above, but sadly
+<BR>
++ * GCC 2.7.2.3 emits a bogus warning. EGCS doesnt. Oh well.
+<BR>
++ */
+<BR>
++	atomic_set(&amp;sem-&gt;count, val);
+<BR>
++	atomic_set(&amp;sem-&gt;waking, -1);
+<BR>
++	init_waitqueue_head(&amp;sem-&gt;wait);
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	sem-&gt;__magic = (long)&amp;sem-&gt;__magic;
+<BR>
++#endif
+<BR>
++}
+<BR>
++
+<BR>
++static inline void init_MUTEX (struct semaphore *sem)
+<BR>
++{
+<BR>
++	sema_init(sem, 1);
+<BR>
++}
+<BR>
++
+<BR>
++static inline void init_MUTEX_LOCKED (struct semaphore *sem)
+<BR>
++{
+<BR>
++	sema_init(sem, 0);
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void __down(struct semaphore * sem);
+<BR>
+&nbsp;extern int  __down_interruptible(struct semaphore * sem);
+<BR>
+@@ -59,6 +102,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the linker.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void *pv __asm__(&quot;$27&quot;) = __down_failed;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down operation */\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:	ldl_l	$24,%1\n&quot;
+<BR>
+@@ -90,6 +137,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register int ret __asm__(&quot;$24&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void *pv __asm__(&quot;$27&quot;) = __down_failed_interruptible;
+<BR>
+&nbsp;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down interruptible operation */\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:	ldl_l	$24,%2\n&quot;
+<BR>
+@@ -125,6 +175,9 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long ret, tmp, tmp2, sub;
+<BR>
+&nbsp;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* &quot;Equivalent&quot; C.  Note that we have to do this all without
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(taken) branches in order to be a valid ll/sc sequence.
+<BR>
+&nbsp;
+<BR>
+@@ -181,6 +234,9 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void *pv __asm__(&quot;$27&quot;) = __up_wakeup;
+<BR>
+&nbsp;
+<BR>
++#if WAITQUEUE_DEBUG
+<BR>
++	CHECK_MAGIC(sem-&gt;__magic);
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore up operation */\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mb\n&quot;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0555.html">Peter Petrakis: "Re: DU programs crash X, RH 6.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0553.html">Rich Payne: "Re: Ruffian 2.2 precompiled kernel?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0525.html">Jean-Baptiste Vignaud: "2.3.x broken"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0575.html">Vignaud Jean-Baptiste: "RE: 2.3.x broken"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0525.html">Ivan Kokshaysky: "Re: 2.3.x broken"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:23 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

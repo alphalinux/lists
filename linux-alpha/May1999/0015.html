@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Alpha Timekeeping - Hardware Questions</TITLE>
+<META NAME="Author" CONTENT=" ()">
+<META NAME="Subject" CONTENT="Re: Alpha Timekeeping - Hardware Questions">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alpha Timekeeping - Hardware Questions</H1>
+<HR>
+<P>
+<!-- received="Sat May 15 14:42:50 1999" -->
+<!-- isoreceived="19990515214250" -->
+<!-- sent="Fri, 14 May 1999 02:48:50 -0700" -->
+<!-- isosent="19990514094850" -->
+<!-- subject="Re: Alpha Timekeeping - Hardware Questions" -->
+<!-- id="199905141004.DAA28975@pop.nwlink.com" -->
+<STRONG>Subject: </STRONG>Re: Alpha Timekeeping - Hardware Questions<BR>
+<EM></EM><BR>
+<STRONG>Date: </STRONG>Fri May 14 1999 - 02:48:50 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#15">[ date ]</A>
+<A HREF="index.html#15">[ thread ]</A>
+<A HREF="subject.html#15">[ subject ]</A>
+<A HREF="author.html#15">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0014.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0008.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On May 14, 12:15am, Jay.Estabrook@digital.com wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;&gt;&gt; &quot;David S. Miller&quot; said:
+</EM><BR>
+<EM>&gt; &gt;    Date: 	Thu, 13 May 1999 09:16:56 -0700
+</EM><BR>
+<EM>&gt; &gt;    From: Richard Henderson &lt;rth@cygnus.com&gt;
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt;    I have no definitive answer, but I would strongly suspect we cannot
+</EM><BR>
+<EM>&gt; &gt;    rely on tick mechanisms with SMP.
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; Unless Alpha's support different clock rate cpus mixed into a single
+</EM><BR>
+<EM>&gt; &gt; machine, you can use something like Ingo's tick calibration code at
+</EM><BR>
+<EM>&gt; &gt; boot time to make sure all cpu's have synchronized tick values.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I don't believe that any of our boxes support CPUs at different clocks
+</EM><BR>
+<EM>&gt; at the same time... ;-}
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; But that's a good idea, WRT those patches, as I have been seeing one
+</EM><BR>
+<EM>&gt; effect of routing all interrupts to CPU #0: its tick-count (IRQ #8)
+</EM><BR>
+<EM>&gt; lags behind the counts in the other CPUs... :-\
+</EM><BR>
+<P>[ ... ]
+<BR>
+<P>I'm sorry to keep harping on this, but I still don't know the answer to
+<BR>
+the original main question.
+<BR>
+<P>In late November I submitted a patch to arch/alpha/kernel/time.c to fix
+<BR>
+some obvious problems and to try to stabilize timekeeping.  A non-obvious
+<BR>
+consequence of this patch was that timekeeping was now based on the
+<BR>
+cycle counter, instead of the RTC or PIT.  The RTC/PIT was still used as
+<BR>
+a &quot;wakeup&quot;, but not as the actual basis for kernel jiffies.
+<BR>
+<P>This patch was added to the kernel, but I missed it when scanning the
+<BR>
+patch files, so I assumed it had been rejected.  In the meantime I found
+<BR>
+some cases I had overlooked (mostly in settimeofday()) and updated my
+<BR>
+local patches to fix these.
+<BR>
+<P>At the end of December I rechecked and discovered that the original patch
+<BR>
+had been accepted, so I submitted the second fix with a note that perhaps
+<BR>
+it should wait until 2.3, as I thought 2.3 was imminent.
+<BR>
+<P>The second patch was rejected, leaving timekeeping still broken, although
+<BR>
+perhaps not quite as badly as it had been.
+<BR>
+<P>Around the beginning of March I had correspondence with another Alpha user
+<BR>
+who was quite dissatisfied with the timekeeping.  The main symptom was
+<BR>
+that time-of-day sometimes jumped backward.  After much email I found
+<BR>
+most of the remaining problems.  I submitted another patch but included
+<BR>
+the suggestion/request that the original patch be backed-out, as by then
+<BR>
+I had read the claim that SMP Alpha CPUs have unsynchronized clocks.
+<BR>
+<P>This patch was also rejected or perhaps missed, as I sent it only to the
+<BR>
+list in hope of clarification from someone.
+<BR>
+<P>Around the end of April someone else (Thorsten Kranzkowski) submitted a
+<BR>
+patch fixing part of the lost-tick accounting, which was in patch three.
+<BR>
+Someone else referred Thorsten to my earlier message, and he resubmitted
+<BR>
+that patch with some changes.
+<BR>
+<P>The point of this long harangue is that Alpha kernels currently use the
+<BR>
+cycle counter for timekeeping.  If SMP Alpha clocks are unsynchronized,
+<BR>
+this is a Bad Thing.  Please note that &quot;unsynchronized&quot; refers to the
+<BR>
+frequencies, and not phase differences.  To restate this, as there may be
+<BR>
+some confusion, a frequency difference implies that the offsets between
+<BR>
+different CPU cycle counters *change* over time.  For example, a frequency
+<BR>
+difference of one part-per-million would cause a drift of one jiffy in
+<BR>
+about fifteen minutes.
+<BR>
+<P>The only way frequency differences can be avoided is to use a common
+<BR>
+clock source across CPUs.  This could either be the actual clock used as
+<BR>
+input to the CPU, or it could be a slower clock that is phase-locked to
+<BR>
+the CPU input clock.
+<BR>
+<P>So the question remains: Do SMP Alpha CPUs have synchronized input clocks?
+<BR>
+<P>If they are not sychronized, this code must be replaced with something
+<BR>
+else.
+<BR>
+<P>If they are synchronized, SMP timekeeping can be fixed by either resetting
+<BR>
+the cycle counters via PalCode at boot time, or by measuring the offsets
+<BR>
+at boot time.
+<BR>
+<P>Assuming synchronized clocks, the pros and cons for using the cycle counter
+<BR>
+appear (to me) to be:
+<BR>
+<P>Con:
+<BR>
+<P>The underlying clock may be less stable than the RTC or PIT.  Assuming
+<BR>
+synchronized CPU clocks, I would expect the PIT to be derived from the
+<BR>
+same source.
+<BR>
+<P>Pro:
+<BR>
+<P>The cycle counter provides two orders-of-magnitude better resolution than
+<BR>
+the PIT.  The PIT counter can be accessed, giving about one microsecond
+<BR>
+resolution.
+<BR>
+<P>The cycle counter provides five orders-of-magnitude better resolution than
+<BR>
+the RTC.  The RTC offers no resolution beyond the fact that an interrupt
+<BR>
+occurred.
+<BR>
+<P><PRE>
+-- 
+B. D. Elliott   bde@nwlink.com   (Seattle)
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0014.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0008.html">: "Re: Alpha Timekeeping - Hardware Questions"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:34 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

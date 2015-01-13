@@ -1,0 +1,239 @@
+<!-- received="Sun Oct 27 12:40:17 1996 " -->
+<!-- sent="Sun, 27 Oct 96 09:36:06 PST" -->
+<!-- name="Matthew Jacob" -->
+<!-- email="mjacob@feral.com" -->
+<!-- subject="Re: SCSI driver times out on UDB?" -->
+<!-- id="9610271736.AA20158@feral.com" -->
+<!-- inreplyto="SCSI driver times out on UDB?" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SCSI driver times out on UDB?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SCSI driver times out on UDB?</h2>
+
+<b>Matthew Jacob</b> (<a href="mailto:mjacob@feral.com"><i>mjacob@feral.com</i></a>)<br>
+<i>Sun, 27 Oct 96 09:36:06 PST</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1142">[ date ]</a><a href="index.html#1142">[ thread ]</a><a href="subject.html#1142">[ subject ]</a><a href="author.html#1142">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1143.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Previous message:</b> <a href="1141.html">jestabro@amt.tay1.dec.com: "Re: AXP router?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1143.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+----------<br>
+X-Sun-Data-Type: text<br>
+X-Sun-Data-Description: text<br>
+X-Sun-Data-Name: text<br>
+X-Sun-Content-Lines: 86<br>
+<p>
+<p>
+<i>&gt;From <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> Sun Oct 27 06:27:20 1996</i><br>
+<i>&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt; So, my idea was to share the SCSI disk in my PC with the UDB. The setup</i><br>
+<i>&gt;&gt; would be something like</i><br>
+<i>&gt;&gt; </i><br>
+<i>&gt;&gt;  </i><br>
+<i>&gt;&gt;     _________________ ____________________</i><br>
+<i>&gt;&gt;     I                V                    I</i><br>
+<i>&gt;&gt;    NCR              NCR                 disk</i><br>
+<i>&gt;&gt;    UDB            Pentium                 </i><br>
+<i>&gt;</i><br>
+<i>&gt;	I doubt that this will work.  None of the drivers currently support</i><br>
+<i>&gt;having more than one initiator on the bus at one time.</i><br>
+<i>&gt;</i><br>
+<p>
+Think again, billybob:<br>
+<p>
+<p>
+----- Begin Included Message -----<br>
+<p>
+<i>&gt;From mjacob Sat Oct 26 17:50:56 1996</i><br>
+To: <a href="mailto:aic7xxx@freebsd.org">aic7xxx@freebsd.org</a><br>
+Subject: AIC7XXX: 2 problems (solved?) with latest set (4.0/3.2/4.0)<br>
+Bcc: <a href="mailto:emartini@dvsystems.com">emartini@dvsystems.com</a><br>
+reply-to: <a href="mailto:mjacob@feral.com">mjacob@feral.com</a><br>
+Content-Type: X-sun-attachment<br>
+Content-Length: 4509<br>
+<p>
+<p>
+<p>
+Two issues came up for me- I don't know if anyone else had seen it.<br>
+<p>
+1. Recent change that made BUSY status an error.<br>
+<p>
+Actually, in multi-initiator environments, BUSY is quite common,<br>
+so I've made command-line patch to turn the behaviour back to the<br>
+old behaviour (infinite retry). This seemed easier than having<br>
+to dork with sd.c.<br>
+<p>
+2. Wierdness with USE_DEFAULT &amp;&amp; Ultra (2940AU) board.<br>
+<p>
+I was quite startled to see that the brand new board I had<br>
+just bought (2940 Ultra PCI kit) didn't have disconnects<br>
+turned on.<br>
+<p>
+I looked and saw that USE_DEFAULT is set for this particular<br>
+chip type, but it isn't ever cleared in the case that the<br>
+board has an SEEPROM. This allows sync mode to be negotiated<br>
+but not disconnect. Bizaare.<br>
+<p>
+At any rate, I think that if a board has an SEEPROM *and* BIOS<br>
+enabled, it seems reasonable to turn off the USE_DEFAULTS flag.<br>
+<p>
+(patched attached below)<br>
+<p>
+--------------------------------------------------------------<br>
+So, with the above changes made, I'm happily beating on the same<br>
+disk from two systems w/o each other getting hot and bothered<br>
+like they had been:<br>
+<p>
+<p>
+	System A				System B<br>
+	2940 Ultra				2940A Ultra<br>
+	Initiator ID 7				Initiator ID 6<br>
+<i>		|					|</i><br>
+<i>		|					|</i><br>
+		Seagate @ ID 1				CDROM@ ID 5<br>
+		CDROM @ ID 2				|<br>
+		DAT @ ID 4				|<br>
+<i>		|					|</i><br>
+		----------------- DEC DSP 3150 @ID 0 ----<br>
+<p>
+System A has (hand selected lilo boot):<br>
+	Extended Partitions 5 &amp;&amp; 6<br>
+System B has (hand selected lilo boot):<br>
+	Extended Partitions 7 &amp;&amp; 8<br>
+<p>
+<p>
+Cool... anyone have a suggestion as to how to modify lilo so that<br>
+one system will have a root on one partition and one system have<br>
+a root on another?<br>
+<p>
+----- End Included Message -----<br>
+<p>
+----------<br>
+X-Sun-Data-Type: default<br>
+X-Sun-Data-Description: default<br>
+X-Sun-Data-Name: aic7xxx.c.patch<br>
+X-Sun-Content-Lines: 80<br>
+<p>
+*** aic7xxx.c.save	Sat Oct 26 14:54:23 1996<br>
+--- aic7xxx.c	Sat Oct 26 17:19:09 1996<br>
+***************<br>
+*** 950,955 ****<br>
+--- 950,956 ----<br>
+   */<br>
+  static unsigned int aic7xxx_extended = 0;    /* extended translation on? */<br>
+  static unsigned int aic7xxx_no_reset = 0;    /* no resetting of SCSI bus */<br>
++ static unsigned int aic7xxx_bsyretry = 0;    /* infinite busy retries */<br>
+  static int aic7xxx_irq_trigger = -1;         /*<br>
+                                                * -1 use board setting<br>
+                                                *  0 use edge triggered<br>
+***************<br>
+*** 980,985 ****<br>
+--- 981,987 ----<br>
+      { "no_reset",    &amp;aic7xxx_no_reset },<br>
+      { "irq_trigger", &amp;aic7xxx_irq_trigger },<br>
+      { "ultra",       &amp;aic7xxx_enable_ultra },<br>
++     { "bsyretry",    &amp;aic7xxx_bsyretry },<br>
+      { NULL,          NULL }<br>
+    };<br>
+  <br>
+***************<br>
+*** 2843,2850 ****<br>
+  	      break;<br>
+  <br>
+  	    case BUSY:<br>
+- 	      printk(KERN_WARNING "scsi%d: Target busy, TCL=0x%x.\n",<br>
+-                      p-&gt;host_no, scb-&gt;target_channel_lun);<br>
+  	      if (!aic7xxx_error(cmd))<br>
+  	      {<br>
+                  /* The error code here used to be DID_BUS_BUSY,<br>
+--- 2845,2850 ----<br>
+***************<br>
+*** 2857,2863 ****<br>
+                   * that will eventually lead to a reset or abort of some<br>
+                   * sort instead of an endless loop.<br>
+                   */<br>
+! 	        aic7xxx_error(cmd) = DID_RETRY_COMMAND;<br>
+  	      }<br>
+  	      break;<br>
+  <br>
+--- 2857,2878 ----<br>
+                   * that will eventually lead to a reset or abort of some<br>
+                   * sort instead of an endless loop.<br>
+                   */<br>
+! 		/*<br>
+! 		 * Umm- <a href="mailto:mjacob@feral.com">mjacob@feral.com</a> disputes this notion- actually<br>
+! 		 * in many multi-initiator environments you *want*<br>
+! 		 * to both infinitely retry BUSY *AND* not get too<br>
+! 		 * chatty about it.<br>
+! 		 */<br>
+! 		if (aic7xxx_bsyretry) {<br>
+! 		  aic7xxx_error(cmd) = DID_BUS_BUSY;<br>
+! 		} else {<br>
+! 	          aic7xxx_error(cmd) = DID_RETRY_COMMAND;<br>
+! 		  printk(KERN_WARNING "scsi%d: Target Busy, TCL=0x%x.\n",<br>
+! 			p-&gt;host_no, scb-&gt;target_channel_lun);<br>
+! 		}<br>
+! 	      } else {<br>
+! 		  printk(KERN_WARNING "scsi%d: Target Busy, TCL=0x%x.\n",<br>
+! 			p-&gt;host_no, scb-&gt;target_channel_lun);<br>
+  	      }<br>
+  	      break;<br>
+  <br>
+***************<br>
+*** 4138,4143 ****<br>
+--- 4153,4164 ----<br>
+          }<br>
+          else<br>
+          {<br>
++ 	  /*<br>
++ 	   * If we've got an SEEPROM and the BIOS isn't<br>
++ 	   * disabled we can figure out what, we can<br>
++ 	   * figure out what settings to use.<br>
++ 	   */<br>
++ 	  config-&gt;flags &amp;= ~USE_DEFAULTS;<br>
+            scsi_conf = 0;<br>
+            if (sc.adapter_control &amp; CFRESETB)<br>
+              scsi_conf |= RESET_SCSI;<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1143.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Previous message:</b> <a href="1141.html">jestabro@amt.tay1.dec.com: "Re: AXP router?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1143.html">Eric Youngdale: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

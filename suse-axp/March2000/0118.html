@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] Re: RTC-Clock misfunction on AS 400</TITLE>
+<META NAME="Author" CONTENT="Ruediger Oertel (ro@suse.de)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] Re: RTC-Clock misfunction on AS 400">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] Re: RTC-Clock misfunction on AS 400</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 23 22:56:35 2000" -->
+<!-- isoreceived="20000324065635" -->
+<!-- sent="Thu, 23 Mar 2000 23:53:16 +0100 (MET)" -->
+<!-- isosent="20000323225316" -->
+<!-- name="Ruediger Oertel" -->
+<!-- email="ro@suse.de" -->
+<!-- subject="Re: [suse-axp] Re: RTC-Clock misfunction on AS 400" -->
+<!-- id="Pine.LNX.4.21.0003232342370.30125-100000@fatou.suse.de" -->
+<!-- inreplyto="38DA1C3E.C3BEDBC9@ife.ee.ethz.ch" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] Re: RTC-Clock misfunction on AS 400<BR>
+<STRONG>From: </STRONG>Ruediger Oertel (<EM>ro@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Mar 23 2000 - 14:53:16 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#118">[ date ]</A>
+<A HREF="index.html#118">[ thread ]</A>
+<A HREF="subject.html#118">[ subject ]</A>
+<A HREF="author.html#118">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0119.html">Ruediger Oertel: "Re: [suse-axp] GCC 2.95.2 on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0117.html">SDenningho@aol.com: "[suse-axp] GCC 2.95.2 on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0115.html">Alex Rhomberg: "[suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0121.html">Alex Rhomberg: "[suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0115.html">Ruediger Oertel: "Re: [suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 23 Mar 2000, Alex Rhomberg wrote:
+<BR>
+<P><EM>&gt; Ruediger Oertel wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; &gt; It's not only a Y2K-bug it seems to be a little bit bigger.
+</EM><BR>
+<EM>&gt; &gt; The correct fix should be (as posted by Andries Brouwer on l-k):
+</EM><BR>
+<EM>&gt; &gt; --- rtc.c~      Sat Mar 18 23:25:12 2000
+</EM><BR>
+<EM>&gt; &gt; +++ rtc.c       Mon Mar 20 14:48:48 2000
+</EM><BR>
+<EM>&gt; &gt; @@ -670,10 +670,10 @@
+</EM><BR>
+<EM>&gt; &gt;         if (!(ctrl &amp; RTC_DM_BINARY) || RTC_ALWAYS_BCD)
+</EM><BR>
+<EM>&gt; &gt;                 BCD_TO_BIN(year);       /* This should never happen... */
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; -       if (year &gt; 10 &amp;&amp; year &lt; 44) {
+</EM><BR>
+<EM>&gt; &gt; +       if (year &gt;= 20 &amp;&amp; year &lt; 48) {
+</EM><BR>
+<EM>&gt; &gt;                 epoch = 1980;
+</EM><BR>
+<EM>&gt; &gt;                 guess = &quot;ARC console&quot;;
+</EM><BR>
+<EM>&gt; &gt; -       } else if (year &lt; 96) {
+</EM><BR>
+<EM>&gt; &gt; +       } else if (year &gt;= 48 &amp;&amp; year &lt; 100) {
+</EM><BR>
+<EM>&gt; &gt;                 epoch = 1952;
+</EM><BR>
+<EM>&gt; &gt;                 guess = &quot;Digital UNIX&quot;;
+</EM><BR>
+<EM>&gt; &gt;         }
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This fix is just a crappy correction to the original code which was not
+</EM><BR>
+<EM>&gt; only very ugly but also wrong with that abvious y2k bug.
+</EM><BR>
+It's ugly, agreed, but
+<BR>
+<EM>&gt; It would be much better to use different heuristics, as in clock(1) or
+</EM><BR>
+<EM>&gt; hwclock(1). They check for a string in some initialisation structure to
+</EM><BR>
+<EM>&gt; guess the console.
+</EM><BR>
+hm, going by MILO in system-serial-number does not really help...
+<BR>
+since 2000 we have three or even four possible epochs on alpha,
+<BR>
+and the fixed code is probably the best guess. I can't find any heuristics
+<BR>
+in util-linux-2.10h: it either reads from /dev/rtc or lets the user
+<BR>
+specify, none of both offers a smarter detection.
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; There was something different wrong with the rtc driver, which was the
+</EM><BR>
+<EM>&gt; reason I stopped using it: The kernel blocked in BogoMIPS on warm boots.
+</EM><BR>
+<EM>&gt; Don't know of that was fixed.
+</EM><BR>
+It never happened to me (except when hacking on MILO but that was for
+<BR>
+hanging interrupts...). Can you reproduce it ? What machine, which
+<BR>
+kernel/MILO or kernel/aboot/SRM version ?
+<BR>
+<EM>&gt; - Alex
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; PS Sorry Ruediger, didn't want to send it to you directly
+</EM><BR>
+Don't worry. I'd just like to have the technical topics over the list
+<BR>
+so others can jump in, if I mix things up ... ;)
+<BR>
+<P><PRE>
+-- 
+with kind regards (mit freundlichem Grinsen),
+                              Ruediger Oertel (ro@suse.de)
+----------------------------------------------------------
+          does &quot;DONT PANIC&quot; give a hint ?
+<P><P>-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0119.html">Ruediger Oertel: "Re: [suse-axp] GCC 2.95.2 on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0117.html">SDenningho@aol.com: "[suse-axp] GCC 2.95.2 on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0115.html">Alex Rhomberg: "[suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0121.html">Alex Rhomberg: "[suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0115.html">Ruediger Oertel: "Re: [suse-axp] Re: RTC-Clock misfunction on AS 400"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:05 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

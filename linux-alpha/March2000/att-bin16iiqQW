@@ -1,0 +1,375 @@
+--- linux/fs/buffer.c.orig	Tue Mar 14 04:18:38 2000
++++ linux/fs/buffer.c	Tue Mar 14 04:18:47 2000
+@@ -1459,10 +1459,12 @@
+ 				goto out;
+ 			if (buffer_new(bh)) {
+ 				unmap_underlying_metadata(bh);
++				preempt_on();
+ 				if (block_end > to)
+ 					memset(kaddr+to, 0, block_end-to);
+ 				if (block_start < from)
+ 					memset(kaddr+block_start, 0, from-block_start);
++				preempt_off();
+ 				continue;
+ 			}
+ 		}
+@@ -1565,7 +1567,9 @@
+ 			if (!buffer_mapped(bh)) {
+ 				if (!kaddr)
+ 					kaddr = kmap(page);
++				preempt_on();
+ 				memset((char *)(kaddr + i*blocksize), 0, blocksize);
++				preempt_off();
+ 				set_bit(BH_Uptodate, &bh->b_state);
+ 				continue;
+ 			}
+--- linux/mm/filemap.c.orig	Tue Mar 14 04:18:40 2000
++++ linux/mm/filemap.c	Tue Mar 14 04:18:47 2000
+@@ -194,7 +194,9 @@
+ 
+ 		lock_page(page);
+ 
++		preempt_on();
+ 		memclear_highpage_flush(page, partial, PAGE_CACHE_SIZE-partial);
++		preempt_off();
+ 		if (page->buffers)
+ 			block_flushpage(page, partial);
+ 
+--- linux/mm/memory.c.orig	Tue Mar 14 04:18:38 2000
++++ linux/mm/memory.c	Tue Mar 14 04:18:47 2000
+@@ -1073,7 +1073,9 @@
+ 			return -1;
+ 		if (PageHighMem(page))
+ 			high = 1;
++		preempt_on();
+ 		clear_highpage(page);
++		preempt_off();
+ 		entry = pte_mkwrite(pte_mkdirty(mk_pte(page, vma->vm_page_prot)));
+ 		vma->vm_mm->rss++;
+ 		tsk->min_flt++;
+--- linux/include/linux/sched.h.orig	Tue Mar 14 04:18:33 2000
++++ linux/include/linux/sched.h	Tue Mar 14 04:18:47 2000
+@@ -103,6 +103,23 @@
+ #endif
+ 
+ /*
++ * Allow preemption of kernel-space code:
++ */
++#define preempt_on()						\
++	do {							\
++		if (current->state != TASK_RUNNING)		\
++			BUG();					\
++		if (current->need_resched)			\
++			schedule();				\
++		atomic_inc_local(&current->may_preempt);	\
++	} while (0)
++
++#define preempt_off()						\
++	do {							\
++		atomic_dec_local(&current->may_preempt);	\
++	} while (0)
++
++/*
+  * Scheduling policies
+  */
+ #define SCHED_OTHER		0
+@@ -268,6 +285,7 @@
+ 					 */
+ 	struct exec_domain *exec_domain;
+ 	volatile long need_resched;
++	atomic_t may_preempt;
+ 
+ 	cycles_t avg_slice;
+ 	int lock_depth;		/* Lock depth. We can context switch in and out of holding a syscall kernel lock... */	
+--- linux/include/asm-i386/checksum.h.orig	Tue Feb  1 08:41:14 2000
++++ linux/include/asm-i386/checksum.h	Tue Mar 14 04:18:47 2000
+@@ -45,18 +45,13 @@
+ unsigned int csum_partial_copy_from_user ( const char *src, char *dst,
+ 						int len, int sum, int *err_ptr)
+ {
+-	return csum_partial_copy_generic ( src, dst, len, sum, err_ptr, NULL);
+-}
++	int ret;
+ 
+-/*
+- * These are the old (and unsafe) way of doing checksums, a warning message will be
+- * printed if they are used and an exeption occurs.
+- *
+- * these functions should go away after some time.
+- */
+-
+-#define csum_partial_copy_fromuser csum_partial_copy
+-unsigned int csum_partial_copy( const char *src, char *dst, int len, int sum);
++	preempt_on();
++	ret = csum_partial_copy_generic ( src, dst, len, sum, err_ptr, NULL);
++	preempt_off();
++	return ret;
++}
+ 
+ /*
+  *	This is a version of ip_compute_csum() optimized for IP headers,
+@@ -185,8 +180,14 @@
+ static __inline__ unsigned int csum_and_copy_to_user (const char *src, char *dst,
+ 				    int len, int sum, int *err_ptr)
+ {
+-	if (access_ok(VERIFY_WRITE, dst, len))
+-		return csum_partial_copy_generic(src, dst, len, sum, NULL, err_ptr);
++	int ret;
++
++	if (access_ok(VERIFY_WRITE, dst, len)) {
++		preempt_on();
++		ret = csum_partial_copy_generic(src, dst, len, sum, NULL, err_ptr);
++		preempt_off();
++		return ret;
++	}
+ 
+ 	if (len)
+ 		*err_ptr = -EFAULT;
+--- linux/include/asm-i386/uaccess.h.orig	Sat Feb 12 19:48:17 2000
++++ linux/include/asm-i386/uaccess.h	Tue Mar 14 04:18:47 2000
+@@ -253,6 +253,7 @@
+ #define __copy_user(to,from,size)					\
+ do {									\
+ 	int __d0, __d1;							\
++	preempt_on();							\
+ 	__asm__ __volatile__(						\
+ 		"0:	rep; movsl\n"					\
+ 		"	movl %3,%0\n"					\
+@@ -270,11 +271,13 @@
+ 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\
+ 		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\
+ 		: "memory");						\
++	preempt_off();							\
+ } while (0)
+ 
+ #define __copy_user_zeroing(to,from,size)				\
+ do {									\
+ 	int __d0, __d1;							\
++	preempt_on();							\
+ 	__asm__ __volatile__(						\
+ 		"0:	rep; movsl\n"					\
+ 		"	movl %3,%0\n"					\
+@@ -298,6 +301,7 @@
+ 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\
+ 		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\
+ 		: "memory");						\
++	preempt_off();							\
+ } while (0)
+ 
+ /* We let the __ versions of copy_from/to_user inline, because they're often
+--- linux/include/asm-i386/atomic.h.orig	Tue Mar 14 04:18:35 2000
++++ linux/include/asm-i386/atomic.h	Tue Mar 14 04:18:47 2000
+@@ -65,10 +65,30 @@
+ 		:"m" (__atomic_fool_gcc(v)));
+ }
+ 
++/*
++ * This variant is an _IRQ-atomic_ (and compiler-barrier) increment,
++ * which is a simple but LOCK-less incl on x86.
++ */
++static __inline__ void atomic_inc_local(volatile atomic_t *v)
++{
++	__asm__ __volatile__(
++		"incl %0"
++		:"=m" (__atomic_fool_gcc(v))
++		:"m" (__atomic_fool_gcc(v)));
++}
++
+ static __inline__ void atomic_dec(volatile atomic_t *v)
+ {
+ 	__asm__ __volatile__(
+ 		LOCK "decl %0"
++		:"=m" (__atomic_fool_gcc(v))
++		:"m" (__atomic_fool_gcc(v)));
++}
++
++static __inline__ void atomic_dec_local(volatile atomic_t *v)
++{
++	__asm__ __volatile__(
++		"decl %0"
+ 		:"=m" (__atomic_fool_gcc(v))
+ 		:"m" (__atomic_fool_gcc(v)));
+ }
+--- linux/ipc/shm.c.orig	Tue Mar 14 04:18:40 2000
++++ linux/ipc/shm.c	Tue Mar 14 04:18:47 2000
+@@ -1230,7 +1230,9 @@
+ 			page = alloc_page(GFP_HIGHUSER);
+ 			if (!page)
+ 				goto oom;
++			preempt_on();
+ 			clear_highpage(page);
++			preempt_off();
+ 			if ((shp != shm_lock(shp->id)) && (shp->id != zero_id))
+ 				BUG();
+ 		} else {
+--- linux/drivers/char/n_tty.c.orig	Tue Mar 14 04:18:39 2000
++++ linux/drivers/char/n_tty.c	Tue Mar 14 04:18:47 2000
+@@ -226,7 +226,9 @@
+ 		nr = space;
+ 	if (nr > sizeof(buf))
+ 	    nr = sizeof(buf);
++	set_current_state(TASK_RUNNING);
+ 	nr -= copy_from_user(buf, inbuf, nr);
++	set_current_state(TASK_INTERRUPTIBLE);
+ 	if (!nr)
+ 		return 0;
+ 	
+@@ -1132,9 +1134,9 @@
+ 				nr -= num;
+ 				if (nr == 0)
+ 					break;
+-				current->state = TASK_RUNNING;
++				set_current_state(TASK_RUNNING);
+ 				get_user(c, b);
+-				current->state = TASK_INTERRUPTIBLE;
++				set_current_state(TASK_INTERRUPTIBLE);
+ 				if (opost(c, tty) < 0)
+ 					break;
+ 				b++; nr--;
+--- linux/drivers/char/random.c.orig	Wed Feb  9 20:42:35 2000
++++ linux/drivers/char/random.c	Tue Mar 14 04:18:47 2000
+@@ -1450,7 +1450,6 @@
+ 	add_wait_queue(&random_read_wait, &wait);
+ 	while (nbytes > 0) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+-		
+ 		n = nbytes;
+ 		if (n > SEC_XFER_SIZE)
+ 			n = SEC_XFER_SIZE;
+@@ -1468,6 +1467,7 @@
+ 			schedule();
+ 			continue;
+ 		}
++		current->state = TASK_RUNNING;
+ 		n = extract_entropy(sec_random_state, buf, n,
+ 				    EXTRACT_ENTROPY_USER |
+ 				    EXTRACT_ENTROPY_SECONDARY);
+--- linux/arch/i386/lib/Makefile.orig	Tue Oct 19 21:36:05 1999
++++ linux/arch/i386/lib/Makefile	Tue Mar 14 04:18:47 2000
+@@ -6,8 +6,7 @@
+ 	$(CC) -D__ASSEMBLY__ $(AFLAGS) -traditional -c $< -o $*.o
+ 
+ L_TARGET = lib.a
+-L_OBJS  = checksum.o old-checksum.o delay.o \
+-	usercopy.o getuser.o putuser.o iodebug.o
++L_OBJS  = checksum.o delay.o usercopy.o getuser.o putuser.o iodebug.o
+ 
+ ifdef CONFIG_X86_USE_3DNOW
+ L_OBJS += mmx.o
+--- linux/arch/i386/lib/usercopy.c.orig	Fri Nov 12 13:29:47 1999
++++ linux/arch/i386/lib/usercopy.c	Tue Mar 14 04:18:47 2000
+@@ -64,6 +64,7 @@
+ #define __do_strncpy_from_user(dst,src,count,res)			   \
+ do {									   \
+ 	int __d0, __d1, __d2;						   \
++	preempt_on();							   \
+ 	__asm__ __volatile__(						   \
+ 		"	testl %1,%1\n"					   \
+ 		"	jz 2f\n"					   \
+@@ -87,6 +88,7 @@
+ 		  "=&D" (__d2)						   \
+ 		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst) \
+ 		: "memory");						   \
++	preempt_off();							   \
+ } while (0)
+ 
+ long
+@@ -114,6 +116,7 @@
+ #define __do_clear_user(addr,size)					\
+ do {									\
+ 	int __d0;							\
++	preempt_on();							\
+   	__asm__ __volatile__(						\
+ 		"0:	rep; stosl\n"					\
+ 		"	movl %2,%0\n"					\
+@@ -130,6 +133,7 @@
+ 		".previous"						\
+ 		: "=&c"(size), "=&D" (__d0)				\
+ 		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0));	\
++	preempt_off();							\
+ } while (0)
+ 
+ unsigned long
+@@ -158,6 +162,7 @@
+ 	unsigned long mask = -__addr_ok(s);
+ 	unsigned long res, tmp;
+ 
++	preempt_on();
+ 	__asm__ __volatile__(
+ 		"	andl %0,%%ecx\n"
+ 		"0:	repne; scasb\n"
+@@ -176,5 +181,6 @@
+ 		:"=r" (n), "=D" (s), "=a" (res), "=c" (tmp)
+ 		:"0" (n), "1" (s), "2" (0), "3" (mask)
+ 		:"cc");
++	preempt_off();
+ 	return res & mask;
+ }
+--- linux/arch/i386/lib/old-checksum.c.orig	Sun Dec 27 19:32:09 1998
++++ linux/arch/i386/lib/old-checksum.c	Tue Mar 14 04:18:47 2000
+@@ -1,19 +0,0 @@
+-/*
+- * FIXME: old compatibility stuff, will be removed soon.
+- */
+-
+-#include <net/checksum.h>
+-
+-unsigned int csum_partial_copy( const char *src, char *dst, int len, int sum)
+-{
+-	int src_err=0, dst_err=0;
+-
+-	sum = csum_partial_copy_generic ( src, dst, len, sum, &src_err, &dst_err);
+-
+-	if (src_err || dst_err)
+-		printk("old csum_partial_copy_fromuser(), tell mingo to convert me.\n");
+-
+-	return sum;
+-}
+-
+-
+--- linux/arch/i386/kernel/entry.S.orig	Tue Mar 14 04:18:39 2000
++++ linux/arch/i386/kernel/entry.S	Tue Mar 14 04:18:47 2000
+@@ -76,7 +76,8 @@
+ addr_limit	= 12
+ exec_domain	= 16
+ need_resched	= 20
+-processor	= 56
++may_preempt	= 24
++processor	= 60
+ 
+ ENOSYS = 38
+ 
+@@ -280,6 +281,20 @@
+ 	movb CS(%esp),%al
+ 	testl $(VM_MASK | 3),%eax	# return to VM86 mode or non-supervisor?
+ 	jne ret_with_reschedule
++	cmpl $0, need_resched(%ebx)
++	jnz restore_all
++	cmpl $0, may_preempt(%ebx)
++	jz restore_all
++
++	/*
++	 * Preempt kernel-space, but only if we return to non-IRQ context:
++	 */
++	movl processor(%ebx), %eax
++	shll $5,%eax
++	movl SYMBOL_NAME(irq_stat)(,%eax), %edx
++	addl SYMBOL_NAME(irq_stat)+4(,%eax), %edx
++	jnz restore_all
++	call SYMBOL_NAME(schedule)
+ 	jmp restore_all
+ 
+ 	ALIGN
+--- linux/arch/i386/kernel/traps.c.orig	Tue Mar 14 04:18:36 2000
++++ linux/arch/i386/kernel/traps.c	Tue Mar 14 04:18:47 2000
+@@ -198,8 +198,8 @@
+ 		regs->esi, regs->edi, regs->ebp, esp);
+ 	printk("ds: %04x   es: %04x   ss: %04x\n",
+ 		regs->xds & 0xffff, regs->xes & 0xffff, ss);
+-	printk("Process %s (pid: %d, stackpage=%08lx)",
+-		current->comm, current->pid, 4096+(unsigned long)current);
++	printk("Process %s (pid: %d, stackpage=%08lx, state: %d)",
++		current->comm, current->pid, 4096+(unsigned long)current, current->state);
+ 	/*
+ 	 * When in-kernel, we also print out the stack and code at the
+ 	 * time of the fault..

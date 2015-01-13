@@ -1,0 +1,187 @@
+<!-- received="Thu Jul  2 16:16:00 1998 " -->
+<!-- sent="Fri, 15 May 1998 13:29:19 -0600" -->
+<!-- name="Christian Worley" -->
+<!-- email="cworley@altatech.com" -->
+<!-- subject="Random floating point exceptions and interrupt handler re-entry" -->
+<!-- id="199805151815.CAA20517@ms7.hinet.net" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Random floating point exceptions and interrupt handler re-entry</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Random floating point exceptions and interrupt handler re-entry</h2>
+
+<b>Christian Worley</b> (<a href="mailto:cworley@altatech.com"><i>cworley@altatech.com</i></a>)<br>
+<i>Fri, 15 May 1998 13:29:19 -0600</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#661">[ date ]</a><a href="index.html#661">[ thread ]</a><a href="subject.html#661">[ subject ]</a><a href="author.html#661">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0662.html">Ben T. Eisemann: "AlphaStation for sale at onsale"</a>
+<li> <b>Previous message:</b> <a href="0660.html">Uncle George: "Re: Seagate 23GB format/label?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0683.html">Chris Worley: "Re: Random floating point exceptions and interrupt handler re-entry"</a>
+<li> <b>Maybe reply:</b> <a href="0683.html">Chris Worley: "Re: Random floating point exceptions and interrupt handler re-entry"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I'm trying to port the Packet Engines "Gigabit Ethernet" card to<br>
+AXP/Linux, using Donald Becker's "yellowfin" driver for this card.<br>
+<p>
+The problems I'm having don't seem to be related to the driver, I've<br>
+been up and down it's code which looks good (but I don't know the<br>
+assumptions of the board itself):<br>
+<p>
+1) Programs with lots of floating point code die randomly with<br>
+floating point exceptions when the network is at peak load (running<br>
+netperfs and such).<br>
+<p>
+2) The interrupt handlers, in general, seem to be getting re-entered,<br>
+even though interrupts are disabled.<br>
+<p>
+3) The yellowfin drivers stops responding, and needs to be<br>
+rmmod/insmod to get it going again.<br>
+<p>
+So, starting off with an explanation of "1)", above:<br>
+<p>
+I can transmit UDP packets (using netperf as a test) all night long<br>
+from an Alpha to an Intel (both with yellowfin boards), without any<br>
+problems.<br>
+<p>
+If I run TCP tests, or receive UDP packets (via netperf) on an Alpha,<br>
+then this will run all night long too... as long as I don't start up<br>
+other programs.  With other programs running, they die randomly (at<br>
+many places within their code) with floating point exceptions. <br>
+Without a yellowfin card, these programs run without error.<br>
+<p>
+I saw something similar once, running VxWorks on an Axp, where you had<br>
+to set a mask of the register sets to be swapped with a thread you<br>
+were invoking.  If the thread had FP calculations, and you didn't set<br>
+the flag that indicated "swap the FP registers", then under high load,<br>
+the task would swap out in the middle of an FP operation, the FP regs<br>
+wouldn't be swapped out, when the task was swapped back in, the FP<br>
+unit had to deal with whatever junk was in the FP registers in the<br>
+middle of an operation, and the thread would often throw a FP<br>
+exception from a random (different every time) program location.<br>
+<p>
+Then again, we are dealing with a bus-mastering device, which could<br>
+write to any memory location without getting trapped, and it could<br>
+just be randomly bombing memory.<br>
+<p>
+Any ideas on what is causing this?  Anybody know how the kernel swaps<br>
+FP regs with a task?<br>
+<p>
+On to "2)", above:<br>
+<p>
+I see this with or without the yellowfin card.  I've instrumented the<br>
+kernel in linux/arch/alpha/kernel/irq.c, the routine<br>
+"cabriolet_and_eb66p_device_interrupt" such that it has the basic<br>
+structure:<br>
+                                                       struct pt_regs<br>
+* regs)<br>
+{<br>
+        unsigned long flags;<br>
+        static int reentry=0;<br>
+<p>
+        save_flags(flags);<br>
+        cli();<br>
+<p>
+        if (reentry) {<br>
+      		printk("Reentry detected\n");<br>
+  	}<br>
+        reentry = 1;<br>
+<p>
+/* the body of the code */<br>
+<p>
+        reentry = 0;<br>
+        restore_flags(flags);<br>
+}     <br>
+<p>
+The "reentry" flag should never be found to be set.  But it is.  I've<br>
+found drivers erroneously using "sti()" (which raises the IPL to user<br>
+level) in the middle of an interrupt routine.  Replacing their "sti"<br>
+with the flag save and restore has removed problems with these<br>
+drivers.<br>
+<p>
+But, when I look thru the kernel source, there's probably about 50<br>
+files still using "sti" (mostly disk and net drivers).  In the network<br>
+core code, I modified about 20 files to "do it right".  Of these,<br>
+"route.c" and "af_inet.c" had some pretty strange "sti's" in them, and<br>
+I had to leave them the way they were for the machine to boot properly<br>
+(there was one "sti" with no corresponding "cli").<br>
+<p>
+Anyway, these changes didn't make any difference.  I still see<br>
+"Reentry detected" occasionally, mostly when X is starting and when I<br>
+reload the yellowfin driver.<br>
+<p>
+When is it appropriate to call "sti" on an Alpha?  When is it<br>
+appropriate to re-enter the above routine?<br>
+<p>
+On to point "3)", above:<br>
+<p>
+When I'm running Netperf's "netserver", receiving UDP packets from an<br>
+Intel host across a yellowfin driver, when I increase the system load<br>
+(i.e. start running many continuously calculating FFT's, that<br>
+occasionally have random FP exceptions), the netperf transfers stop<br>
+and don't restart.  The sender eventually times out saying it lost<br>
+contact with the receiver. <br>
+<p>
+At this point, I can't ping into or out of the AXP system. <br>
+<p>
+If I remove the yellowfin module, then reinstall it, the<br>
+communications start back up (without restarting Netperf's "netserver"<br>
+or the sender on the Intel side).  The Yellowfin driver is supposed to<br>
+timeout and restart itself if it goes too long without receiving a<br>
+packet.  This timeout code is not getting called.<br>
+<p>
+Either the yellowfin thinks it's OK, or the timeout mechanism isn't<br>
+working.<br>
+<p>
+Any ideas on how to debug this?<br>
+<p>
+I'm running RedHat 5.0 (Kernel rev 2.0.30), using the egcs 1.0<br>
+compiler, on a Digital PC164, 500MHZ, 128MB RAM.<br>
+<p>
+Thanks,<br>
+<p>
+Chris                                           <br>
+<pre>
+-- 
+  When I die, please cast my ashes upon Bill Gates
+   --for once, let him clean up after me!
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0662.html">Ben T. Eisemann: "AlphaStation for sale at onsale"</a>
+<li> <b>Previous message:</b> <a href="0660.html">Uncle George: "Re: Seagate 23GB format/label?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0683.html">Chris Worley: "Re: Random floating point exceptions and interrupt handler re-entry"</a>
+<li> <b>Maybe reply:</b> <a href="0683.html">Chris Worley: "Re: Random floating point exceptions and interrupt handler re-entry"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

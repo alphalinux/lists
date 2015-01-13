@@ -1,0 +1,271 @@
+<!-- received="Sat Apr 27 12:17:31 1996 " -->
+<!-- sent="Sat, 27 Apr 1996 12:17:31 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="more procps-0.99a fixes..." -->
+<!-- id="9604271556.AA11254@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>more procps-0.99a fixes...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>more procps-0.99a fixes...</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sat, 27 Apr 1996 12:17:31 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#360">[ date ]</a><a href="index.html#360">[ thread ]</a><a href="subject.html#360">[ subject ]</a><a href="author.html#360">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0361.html">Harald Koenig: "more procps-0.99a fixes..."</a>
+<li> <b>Previous message:</b> <a href="0359.html">Harald Koenig: "more procps-0.99a fixes..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+two more fixes:<br>
+<p>
+1) using libncurses.a for the termcap/terminfo routines on alpha systems<br>
+(there is no libtermcap.a) I get the following problem (same on x86-linux<br>
+when using libncurses instead of libtermcap):<br>
+<p>
+top uses tgetstr() to get some entries from terminfo which are printed<br>
+using printf().  those strings may include delays (using $&lt;...&gt;)<br>
+which is the case e.g. for the "vt100" terminfo entry.<br>
+those delay specificatins are displayed as plain text when using printf()<br>
+instead of tputs() or putp().  for vt100 terminals "$&lt;3&gt;" is displayed<br>
+at the end of every line (from the top_clrtoeol string) etc.<br>
+see fix below.<br>
+<p>
+2) ps.c has the value of HZ hard coded two times as 100, but for alpha<br>
+HZ is 1000...<br>
+<p>
+<p>
+Harald<br>
+-------------------------------------------------------------------------------<br>
+--- procps-0.99a/top.c~	Sat Apr 20 17:40:53 1996<br>
++++ procps-0.99a/top.c	Sat Apr 27 12:07:02 1996<br>
+@@ -119,11 +119,12 @@<br>
+ <br>
+ /* Clear the screen. */<br>
+ #define clear_screen() \<br>
+-    printf("%s", cl)<br>
++    putp(cl)<br>
+ <br>
+ /* Show an error in the context of the spiffy full-screen display. */<br>
+ #define SHOWMESSAGE(x) do { 			\<br>
+-    printf("%s%s", tgoto(cm, 0, 5), top_clrtoeol);	\<br>
++    putp(tgoto(cm, 0, 5));			\<br>
++    putp(top_clrtoeol);				\<br>
+     printf x;					\<br>
+     fflush(stdout);				\<br>
+     sleep(2);					\<br>
+@@ -290,7 +291,8 @@<br>
+ end(void)<br>
+ {<br>
+     ioctl(0, TCSETAF, &amp;Savetty);<br>
+-    printf("%s\r\n", tgoto(cm, 0, Lines - 1));<br>
++    putp(tgoto(cm, 0, Lines - 1));<br>
++    printf("\r\n");<br>
+     _exit(0);<br>
+ }<br>
+ <br>
+@@ -303,7 +305,7 @@<br>
+ {<br>
+     /* Reset terminal. */<br>
+     ioctl(0, TCSETAF, &amp;Savetty);<br>
+-    printf("%s", tgoto(cm, 0, Lines - 3));<br>
++    putp(tgoto(cm, 0, Lines - 3));<br>
+     fflush(stdout);<br>
+     raise(SIGTSTP);<br>
+     /* Later... */<br>
+@@ -439,7 +441,10 @@<br>
+     unsigned int main_mem;<br>
+ <br>
+     /* Display the load averages. */<br>
+-    printf("%s%s%s\n", ho, sprint_uptime(), top_clrtoeol);<br>
++    putp(ho);<br>
++    printf("%s", sprint_uptime());<br>
++    putp(top_clrtoeol);<br>
++    printf("\n");<br>
+ <br>
+     /* Get the process info. */<br>
+     ph = refresh_snapshot(ph, 1, 1, 1, 1, 0, 0, 0);<br>
+@@ -451,7 +456,8 @@<br>
+ <br>
+     /* Display the memory and swap space usage. */<br>
+     main_mem = show_meminfo();<br>
+-    printf("%s%s", HEADER, top_clrtoeol);<br>
++    printf("%s", HEADER);<br>
++    putp(top_clrtoeol);<br>
+     <br>
+     /*<br>
+      * Finally!  Loop through to find the top task, and display it.<br>
+@@ -511,13 +517,15 @@<br>
+ 		    cmdptr = best-&gt;cmd;<br>
+ 		if (strlen(cmdptr) &gt; Maxcmd)<br>
+ 		    cmdptr[Maxcmd - 1] = 0;<br>
+-		printf("%s%s", cmdptr, top_clrtoeol);<br>
++		printf("%s", cmdptr);<br>
++		putp(top_clrtoeol);<br>
+ 	    }<br>
+ 	}<br>
+ <br>
+ 	New_save_hist[best_index].pcpu = -1;<br>
+     }<br>
+-    printf("%s%s", top_clrtobot, tgoto(cm, 0, 5));<br>
++    putp(top_clrtobot);<br>
++    putp(tgoto(cm, 0, 5));<br>
+ <br>
+     fflush(stdout);<br>
+ }<br>
+@@ -560,20 +568,23 @@<br>
+       fprintf( stderr, "Cannot get size of memory from /proc/meminfo\n" );<br>
+       exit(1);<br>
+   }<br>
+-  printf("Mem:  %5dK av, %5dK used, %5dK free, %5dK shrd, %5dK buff%s\n",<br>
++  printf("Mem:  %5dK av, %5dK used, %5dK free, %5dK shrd, %5dK buff",<br>
+ 	 mem[meminfo_main][meminfo_total]   &gt;&gt; 10,<br>
+ 	 mem[meminfo_main][meminfo_used]    &gt;&gt; 10,<br>
+ 	 mem[meminfo_main][meminfo_free]    &gt;&gt; 10,<br>
+ 	 mem[meminfo_main][meminfo_shared]  &gt;&gt; 10,<br>
+-	 mem[meminfo_main][meminfo_buffers] &gt;&gt; 10,<br>
+-	 top_clrtoeol);<br>
+-  printf("Swap: %5dK av, %5dK used, %5dK free               %5dK cached"<br>
+-	 "%s\n%s\n",<br>
++	 mem[meminfo_main][meminfo_buffers] &gt;&gt; 10);<br>
++  putp(top_clrtoeol);<br>
++  putchar('\n');<br>
++  printf("Swap: %5dK av, %5dK used, %5dK free               %5dK cached",<br>
+ 	 mem[meminfo_swap][meminfo_total]   &gt;&gt; 10,<br>
+ 	 mem[meminfo_swap][meminfo_used]    &gt;&gt; 10,<br>
+ 	 mem[meminfo_swap][meminfo_free]    &gt;&gt; 10,<br>
+-	 mem[meminfo_total][meminfo_cached] &gt;&gt; 10,<br>
+-	 top_clrtoeol, top_clrtoeol);<br>
++	 mem[meminfo_total][meminfo_cached] &gt;&gt; 10);<br>
++  putp(top_clrtoeol);<br>
++  putchar('\n');<br>
++  putp(top_clrtoeol);<br>
++  putchar('\n');<br>
+   return mem[meminfo_main][meminfo_total];<br>
+ }<br>
+ <br>
+@@ -674,14 +685,18 @@<br>
+     <br>
+     if (pass&gt;0) {<br>
+ 	printf("%d processes: %d sleeping, %d running, %d zombie, "<br>
+-	       "%d stopped%s\n",<br>
+-	       ph-&gt;count, sleeping, running, zombie, stopped, top_clrtoeol);<br>
++	       "%d stopped",<br>
++	       ph-&gt;count, sleeping, running, zombie, stopped);<br>
++	putp(top_clrtoeol);<br>
++	putchar('\n');<br>
+ 	printf("CPU states: %2d.%d%% user, %2d.%d%% system,"<br>
+-	       " %2d.%d%% nice, %2d.%d%% idle%s\n",<br>
++	       " %2d.%d%% nice, %2d.%d%% idle",<br>
+ 	       user_ticks / 10, user_ticks % 10,<br>
+ 	       system_ticks / 10, system_ticks % 10,<br>
+ 	       nice_ticks / 10, nice_ticks % 10,<br>
+-	       idle_ticks / 10, idle_ticks % 10, top_clrtoeol);<br>
++	       idle_ticks / 10, idle_ticks % 10);<br>
++	putp(top_clrtoeol);<br>
++	putchar('\n');<br>
+     }<br>
+ <br>
+     /* Save this frame's information. */<br>
+@@ -723,7 +738,9 @@<br>
+     <br>
+     switch (c) {<br>
+     case 'h':<br>
+-	printf("%s%s\nProc-Top Revision 0\n", cl, ho);<br>
++        putp(cl);<br>
++        putp(ho);<br>
++        printf("\nProc-Top Revision 0\n");<br>
+ 	printf("%s\n", procps_version);<br>
+ 	printf("Secure mode %s; cumulative mode %s; noidle mode %s\n\n",<br>
+ 	       Secure ? "on" : "off", Cumulative ? "on" : "off",<br>
+@@ -747,8 +764,9 @@<br>
+ 	    pid = getint();<br>
+ 	    if (pid == -1)<br>
+ 	        break;<br>
+-	    printf("%s%sKill PID %d with signal [15]: ",<br>
+-	    	   tgoto(cm, 0, 5), top_clrtoeol, pid);<br>
++	    putp(tgoto(cm, 0, 5));<br>
++	    putp(top_clrtoeol);<br>
++	    printf("Kill PID %d with signal [15]: ", pid);<br>
+ 	    signal = getsig();<br>
+ 	    if (signal == -1)<br>
+ 	        signal = SIGTERM;<br>
+@@ -776,8 +794,9 @@<br>
+ 	    pid = getint();<br>
+ 	    if (pid == -1)<br>
+ 	        break;<br>
+-	    printf("%s%sRenice PID %d to value: ",<br>
+-	    	   tgoto(cm, 0, 5), top_clrtoeol, pid);<br>
++	    putp(tgoto(cm, 0, 5));<br>
++	    putp(top_clrtoeol);<br>
++	    printf("Renice PID %d to value: ", pid);<br>
+ 	    val = getint();<br>
+ 	    if (val == -1)<br>
+ 	        val = 10;<br>
+--- procps-0.99a/ps.c~	Sat Feb 24 21:50:04 1996<br>
++++ procps-0.99a/ps.c	Sat Apr 27 11:13:35 1996<br>
+@@ -402,7 +402,7 @@<br>
+ 	s += sprintf(s, "%5d    ", p-&gt;uid);<br>
+     else<br>
+ 	s += sprintf(s, "%-8s ", p-&gt;user);<br>
+-    seconds = (((GL_current_time * 100) - p-&gt;start_time) / HZ);<br>
++    seconds = (((GL_current_time * HZ) - p-&gt;start_time) / HZ);<br>
+     start = GL_time_now - seconds;<br>
+     total_time = (p-&gt;utime + p-&gt;stime +<br>
+ 		  (CL_Sum ? p-&gt;cutime + p-&gt;cstime : 0));<br>
+@@ -464,7 +464,7 @@<br>
+     sprintf(s, "%2d %5d %8x %8x %8x %s %s %s %3s ",<br>
+ 	    p-&gt;start_code &gt;&gt; 26, p-&gt;pid, p-&gt;start_stack,<br>
+ 	    p-&gt;kstk_esp, p-&gt;kstk_eip,<br>
+-	    prtime(time1, p-&gt;timeout, GL_current_time * 100),<br>
++	    prtime(time1, p-&gt;timeout, GL_current_time * HZ),<br>
+ 	    prtime(time2, p-&gt;it_real_value, 0),<br>
+ 	    status2(p), p-&gt;ttyc);<br>
+ }<br>
+<p>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0361.html">Harald Koenig: "more procps-0.99a fixes..."</a>
+<li> <b>Previous message:</b> <a href="0359.html">Harald Koenig: "more procps-0.99a fixes..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

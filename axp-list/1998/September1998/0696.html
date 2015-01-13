@@ -1,0 +1,128 @@
+<!-- received="Wed Sep 23 20:51:48 1998 " -->
+<!-- sent="Wed, 23 Sep 98 18:48:19 +0100" -->
+<!-- name="Richard Black" -->
+<!-- email="rjb@dcs.gla.ac.uk" -->
+<!-- subject="Another bug in strace-3.1" -->
+<!-- id="9809231748.AA00702@bathurst" -->
+<!-- inreplyto="19980922013531.28943@alpha.franken.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Another bug in strace-3.1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Another bug in strace-3.1</h2>
+
+<b>Richard Black</b> (<a href="mailto:rjb@dcs.gla.ac.uk"><i>rjb@dcs.gla.ac.uk</i></a>)<br>
+<i>Wed, 23 Sep 98 18:48:19 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#696">[ date ]</a><a href="index.html#696">[ thread ]</a><a href="subject.html#696">[ subject ]</a><a href="author.html#696">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0697.html">Linh C. Nguyen: "Re: ZLXp2-E"</a>
+<li> <b>Previous message:</b> <a href="0695.html">Maurice Hilarius: "Re: as200"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; On Mon, Sep 21, 1998 at 03:41:07PM +0100, Richard Black wrote:</i><br>
+<i>&gt; &gt; The following program, when run under strace on alpha linux shows that</i><br>
+<i>&gt; &gt; strace on alpha linux does not record the mmap call correctly.  It is</i><br>
+<i>&gt; &gt; recorded correctly on intel linux.</i><br>
+<i>&gt;</i><br>
+<i>&gt; below is my current patchset for strace. It fixes the mmap bug and</i><br>
+<i>&gt; some other oddities.</i><br>
+<p>
+<i>&gt; &gt; - Also the strace source rpm (even with the supplied patches) does not</i><br>
+<i>&gt; &gt; compile </i><br>
+<p>
+<i>&gt; strace-3.1-7 (RedHat 5.1) compiled at least on my Alpha. The patch is</i><br>
+<i>&gt; on top of it. </i><br>
+<p>
+Many thanks to Thomas for his patches, though I have looked on ftp.redhat.com <br>
+and can only find strace-3.1-5.<br>
+<p>
+Here is another problem -- the fstat (and related) calls appear to report <br>
+something wrong i.e. neither the contents of the stat buffer before the call, <br>
+nor the contents after the call.  This happens on *both* intel and alpha.<br>
+<p>
+Here is the program:<br>
+<p>
+#include &lt;unistd.h&gt;<br>
+#include &lt;sys/mman.h&gt;<br>
+#include &lt;sys/stat.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+#include &lt;string.h&gt;<br>
+<p>
+int main(int argc, char **argv)<br>
+{<br>
+    int fd = open("/etc/passwd", O_RDONLY);<br>
+    struct stat s;<br>
+    char buf[1024];		/* just to de-cloud strace log */<br>
+<p>
+    s.st_mode = 42;<br>
+    s.st_size = 12345678;<br>
+    if (fstat(fd, &amp;s) &lt; 0)<br>
+	perror("stat:");<br>
+    sprintf(buf, "st_mode=%d, st_size=%ld\n",<br>
+	    s.st_mode, s.st_size);<br>
+    write(1, buf, strlen(buf));<br>
+    return 0;<br>
+}<br>
+<p>
+and here is the output on intel:<br>
+<p>
+open("/etc/passwd", O_RDONLY)           = 5<br>
+fstat(5, {st_mode=0, st_size=0, ...})   = 0<br>
+write(1, "st_mode=33188, st_size=585\n", 27st_mode=33188, st_size=585<br>
+) = 27<br>
+_exit(0)                                = ?<br>
+<p>
+and here is the output on alpha:<br>
+<p>
+open("/etc/passwd", O_RDONLY)           = 3<br>
+fstat(3, {st_mode=01, st_size=906571131, ...}) = 0<br>
+write(1, "st_mode=33188, st_size=585\n", 27st_mode=33188, st_size=585<br>
+) = 27<br>
+exit(0)                                 = ?<br>
+<p>
+You can see that the information reported in the braces is completely wrong.<br>
+<p>
+<p>
+Richard.<br>
+<p>
+PS: Curiosity -- why do the alpha systems start at fd 5 and the intel ones at fd 3?<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0697.html">Linh C. Nguyen: "Re: ZLXp2-E"</a>
+<li> <b>Previous message:</b> <a href="0695.html">Maurice Hilarius: "Re: as200"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [patch] preemptive kernel, preemptive-2.3.52-</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="[patch] preemptive kernel, preemptive-2.3.52-A7">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] preemptive kernel, preemptive-2.3.52-A7</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 14 05:42:38 2000" -->
+<!-- isoreceived="20000314134238" -->
+<!-- sent="Tue, 14 Mar 2000 02:59:15 +0100 (CET)" -->
+<!-- isosent="20000314015915" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="[patch] preemptive kernel, preemptive-2.3.52-A7" -->
+<!-- id="Pine.LNX.4.10.10003140203140.8673-200000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.10.10003131451020.1031-100000@penguin.transmeta.com" -->
+<STRONG>Subject: </STRONG>[patch] preemptive kernel, preemptive-2.3.52-A7<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 17:59:15 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#54">[ date ]</A>
+<A HREF="index.html#54">[ thread ]</A>
+<A HREF="subject.html#54">[ subject ]</A>
+<A HREF="author.html#54">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0053.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0063.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0063.html">Ingo Molnar: "[patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000, Linus Torvalds wrote:
+<BR>
+<P><EM>&gt; We want to avoid having long latencies, and we can easily get that by
+</EM><BR>
+<EM>&gt; just allowing timer interrupts to schedule which we're in a big
+</EM><BR>
+<EM>&gt; &quot;memcpy_to_user()&quot; and we don't hold any kernel lock etc. No need to
+</EM><BR>
+<EM>&gt; try to be clever at lock release time - if we get a pending
+</EM><BR>
+<EM>&gt; reschedule, we might as well leave it pending, it's going to be
+</EM><BR>
+<EM>&gt; serviced soon enough anyway.
+</EM><BR>
+<P>i've just implemented this (free preemption of pre-specified kernel areas)
+<BR>
+and it's really simple, and appears to work nicely both in the UP and SMP
+<BR>
+case.
+<BR>
+<P>There is a single current-&gt;may_preempt counter which is typically zero. If
+<BR>
+the counter is non-zero, then the IRQ return path may preempt the process.
+<BR>
+The counter is recursive (unused feature currently but same cost), and is
+<BR>
+used in uaccess.h when the memcpy is non-constant (probably big enough.
+<BR>
+It's cheaper to unconditionally do the incl+decl than checking for memcpy
+<BR>
+size). Note that 'current' is already cached in 99% of these cases because
+<BR>
+we already did an access_ok() check for the user-space copy, which
+<BR>
+accessed current-&gt;addr_limit. The counter is persistent and present even
+<BR>
+if the process is non-running - the 'may preempt' property of the task
+<BR>
+does not depend on wether it's running. (This method differs from Andrea's
+<BR>
+similar 'all-inclusive' method by having a clean per-process counter.)
+<BR>
+<P>i've also introduced a new light-weight 'IRQ-atomic' increment and
+<BR>
+decrement method in atomic.h, because -&gt;may_preempt has to be
+<BR>
+local-IRQ-safe.
+<BR>
+<P>the IRQ return path in entry.S now checks wether:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) -&gt;need_resched or -&gt;pending is set
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;and 2) wether we return to non-IRQ context
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;and 3) -&gt;allow_preempt is set.
+<BR>
+<P>the entry.S IRQ return path got one more conditional instruction, which
+<BR>
+checks for need_resched and moves into the 'we might preempt even
+<BR>
+kernel-space' path. This branch comes _after_ checking all the common
+<BR>
+cases: return-to-userspace and no-event-pending. I believe this is pretty
+<BR>
+much the cheapest way we can get away with this. (The patch does not allow
+<BR>
+processing signal handlers though, only reschedules - that would be a
+<BR>
+security hole in certain cases, correct?)
+<BR>
+<P>the uaccess.h changes are safe because we can reschedule even with the
+<BR>
+kernel lock held, but it's illegal to call any of the user-copy routines
+<BR>
+with spinlocks held. (There are some other places that we want to make
+<BR>
+preemptible as well, but i first wanted to have this simple prototype.)
+<BR>
+<P>the patch gets some non-obvious cases right as well: if a cross-IPI marks
+<BR>
+the process need_resched==1 then we might reschedule immediately if it
+<BR>
+hits a big memcpy.
+<BR>
+<P>i've tested the patch (against pre-2.3.52-1) and it compiles both UP and
+<BR>
+SMP, and i've tested it under load on SMP - appears to be stable. Have i
+<BR>
+missed anything, and is this what we want?
+<BR>
+<P><EM>&gt; If you really want hard realtime, go to work with Victor and RTLinux..
+</EM><BR>
+<P>(yep.)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><P><HR>
+<UL>
+<LI>TEXT/PLAIN attachment: <A HREF="att-bin0DDR3Ku">stored</A>
+</UL>
+<!-- attachment="att-bin0DDR3Ku" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0053.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0063.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0061.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0063.html">Ingo Molnar: "[patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,141 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: tbia() on DEC 3000 question</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: tbia() on DEC 3000 question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: tbia() on DEC 3000 question</H1>
+<HR>
+<P>
+<!-- received="Fri Aug 20 00:20:14 1999" -->
+<!-- isoreceived="19990820072014" -->
+<!-- sent="Thu, 19 Aug 1999 16:02:55 -0700" -->
+<!-- isosent="19990819230255" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: tbia() on DEC 3000 question" -->
+<!-- id="19990819160255.A10250@twiddle.net" -->
+<!-- inreplyto="199908191845.OAA02750@neptune.phys.ufl.edu" -->
+<STRONG>Subject: </STRONG>Re: tbia() on DEC 3000 question<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 19 1999 - 16:02:55 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#458">[ date ]</A>
+<A HREF="index.html#458">[ thread ]</A>
+<A HREF="subject.html#458">[ subject ]</A>
+<A HREF="author.html#458">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0459.html">Sean Hunter: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0457.html">Uncle George: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0454.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0374.html">Wes Bauske: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0454.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, Aug 19, 1999 at 02:45:43PM -0400, Craig P Prescott wrote:
+<BR>
+<EM>&gt; Ermm...  This has been the problem the whole time.  I had done this:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	srm_printk(&quot;Going to tbia()...\n&quot;);
+</EM><BR>
+<EM>&gt; 	tbia();
+</EM><BR>
+<EM>&gt; 	...
+</EM><BR>
+<EM>&gt; 	srm_printk(&quot;returning from paging_init().\n&quot;);
+</EM><BR>
+<P>Oh dear.  Yes, that would be a problem.
+<BR>
+<P><EM>&gt; ... so I am sitting someplace in time_init!  Ok - I am back at it.
+</EM><BR>
+<P>I've seen stuff like this on other machines.  There is a loop
+<BR>
+therein where we're not believing the machine's cycle count 
+<BR>
+that we got from the console, so we count how many cycles
+<BR>
+between ticks of the rtc.
+<BR>
+<P>Except for reasons unexplainable the rtc isn't ticking, so we
+<BR>
+sit in the tight polling loop forever.
+<BR>
+<P>I've never figured that one out.  Nor similar problems in which
+<BR>
+the rtc ticks much faster than realtime.  Note that this is _not_
+<BR>
+any of the interval timers on the rtc that I'm polling -- it's
+<BR>
+the time-of-year clock that I'm waiting to advance to the next
+<BR>
+second.  Which makes things doubly confusing.
+<BR>
+<P>A quick way around this is to add `cycle=250000000' (250Mhz) or
+<BR>
+whatever is appropriate to the command line args.  That'll skip
+<BR>
+the polling loop.
+<BR>
+<P><EM>&gt; So just to make sure - there is no way to get feedback from the kernel
+</EM><BR>
+<EM>&gt; between the tbia() in paging_init() and console_init()?
+</EM><BR>
+<P>See <A HREF="ftp://ftp.twiddle.net/pub/rth/d-sercon.">ftp://ftp.twiddle.net/pub/rth/d-sercon.</A>  It's an old patch,
+<BR>
+so it probably won't apply without help, but it's object is to
+<BR>
+get output to the serial console immediately after setup_arch
+<BR>
+(which is before paging_init, btw).
+<BR>
+<P><EM>&gt; * Alpha Architecture Reference Manual (1st edition)
+</EM><BR>
+<EM>&gt; * DEC 3000 300/400/500/600/700/800/900 AXP Models System Programmer's Manual
+</EM><BR>
+<EM>&gt; * David Rusling's &quot;The Linux Kernel&quot;
+</EM><BR>
+<EM>&gt; * All the Turbochannel docs I could find...
+</EM><BR>
+<P>Ok, you look fairly well set up then.
+<BR>
+<P><P>r~
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0459.html">Sean Hunter: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0457.html">Uncle George: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0454.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0374.html">Wes Bauske: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0454.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

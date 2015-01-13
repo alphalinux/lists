@@ -1,0 +1,148 @@
+<!-- received="Thu May  9 08:29:32 1996 " -->
+<!-- sent="Thu, 9 May 1996 08:29:32 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: gdb" -->
+<!-- id="199605090434.VAA29935@koala.azstarnet.com" -->
+<!-- inreplyto="m0uHMhd-0009UJC@her.platinum.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Thu, 9 May 1996 08:29:32 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#147">[ date ]</a><a href="index.html#147">[ thread ]</a><a href="subject.html#147">[ subject ]</a><a href="author.html#147">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0148.html">Matti E Aarnio: "Re: OOPS on Alpha"</a>
+<li> <b>Previous message:</b> <a href="0146.html">David Mosberger-Tang: "Re: gdb"</a>
+<li> <b>In reply to:</b> <a href="0145.html">Eric Youngdale: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0146.html">David Mosberger-Tang: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 8 May 1996, Eric Youngdale wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; 	A few further thoughts.  I am not trying to put you off of the</i><br>
+<i>&gt; idea of optimizing in such a way that we don't leave nops behind, but</i><br>
+<i>&gt; I just want to impress upon you how difficult such a thing really is.</i><br>
+<p>
+I _hope_ that it wouldn't be too difficult if we just did it the right <br>
+way..<br>
+<p>
+<i>&gt; 	Normally the assembler will resolve some things such as local</i><br>
+<i>&gt; branches without the need for emitting a relocation.  The idea is that</i><br>
+<i>&gt; the branch is pc-relative, so there is no point in wasting time and</i><br>
+<i>&gt; space by telling the linker about something which it doesn't need to</i><br>
+<i>&gt; handle anyways.</i><br>
+<p>
+Well, that's obviously not true.. You said it yourself: the linker _does_ <br>
+need to know about it, so the assembler is wrong.<br>
+<p>
+<i>&gt; 	If we were to start removing instructions, it means that we</i><br>
+<i>&gt; have to repair all of these local branches.  One way of doing this</i><br>
+<i>&gt; would be to have the assembler emit everything as relocations instead</i><br>
+<i>&gt; of having it fill in fields that it thinks are fully resolved.  To do</i><br>
+<i>&gt; this, absolutely everything, including every local label in the file</i><br>
+<i>&gt; must be emitted into the object file so that it is possible for the</i><br>
+<i>&gt; linker to optimize the instructions away.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	The other alternative to leaving ine information in the object</i><br>
+<i>&gt; file would be for the linker to do code reading to find all of the local</i><br>
+<i>&gt; branches, labelize them, optimize the code, and then use the labels</i><br>
+<i>&gt; to recompute all of the offsets for the local branches.  In fact this</i><br>
+<i>&gt; is probably preferable.</i><br>
+<p>
+Umm, I really would prefer the assembler leaving enough information - <br>
+otherwise the linker bugs will be so horrible to find that it's not worth <br>
+it . In particular think about this kind of code:<br>
+<p>
+	function:<br>
+		nop	/* align */<br>
+		br  $1,1f<br>
+		.quad 0xYYYYYYYYYYYYYYYY<br>
+		.quad 0xYYYYYYYYYYYYYYYY<br>
+	1:	ldq $2,0($1)<br>
+		ldq $3,8($1)<br>
+		...<br>
+<p>
+Now look at that code: it's one way to pack in some static data in the <br>
+code segment. Admittedly gcc doesn't do this, but it's actually useful <br>
+for some very low-level assembly where you don't want to have the gp <br>
+value at all..<br>
+<p>
+Now, I don't want to be the linker who tries to find local labels in the <br>
+above. Maybe the data values happen to have patterns that match a "bsr" <br>
+instruction, and then the linker "fixes" it because there is some jsr we <br>
+optimized somewhere.. Uggh..<br>
+<p>
+So, making the linker fix things up is not only hard as h*ll, it's <br>
+actually impossible.<br>
+<p>
+So, now think of the problem without a fixed assembler.. What do we get?  We<br>
+get an assembler that isn't a "traditional" assembler any more: we just get a<br>
+smart pre-processor. Essentially, the assembler shouldn't emit runnable code,<br>
+it should emit runnable code _fragments_, and then the linker would be free<br>
+to pad those as it sees fit. You said the hpux setup did something that<br>
+sounded like this (and take a look at the currently fastest single-CPU<br>
+machine - it's not made by Digital. It's the HP PA-8000, so they have done<br>
+some things _right_, and the compiler is probably one of those things <br>
+even though the memory subsystem seems to be quite good). <br>
+<p>
+We don't really have to be object-file compatible with OSF/1.. Doesn't <br>
+the GNU linker already handle multiple different types of segments? We <br>
+should be able to link normal ECOFF segments with the "fragment" setup <br>
+without any fundamental problem (I'm not saying fragment handling is <br>
+easy, but it shouldn't be fundamentally impossible).<br>
+<p>
+With a fragmenting assembler, the assembler can do something like this:<br>
+ - assume that the jump is always local, do a "bsr", but also do a "end <br>
+   fragment" at the bsr.<br>
+ - the linker reads in a stream of fragments, notices that "oops, we <br>
+   can't do a bsr here", and expands the bsr to the proper address load <br>
+   and jsr. If it _can_ do a "bsr", it obviously has to know where the <br>
+   target is already, so it takes a look at the target, sees if there is <br>
+   any "ldgp" sequence at the start, and fixes up the "bsr" to jump over <br>
+   it.<br>
+<p>
+You already showed some nervousness about the assembler creating the .lita<br>
+entries, so it seems there are some fundamental design mistakes in the<br>
+current setup, and maybe we _should_ be thinking about moving parts of the<br>
+assembler into the linker instead (others have done this for similar reasons<br>
+- you can do some other limited global optimizations with this same technique<br>
+where the assembler doesn't generate fixed code)<br>
+<p>
+		Linus<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0148.html">Matti E Aarnio: "Re: OOPS on Alpha"</a>
+<li> <b>Previous message:</b> <a href="0146.html">David Mosberger-Tang: "Re: gdb"</a>
+<li> <b>In reply to:</b> <a href="0145.html">Eric Youngdale: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0146.html">David Mosberger-Tang: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

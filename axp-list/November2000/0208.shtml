@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: [Fwd: Alpha SMP problem]</H1> 
+	
+<!-- received="Thu Nov 09 01:10:51 2000" -->
+<!-- isoreceived="20001109091051" -->
+<!-- sent="Wed, 8 Nov 2000 14:15:43 -0800" -->
+<!-- isosent="20001108221543" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: [Fwd: Alpha SMP problem]" -->
+<!-- id="20001108141543.A27935@twiddle.net" -->
+<!-- inreplyto="3A09B857.79DB9BB2@appnet.com" -->
+<STRONG>Subject: </STRONG>Re: [Fwd: Alpha SMP problem]<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Nov  8 14:15:43 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#208">[ date ]</A>
+<A HREF="index.shtml#208">[ thread ]</A>
+<A HREF="subject.shtml#208">[ subject ]</A>
+<A HREF="author.shtml#208">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0209.shtml">Marco Hernandez: "4d50t pictures."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0207.shtml">Ivan Kokshaysky: "Re: PCI-PCI bridges mess in 2.4.x"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0203.shtml">Jeff Sturm: "Re: [Fwd: Alpha SMP problem]"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0212.shtml">Reto Baettig: "Re: [Fwd: Alpha SMP problem]"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0203.shtml">Richard Henderson: "Re: [Fwd: Alpha SMP problem]"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Nov 08, 2000 at 03:32:23PM -0500, Jeff Sturm wrote:
+<BR>
+<EM>&gt; Honestly I didn't try your program, but I wouldn't consider blaming the
+</EM><BR>
+<EM>&gt; kernel or glibc as long as your code is incorrect.
+</EM><BR>
+<P>I did blame his code until I fixed it and it still failed.
+<BR>
+The following is actually the best fix; nothing needs to be
+<BR>
+made volatile, just add write-memory-barriers appropriately.
+<BR>
+<P>The Big Issue is that sometimes one gets not segmentation
+<BR>
+faults, but illegal instruction faults.  This is a hallmark
+<BR>
+of incorrect TLB or ASN handling.
+<BR>
+<P><P>r~
+<BR>
+<P><P>--- malloctest-old.c	Thu Nov  2 11:05:16 2000
+<BR>
++++ malloctest.c	Thu Nov  2 14:37:33 2000
+<BR>
+@@ -57,13 +57,13 @@ void Free(void *m)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (!mem-&gt;delete)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Th_Delay(1);
+<BR>
+&nbsp;
+<BR>
+-		mb(); /* This is important to ensure that mem-&gt;buf 
+<BR>
+-			 has been written to memory yet */
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assert(mem-&gt;buf != NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assert(mem-&gt;delete);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free(mem-&gt;buf);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mem-&gt;buf = NULL;
+<BR>
++
+<BR>
++		wmb();
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mem-&gt;delete = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+@@ -86,17 +86,14 @@ void DoTest(long Th_Num)
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;th_req[Th_Num]++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
++		wmb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mem.delete = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (mem.delete) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Th_Delay(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+-		mb(); /* This is important to ensure that mem-&gt;buf 
+<BR>
+-			 has been written to memory yet */
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assert(mem.buf == NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assert(mem.delete == 0);
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}	
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0209.shtml">Marco Hernandez: "4d50t pictures."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0207.shtml">Ivan Kokshaysky: "Re: PCI-PCI bridges mess in 2.4.x"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0203.shtml">Jeff Sturm: "Re: [Fwd: Alpha SMP problem]"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0212.shtml">Reto Baettig: "Re: [Fwd: Alpha SMP problem]"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0203.shtml">Richard Henderson: "Re: [Fwd: Alpha SMP problem]"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Fri Dec  1 08:00:07 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

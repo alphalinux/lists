@@ -1,0 +1,120 @@
+<!-- received="Tue Jul  7 03:06:21 1998 " -->
+<!-- sent="Tue, 7 Jul 1998 01:56:38 -0400 (EDT)" -->
+<!-- name="Tim Rowley" -->
+<!-- email="tor@cs.brown.edu" -->
+<!-- subject="Re: red and blue swapped on Alpha?" -->
+<!-- id="199807070556.BAA02414@boojum.cs.brown.edu" -->
+<!-- inreplyto="Pine.LNX.3.96.980706193135.22983A-100000@earth.terran.org" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: red and blue swapped on Alpha?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: red and blue swapped on Alpha?</h2>
+
+<b>Tim Rowley</b> (<a href="mailto:tor@cs.brown.edu"><i>tor@cs.brown.edu</i></a>)<br>
+<i>Tue, 7 Jul 1998 01:56:38 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#458">[ date ]</a><a href="index.html#458">[ thread ]</a><a href="subject.html#458">[ subject ]</a><a href="author.html#458">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0459.html">Tim Rowley: "Re: UDB 24-bit server"</a>
+<li> <b>Previous message:</b> <a href="0457.html">Huw Davies: "Re: XL300's serial speed?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0465.html">B. James Phillippe: "Re: red and blue swapped on Alpha?"</a>
+<li> <b>Reply:</b> <a href="0465.html">B. James Phillippe: "Re: red and blue swapped on Alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+B. James Phillippe wrote:<br>
+<i>&gt; &gt; &gt; But, to retrack the original topic: anyone here using a ZLXp-E2 on</i><br>
+<i>&gt; &gt; &gt; RedHat-5.1 Linux text console in 640x480 have their red and blue colors</i><br>
+<i>&gt; &gt; &gt; swapped?</i><br>
+<p>
+Ok, it appears to be a bug in the tga console code for 24-plane<br>
+cards in 2.1.[&lt;=106].  I'm guessing that it has been fixed in the<br>
+great console rewrite, but for now you can patch the old-style<br>
+tga driver as follows (also fixes the off-by-one cursor problem):<br>
+<p>
+--- /tmp/linux/drivers/char/tga.c	Thu Apr  9 16:10:15 1998<br>
++++ linux/drivers/char/tga.c	Tue Jul  7 01:41:06 1998<br>
+@@ -222,7 +222,7 @@<br>
+    } <br>
+   } else {<br>
+     BT463_LOAD_ADDR(0x0000);<br>
+-    TGA_WRITE_REG((BT463_PALETTE&lt;&lt;2), TGA_RAMDAC_REG);<br>
++    TGA_WRITE_REG((BT463_PALETTE&lt;&lt;2), TGA_RAMDAC_SETUP_REG);<br>
+ <br>
+     for (i = 0; i &lt; 16; i++) {<br>
+       j = color_table[i];<br>
+@@ -293,7 +293,7 @@<br>
+ <br>
+     } else {<br>
+ <br>
+-      xt = col * TGA_F_WIDTH + 144;<br>
++      xt = (col-1) * TGA_F_WIDTH + 144;<br>
+       yt = row * TGA_F_HEIGHT_PADDED + 35;<br>
+ <br>
+       TGA_WRITE_REG(0x05, TGA_VALID_REG); /* SCANNING and CURSOR */<br>
+@@ -684,7 +684,7 @@<br>
+ 	   * fill the palette<br>
+ 	   */<br>
+ 	  BT463_LOAD_ADDR(0x0000);<br>
+-	  TGA_WRITE_REG((BT463_PALETTE&lt;&lt;2), TGA_RAMDAC_REG);<br>
++	  TGA_WRITE_REG((BT463_PALETTE&lt;&lt;2), TGA_RAMDAC_SETUP_REG);<br>
+ <br>
+ 	  for (i = 0; i &lt; 16; i++) {<br>
+ 	    j = color_table[i];<br>
+@@ -876,12 +876,12 @@<br>
+     }<br>
+   } else { /* 24-plane */<br>
+ <br>
+-    fgmask = (default_red[fgmask] &lt;&lt; 16) |<br>
+-             (default_grn[fgmask] &lt;&lt;  8) |<br>
+-             (default_blu[fgmask] &lt;&lt;  0);<br>
+-    bgmask = (default_red[bgmask] &lt;&lt; 16) |<br>
+-             (default_grn[bgmask] &lt;&lt;  8) |<br>
+-             (default_blu[bgmask] &lt;&lt;  0);<br>
++    fgmask = (default_red[color_table[fgmask]] &lt;&lt; 16) |<br>
++             (default_grn[color_table[fgmask]] &lt;&lt;  8) |<br>
++             (default_blu[color_table[fgmask]] &lt;&lt;  0);<br>
++    bgmask = (default_red[color_table[bgmask]] &lt;&lt; 16) |<br>
++             (default_grn[color_table[bgmask]] &lt;&lt;  8) |<br>
++             (default_blu[color_table[bgmask]] &lt;&lt;  0);<br>
+ <br>
+     for ( i = 0; i &lt; TGA_F_HEIGHT_PADDED; i++ ) {<br>
+       if (i &lt; TGA_F_HEIGHT) {<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0459.html">Tim Rowley: "Re: UDB 24-bit server"</a>
+<li> <b>Previous message:</b> <a href="0457.html">Huw Davies: "Re: XL300's serial speed?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0465.html">B. James Phillippe: "Re: red and blue swapped on Alpha?"</a>
+<li> <b>Reply:</b> <a href="0465.html">B. James Phillippe: "Re: red and blue swapped on Alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

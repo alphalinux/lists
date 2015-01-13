@@ -1,0 +1,126 @@
+<!-- received="Mon Aug 11 18:09:53 1997 " -->
+<!-- sent="Mon, 11 Aug 1997 21:07:57 -0500 (CDT)" -->
+<!-- name="Thunderhawk Alpha" -->
+<!-- email="seafire@ix.netcom.com" -->
+<!-- subject="Latest patches seem to have broken pcmcia?" -->
+<!-- id="199708120207.VAA19067@dfw-ix5.ix.netcom.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Latest patches seem to have broken pcmcia?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Latest patches seem to have broken pcmcia?</h2>
+
+<b>Thunderhawk Alpha</b> (<a href="mailto:seafire@ix.netcom.com"><i>seafire@ix.netcom.com</i></a>)<br>
+<i>Mon, 11 Aug 1997 21:07:57 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#200">[ date ]</a><a href="index.html#200">[ thread ]</a><a href="subject.html#200">[ subject ]</a><a href="author.html#200">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0201.html">jestabro@amt.tay1.dec.com: "Re: ncr53c810 and linux boot problem"</a>
+<li> <b>Previous message:</b> <a href="0199.html">Thunderhawk Alpha: "Re: RH 4.2 fresh install on a UDB, can't run /bin/insmod from"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0212.html">Bob Bottomley: "Re: Latest patches seem to have broken pcmcia?"</a>
+<li> <b>Maybe reply:</b> <a href="0212.html">Bob Bottomley: "Re: Latest patches seem to have broken pcmcia?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I downloaded a pristine kernel and the new 2.0.30-0.1 patches and made a new<br>
+kernel. The new kernel lets quake run (un-breaks the MIT-SHM problem). Much<br>
+obliged to the contributors. However, when I recompiled the pcmcia stuff<br>
+(2.9.7) I get warnings about pointer-to-integer argument passing for<br>
+function __get_user. When insmod goes to load ds.o, i get:<br>
+<p>
+...ds.o: In function 'bind_request':<br>
+...pcmcia/ds.o(.text+0xfb0): Undefined reference to 'bad_user_access_length'<br>
+...pcmcia/ds.o(.text+0xfb4): Undefined reference to 'bad_user_access_length'<br>
+<p>
+I noticed there is a file in the pcmcia sources (include/pcmcia/k_compat.h)<br>
+that appears to have a convoluted ifdef structure to either redefine (or<br>
+not) a get_user function. I've included a snippet from there below. I'm not<br>
+proficient enough to know whether this is good, bad, or indifferent but I do<br>
+know something's broke now. Any suggestions would be helpful...<br>
+<p>
+<p>
+<a href="mailto:seafire@ix.netcom.com">seafire@ix.netcom.com</a><br>
+<p>
+--------------------------included file----------------------------<br>
+/*<br>
+ * k_compat.h 1.32 1997/06/30 15:27:16 (David Hinds)<br>
+ */<br>
+<p>
+&lt;------------snip---------------------&gt;<br>
+<p>
+#if (LINUX_VERSION_CODE &lt; VERSION(2,1,0))<br>
+#define copy_from_user		memcpy_fromfs<br>
+#define copy_to_user		memcpy_tofs<br>
+#define ioremap			vremap<br>
+#define iounmap			vfree<br>
+<p>
+#if (LINUX_VERSION_CODE &gt;= VERSION(1,3,0))<br>
+/* This is evil... throw away the built-in get_user in 1.3, 2.0 */<br>
+#include &lt;asm/segment.h&gt;<br>
+#undef get_user<br>
+#else<br>
+#define put_user(x, ptr) \<br>
+		((sizeof(*ptr) == 4) ? put_fs_long(x, ptr) : \<br>
+		 (sizeof(*ptr) == 2) ? put_fs_word(x, ptr) : \<br>
+		 put_fs_byte(x, ptr))<br>
+#endif<br>
+<p>
+#ifdef __alpha__<br>
+#define get_user(x, ptr)	__get_user(x, ptr)<br>
+#else<br>
+#define get_user(x, ptr) \<br>
+		((sizeof(*ptr) == 4) ? (x = get_fs_long(ptr)) : \<br>
+		 (sizeof(*ptr) == 2) ? (x = get_fs_word(ptr)) : \<br>
+		 (x = get_fs_byte(ptr)))<br>
+#endif<br>
+<p>
+#else /* 2.1.X */<br>
+#include &lt;asm/uaccess.h&gt;<br>
+#endif<br>
+<p>
+#endif /* _LINUX_K_COMPAT_H */<br>
+<p>
+&lt;---------------end of include------------------&gt;<br>
+<p>
+Thunderhawk Alpha<br>
+<a href="mailto:seafire@ix.netcom.com">seafire@ix.netcom.com</a><br>
+"One if by land, two if by sea, or press 0 followed by the pound sign to<br>
+leave a message."<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0201.html">jestabro@amt.tay1.dec.com: "Re: ncr53c810 and linux boot problem"</a>
+<li> <b>Previous message:</b> <a href="0199.html">Thunderhawk Alpha: "Re: RH 4.2 fresh install on a UDB, can't run /bin/insmod from"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0212.html">Bob Bottomley: "Re: Latest patches seem to have broken pcmcia?"</a>
+<li> <b>Maybe reply:</b> <a href="0212.html">Bob Bottomley: "Re: Latest patches seem to have broken pcmcia?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: API perfomance patches on ev56 ??</H1> 
+	
+<!-- received="Mon Oct 23 17:28:52 2000" -->
+<!-- isoreceived="20001024002852" -->
+<!-- sent="Mon, 23 Oct 2000 15:18:19 +0100" -->
+<!-- isosent="20001023141819" -->
+<!-- name="Stig Telfer" -->
+<!-- email="stig@alpha-processor.com" -->
+<!-- subject="Re: API perfomance patches on ev56 ??" -->
+<!-- id="p0433010bb619f669aaec@[192.233.59.204]" -->
+<!-- inreplyto="39F0A569.95BFD85A@appnet.com" -->
+<STRONG>Subject: </STRONG>Re: API perfomance patches on ev56 ??<BR>
+<STRONG>From: </STRONG>Stig Telfer (<EM>stig@alpha-processor.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Oct 23 07:18:19 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#261">[ date ]</A>
+<A HREF="index.shtml#261">[ thread ]</A>
+<A HREF="subject.shtml#261">[ subject ]</A>
+<A HREF="author.shtml#261">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0262.shtml">Maurice Hilarius: "Re: TRU64 License"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0260.shtml">Peter Petrakis: "kernelperf patches on EV56 success"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0250.shtml">Jeff Sturm: "Re: API perfomance patches on ev56 ??"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0268.shtml">Jeff Sturm: "Re: API perfomance patches on ev56 ??"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0250.shtml">Stig Telfer: "Re: API perfomance patches on ev56 ??"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello Jeff -
+<BR>
+<P>I have used WH64 with great success but there is a catch.  There 
+<BR>
+needs to be a delay of some length between the wh64 instruction and 
+<BR>
+following writes to the cache block in question.  The length of the 
+<BR>
+delay I don't know exactly - but it looks to be more than you're 
+<BR>
+using there.
+<BR>
+<P>I was writing a memory fill routine.  When implemented in the style 
+<BR>
+you have below the WH64 didn't have any effect.  Then I changed the 
+<BR>
+loops so that there was a WH64 loop over a consecutive 32K region of 
+<BR>
+memory then a fill loop over the same region.  This got me 77% of 
+<BR>
+peak memory bandwidth sustained over hundreds of megabytes.  Which is 
+<BR>
+way, way more than you could get without WH64 (since that would 
+<BR>
+involve read-modify-write cycles).  This was on a UP1000.  Also it 
+<BR>
+was using kernel-mode (kseg) addresses which bypass page faults.  So 
+<BR>
+you might not be quite so fortunate.
+<BR>
+<P>Regards,
+<BR>
+Stig Telfer
+<BR>
+<P><P><EM>&gt;Speaking of which, has anybody observed any benefit from wh64 in 
+</EM><BR>
+<EM>&gt;their code?  I
+</EM><BR>
+<EM>&gt;would have liked to use it in some heap libraries that allocate memory on
+</EM><BR>
+<EM>&gt;block-size (64-byte) boundaries.  Unfortunately I couldn't find any 
+</EM><BR>
+<EM>&gt;measureable
+</EM><BR>
+<EM>&gt;benefit whatsoever.  I don't have the code handy, but it was something like:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;   struct cb {
+</EM><BR>
+<EM>&gt;     long l1;
+</EM><BR>
+<EM>&gt;     long l2;
+</EM><BR>
+<EM>&gt;     long l3;
+</EM><BR>
+<EM>&gt;     long l4;
+</EM><BR>
+<EM>&gt;     long l5;
+</EM><BR>
+<EM>&gt;     long l6;
+</EM><BR>
+<EM>&gt;     long l7;
+</EM><BR>
+<EM>&gt;     long l8;
+</EM><BR>
+<EM>&gt;   } *p;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;   ...
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;   wh64(p);
+</EM><BR>
+<EM>&gt;   p-&gt;l1 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l2 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l3 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l4 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l5 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l6 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l7 = 0;
+</EM><BR>
+<EM>&gt;   p-&gt;l8 = 0;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;where the bottom six bits of &quot;p&quot; are zero.  It actually ran slower with wh64
+</EM><BR>
+<EM>&gt;than without.  Figuring I would need a delay between wh64 and the 
+</EM><BR>
+<EM>&gt;store, I tried
+</EM><BR>
+<EM>&gt;wh64(p+1) and other variations to no avail.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;--
+</EM><BR>
+<EM>&gt;Jeff Sturm
+</EM><BR>
+<EM>&gt;jeff.sturm@commerceone.com
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;_______________________________________________
+</EM><BR>
+<EM>&gt;Axp-list mailing list
+</EM><BR>
+<EM>&gt;Axp-list@redhat.com
+</EM><BR>
+<EM>&gt;https://listman.redhat.com/mailman/listinfo/axp-list
+</EM><BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0262.shtml">Maurice Hilarius: "Re: TRU64 License"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0260.shtml">Peter Petrakis: "kernelperf patches on EV56 success"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0250.shtml">Jeff Sturm: "Re: API perfomance patches on ev56 ??"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0268.shtml">Jeff Sturm: "Re: API perfomance patches on ev56 ??"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0250.shtml">Stig Telfer: "Re: API perfomance patches on ev56 ??"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Nov  2 08:06:28 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

@@ -1,0 +1,1609 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: Inline assembler sample code for</TITLE>
+<META NAME="Author" CONTENT="naohiko shimizu (nshimizu@et.u-tokai.ac.jp)">
+<META NAME="Subject" CONTENT="Inline assembler sample code for gcc.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Inline assembler sample code for gcc.</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:35 1999 EST" -->
+<!-- sent="Thu, 24 Dec 1998 16:07:00 +0900 (JST)" -->
+<!-- name="naohiko shimizu" -->
+<!-- email="nshimizu@et.u-tokai.ac.jp" -->
+<!-- subject="Inline assembler sample code for gcc." -->
+<!-- id="199812240707.QAA27104@et.u-tokai.ac.jp" -->
+<!-- inreplyto="" -->
+<STRONG>naohiko shimizu</STRONG> (<A HREF="mailto:nshimizu@et.u-tokai.ac.jp?subject=Re:%20Inline%20assembler%20sample%20code%20for%20gcc."><EM>nshimizu@et.u-tokai.ac.jp</EM></A>)<BR>
+<EM>Thu, 24 Dec 1998 16:07:00 +0900 (JST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#33">[ date ]</A>
+<A HREF="index.html#33">[ thread ]</A>
+<A HREF="subject.html#33">[ subject ]</A>
+<A HREF="author.html#33">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Kurt Garloff: "OT: High perf. comp./Comp. physics journal"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+My dgemm routine is now using inline assembler for the core loop.
+<BR>
+You can see the method in attached program.
+<BR>
+<P>(Of course because I reject to use the inner sub-matrix copy method,
+<BR>
+the top performance is not comparable to the Goto's routine. The
+<BR>
+copy method only reduce the translation buffer misses, and I think
+<BR>
+the responsibility for the overhead is on the vendor. Many RISC
+<BR>
+processors only have thier target to SPECmark, and our real application
+<BR>
+will strongly sufferes from the shortage of the translation buffer entries.
+<BR>
+I would like to change the situation. With my experience TLB of 1024 entries
+<BR>
+is not difficult to built, though many riscs only have 64!)
+<BR>
+<P><P>You can use my program as a tuning example for unrolling, software 
+<BR>
+pipelining, alternate way looping, inline assembler.
+<BR>
+<P>And you can use the program as a benchmark for memory/FP performance.
+<BR>
+Well balanced machine will hit higher performance.
+<BR>
+Compile with -O2 -DMAIN to generate benchmark code with gcc.
+<BR>
+If you have 21264 machine, add -Dev6 option. Or if you only have 21064(A)
+<BR>
+machines like me, add -Dev4.
+<BR>
+<P>Benchmark report with OS/compiler version is welcome.
+<BR>
+<P>Naohiko Shimizu.
+<BR>
+<P>==========================================================
+<BR>
+/*
+<BR>
+Fast DGEMM routine with Blocking and without the inner submatrix copy. 
+<BR>
+Smart OS should care of the shortage of TLB for programs like this.
+<BR>
+If your machine/OS does not exploit good performance with this program
+<BR>
+it may not be because of this program but because of the narrow bandwidth
+<BR>
+of memory or too little TLB or dummb OS.
+<BR>
+<P>You can do benchmark of your system and/or OS with this program.
+<BR>
+Compile with -DMAIN will produce the benchmark binary.
+<BR>
+If you run on a specific machine/OS which is not described on my WEB,
+<BR>
+please report the result to me with the information of the compiler
+<BR>
+and operating system and their version.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Last updated date : 98.12.24
+<BR>
+<P>Copyright 1998 by Naohiko Shimizu &lt;<A HREF="mailto:nshimizu@et.u-tokai.ac.jp?subject=Re:%20Inline%20assembler%20sample%20code%20for%20gcc.">nshimizu@et.u-tokai.ac.jp</A>&gt;
+<BR>
+<P>All rights reserved.
+<BR>
+<P>The blocking algorithm and strategy for the blocking factor is my
+<BR>
+original. If you want to use the same algorithm or to use the same
+<BR>
+strategy for the blocking factor, you must preserve the copyright 
+<BR>
+notice to the all programs and products which is derivable from this 
+<BR>
+program and/or description.
+<BR>
+<P>Contact information:
+<BR>
+<P>Dr. Naohiko Shimizu
+<BR>
+School of Engr. Tokai Univ.
+<BR>
+1117 Kitakaname Hiratsuka
+<BR>
+Kanagawa 259-1292 Japan
+<BR>
+email: <A HREF="mailto:nshimizu@et.u-tokai.ac.jp?subject=Re:%20Inline%20assembler%20sample%20code%20for%20gcc.">nshimizu@et.u-tokai.ac.jp</A>
+<BR>
+URL: <A HREF="http://shimizu-lab.et.u-tokai.ac.jp">http://shimizu-lab.et.u-tokai.ac.jp</A>
+<BR>
+<P>You can call this subroutine from C or FORTRAN.
+<BR>
+Only non-transposed routine is implemented.
+<BR>
+This program is not alpha specific. You can compile and run
+<BR>
+for many other architectures.
+<BR>
+<P>Some benchmarking results with my and my university's machines
+<BR>
+are on the WEB:
+<BR>
+<P><A HREF="http://shimizu-lab.et.u-tokai.ac.jp/pgm/gemm/bench.html">http://shimizu-lab.et.u-tokai.ac.jp/pgm/gemm/bench.html</A>
+<BR>
+<P>C:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void dgemms_nn(int m, int n, int k, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double alpha, double *a, int lda, double *b, int ldb, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double beta, double *c, int ldc);
+<BR>
+<P>*CATION* C user should know that the matrices is assumed to be stored
+<BR>
+in the FORTRAN order(Row Major).
+<BR>
+<P>FORTRAN:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;call dgemms_nn(m,n,k,alpha,a,lda,b,ldb,beta,c,ldc)
+<BR>
+<P>For benchmarking I placed main C routine. Use -DMAIN option to
+<BR>
+compile for benchmaking.
+<BR>
+<P>Compile options:
+<BR>
+<P>-DMAIN	: compile for benchmarking
+<BR>
+-Dev6	: compile for 21264
+<BR>
+-Dev4	: compile for 21064(A)
+<BR>
+-DRPCC	: use RPCC instruction to measure the time
+<BR>
+<P>-DNOMULTDIR : do not use up-down loop on m,n
+<BR>
+-DNOINLINECORE : do not use inline assembler code for alpha
+<BR>
+-DKMNLOOP : use k-&gt;m-&gt;n major loop order(default is k-&gt;n-&gt;m)
+<BR>
+<P>The core routine of DGEMM is matrices multiply. There are known
+<BR>
+way to use blocking algorithm for this problem. Usually they are
+<BR>
+intended only to the cache optimization. But for a large problem it is
+<BR>
+required to optimize the usage of translation buffer. Every matrix 
+<BR>
+element which is adjucent by one column will require an entry on the 
+<BR>
+translation buffer. Then buffer shortage will easily be occured on
+<BR>
+most RISC processors. This program is to demonstrate the blocking
+<BR>
+algorithm to reduce both the buffer miss and cache miss on a certain
+<BR>
+processor.
+<BR>
+<P>Conventional method:
+<BR>
+<P>Now we are going to solve a problem : C = aAB + bC.
+<BR>
+<P>A=[A11 A12 A13 ... ; A21  A22 A23 ...; ... ; As1 As2 ...]
+<BR>
+B=[B11 B12 B13 ... ; B21  B22 B23 ...; ... ; Bt1 Bt2 ...]
+<BR>
+C=[C11 C12 C13 ... ; C21  C22 C23 ...; ... ; Cs1 Cs2 ...]
+<BR>
+<P>Cij = bCij + a*sum(Ail*Blj for l=1 to t)
+<BR>
+<P>More square the Aij will result in less memory load traffic. And
+<BR>
+usually above algorithm is just implemented to reduce store traffic.
+<BR>
+<P>My method:
+<BR>
+<P>In fortran, the row direction is continuous on memory. Then if we
+<BR>
+calculate Ail*Blj for i=1 to n, the translation miss will be reduced.
+<BR>
+Of course this requires more temporaly result on Cij which induce to
+<BR>
+occure more store traffic. For many implementation of RISC machines,
+<BR>
+the second or third cache is organized as store-in cache. Then once
+<BR>
+store is required it must first read a cache block from memoy. And the
+<BR>
+store traffic is almost as heavy as the double of the same amount load
+<BR>
+traffic. Since the store occurence of that computation completely 
+<BR>
+depends on the number of column of Ail, we can control the traffic.
+<BR>
+The traffic by Blj can be almost ignored, because once Blj is loaded
+<BR>
+into the cache, many of Ail*Blj can be executed with the cached data.
+<BR>
+But the load traffic of Ail will be another major traffic for this
+<BR>
+problem. And we should keep the portion of Ail in cache as large as
+<BR>
+possible. But if the store traffic and the load traffic will both be
+<BR>
+affordable for a specific machine, we have a chance to induce the 
+<BR>
+maximum performance.
+<BR>
+<P>To fit in the translation buffer entry, the program should use
+<BR>
+blocking on Ail. The total number of the row times the sizeof double
+<BR>
+in a block should be fit in the pagesize of the processor. And the
+<BR>
+total number of the column of Ail, Blj, Cij should not be exceed the
+<BR>
+number of translation buffer entries.
+<BR>
+<P>The number of column of the Ail is arbitrary. The more will decrease 
+<BR>
+the store traffic and increase the load traffic, the less will increase
+<BR>
+the store traffic but decrease the load traffic.  Then there is some
+<BR>
+optimal point for a specific machine. 
+<BR>
+<P>The Ail will cause load traffic from the number of column of the Ail on
+<BR>
+every the number of column of Ail by the number of column of Blj
+<BR>
+submatrix multiplication. The Cij will cause store traffic on the
+<BR>
+every row of the Cij.
+<BR>
+<P>The parameter depends on the processor and memory system
+<BR>
+configuration, and you can tune for your system.
+<BR>
+But if the number of the translation buffer is small and load/store
+<BR>
+throughput is also small, the result will be hopeless. You should
+<BR>
+think to replace your machine.
+<BR>
+<P>If the Ail is aligned to the page size, it is easy to treat. But for
+<BR>
+general we cannot expect so. I assume that the translation buffer
+<BR>
+entries used by Ail will be doubled effectively. To be hold the
+<BR>
+all required page in the translation buffer.
+<BR>
+Of course this not ideal solution. You may want to align the A
+<BR>
+to the page boundary and set LDA to the factor of the pagesize.
+<BR>
+<P>The algorithm will be following:
+<BR>
+<P>do ii=1 to k, ail_clmn_size
+<BR>
+&nbsp;do jj=1 to m, ail_maj_blk_size
+<BR>
+&nbsp;&nbsp;do kk=1 to n, blj_clmn_size
+<BR>
+&nbsp;&nbsp;&nbsp;do  ll=jj to jj+ail_maj_blk_size
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ctmp_ll_kk += A_ll_ii*B_ii_kk
+<BR>
+&nbsp;&nbsp;&nbsp;enddo
+<BR>
+&nbsp;&nbsp;enddo
+<BR>
+&nbsp;enddo
+<BR>
+enddo
+<BR>
+<P>For AlphaPC164LX parameters:
+<BR>
+&nbsp;&nbsp;DTB 64 entries
+<BR>
+&nbsp;&nbsp;Page size 8KB
+<BR>
+&nbsp;&nbsp;load throughput  almost 700MB/S
+<BR>
+&nbsp;&nbsp;store throughput almost 400MB/S
+<BR>
+<P>Then I think the following number is affordable.
+<BR>
+<P>1. The number of column of Ail is 20
+<BR>
+2. The number of column of Blj,Cij is 12
+<BR>
+3. The blocking factor of the Ail row is 512 (just fit into the half page)
+<BR>
+<P>You may have a good result for 21264 with the parameter of:
+<BR>
+<P>1. The number of column of Ail is 40
+<BR>
+2. The number of column of Blj,Cij is 24
+<BR>
+3. The blocking factor of the Ail row is 512 (just fit into the half page)
+<BR>
+<P>History:
+<BR>
+<P>98.12.24: Inner most loop is now coded with inline assembler(only for alhpa)
+<BR>
+98.12.22: Introduce updown loop on the n.
+<BR>
+98.12.21: Change major loop order, introduce updown loop on the m.
+<BR>
+98.12.20: Change blocking default parameter, PA8K definitions added.
+<BR>
+98.12.18: Revised boundary condition of the unrollings again.
+<BR>
+Matrix B prefetch is designed not to hurt the load performance.
+<BR>
+98.12.17(2): Revised boundary condition of the unrollings.
+<BR>
+98.12.17: Revised not to use integer multiply for pointer traverse.
+<BR>
+Force to set Ail_max to the factor of 8 to reduce the followup loop.
+<BR>
+If you still need -DNOALGN may or may not help you.
+<BR>
+98.12.16: Revised the handling of alpha and beta parameters.
+<BR>
+98.12.15: Revised to do more execution in the inner loop.
+<BR>
+First version available :98.12.12
+<BR>
+<P>ToDo:
+<BR>
+1: Implement sub-matrix copy algorithm for comparing aid.
+<BR>
+2: Processor/System specific Ail_max, Blj_max should be developped to
+<BR>
+extract best performance. 
+<BR>
+<P>*/
+<BR>
+#ifdef DEBUG
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#endif
+<BR>
+#ifdef NOMULDIR
+<BR>
+#define NOMULDIRMM
+<BR>
+#define NOMULDIRM
+<BR>
+#define NOMULDIRN
+<BR>
+#endif
+<BR>
+<P>#if defined(__alpha__) || defined(__alpha)
+<BR>
+#if defined(ev4)
+<BR>
+#define PAGESIZE 8192
+<BR>
+#define CACHESIZE 16384
+<BR>
+#define L2CACHESIZE 524288
+<BR>
+#define TLBENTRY 32
+<BR>
+#elif defined(ev6)
+<BR>
+#define PREFETCHB
+<BR>
+#define PREFETCHC
+<BR>
+#define PAGESIZE 8192
+<BR>
+#define CACHESIZE 65536
+<BR>
+#define L2CACHESIZE 2097152
+<BR>
+#define TLBENTRY 128
+<BR>
+#else
+<BR>
+#define PREFETCHB
+<BR>
+#define PAGESIZE 8192
+<BR>
+#define CACHESIZE 98304
+<BR>
+#define L2CACHESIZE 2097152
+<BR>
+#define TLBENTRY 64
+<BR>
+#endif
+<BR>
+#elif defined(__hppa)
+<BR>
+#define PAGESIZE 4096
+<BR>
+#define CACHESIZE 1048576
+<BR>
+#define L2CACHESIZE 1048576
+<BR>
+#define TLBENTRY 96
+<BR>
+#define PREFETCHB
+<BR>
+#define PREFETCHC
+<BR>
+#elif defined(__i386__)
+<BR>
+#define PAGESIZE 4096
+<BR>
+#define CACHESIZE 8192
+<BR>
+#define L2CACHESIZE 262144
+<BR>
+#define TLBENTRY 64
+<BR>
+#else
+<BR>
+#define PAGESIZE 4096
+<BR>
+#define CACHESIZE 16384
+<BR>
+#define L2CACHESIZE 0
+<BR>
+#define TLBENTRY 32
+<BR>
+#endif
+<BR>
+#ifndef Ail_max
+<BR>
+#define Ail_max ((((TLBENTRY*3/8)&gt;&gt;2)&lt;&lt;2))
+<BR>
+#endif
+<BR>
+#ifndef Blj_max
+<BR>
+#define Blj_max ((((TLBENTRY*3/16)&gt;&gt;1))&lt;&lt;1)
+<BR>
+#endif
+<BR>
+#ifndef A_row_block
+<BR>
+#if (PAGESIZE/2 &gt; CACHESIZE/(Ail_max/2))
+<BR>
+#define A_row_block (CACHESIZE/(sizeof(double)*(Ail_max/2)))
+<BR>
+#else
+<BR>
+#define A_row_block (PAGESIZE/(2*sizeof(double)))
+<BR>
+#endif
+<BR>
+#endif
+<BR>
+<P><P>#if defined(__alpha__)
+<BR>
+#define prefetch(x) asm volatile(&quot;ldt $f31, %0&quot; : :&quot;m&quot;(x))
+<BR>
+#elif defined(__hppa) &amp;&amp; 0
+<BR>
+#define prefetch(x) _asm(&quot;fldd&quot;,x,&quot;%fr0&quot;)
+<BR>
+#else
+<BR>
+#define prefetch(x) 
+<BR>
+#endif
+<BR>
+<P><P>void dgemm_x_nn(int m, int n, int k,
+<BR>
+&nbsp;double alpha, double *a, int lda, double *b, int ldb, 
+<BR>
+&nbsp;double beta, double *c, int ldc, int submatcpy, double *submat)
+<BR>
+{
+<BR>
+int A_block;
+<BR>
+int i1,i3,i2,i4,i5,i6,i4end;
+<BR>
+int ndir, mdir, mmdir, i1step, i3step, i2step;
+<BR>
+double *pa0,*pa1,*pa2,*pa3,*pa4;
+<BR>
+double *pb0i,*pb0,*pb1,*pb2;
+<BR>
+double *pc0,*pc1,*pc2;
+<BR>
+double a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12;
+<BR>
+double b1,b2,b3,b4,b5,b6,b7,b8;
+<BR>
+double c1,c2,c3,c4,c5,c6;
+<BR>
+double t1,t2,t3,t4;
+<BR>
+<P>#ifndef SIMPLEABLOCK
+<BR>
+A_block = (m&gt;A_row_block)?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(m/(int)((float)m/(float)A_row_block + 0.9)):
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m;
+<BR>
+#else
+<BR>
+A_block=(m&gt;A_row_block)?A_row_block:m;
+<BR>
+#endif
+<BR>
+A_block = (A_block &gt; 2)? A_block: 2;
+<BR>
+#if defined(DEBUG)
+<BR>
+printf(&quot;m: %d : A_block: %d:\n&quot;,m,A_block);
+<BR>
+#endif
+<BR>
+ndir = 0;
+<BR>
+mdir=0;
+<BR>
+i1=0;
+<BR>
+i1step = Ail_max;
+<BR>
+do {
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i1step(k): %d :\n&quot;,i1step);
+<BR>
+printf(&quot;i1(k) loop: %d to %d by %d:\n&quot;,i1,k-i1step,i1step);
+<BR>
+#endif
+<BR>
+for(i1=i1; i1&lt;=k-i1step ; i1+=i1step) { /*k*/
+<BR>
+&nbsp;mmdir = mdir;
+<BR>
+&nbsp;pa0 = a+i1*lda;
+<BR>
+#ifdef KMNLOOP
+<BR>
+&nbsp;&nbsp;&nbsp;i3=(mdir)?m:0;
+<BR>
+&nbsp;&nbsp;&nbsp;i3step = A_block;
+<BR>
+&nbsp;&nbsp;do {
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i3step(m): %d :\n&quot;,i3step);
+<BR>
+printf(&quot;i3(m) loop: %d to %d by %d:\n&quot;,i3,
+<BR>
+(mdir)?(i3&gt;=i3step):(i3&lt;=m-i3step),(mdir)?-i3step:i3step);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;for(i3=i3; (mdir)?(i3&gt;=i3step):(i3&lt;=m-i3step); i3+=(mdir)?-i3step:i3step) { /*m*/
+<BR>
+#endif
+<BR>
+&nbsp;i2step = Blj_max;
+<BR>
+&nbsp;i2=(ndir)?n:0;
+<BR>
+&nbsp;do {
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i2step(n): %d :\n&quot;,i2step);
+<BR>
+printf(&quot;i2(n) loop: %d to %d by %d:\n&quot;,i2,
+<BR>
+(ndir)?(i2&gt;=i2step):(i2&lt;=n-i2step),(ndir)?-i2step:i2step);
+<BR>
+#endif
+<BR>
+for(i2=i2; (ndir)?(i2&gt;=i2step):(i2&lt;=n-i2step); i2+=(ndir)?-i2step:i2step) { /*n*/
+<BR>
+&nbsp;&nbsp;&nbsp;pc0=c+((ndir)?(i2-i2step):i2)*ldc;
+<BR>
+&nbsp;&nbsp;&nbsp;pb0=b+((ndir)?(i2-i2step):i2)*ldb;
+<BR>
+#ifndef KMNLOOP
+<BR>
+&nbsp;&nbsp;&nbsp;i3=(mdir)?m:0;
+<BR>
+&nbsp;&nbsp;&nbsp;i3step = A_block;
+<BR>
+&nbsp;&nbsp;do {
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i3step(m): %d :\n&quot;,i3step);
+<BR>
+printf(&quot;i3(m) loop: %d to %d by %d:\n&quot;,i3,
+<BR>
+(mdir)?(i3&gt;=i3step):(i3&lt;=m-i3step),(mdir)?-i3step:i3step);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;for(i3=i3; (mdir)?(i3&gt;=i3step):(i3&lt;=m-i3step); i3+=(mdir)?-i3step:i3step) { /*m*/
+<BR>
+#endif
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i4(m) loop: %d to %d by %d:\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;(mmdir)?((mdir)?i3-3:i3+i3step-3):((mdir)?i3-i3step:i3),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((mmdir)?((mdir)?i3-i3step:i3):((mdir)?i3-3:i3+i3step-3)),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(mmdir)?-3:3);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;i4end=(mmdir)?((mdir)?i3-i3step:i3):((mdir)?i3-3:i3+i3step-3);
+<BR>
+&nbsp;&nbsp;&nbsp;for(i4= (mmdir)?((mdir)?i3-3:i3+i3step-3):(mdir)?i3-i3step:i3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((mmdir)?(i4&gt;=i4end):(i4&lt;=i4end)) &amp;&amp; i1step&gt;=4; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i4+=(mmdir)?-3:3) { /* m */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pb0i = pb0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pc1 = pc0+i4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pc2 = pc1+ldc;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i6(n) loop: %d to %d by %d:\n&quot;,i2-i2step*ndir,i2+(1-ndir)*i2step-2,2);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i6=(ndir)?i2-i2step:i2; i6&lt;=((ndir)?i2-2:i2+i2step-2); i6+=2) { /* n */
+<BR>
+&nbsp;/*    for(i6=i2; i6&lt;=i2+i2step-2; i6+=2) { n */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 = pa0+i4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa2 = pa1 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa3 = pa2 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa4 = pa3 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 = pb0i+i1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb2 = pb1 + ldb;
+<BR>
+#ifdef PREFETCHC
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*pc1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*pc2);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a1 = *(pa1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a2 = *(pa2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a3 = *(pa3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a4 = *(pa4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a5 = *(pa1+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a6 = *(pa2+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a7 = *(pa3+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a8 = *(pa4+ 1); 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a9 = *(pa1+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a10 = *(pa2+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a11 = *(pa3+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a12 = *(pa4+ 2); 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1 = *pb1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b2 = *(pb1 + 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b3 = *(pb1 + 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b4 = *(pb1 + 3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b5 = *pb2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b6 = *(pb2 + 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b7 = *(pb2 + 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b8 = *(pb2 + 3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 =  0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 =  0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c5 =  0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 =  0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c4 =  0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c6 =  0.0;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i5(k) loop: %d to %d by %d:\n&quot;,i1,i1+i1step,4);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i5=i1; i5&lt;i1+i1step-4; i5+=4) { /* k */
+<BR>
+#if defined(__alpha__) &amp;&amp; !defined(NOINLINECORE) 
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;a1 %e a2 %e a3 %e a4 %e\n&quot;, a1,a2,a3,a4);
+<BR>
+printf(&quot;a5 %e a6 %e a7 %e a8 %e\n&quot;, a5,a6,a7,a8);
+<BR>
+printf(&quot;a9 %e a10 %e a11 %e a12 %e\n&quot;, a9,a10,a11,a12);
+<BR>
+printf(&quot;b1 %e b2 %e b3 %e b4 %e\n&quot;, b1,b2,b3,b4);
+<BR>
+printf(&quot;b5 %e b6 %e b7 %e b8 %e\n&quot;, b5,b6,b7,b8);
+<BR>
+#endif
+<BR>
+asm volatile(&quot; s8addq %1,%2,%0&quot;:&quot;r=&quot;(pa1):&quot;r&quot;(lda),&quot;r&quot;(pa4));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a1),&quot;f&quot;(b1));
+<BR>
+asm volatile(&quot; s8addq %1,%2,%0&quot;:&quot;r=&quot;(pa2):&quot;r&quot;(lda),&quot;r&quot;(pa1));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a5),&quot;f&quot;(b1));
+<BR>
+asm volatile(&quot; addq %2,%1,%0&quot;:&quot;r=&quot;(pb1):&quot;i&quot;(32),&quot;r&quot;(pb1));
+<BR>
+asm volatile(&quot; addq %2,%1,%0&quot;:&quot;r=&quot;(pb2):&quot;i&quot;(32),&quot;r&quot;(pb2));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a9),&quot;f&quot;(b1));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b1):&quot;m&quot;(*pb1));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a1),&quot;f&quot;(b5));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a1):&quot;m&quot;(*pa1));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c1):&quot;f&quot;(t1),&quot;f&quot;(c1));
+<BR>
+asm volatile(&quot; s8addq %1,%2,%0&quot;:&quot;r=&quot;(pa3):&quot;r&quot;(lda),&quot;r&quot;(pa2));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a5),&quot;f&quot;(b5));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a5):&quot;m&quot;(*(pa1+1)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c2):&quot;f&quot;(t2),&quot;f&quot;(c2));
+<BR>
+asm volatile(&quot; s8addq %1,%2,%0&quot;:&quot;r=&quot;(pa4):&quot;r&quot;(lda),&quot;r&quot;(pa3));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a9),&quot;f&quot;(b5));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a9):&quot;m&quot;(*(pa1+2)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c3):&quot;f&quot;(t3),&quot;f&quot;(c3));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b5):&quot;m&quot;(*(pb2+0)));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a2),&quot;f&quot;(b2));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c4):&quot;f&quot;(t4),&quot;f&quot;(c4));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a6),&quot;f&quot;(b2));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c5):&quot;f&quot;(t1),&quot;f&quot;(c5));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a10),&quot;f&quot;(b2));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b2):&quot;m&quot;(*(pb1+1)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c6):&quot;f&quot;(t2),&quot;f&quot;(c6));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a2),&quot;f&quot;(b6));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a2):&quot;m&quot;(*(pa2+0)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c1):&quot;f&quot;(t3),&quot;f&quot;(c1));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a6),&quot;f&quot;(b6));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a6):&quot;m&quot;(*(pa2+1)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c2):&quot;f&quot;(t4),&quot;f&quot;(c2));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a10),&quot;f&quot;(b6));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a10):&quot;m&quot;(*(pa2+2)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c3):&quot;f&quot;(t1),&quot;f&quot;(c3));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b6):&quot;m&quot;(*(pb2+1)));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a3),&quot;f&quot;(b3));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c4):&quot;f&quot;(t2),&quot;f&quot;(c4));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a7),&quot;f&quot;(b3));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c5):&quot;f&quot;(t3),&quot;f&quot;(c5));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a11),&quot;f&quot;(b3));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b3):&quot;m&quot;(*(pb1+2)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c6):&quot;f&quot;(t4),&quot;f&quot;(c6));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a3),&quot;f&quot;(b7));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a3):&quot;m&quot;(*(pa3+0)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c1):&quot;f&quot;(t1),&quot;f&quot;(c1));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a7),&quot;f&quot;(b7));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a7):&quot;m&quot;(*(pa3+1)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c2):&quot;f&quot;(t2),&quot;f&quot;(c2));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a11),&quot;f&quot;(b7));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b7):&quot;m&quot;(*(pb2+2)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c3):&quot;f&quot;(t3),&quot;f&quot;(c3));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a11):&quot;m&quot;(*(pa3+2)));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a4),&quot;f&quot;(b4));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c4):&quot;f&quot;(t4),&quot;f&quot;(c4));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a8),&quot;f&quot;(b4));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c5):&quot;f&quot;(t1),&quot;f&quot;(c5));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t1):&quot;f&quot;(a12),&quot;f&quot;(b4));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c6):&quot;f&quot;(t2),&quot;f&quot;(c6));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b4):&quot;m&quot;(*(pb1+3)));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t2):&quot;f&quot;(a4),&quot;f&quot;(b8));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a4):&quot;m&quot;(*(pa4+0)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c1):&quot;f&quot;(t3),&quot;f&quot;(c1));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t3):&quot;f&quot;(a8),&quot;f&quot;(b8));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a8):&quot;m&quot;(*(pa4+1)));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c2):&quot;f&quot;(t4),&quot;f&quot;(c2));
+<BR>
+asm volatile(&quot; mult %1,%2,%0&quot;:&quot;f=&quot;(t4):&quot;f&quot;(a12),&quot;f&quot;(b8));
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(a12):&quot;m&quot;(*(pa4+2)));
+<BR>
+/*
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c3):&quot;f&quot;(t1),&quot;f&quot;(c3));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c4):&quot;f&quot;(t2),&quot;f&quot;(c4));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c5):&quot;f&quot;(t3),&quot;f&quot;(c5));
+<BR>
+asm volatile(&quot; addt %1,%2,%0&quot;:&quot;f=&quot;(c6):&quot;f&quot;(t4),&quot;f&quot;(c6));
+<BR>
+*/
+<BR>
+<P>&nbsp;&nbsp;c3 = t1 + c3;
+<BR>
+asm volatile(&quot; ldt %0,%1&quot;:&quot;f=&quot;(b8):&quot;m&quot;(*(pb2+3)));
+<BR>
+&nbsp;&nbsp;c4 = t2 + c4;
+<BR>
+&nbsp;&nbsp;c5 = t3 + c5;
+<BR>
+&nbsp;&nbsp;c6 = t4 + c6;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;c1=%e,c2=%e,c3=%e,c4=%e,c5=%e,c6=%e\n&quot;, c1,c2,c3,c4,c5,c6);
+<BR>
+#endif
+<BR>
+#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = c1 + (a1*b1+a2*b2+a3*b3+a4*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = c2 + (a5*b1+a6*b2+a7*b3+a8*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = c3 + (a9*b1+a10*b2+a11*b3+a12*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c4 = c4 + (a1*b5+a2*b6+a3*b7+a4*b8);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c5 = c5 + (a5*b5+a6*b6+a7*b7+a8*b8);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c6 = c6 + (a9*b5+a10*b6+a11*b7+a12*b8);
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;a1 %e a2 %e a3 %e a4 %e\n&quot;, a1,a2,a3,a4);
+<BR>
+printf(&quot;a5 %e a6 %e a7 %e a8 %e\n&quot;, a5,a6,a7,a8);
+<BR>
+printf(&quot;a9 %e a10 %e a11 %e a12 %e\n&quot;, a9,a10,a11,a12);
+<BR>
+printf(&quot;b1 %e b2 %e b3 %e b4 %e\n&quot;, b1,b2,b3,b4);
+<BR>
+printf(&quot;b5 %e b6 %e b7 %e b8 %e\n&quot;, b5,b6,b7,b8);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 = pa4 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa2 = pa1 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa3 = pa2 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa4 = pa3 + lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 += 4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb2 += 4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1 = *pb1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b2 = *(pb1 + 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b3 = *(pb1 + 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b4 = *(pb1 + 3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b5 = *pb2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b6 = *(pb2 + 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b7 = *(pb2 + 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b8 = *(pb2 + 3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a1 = *(pa1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a5 = *(pa1+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a9 = *(pa1+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a2 = *(pa2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a6 = *(pa2+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a10 = *(pa2+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a3 = *(pa3);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a7 = *(pa3+ 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a11 = *(pa3+ 2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a4 = *(pa4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a8 = *(pa4+ 1); 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a12 = *(pa4+ 2); 
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} /*k*/
+<BR>
+#ifdef PREFETCHB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*(pb2+ldb));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*(pb2+2*ldb));
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = c1 + (a1*b1+a2*b2+a3*b3+a4*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = c2 + (a5*b1+a6*b2+a7*b3+a8*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = c3 + (a9*b1+a10*b2+a11*b3+a12*b4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c4 = c4 + (a1*b5+a2*b6+a3*b7+a4*b8);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c5 = c5 + (a5*b5+a6*b6+a7*b7+a8*b8);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c6 = c6 + (a9*b5+a10*b6+a11*b7+a12*b8);
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;a1 %e a2 %e a3 %e a4 %e\n&quot;, a1,a2,a3,a4);
+<BR>
+printf(&quot;a5 %e a6 %e a7 %e a8 %e\n&quot;, a5,a6,a7,a8);
+<BR>
+printf(&quot;a9 %e a10 %e a11 %e a12 %e\n&quot;, a9,a10,a11,a12);
+<BR>
+printf(&quot;b1 %e b2 %e b3 %e b4 %e\n&quot;, b1,b2,b3,b4);
+<BR>
+printf(&quot;b5 %e b6 %e b7 %e b8 %e\n&quot;, b5,b6,b7,b8);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = ((i1 == 0)? beta*(*(pc1+1)) : (*(pc1+1)))+c2*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = ((i1 == 0)? beta*(*(pc1+2)) : (*(pc1+2)))+c3*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c4 = ((i1 == 0)? beta*(*(pc2+0)) : (*(pc2+0)))+c4*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c5 = ((i1 == 0)? beta*(*(pc2+1)) : (*(pc2+1)))+c5*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c6 = ((i1 == 0)? beta*(*(pc2+2)) : (*(pc2+2)))+c6*alpha;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;c1=%e,c2=%e,c3=%e,c4=%e,c5=%e,c6=%e\n&quot;, c1,c2,c3,c4,c5,c6);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*pc1     = c1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc1+1) = c2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc1+2) = c3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*pc2     = c4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc2+1) = c5;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc2+2) = c6;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pc1 += 2*ldc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pc2 += 2*ldc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb0i += 2*ldb;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}/*n*/
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i6(n) loop: %d to %d by %d:\n&quot;,i6,i2+(1-ndir)*i2step,1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i6=i6; i6&lt;((ndir)?i2:i2+i2step); i6+=1) { /* n */
+<BR>
+/*     for(i6=i6; i6&lt;i2+i2step; i6++) { n */
+<BR>
+#ifdef PREFETCHC
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*pc1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 = pa0+i4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 = pb0i+i1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = 0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = 0.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = 0.0;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i5(k) loop: %d to %d by %d:\n&quot;,i1,i1+i1step,1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i5=i1; i5&lt;i1+i1step; i5++) { /* k */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a1 = (*pa1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a2 = *(pa1+1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a3 = *(pa1+2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1 = (*pb1);
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n&quot;,i1,i3,i2,i4,i5,i6);
+<BR>
+printf(&quot;a1 %e b1 %e c1 %e\n&quot;, a1,b1,c1);
+<BR>
+printf(&quot;a2 %e b1 %e c2 %e\n&quot;, a2,b1,c2);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = c1 + a1*b1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = c2 + a2*b1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = c3 + a3*b1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 += lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 ++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+#ifdef PREFETCHB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prefetch(*(pb1+ldb));
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c2 = ((i1 == 0)? beta*(*(pc1+1)) : (*(pc1+1)))+c2*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c3 = ((i1 == 0)? beta*(*(pc1+2)) : (*(pc1+2)))+c3*alpha;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;c1= %e, c2= %e, c3 = %e\n&quot;, c1,c2,c3);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*pc1 = c1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc1+1) = c2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(pc1+2) = c3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pc1 += ldc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb0i += ldb;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i4 loop: %d to %d by %d:\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;(mmdir)?((mdir)?i3-i3step:i3):i4,
+<BR>
+&nbsp;&nbsp;&nbsp;(mmdir)?i4+3:(mdir)?i3:(i3+i3step), 
+<BR>
+&nbsp;&nbsp;&nbsp;1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;i4end = (mmdir)?i4+3:(mdir)?i3:i3+i3step; 
+<BR>
+&nbsp;&nbsp;&nbsp;for(i4=(mmdir)?((mdir)?(i3-i3step):i3):i4; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i4&lt;i4end;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i4+=1) { /* m */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pc1 = pc0+i4;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i6(n) loop: %d to %d by %d:\n&quot;,i2-i2step*ndir,i2+(1-ndir)*i2step,1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pb0i=pb0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for(i6=(ndir)?i2-i2step:i2; i6&lt;((ndir)?i2:i2+i2step); i6+=1) { /* n */
+<BR>
+/*     for(i6=i2; i6&lt;i2+i2step; i6+=1) { n */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 = pa0+i4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 = pb0i+i1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = 0.0;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i5(k) loop: %d to %d by %d:\n&quot;,i1,i1+i1step-4,4);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i5=i1; i5&lt;=i1+i1step-4; i5+=4) { /* k */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a1 = *pa1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1 = *pb1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a2 = *(pa1+lda);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b2 = *(pb1+1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a3 = *(pa1+2*lda);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b3 = *(pb1+2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a4 = *(pa1+2*lda+lda);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b4 = *(pb1+3);
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n&quot;,i1,i3,i2,i4,i5,i6);
+<BR>
+printf(&quot;a1 %e b1 %e c1 %e\n&quot;, a1,b1,c1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = c1 + a1*b1+a2*b2+a3*b3+a4*b4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 += 4*lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1 += 4;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} /* i5 */
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i5(k) loop: %d to %d by %d:\n&quot;,i1,i1+i1step,1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i5=i5; i5&lt;i1+i1step; i5+=1) { /* k */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a1 = *pa1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1 = *pb1;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n&quot;,i1,i3,i2,i4,i5,i6);
+<BR>
+printf(&quot;a1 %e b1 %e c1 %e\n&quot;, a1,b1,c1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = c1 + a1*b1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pa1 += lda;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb1++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} /* i5 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*pc1 = c1;
+<BR>
+#ifdef DEBUG
+<BR>
+printf(&quot;c1= %e\n&quot;, c1);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pc1 += ldc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pb0i += ldb;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;} /* i6 */
+<BR>
+&nbsp;&nbsp;&nbsp;} /* i4 */
+<BR>
+#ifdef KMNLOOP
+<BR>
+#ifndef NOMULTDIRMM
+<BR>
+&nbsp;&nbsp;mmdir = 1-mmdir;
+<BR>
+#endif
+<BR>
+&nbsp;} /* i2 */
+<BR>
+&nbsp;i2step = ((ndir)?(i2&gt;=2 &amp;&amp; i2step&gt;2):(n-i2)&gt;=2 &amp;&amp; i2step&gt;2)?  (ndir)?((i2&gt;&gt;1)&lt;&lt;1):(((n-i2)&gt;&gt;1)&lt;&lt;1): 1;
+<BR>
+&nbsp;} while ((ndir)?(i2 &gt; 0):(i2&lt;n));
+<BR>
+#ifndef NOMULTDIRN
+<BR>
+&nbsp;&nbsp;ndir = 1-ndir;
+<BR>
+#endif
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;} /* i3 */
+<BR>
+&nbsp;&nbsp;i3step = ((mdir)?(i3&gt;=3 &amp;&amp; i3step&gt;3):(m-i3)&gt;=3 &amp;&amp; i3step&gt;3)?  (mdir)?(i3):(m-i3): 1;
+<BR>
+&nbsp;&nbsp;} while ((mdir)?(i3 &gt; 0):(i3&lt;m));
+<BR>
+#ifdef KMNLOOP
+<BR>
+#ifndef NOMULTDIRM
+<BR>
+&nbsp;&nbsp;mdir = 1-mdir;
+<BR>
+#endif
+<BR>
+#else
+<BR>
+&nbsp;} /* i2 */
+<BR>
+&nbsp;i2step = ((ndir)?(i2&gt;=2 &amp;&amp; i2step&gt;2):(n-i2)&gt;=2 &amp;&amp; i2step&gt;2)?  (ndir)?((i2&gt;&gt;1)&lt;&lt;1):(((n-i2)&gt;&gt;1)&lt;&lt;1): 1;
+<BR>
+&nbsp;} while ((ndir)?(i2 &gt; 0):(i2&lt;n));
+<BR>
+#ifndef NOMULTDIRM
+<BR>
+&nbsp;&nbsp;mdir = 1-mdir;
+<BR>
+#endif
+<BR>
+#ifndef NOMULTDIRMM
+<BR>
+&nbsp;&nbsp;mmdir = 1-mmdir;
+<BR>
+#endif
+<BR>
+#ifndef NOMULTDIRN
+<BR>
+&nbsp;&nbsp;ndir = 1-ndir;
+<BR>
+#endif
+<BR>
+#endif
+<BR>
+} /* i1 */
+<BR>
+i1step = ((k-i1)&gt;=4 &amp;&amp; i1step&gt;4)?  (((k-i1)&gt;&gt;2)&lt;&lt;2): 1;
+<BR>
+} while (i1 &lt; k);
+<BR>
+}
+<BR>
+<P>void dgemmc_nn(int m, int n, int k,
+<BR>
+&nbsp;double alpha, double *a, int lda, double *b, int ldb, 
+<BR>
+&nbsp;double beta, double *c, int ldc)
+<BR>
+{
+<BR>
+double sub[Ail_max*A_row_block];
+<BR>
+dgemm_x_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, 1, sub);
+<BR>
+}
+<BR>
+void dgemms_nn(int m, int n, int k,
+<BR>
+&nbsp;double alpha, double *a, int lda, double *b, int ldb, 
+<BR>
+&nbsp;double beta, double *c, int ldc)
+<BR>
+{
+<BR>
+dgemm_x_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, 0, (void *)0);
+<BR>
+}
+<BR>
+<P>void dgemms_nn_(int *m, int *n, int *k,
+<BR>
+&nbsp;double *alpha, double *a, int *lda, double *b, int *ldb, 
+<BR>
+&nbsp;double *beta, double *c, int *ldc) {
+<BR>
+&nbsp;&nbsp;&nbsp;dgemms_nn(*m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P>#ifdef MAIN
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+#include &lt;sys/times.h&gt;
+<BR>
+#include &lt;time.h&gt;
+<BR>
+<P>#define LDA    1001
+<BR>
+#define LDB    1001
+<BR>
+#define LDC    1001
+<BR>
+<P>#define SIZE 1000
+<BR>
+<P>#define SIZE_M SIZE
+<BR>
+#define SIZE_N SIZE
+<BR>
+#define SIZE_K SIZE
+<BR>
+<P>#define REPEAT 3
+<BR>
+<P><P>#if defined(RPCC)
+<BR>
+<P>static inline unsigned int realcc(void){
+<BR>
+&nbsp;&nbsp;unsigned int cc;
+<BR>
+<P>&nbsp;&nbsp;asm volatile(&quot;rpcc %0&quot; : &quot;=r&quot;(cc));
+<BR>
+&nbsp;&nbsp;return cc;
+<BR>
+}
+<BR>
+<P>#ifndef CPS
+<BR>
+#define CPS 300000000
+<BR>
+#endif
+<BR>
+<P>#else
+<BR>
+#define realcc() (int)clock()
+<BR>
+#define CPS CLOCKS_PER_SEC
+<BR>
+#endif
+<BR>
+<P>int main(int argc, char *argv[]){
+<BR>
+<P>&nbsp;&nbsp;double *a, *b, *c;
+<BR>
+&nbsp;&nbsp;double alpha, beta;
+<BR>
+&nbsp;&nbsp;int i,j,repeat;
+<BR>
+&nbsp;&nbsp;int m, n, k;
+<BR>
+&nbsp;&nbsp;int lda, ldb, ldc;
+<BR>
+&nbsp;&nbsp;int errflag;
+<BR>
+&nbsp;&nbsp;int start, stop;
+<BR>
+&nbsp;&nbsp;int start1, stop1;
+<BR>
+<P>&nbsp;&nbsp;if(argc&gt;1) {m=n=k=atoi(argv[1]);}
+<BR>
+&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m=SIZE_M;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n=SIZE_N;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;k=SIZE_K;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;if(argc&gt;2) {lda=ldb=ldc=atoi(argv[2]);}
+<BR>
+&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda = LDA;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldb = LDB;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldc = LDC;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;alpha = 2.0;
+<BR>
+&nbsp;&nbsp;beta  = 0.5;
+<BR>
+<P>&nbsp;&nbsp;if (( a=(double *)malloc(sizeof(double) * ldc * lda)) == NULL){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;Out of Memory!!\n&quot;);exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;if (( b=(double *)malloc(sizeof(double) * ldb * ldc)) == NULL){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;Out of Memory!!\n&quot;);exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;if (( c=(double *)malloc(sizeof(double) * ldb * lda)) == NULL){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;Out of Memory!!\n&quot;);exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;for(i=0;i&lt;ldc;i++) for(j=0;j&lt;lda;j++) a[i*lda +j]=i;
+<BR>
+&nbsp;&nbsp;for(i=0;i&lt;ldb;i++) for(j=0;j&lt;ldc;j++) b[i*ldb +j]=j;
+<BR>
+<P><P>&nbsp;&nbsp;printf(&quot;m:%3d n:%3d k:%3d\n&quot;, m, n, k);
+<BR>
+&nbsp;&nbsp;printf(&quot;Ail_max %d, Blj_max %d, A_row_block %d\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ail_max, Blj_max, A_row_block);
+<BR>
+<P>&nbsp;&nbsp;for(repeat=0;repeat&lt;REPEAT;repeat++) {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i=0;i&lt;ldb;i++) for(j=0;j&lt;lda;j++){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i*ldc +j]=1.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start1 = realcc();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dgemms_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stop1 = realcc();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Shimizu's DGEMM :%8.3f MFLOPS(%6.3f sec)\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.0*m*n*k*1e-6/((double)(stop1 - start1)/CPS),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(double)(stop1 - start1)/CPS);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;free(a);free(b);free(c);
+<BR>
+&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Kurt Garloff: "OT: High perf. comp./Comp. physics journal"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:40 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

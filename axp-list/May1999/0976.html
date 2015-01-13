@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Instability (RH6 ??)</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: Instability (RH6 ??)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Instability (RH6 ??)</H1>
+<HR>
+<P>
+<!-- received="Mon May 31 06:17:49 1999" -->
+<!-- isoreceived="19990531131749" -->
+<!-- sent="Sun, 30 May 1999 23:16:02 -0600 (MDT)" -->
+<!-- isosent="19990531051602" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Instability (RH6 ??)" -->
+<!-- id="199905310516.XAA19934@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="199905310210.WAA01031@alpha1.estabrook.org" -->
+<STRONG>Subject: </STRONG>Re: Instability (RH6 ??)<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Sun May 30 1999 - 22:16:02 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#976">[ date ]</A>
+<A HREF="index.html#976">[ thread ]</A>
+<A HREF="subject.html#976">[ subject ]</A>
+<A HREF="author.html#976">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0977.html">Wes Bauske: "Re: Instability (RH6 ??)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0975.html">Peter Petrakis: "Re: xconfig &amp; menuconfig really broken?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0974.html">Jay.Estabrook@digital.com: "Re: Instability (RH6 ??)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0977.html">Wes Bauske: "Re: Instability (RH6 ??)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0974.html">Michal Jaegermann: "Re: Instability (RH6 ??)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Jay.Estabrook@digital.com wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;&gt;&gt; Dave Gilbert said:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; P.S. Since installing RH6, ping gives unaligned errors and actually gives
+</EM><BR>
+<EM>&gt; &gt; data errors in the ping output - first time I've ever seen that.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Richard Henderson posted this only a few days ago:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I was pointed at and found the ping problem this week -- the source
+</EM><BR>
+<EM>&gt; expected struct timeval to be 2 32-bit words, one of the POSIX conformance
+</EM><BR>
+<EM>&gt; changes that happened between glibc 2.0 and 2.1.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I've given RH a patch (not handy at the moment).  I expect the same thing
+</EM><BR>
+<EM>&gt; to be the problem with traceroute.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>The following showed up in comp.os.linux.alpha some time ago:
+<BR>
+<P><P>&nbsp;Message-ID: &lt;373C443A.4B574A75@ife.ee.ethz.ch&gt;
+<BR>
+&nbsp;Date: Fri, 14 May 1999 17:41:46 +0200
+<BR>
+&nbsp;From: Alex Rhomberg &lt;rhomberg@ife.ee.ethz.ch&gt;
+<BR>
+&nbsp;Organization: Electronics Lab, ETH Zurich, Switzerland
+<BR>
+<P>ping in netkit 0.11+ assumes that timeval has a length of eight bytes
+<BR>
+and works with 32 bit alignment. This is no longer the case on my Alphas
+<BR>
+running Linux 2.2.5 and Redhat 6.0 (might be due to glibc 2.1??)
+<BR>
+Ping generated unaligned traps and erroneously reported receiving of
+<BR>
+wrong data.
+<BR>
+This is fixed by the following patch. Note that I did not read the whole
+<BR>
+code but just made some wild guesses. The unaligned traps and the wrong
+<BR>
+data errors are gone.
+<BR>
+<P>Regards
+<BR>
+- Alex
+<BR>
+<P>--- ping.unpatched.c    Fri May 14 17:30:50 1999
+<BR>
++++ ping.c      Fri May 14 17:31:06 1999
+<BR>
+@@ -394,7 +394,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(options &amp; F_PINGFILLED))
+<BR>
+-               for (i = 8; i &lt; datalen; ++i)
+<BR>
++               for (i = sizeof(struct timeval); i &lt; datalen; ++i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*datap++ = i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ident = getpid() &amp; 0xFFFF;
+<BR>
+@@ -657,11 +657,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;                 /* 'Twas not our ECHO */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++nreceived;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (timing) {
+<BR>
++                 struct timeval temp_tv;
+<BR>
+&nbsp;#ifndef icmp_data
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tp = (struct timeval *)(icp + 1);
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tp = (struct timeval *)icp-&gt;icmp_data;
+<BR>
+&nbsp;#endif
+<BR>
++                       if((long)tp % sizeof(tp-&gt;tv_sec))
+<BR>
++                       {
+<BR>
++                         char *unaligned_pointer = (char *)tp;
+<BR>
++                         tp = &amp;temp_tv;
+<BR>
++                         memcpy(tp, unaligned_pointer, sizeof(struct timeval));
+<BR>
++                       }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tvsub(&amp;tv, tp);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;triptime = tv.tv_sec * 10000 + (tv.tv_usec / 100);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tsum += triptime;
+<BR>
+@@ -697,9 +704,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void)printf(&quot; (DUP!)&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* check the data */
+<BR>
+&nbsp;#ifndef icmp_data
+<BR>
+-                       cp = ((u_char*)(icp + 1) + 8);
+<BR>
++                       cp = ((u_char*)(icp + 1) + sizeof(struct timeval));
+<BR>
+&nbsp;#else
+<BR>
+-                       cp = (u_char*)icp-&gt;icmp_data + 8;
+<BR>
++                       cp = (u_char*)icp-&gt;icmp_data + sizeof(struct timeval);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp = &amp;outpack[8 + sizeof(struct timeval)];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 8; i &lt; datalen; ++i, ++cp, ++dp) {
+<BR>
+<P><PRE>
+-- 
+  _________________________________________________________________
+ /                                                                 \
+|  Alex Rhomberg                           Tel: +41 1 632 49 18     |
+|  Institut fuer Elektronik                Fax: +41 1 632 12 10     |
+|  ETH Zuerich                        Zentrale: +41 1 632 11 11     |
+|  Gloriastrasse 35                                                 |
+|  8092 Zuerich               email: rhomberg@ife.ee.ethz.ch        |
+ \_________________________________________________________________/
+<P><P>I strongly suspect that doing an uncoditional copy instead of testing
+'tp' every time would be an overal win - but this is only a hunch.
+If you do the test then at least do:
+                       if( 0 != ((long)tp &amp; (sizeof(tp-&gt;tv_sec) - 1)))
+and move a declaration of temp_tv inside of a block, as I suspect that
+a compiler will be not smart enough, but basically that is it.
+<P>Wait a minute, an alignment on 8 bytes boundary, i.e. &quot; &amp; (sizeof(long) - 1)&quot;,
+should be good enough.  Details, details....
+<P>   Michal
+<P><P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0977.html">Wes Bauske: "Re: Instability (RH6 ??)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0975.html">Peter Petrakis: "Re: xconfig &amp; menuconfig really broken?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0974.html">Jay.Estabrook@digital.com: "Re: Instability (RH6 ??)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0977.html">Wes Bauske: "Re: Instability (RH6 ??)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0974.html">Michal Jaegermann: "Re: Instability (RH6 ??)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

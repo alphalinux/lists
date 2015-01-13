@@ -1,0 +1,176 @@
+<!-- received="Sun Mar 30 09:16:56 1997 " -->
+<!-- sent="Sun, 30 Mar 1997 14:11:42 +0000 (GMT)" -->
+<!-- name="Philip Blundell" -->
+<!-- email="phil@tazenda.demon.co.uk" -->
+<!-- subject="de4x5 patch" -->
+<!-- id="199703300526.WAA01695@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>de4x5 patch</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>de4x5 patch</h2>
+
+<b>Philip Blundell</b> (<a href="mailto:phil@tazenda.demon.co.uk"><i>phil@tazenda.demon.co.uk</i></a>)<br>
+<i>Sun, 30 Mar 1997 14:11:42 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#825">[ date ]</a><a href="index.html#825">[ thread ]</a><a href="subject.html#825">[ subject ]</a><a href="author.html#825">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0826.html">Stefan Krantz: "Problem installing RH4.1 on alpha"</a>
+<li> <b>Previous message:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here's a patch for the de4x5 ethernet driver.  It adds tx/rx byte<br>
+counters, reduces the massive stack usage in the de4x5_ioctl() routine,<br>
+and removes some dead code when not compiling as a module.<br>
+<p>
+phil<br>
+<p>
+diff -u -r1.1.1.1.2.1 de4x5.c<br>
+--- linux/drivers/net/de4x5.c	1997/03/27 20:00:17	1.1.1.1.2.1<br>
++++ linux/drivers/net/de4x5.c	1997/03/30 13:47:21<br>
+@@ -353,6 +353,7 @@<br>
+      0x00,0x18,}<br>
+ };<br>
+ <br>
++#undef DE4X5_VERBOSE     /* define to get more verbose startup messages */<br>
+ <br>
+ #ifdef DE4X5_DEBUG<br>
+ static int de4x5_debug = DE4X5_DEBUG;<br>
+@@ -768,7 +769,9 @@<br>
+ static void    yawn(struct device *dev, int state);<br>
+ static int     de4x5_dev_index(char *s);<br>
+ static void    link_modules(struct device *dev, struct device *tmp);<br>
++#ifdef MODULE<br>
+ static struct  device *unlink_modules(struct device *p);<br>
++#endif<br>
+ static void    de4x5_dbg_open(struct device *dev);<br>
+ static void    de4x5_dbg_mii(struct device *dev, int k);<br>
+ static void    de4x5_dbg_media(struct device *dev);<br>
+@@ -1068,7 +1071,10 @@<br>
+ 	printk("      and requires IRQ%d (provided by %s).\n", dev-&gt;irq,<br>
+ 	       ((lp-&gt;bus == PCI) ? "PCI BIOS" : "EISA CNFG"));<br>
+ <br>
+-	printk("INFOLEAF_SIZE: %d\nCOMPACT: %d\n", INFOLEAF_SIZE, COMPACT);<br>
++#ifdef DE4X5_VERBOSE<br>
++	printk("%s: INFOLEAF_SIZE: %ld, COMPACT: %ld\n", dev-&gt;name, <br>
++	       INFOLEAF_SIZE, COMPACT);<br>
++#endif<br>
+     }<br>
+     <br>
+     if (de4x5_debug &amp; DEBUG_VERSION) {<br>
+@@ -1293,6 +1299,9 @@<br>
+ 	    printk("%s: transmit busy, lost media or stale skb found:\n  STS:%08x\n  tbusy:%ld\n  IMR:%08x\n  OMR:%08x\n Stale skb: %s\n",dev-&gt;name, inl(DE4X5_STS), dev-&gt;tbusy, inl(DE4X5_IMR), inl(DE4X5_OMR), (lp-&gt;tx_skb[lp-&gt;tx_new] ? "YES" : "NO"));<br>
+ 	}<br>
+     } else if (skb-&gt;len &gt; 0) {<br>
++	/* Update the byte counter */<br>
++	lp-&gt;stats.tx_bytes += skb-&gt;len;<br>
++<br>
+ 	/* If we already have stuff queued locally, use that first */<br>
+ 	if (lp-&gt;cache.skb &amp;&amp; !dev-&gt;interrupt) {<br>
+ 	    de4x5_put_cache(dev, skb);<br>
+@@ -1316,7 +1325,7 @@<br>
+ 	}<br>
+ 	if (skb) de4x5_putb_cache(dev, skb);<br>
+     }<br>
+-    <br>
++<br>
+     lp-&gt;cache.lock = 0;<br>
+ <br>
+     return status;<br>
+@@ -1452,6 +1461,7 @@<br>
+ 		    <br>
+ 		/* Update stats */<br>
+ 		lp-&gt;stats.rx_packets++;<br>
++		lp-&gt;stats.rx_bytes += pkt_len;<br>
+ 		de4x5_local_stats(dev, skb-&gt;data, pkt_len);<br>
+ 	    }<br>
+ 	    <br>
+@@ -2081,6 +2091,7 @@<br>
+     return;<br>
+ }<br>
+ <br>
++#ifdef MODULE<br>
+ static struct device *<br>
+ unlink_modules(struct device *p)<br>
+ {<br>
+@@ -2103,6 +2114,7 @@<br>
+     <br>
+     return next;<br>
+ }<br>
++#endif<br>
+ <br>
+ /*<br>
+ ** Auto configure the media here rather than setting the port at compile<br>
+@@ -4660,12 +4672,18 @@<br>
+     u_long iobase = dev-&gt;base_addr;<br>
+     int i, j, status = 0;<br>
+     s32 omr;<br>
+-    union {<br>
+-	u8  addr[(HASH_TABLE_LEN * ETH_ALEN)];<br>
+-	u16 sval[(HASH_TABLE_LEN * ETH_ALEN) &gt;&gt; 1];<br>
+-	u32 lval[(HASH_TABLE_LEN * ETH_ALEN) &gt;&gt; 2];<br>
++    struct {<br>
++	u8  *addr;<br>
++	u16 *sval;<br>
++	u32 *lval;<br>
+     } tmp;<br>
+-    <br>
++<br>
++    tmp.addr = tmp.sval = tmp.lval = kmalloc(HASH_TABLE_LEN * ETH_ALEN, GFP_KERNEL);<br>
++    if (!tmp.addr){ <br>
++      printk("%s ioctl: memory squeeze.\n", dev-&gt;name);<br>
++      return -ENOMEM;<br>
++    }<br>
++<br>
+     switch(ioc-&gt;cmd) {<br>
+       case DE4X5_GET_HWADDR:           /* Get the hardware address */<br>
+ 	ioc-&gt;len = ETH_ALEN;<br>
+@@ -4916,7 +4934,9 @@<br>
+       default:<br>
+ 	status = -EOPNOTSUPP;<br>
+     }<br>
+-    <br>
++<br>
++    kfree(tmp.addr);<br>
++<br>
+     return status;<br>
+ }<br>
+ <br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0826.html">Stefan Krantz: "Problem installing RH4.1 on alpha"</a>
+<li> <b>Previous message:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

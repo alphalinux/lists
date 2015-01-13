@@ -1,0 +1,320 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Fixing &quot;unaligned trap&quot; errors</H1> 
+	
+<!-- received="Sat May 20 16:29:13 2000" -->
+<!-- isoreceived="20000520232913" -->
+<!-- sent="19 May 2000 13:51:01 -0400" -->
+<!-- isosent="20000519175101" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Re: Fixing &quot;unaligned trap&quot; errors" -->
+<!-- id="87g0re2zui.fsf@linuxcare.com" -->
+<!-- inreplyto="Tue, 16 May 2000 05:13:26 -0700 (PDT)&quot;" -->
+<STRONG>Subject: </STRONG>Re: Fixing "unaligned trap" errors<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri May 19 10:51:01 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#130">[ date ]</A>
+<A HREF="index.shtml#130">[ thread ]</A>
+<A HREF="subject.shtml#130">[ subject ]</A>
+<A HREF="author.shtml#130">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0131.shtml">Maurice Hilarius: "Re: aticle about DS10 / ccc vs gcc"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0129.shtml">William H. Magill: "Tru64 Unix Disklabel program and Linux disks"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0145.shtml">Michal Jaegermann: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0097.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+David Rysdam &lt;drysdam@yahoo.com&gt; writes:
+<BR>
+<P><EM>&gt; I've searched the list archives, but I can only find
+</EM><BR>
+<EM>&gt; one post that addresses how to fix &quot;unaligned trap&quot;
+</EM><BR>
+<EM>&gt; messages in one's own program.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; What I've been able to figure out so far:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -What file/line the error is in.
+</EM><BR>
+<P>You're doing pretty well, then.  You still need to find out exactly
+<BR>
+which variable or pointer is causing the fault.  GDB, 'objdump
+<BR>
+--source', or printf() should all serve equally well :-)
+<BR>
+<P><EM>&gt; What I still need to know:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -What the problem is.
+</EM><BR>
+<P>Alpha requires data to be &quot;naturally aligned&quot;.  In other words, data
+<BR>
+of type X must be stored at a memory location Y such that
+<BR>
+Y = 0 mod sizeof(X). [1]
+<BR>
+<P>Therefore the simplest description of the problem is that you are
+<BR>
+accessing a 32-bit or 64-bit number via a pointer that doesn't point
+<BR>
+to a 4 or 8-byte boundary.  e.g.:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char foo[24];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int * bar = foo + 2; /* BAD:  2 mod 4 == 2 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int * baz = foo + 8; /* GOOD: 8 mod 4 == 0 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long * quux = foo + 12; /* BAD:  12 mod 8 == 4 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long * argh = foo + 16; /* GOOD: 16 mod 8 == 0 */
+<BR>
+<P>Lots of legacy binary data formats have unaligned fields, because at
+<BR>
+the time, saving a few bytes on the 16-bit machines of the time was a
+<BR>
+higher priority than planning for 32 and 64-bit RISC machines of the
+<BR>
+future.
+<BR>
+<P>For example ... IP headers, DOS partition tables, DWARF2 exception
+<BR>
+frame info.
+<BR>
+<P>In general whenever you cast from a pointer to a smaller type to a
+<BR>
+pointer of a larger type you have a potential alignment problem.  (and
+<BR>
+of course, if the smaller type is not char*, you will also have
+<BR>
+problems with strict aliasing).  So, for example, if you define a
+<BR>
+global variable:  (this was a bug in Linux fdisk)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char foo[512];
+<BR>
+<P>Then later on do:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint64_t *bar = (uint64_t *) foo;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*bar = 42;
+<BR>
+<P>You have a good chance of producing an unaligned error.  [2]
+<BR>
+<P>Another way to cause this problem is if you concatenate two structs of
+<BR>
+different type in a single block of memory (this happens a lot when
+<BR>
+reading and writing binary file formats).  For example:
+<BR>
+<P>--- start program ---
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+<P>/* sizeof(struct foo) == 12 */
+<BR>
+struct foo {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int a, b, c;
+<BR>
+};
+<BR>
+struct bar {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long d, e, f;
+<BR>
+};
+<BR>
+<P>int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char *quux = malloc(sizeof(struct foo) + sizeof(struct bar));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct foo *s1 = (struct foo *) quux;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct bar *s2 = (struct bar *) (quux + sizeof(*s1));
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;s1 @ %#p, s2 @ %#p\n&quot;, s1, s2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s2-&gt;d = 42;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+--- end program ---
+<BR>
+<P>Results in:
+<BR>
+<P>[dhd@curacao]:~$ ./a.out 
+<BR>
+s1 @ 0x120100970, s2 @ 0x12010097c
+<BR>
+[dhd@curacao]:~$ dmesg | tail -1
+<BR>
+a.out(29802): unaligned trap at 00000001200005ec: 000000012010097c 2d 2
+<BR>
+<P><EM>&gt; -How to fix it.
+</EM><BR>
+<P>Well, if you can at all help it, don't play pointer games that result
+<BR>
+in unaligned data.  In particular, if you are designing a binary file
+<BR>
+format, make sure that all data in it are naturally aligned.
+<BR>
+<P>GCC has an __alignof__ keyword that works like 'sizeof' but evaluates
+<BR>
+to the required or optimal alignment for a type or an lvalue, which
+<BR>
+might help.  You can also use the 'aligned' attribute to specify a
+<BR>
+larger alignment for, e.g., arrays of char:
+<BR>
+<P>unsigned char foo[512] __attribute__ ((aligned(__alignof__(long))));
+<BR>
+<P>If you absolutely have to access unaligned data (for example, you are
+<BR>
+dealing with a legacy file format or data structure that you can't
+<BR>
+change), then you have a couple of options.
+<BR>
+<P>If you are reading binary data into memory you can sometimes &quot;pad&quot; a
+<BR>
+block of memory to move the necessary fields into alignment.  This of
+<BR>
+course requires that you know what the alignment of the block of
+<BR>
+memory is :-)  For example:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* struct partition contains two 32-bit fields that are 2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bytes out of alignment */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char _sect[512 + 2];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *sect = _sect + 2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct partition *part = sect + 0x1be;
+<BR>
+<P>But that only works if _sect is already aligned to at least
+<BR>
+sizeof(int), which may or may not be the case.
+<BR>
+<P>Thus, the other (more portable) way is to write a
+<BR>
+get_unaligned_8byte() or get_unaligned_4byte() macro or function to
+<BR>
+read and write the value in question.  Unfortunately the only portable
+<BR>
+way to do this in C (by reading a byte at a time and shifting/OR-ing
+<BR>
+them together) is incredibly wasteful on Alpha, but then again,
+<BR>
+unaligned traps are even more wasteful.
+<BR>
+<P>If you don't mind being GCC specific you can do something nasty like:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;union unaligned {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void *p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned b4 __attribute__ ((mode (SI)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned b8 __attribute__ ((mode (DI)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} __attribute__ ((packed));
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static inline unsigned long
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_8byte (void *p)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ union unaligned *up = p; return up-&gt;b8; }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static inline void
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write_8byte (void *p, unsigned long val)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ union unaligned *up = p; up-&gt;b8 = val; }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static inline unsigned int
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_4byte (void *p)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ union unaligned *up = p; return up-&gt;b4; }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static inline void
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write_4byte (void *p, unsigned int val)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ union unaligned *up = p; up-&gt;b4 = val; }
+<BR>
+<P>But I'm almost 100% certain that this will not work on, for example,
+<BR>
+CCC.
+<BR>
+<P>[1] Actually for 16-bit integers on non-BWX targets this isn't true
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;since they aren't supported in hardware, but you shouldn't rely on
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;that :-)
+<BR>
+<P>[2] If foo were an auto variable you would not have this problem since
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;the stack is always aligned to 8 bytes.
+<BR>
+<P><PRE>
+-- 
+David Huggins-Daines, Senior GNU/Linux Consultant, Linuxcare, Inc.
+613.562.1239 desk, 613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0131.shtml">Maurice Hilarius: "Re: aticle about DS10 / ccc vs gcc"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0129.shtml">William H. Magill: "Tru64 Unix Disklabel program and Linux disks"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0145.shtml">Michal Jaegermann: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0097.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Jun  1 09:46:25 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

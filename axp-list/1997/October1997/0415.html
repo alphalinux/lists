@@ -1,0 +1,194 @@
+<!-- received="Sun Oct 26 12:50:00 1997 " -->
+<!-- sent="Sun, 26 Oct 1997 19:46:31 +0200" -->
+<!-- name="Harvey J. Stein" -->
+<!-- email="abel@netvision.net.il" -->
+<!-- subject="A program that consistently crashes linux/axp - more info..." -->
+<!-- id="199710261746.TAA07343@blinky.bfr.co.il" -->
+<!-- inreplyto="199710260937.LAA30669@blinky.bfr.co.il" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>A program that consistently crashes linux/axp - more info...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>A program that consistently crashes linux/axp - more info...</h2>
+
+<b>Harvey J. Stein</b> (<a href="mailto:abel@netvision.net.il"><i>abel@netvision.net.il</i></a>)<br>
+<i>Sun, 26 Oct 1997 19:46:31 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#415">[ date ]</a><a href="index.html#415">[ thread ]</a><a href="subject.html#415">[ subject ]</a><a href="author.html#415">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<li> <b>Previous message:</b> <a href="0414.html">Sheer Panic: "Re: milo problems..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<li> <b>Reply:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+A little followup on the crash I'm seeing.<br>
+<p>
+When instruction stepping in the debugger it fails to happen.<br>
+Instead, I get an "Instruction fault 0".  This occurs the second time<br>
+the program hits this instruction:<br>
+<p>
+0x120006240 &lt;l_write+208&gt;:		a6090000  ldq        a0,0(s0)<br>
+<p>
+The first time the instruction is hit, "info reg" shows:<br>
+<p>
+a0             0x12013e164	4833141092<br>
+s0             0x120141010	4833153040<br>
+<p>
+and the second time it shows:<br>
+<p>
+a0             0x37393237363934	15544011556534580<br>
+s0             0x120141014	4833153044<br>
+<p>
+Evidentally the load is occurring off of an 8 byte boundary, which is<br>
+causing an instruction fault.<br>
+<p>
+So, there's probably a bug in either f2c or gcc (for producing this<br>
+unaligned load), but isn't this also a kernel bug?  Shouldn't this<br>
+cause an unaligned trap instead of this Instruction fault?<br>
+<p>
+For reference, here's how gdb disassembles the whole function:<br>
+<p>
+Dump of assembler code for function l_write:<br>
+0x120006170 &lt;l_write&gt;:		27bb0014  ldah       gp,20(t12)<br>
+0x120006174 &lt;l_write+4&gt;:		23bd1998  lda        gp,6552(gp)<br>
+0x120006178 &lt;l_write+8&gt;:		23deffc0  lda        sp,-64(sp)<br>
+0x12000617c &lt;l_write+12&gt;:		b75e0000  stq        ra,0(sp)<br>
+0x120006180 &lt;l_write+16&gt;:		b53e0008  stq        s0,8(sp)<br>
+0x120006184 &lt;l_write+20&gt;:		b55e0010  stq        s1,16(sp)<br>
+0x120006188 &lt;l_write+24&gt;:		b57e0018  stq        s2,24(sp)<br>
+0x12000618c &lt;l_write+28&gt;:		b59e0020  stq        s3,32(sp)<br>
+0x120006190 &lt;l_write+32&gt;:		b5be0028  stq        s4,40(sp)<br>
+0x120006194 &lt;l_write+36&gt;:		b5de0030  stq        s5,48(sp)<br>
+0x120006198 &lt;l_write+40&gt;:		4610040d  mov        a0,s4<br>
+0x12000619c &lt;l_write+44&gt;:		46310409  mov        a1,s0<br>
+0x1200061a0 &lt;l_write+48&gt;:		a42d0000  ldq        t0,0(s4)<br>
+0x1200061a4 &lt;l_write+52&gt;:		4652040b  mov        a2,s2<br>
+0x1200061a8 &lt;l_write+56&gt;:		4673040e  mov        a3,s5<br>
+0x1200061ac &lt;l_write+60&gt;:		43e109a1  cmplt      zero,t0,t0<br>
+0x1200061b0 &lt;l_write+64&gt;:		47ff040c  clr        s3<br>
+0x1200061b4 &lt;l_write+68&gt;:	    	e4200043  beq        t0,0x1200062c4 &lt;l_write+340&gt;<br>
+0x1200061b8 &lt;l_write+72&gt;:		4221140a  addq       a1,0x8,s1<br>
+0x1200061bc &lt;l_write+76&gt;:		47ff041f  nop        <br>
+0x1200061c0 &lt;l_write+80&gt;:		41c05521  subq       s5,0x2,t0<br>
+0x1200061c4 &lt;l_write+84&gt;:		4821f622  zapnot     t0,0xf,t1<br>
+0x1200061c8 &lt;l_write+88&gt;:		404177a1  cmpule     t1,0xb,t0<br>
+0x1200061cc &lt;l_write+92&gt;:	    	e4200008  beq        t0,0x1200061f0 &lt;l_write+128&gt;<br>
+0x1200061d0 &lt;l_write+96&gt;:		a43d8748  ldq        t0,-30904(gp)<br>
+0x1200061d4 &lt;l_write+100&gt;:		40410441  s4addq     t1,t0,t0<br>
+0x1200061d8 &lt;l_write+104&gt;:		a0210000  ldl        t0,0(t0)<br>
+0x1200061dc &lt;l_write+108&gt;:		403d0402  addq       t0,gp,t1<br>
+0x1200061e0 &lt;l_write+112&gt;:	    	6be2002b  jmp        zero,(t1),0x120006290 &lt;l_write+288&gt;<br>
+0x1200061e4 &lt;l_write+116&gt;:		47ff041f  nop        <br>
+0x1200061e8 &lt;l_write+120&gt;:		47ff041f  nop        <br>
+0x1200061ec &lt;l_write+124&gt;:		47ff041f  nop        <br>
+0x1200061f0 &lt;l_write+128&gt;:		a63d8750  ldq        a1,-30896(gp)<br>
+0x1200061f4 &lt;l_write+132&gt;:		47f99410  mov        0xcc,a0<br>
+0x1200061f8 &lt;l_write+136&gt;:		a77d81c8  ldq        t12,-32312(gp)<br>
+0x1200061fc &lt;l_write+140&gt;:	    	6b5b6b8a  jsr        ra,(t12),0x120001028 &lt;f__fatal&gt;<br>
+0x120006200 &lt;l_write+144&gt;:		27ba0014  ldah       gp,20(ra)<br>
+0x120006204 &lt;l_write+148&gt;:		23bd1908  lda        gp,6408(gp)<br>
+0x120006208 &lt;l_write+152&gt;:		2c290000  ldq_u      t0,0(s0)<br>
+0x12000620c &lt;l_write+156&gt;:		482900c1  extbl      t0,s0,t0<br>
+0x120006210 &lt;l_write+160&gt;:		48271721  sll        t0,0x38,t0<br>
+0x120006214 &lt;l_write+164&gt;:		48271790  sra        t0,0x38,a0<br>
+0x120006218 &lt;l_write+168&gt;:	    	c3e0000a  br         0x120006244 &lt;l_write+212&gt;<br>
+0x12000621c &lt;l_write+172&gt;:		47ff041f  nop        <br>
+0x120006220 &lt;l_write+176&gt;:		4520d101  andnot     s0,0x6,t0<br>
+0x120006224 &lt;l_write+180&gt;:		a4210000  ldq        t0,0(t0)<br>
+0x120006228 &lt;l_write+184&gt;:		45203102  andnot     s0,0x1,t1<br>
+0x12000622c &lt;l_write+188&gt;:		482202c1  extwl      t0,t1,t0<br>
+0x120006230 &lt;l_write+192&gt;:		48261721  sll        t0,0x30,t0<br>
+0x120006234 &lt;l_write+196&gt;:		48261790  sra        t0,0x30,a0<br>
+0x120006238 &lt;l_write+200&gt;:	    	c3e00002  br         0x120006244 &lt;l_write+212&gt;<br>
+0x12000623c &lt;l_write+204&gt;:		47ff041f  nop        <br>
+0x120006240 &lt;l_write+208&gt;:		a6090000  ldq        a0,0(s0)<br>
+0x120006244 &lt;l_write+212&gt;:	    	d35ffd8c  bsr        ra,0x120005878 &lt;lwrt_I+8&gt;<br>
+0x120006248 &lt;l_write+216&gt;:	    	c3e00018  br         0x1200062ac &lt;l_write+316&gt;<br>
+0x12000624c &lt;l_write+220&gt;:		47ff041f  nop        <br>
+0x120006250 &lt;l_write+224&gt;:		8a090000  lds        $f16,0(s0)<br>
+0x120006254 &lt;l_write+228&gt;:	    	c3e00003  br         0x120006264 &lt;l_write+244&gt;<br>
+0x120006258 &lt;l_write+232&gt;:		47ff041f  nop        <br>
+0x12000625c &lt;l_write+236&gt;:		47ff041f  nop        <br>
+0x120006260 &lt;l_write+240&gt;:		8e090000  ldt        $f16,0(s0)<br>
+0x120006264 &lt;l_write+244&gt;:	    	d35fff38  bsr        ra,0x120005f48 &lt;lwrt_F+8&gt;<br>
+0x120006268 &lt;l_write+248&gt;:	    	c3e00010  br         0x1200062ac &lt;l_write+316&gt;<br>
+0x12000626c &lt;l_write+252&gt;:		47ff041f  nop        <br>
+0x120006270 &lt;l_write+256&gt;:		8a090000  lds        $f16,0(s0)<br>
+0x120006274 &lt;l_write+260&gt;:		8a2afffc  lds        $f17,-4(s1)<br>
+0x120006278 &lt;l_write+264&gt;:	    	c3e00003  br         0x120006288 &lt;l_write+280&gt;<br>
+0x12000627c &lt;l_write+268&gt;:		47ff041f  nop        <br>
+0x120006280 &lt;l_write+272&gt;:		8e090000  ldt        $f16,0(s0)<br>
+0x120006284 &lt;l_write+276&gt;:		8e2a0000  ldt        $f17,0(s1)<br>
+0x120006288 &lt;l_write+280&gt;:	    	d35fff43  bsr        ra,0x120005f98 &lt;lwrt_C+8&gt;<br>
+0x12000628c &lt;l_write+284&gt;:	    	c3e00007  br         0x1200062ac &lt;l_write+316&gt;<br>
+0x120006290 &lt;l_write+288&gt;:		a6090000  ldq        a0,0(s0)<br>
+0x120006294 &lt;l_write+292&gt;:		456b0411  mov        s2,a1<br>
+0x120006298 &lt;l_write+296&gt;:	    	d35ffdab  bsr        ra,0x120005948 &lt;lwrt_L+8&gt;<br>
+0x12000629c &lt;l_write+300&gt;:	    	c3e00003  br         0x1200062ac &lt;l_write+316&gt;<br>
+0x1200062a0 &lt;l_write+304&gt;:		45290410  mov        s0,a0<br>
+0x1200062a4 &lt;l_write+308&gt;:		456b0411  mov        s2,a1<br>
+0x1200062a8 &lt;l_write+312&gt;:	    	d35ffdc1  bsr        ra,0x1200059b0 &lt;lwrt_A+8&gt;<br>
+0x1200062ac &lt;l_write+316&gt;:		a42d0000  ldq        t0,0(s4)<br>
+0x1200062b0 &lt;l_write+320&gt;:		4180300c  addl       s3,0x1,s3<br>
+0x1200062b4 &lt;l_write+324&gt;:		414b040a  addq       s1,s2,s1<br>
+0x1200062b8 &lt;l_write+328&gt;:		418109a1  cmplt      s3,t0,t0<br>
+0x1200062bc &lt;l_write+332&gt;:		412b0409  addq       s0,s2,s0<br>
+0x1200062c0 &lt;l_write+336&gt;:	    	f43fffbf  bne        t0,0x1200061c0 &lt;l_write+80&gt;<br>
+0x1200062c4 &lt;l_write+340&gt;:		47ff0400  clr        v0<br>
+0x1200062c8 &lt;l_write+344&gt;:		a75e0000  ldq        ra,0(sp)<br>
+0x1200062cc &lt;l_write+348&gt;:		a53e0008  ldq        s0,8(sp)<br>
+0x1200062d0 &lt;l_write+352&gt;:		a55e0010  ldq        s1,16(sp)<br>
+0x1200062d4 &lt;l_write+356&gt;:		a57e0018  ldq        s2,24(sp)<br>
+0x1200062d8 &lt;l_write+360&gt;:		a59e0020  ldq        s3,32(sp)<br>
+0x1200062dc &lt;l_write+364&gt;:		a5be0028  ldq        s4,40(sp)<br>
+0x1200062e0 &lt;l_write+368&gt;:		a5de0030  ldq        s5,48(sp)<br>
+0x1200062e4 &lt;l_write+372&gt;:		43c8141e  addq       sp,0x40,sp<br>
+0x1200062e8 &lt;l_write+376&gt;:		6bfa8001  ret        zero,(ra),0x1<br>
+<p>
+<p>
+Thanks,<br>
+<p>
+<pre>
+-- 
+Harvey J. Stein
+Berger Financial Research
+<a href="mailto:hjstein@bfr.co.il">hjstein@bfr.co.il</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<li> <b>Previous message:</b> <a href="0414.html">Sheer Panic: "Re: milo problems..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<li> <b>Reply:</b> <a href="0416.html">Michal Jaegermann: "Re: A program that consistently crashes linux/axp - more info..."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

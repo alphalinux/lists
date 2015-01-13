@@ -1,0 +1,115 @@
+<!-- received="Thu Feb 27 00:07:55 1997 " -->
+<!-- sent="Wed, 26 Feb 1997 21:02:24 -0800" -->
+<!-- name="Stephen Williams" -->
+<!-- email="steve@icarus.icarus.com" -->
+<!-- subject="Re: amd on Linux/Alpha Redhat 4.1" -->
+<!-- id="199702270502.VAA08211@icarus.icarus.com" -->
+<!-- inreplyto="amd on Linux/Alpha Redhat 4.1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: amd on Linux/Alpha Redhat 4.1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: amd on Linux/Alpha Redhat 4.1</h2>
+
+<b>Stephen Williams</b> (<a href="mailto:steve@icarus.icarus.com"><i>steve@icarus.icarus.com</i></a>)<br>
+<i>Wed, 26 Feb 1997 21:02:24 -0800</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#872">[ date ]</a><a href="index.html#872">[ thread ]</a><a href="subject.html#872">[ subject ]</a><a href="author.html#872">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0873.html">Bryan W. Headley: "Re: RH4.1 hangup (still, even with new amd)"</a>
+<li> <b>Previous message:</b> <a href="0871.html">traveler: "Upgrading Redhat 4.1"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<a href="mailto:ewt@redhat.com">ewt@redhat.com</a> said:<br>
+<i>&gt; How can I reproduce the problem this causes? </i><br>
+<p>
+I'm not entirely sure I know what you are asking. The sign extension<br>
+I mention causes amd to get stuck in an infinite loop. I tracked the<br>
+problem down by recompiling amd with -g, then running ``amd -v'' under<br>
+gdb. I stopped the process (which was clearly in an infinite loop) and<br>
+looked at the stack, and tracked it back from there.<br>
+<p>
+The problem actually occurs in the while() loop a few lines below, where<br>
+the subnet variable is used as a mask to check for equal subnets.<br>
+<p>
+The code involved here is not invoked unless there is a network interface<br>
+other then the loopback interface. amd would not hang if my ethX interfaces<br>
+were ifconfig off.<br>
+<p>
+htonl is doing the sign extension. This is a problem with the glibc included<br>
+with redhat 4.1, not the glibc with 4.0. Thus, amd breaks under 4.1 and not<br>
+4.0.<br>
+<p>
+I cannot really say for sure whether the problem is glibc for sign extending<br>
+or amd for not masking the result to 32 bits. It is not clear what the<br>
+proper behavior for htonl is, here. My fix simply accounts for the observed<br>
+behavior of glibc.<br>
+<p>
+On Wed, 19 Feb 1997, Stephen Williams wrote:<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; OK, this definitely fixes AMD on the alpha, at least for now. The required</i><br>
+<i>&gt; change is so tiny that I'll just tell you what it is. ...</i><br>
+<i>&gt; </i><br>
+<i>&gt; change line 418 of amd/wire.c from</i><br>
+<i>&gt; </i><br>
+<i>&gt; 		subnet = htonl(subnet); </i><br>
+<i>&gt; </i><br>
+<i>&gt; to read like this:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 		subnet = ntohl(subnet) &amp; 0xffffffffUL; </i><br>
+<i>&gt; </i><br>
+<i>&gt; Done. (Oh yes, change axp to alpha in the spec file, too.)</i><br>
+<i>&gt; </i><br>
+<i>&gt; Somebody is sign-extending the swapped word to fill 64bits. This</i><br>
+<i>&gt; breaks a while loop a few statements lower. Ugh. I don't know if</i><br>
+<i>&gt; there is a clear word at to whether ntohl and friends are supposed to</i><br>
+<i>&gt; treat the values as signed or unsigned, but the above mask will work</i><br>
+<i>&gt; no matter what the final ruling is, and gets AMD working for those</i><br>
+<i>&gt; who would rather get on with it.</i><br>
+<p>
+<pre>
+-- 
+Steve Williams
+<a href="mailto:steve@icarus.com">steve@icarus.com</a>
+<a href="mailto:steve@picturel.com">steve@picturel.com</a>
+<p>
+"The woods are lovely, dark and deep.  But I have promises to keep,
+And lines to code before I sleep, And lines to code before I sleep."
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0873.html">Bryan W. Headley: "Re: RH4.1 hangup (still, even with new amd)"</a>
+<li> <b>Previous message:</b> <a href="0871.html">traveler: "Upgrading Redhat 4.1"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,777 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Help needed on #95010</TITLE>
+<META NAME="Author" CONTENT="Craig Small (csmall@eye-net.com.au )">
+<META NAME="Subject" CONTENT="Re: Help needed on #95010">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Help needed on #95010</H1>
+<HR>
+<P>
+<!-- received="Tue Jun 26 09:13:07 2001" -->
+<!-- isoreceived="20010626161307" -->
+<!-- sent="Tue, 26 Jun 2001 13:30:20 +1000" -->
+<!-- isosent="20010626033020" -->
+<!-- name="Craig Small" -->
+<!-- email="csmall@eye-net.com.au " -->
+<!-- subject="Re: Help needed on #95010" -->
+<!-- id="20010626133020.A30822@eye-net.com.au" -->
+<!-- inreplyto="2001-06-19-15-13-31+trackit+sam@debian.org" -->
+<STRONG>Subject: </STRONG>Re: Help needed on #95010<BR>
+<STRONG>From: </STRONG>Craig Small (<EM>csmall@eye-net.com.au </EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jun 25 2001 - 20:30:20 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#93">[ date ]</A>
+<A HREF="index.html#93">[ thread ]</A>
+<A HREF="subject.html#93">[ subject ]</A>
+<A HREF="author.html#93">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0094.html">Yann MORERE: "Where is netscape for debian potato 22r3 alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0092.html">Tom Vier: "Re: Pyxis machine checks cause lockup"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0095.html">Herbert Xu: "Re: Help needed on #95010"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0091.html">Craig Small: "Re: Help needed on #95010"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, Jun 19, 2001 at 03:13:31PM +0200, Samuel Tardieu wrote:
+<BR>
+<EM>&gt; could one of you have a look at 95010? I cannot find an Alpha machine
+</EM><BR>
+<EM>&gt; with Debian and X installed (vic needs X11 headers) to debug that
+</EM><BR>
+<EM>&gt; (this is probably a minor problem, or 64 bits machines will be removed
+</EM><BR>
+<EM>&gt; from vic Architecture line).
+</EM><BR>
+It is and it isn't, here is a patch.
+<BR>
+<P>The problems
+<BR>
+&nbsp;&nbsp;configure was not defining HAVE_INET_NTOP and HAVE_INET_PTON
+<BR>
+&nbsp;&nbsp;time() is in &lt;time.h&gt;
+<BR>
+&nbsp;&nbsp;if (&lt;some-int&gt; == &lt;some-long&gt;) is dumb as long != int, casting added
+<BR>
+&nbsp;&nbsp;to provide sanity
+<BR>
+<P>enjoy
+<BR>
+&nbsp;&nbsp;- Craig
+<BR>
+<P>diff -ur vic-2.8ucl1.1.3.orig/common/config.h.in vic-2.8ucl1.1.3/common/config.h.in
+<BR>
+--- vic-2.8ucl1.1.3.orig/common/config.h.in	Thu Feb 17 23:59:35 2000
+<BR>
++++ vic-2.8ucl1.1.3/common/config.h.in	Tue Jun 26 13:10:19 2001
+<BR>
+@@ -93,3 +93,10 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
++
+<BR>
++/* Define if you have the inet_ntop function.  */
+<BR>
++#undef HAVE_INET_NTOP
+<BR>
++
+<BR>
++/* Define if you have the inet_pton function.  */
+<BR>
++#undef HAVE_INET_PTON
+<BR>
++
+<BR>
+diff -ur vic-2.8ucl1.1.3.orig/common/config_unix.h vic-2.8ucl1.1.3/common/config_unix.h
+<BR>
+--- vic-2.8ucl1.1.3.orig/common/config_unix.h	Thu Feb 17 23:59:35 2000
+<BR>
++++ vic-2.8ucl1.1.3/common/config_unix.h	Tue Jun 26 13:12:44 2001
+<BR>
+@@ -46,6 +46,7 @@
+<BR>
+&nbsp;#include &lt;limits.h&gt;
+<BR>
+&nbsp;#include &lt;sys/types.h&gt;
+<BR>
+&nbsp;#include &lt;sys/time.h&gt;
+<BR>
++#include &lt;time.h&gt;
+<BR>
+&nbsp;#include &lt;sys/resource.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;pwd.h&gt;
+<BR>
+diff -ur vic-2.8ucl1.1.3.orig/common/configure vic-2.8ucl1.1.3/common/configure
+<BR>
+--- vic-2.8ucl1.1.3.orig/common/configure	Tue Jun 26 13:22:36 2001
+<BR>
++++ vic-2.8ucl1.1.3/common/configure	Tue Jun 26 13:08:31 2001
+<BR>
+@@ -1876,17 +1876,127 @@
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
++for ac_func in inet_pton
+<BR>
++do
+<BR>
++echo $ac_n &quot;checking for $ac_func&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
++echo &quot;configure:1883: checking for $ac_func&quot; &gt;&amp;5
+<BR>
++if eval &quot;test \&quot;`echo '$''{'ac_cv_func_$ac_func'+set}'`\&quot; = set&quot;; then
+<BR>
++  echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
++else
+<BR>
++  cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
++#line 1888 &quot;configure&quot;
+<BR>
++#include &quot;confdefs.h&quot;
+<BR>
++/* System header to define __stub macros and hopefully few prototypes,
+<BR>
++    which can conflict with char $ac_func(); below.  */
+<BR>
++#include &lt;assert.h&gt;
+<BR>
++/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
++/* We use char because int might match the return type of a gcc2
+<BR>
++    builtin and then its argument prototype would still apply.  */
+<BR>
++char $ac_func();
+<BR>
++
+<BR>
++int main() {
+<BR>
++
+<BR>
++/* The GNU C library defines this for functions which it implements
+<BR>
++    to always fail with ENOSYS.  Some functions are actually named
+<BR>
++    something starting with __ and the normal name is an alias.  */
+<BR>
++#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
+<BR>
++choke me
+<BR>
++#else
+<BR>
++$ac_func();
+<BR>
++#endif
+<BR>
++
+<BR>
++; return 0; }
+<BR>
++EOF
+<BR>
++if { (eval echo configure:1911: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++  rm -rf conftest*
+<BR>
++  eval &quot;ac_cv_func_$ac_func=yes&quot;
+<BR>
++else
+<BR>
++  echo &quot;configure: failed program was:&quot; &gt;&amp;5
+<BR>
++  cat conftest.$ac_ext &gt;&amp;5
+<BR>
++  rm -rf conftest*
+<BR>
++  eval &quot;ac_cv_func_$ac_func=no&quot;
+<BR>
++fi
+<BR>
++rm -f conftest*
+<BR>
++fi
+<BR>
++
+<BR>
++if eval &quot;test \&quot;`echo '$ac_cv_func_'$ac_func`\&quot; = yes&quot;; then
+<BR>
++  echo &quot;$ac_t&quot;&quot;yes&quot; 1&gt;&amp;6
+<BR>
++    ac_tr_func=HAVE_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+<BR>
++  cat &gt;&gt; confdefs.h &lt;&lt;EOF
+<BR>
++#define $ac_tr_func 1
+<BR>
++EOF
+<BR>
++ 
+<BR>
++else
+<BR>
++  echo &quot;$ac_t&quot;&quot;no&quot; 1&gt;&amp;6
+<BR>
++fi
+<BR>
++done
+<BR>
++
+<BR>
++for ac_func in inet_ntop
+<BR>
++do
+<BR>
++echo $ac_n &quot;checking for $ac_func&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
++echo &quot;configure:1938: checking for $ac_func&quot; &gt;&amp;5
+<BR>
++if eval &quot;test \&quot;`echo '$''{'ac_cv_func_$ac_func'+set}'`\&quot; = set&quot;; then
+<BR>
++  echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
++else
+<BR>
++  cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
++#line 1943 &quot;configure&quot;
+<BR>
++#include &quot;confdefs.h&quot;
+<BR>
++/* System header to define __stub macros and hopefully few prototypes,
+<BR>
++    which can conflict with char $ac_func(); below.  */
+<BR>
++#include &lt;assert.h&gt;
+<BR>
++/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
++/* We use char because int might match the return type of a gcc2
+<BR>
++    builtin and then its argument prototype would still apply.  */
+<BR>
++char $ac_func();
+<BR>
++
+<BR>
++int main() {
+<BR>
++
+<BR>
++/* The GNU C library defines this for functions which it implements
+<BR>
++    to always fail with ENOSYS.  Some functions are actually named
+<BR>
++    something starting with __ and the normal name is an alias.  */
+<BR>
++#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
+<BR>
++choke me
+<BR>
++#else
+<BR>
++$ac_func();
+<BR>
++#endif
+<BR>
++
+<BR>
++; return 0; }
+<BR>
++EOF
+<BR>
++if { (eval echo configure:1966: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++  rm -rf conftest*
+<BR>
++  eval &quot;ac_cv_func_$ac_func=yes&quot;
+<BR>
++else
+<BR>
++  echo &quot;configure: failed program was:&quot; &gt;&amp;5
+<BR>
++  cat conftest.$ac_ext &gt;&amp;5
+<BR>
++  rm -rf conftest*
+<BR>
++  eval &quot;ac_cv_func_$ac_func=no&quot;
+<BR>
++fi
+<BR>
++rm -f conftest*
+<BR>
++fi
+<BR>
++
+<BR>
++if eval &quot;test \&quot;`echo '$ac_cv_func_'$ac_func`\&quot; = yes&quot;; then
+<BR>
++  echo &quot;$ac_t&quot;&quot;yes&quot; 1&gt;&amp;6
+<BR>
++    ac_tr_func=HAVE_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+<BR>
++  cat &gt;&gt; confdefs.h &lt;&lt;EOF
+<BR>
++#define $ac_tr_func 1
+<BR>
++EOF
+<BR>
++ 
+<BR>
++else
+<BR>
++  echo &quot;$ac_t&quot;&quot;no&quot; 1&gt;&amp;6
+<BR>
++fi
+<BR>
++done
+<BR>
++
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;echo $ac_n &quot;checking for library containing socket&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:1883: checking for library containing socket&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:1993: checking for library containing socket&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ac_cv_search_socket'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;ac_func_search_save_LIBS=&quot;$LIBS&quot;
+<BR>
+&nbsp;ac_cv_search_socket=&quot;no&quot;
+<BR>
+&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 1890 &quot;configure&quot;
+<BR>
++#line 2000 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
+&nbsp;/* We use char because int might match the return type of a gcc2
+<BR>
+@@ -1897,7 +2007,7 @@
+<BR>
+&nbsp;socket()
+<BR>
+&nbsp;; return 0; }
+<BR>
+&nbsp;EOF
+<BR>
+-if { (eval echo configure:1901: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++if { (eval echo configure:2011: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+&nbsp;&nbsp;&nbsp;ac_cv_search_socket=&quot;none required&quot;
+<BR>
+&nbsp;else
+<BR>
+@@ -1908,7 +2018,7 @@
+<BR>
+&nbsp;test &quot;$ac_cv_search_socket&quot; = &quot;no&quot; &amp;&amp; for i in socket; do
+<BR>
+&nbsp;LIBS=&quot;-l$i  $ac_func_search_save_LIBS&quot;
+<BR>
+&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 1912 &quot;configure&quot;
+<BR>
++#line 2022 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
+&nbsp;/* We use char because int might match the return type of a gcc2
+<BR>
+@@ -1919,7 +2029,7 @@
+<BR>
+&nbsp;socket()
+<BR>
+&nbsp;; return 0; }
+<BR>
+&nbsp;EOF
+<BR>
+-if { (eval echo configure:1923: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++if { (eval echo configure:2033: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+&nbsp;&nbsp;&nbsp;ac_cv_search_socket=&quot;-l$i&quot;
+<BR>
+&nbsp;break
+<BR>
+@@ -1941,14 +2051,14 @@
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
+&nbsp;echo $ac_n &quot;checking for library containing inet_addr&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:1945: checking for library containing inet_addr&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:2055: checking for library containing inet_addr&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ac_cv_search_inet_addr'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;ac_func_search_save_LIBS=&quot;$LIBS&quot;
+<BR>
+&nbsp;ac_cv_search_inet_addr=&quot;no&quot;
+<BR>
+&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 1952 &quot;configure&quot;
+<BR>
++#line 2062 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
+&nbsp;/* We use char because int might match the return type of a gcc2
+<BR>
+@@ -1959,7 +2069,7 @@
+<BR>
+&nbsp;inet_addr()
+<BR>
+&nbsp;; return 0; }
+<BR>
+&nbsp;EOF
+<BR>
+-if { (eval echo configure:1963: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++if { (eval echo configure:2073: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+&nbsp;&nbsp;&nbsp;ac_cv_search_inet_addr=&quot;none required&quot;
+<BR>
+&nbsp;else
+<BR>
+@@ -1970,7 +2080,7 @@
+<BR>
+&nbsp;test &quot;$ac_cv_search_inet_addr&quot; = &quot;no&quot; &amp;&amp; for i in nsl; do
+<BR>
+&nbsp;LIBS=&quot;-l$i  $ac_func_search_save_LIBS&quot;
+<BR>
+&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 1974 &quot;configure&quot;
+<BR>
++#line 2084 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;/* Override any gcc2 internal prototype to avoid an error.  */
+<BR>
+&nbsp;/* We use char because int might match the return type of a gcc2
+<BR>
+@@ -1981,7 +2091,7 @@
+<BR>
+&nbsp;inet_addr()
+<BR>
+&nbsp;; return 0; }
+<BR>
+&nbsp;EOF
+<BR>
+-if { (eval echo configure:1985: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
++if { (eval echo configure:2095: \&quot;$ac_link\&quot;) 1&gt;&amp;5; (eval $ac_link) 2&gt;&amp;5; } &amp;&amp; test -s conftest${ac_exeext}; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+&nbsp;&nbsp;&nbsp;ac_cv_search_inet_addr=&quot;-l$i&quot;
+<BR>
+&nbsp;break
+<BR>
+@@ -2097,12 +2207,12 @@
+<BR>
+&nbsp;# not defined.  They are kept outside IPv6 enable check to keep code readable.
+<BR>
+&nbsp;
+<BR>
+&nbsp;echo $ac_n &quot;checking for getipnodebyname in &lt;netdb.h&gt;&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:2101: checking for getipnodebyname in &lt;netdb.h&gt;&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:2211: checking for getipnodebyname in &lt;netdb.h&gt;&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ucl_cv_getipnodebyname_in_netdb_h'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 2106 &quot;configure&quot;
+<BR>
++#line 2216 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;#include &lt;netdb.h&gt;
+<BR>
+&nbsp;EOF
+<BR>
+@@ -2131,17 +2241,17 @@
+<BR>
+&nbsp;do
+<BR>
+&nbsp;ac_safe=`echo &quot;$ac_hdr&quot; | sed 'y%./+-%__p_%'`
+<BR>
+&nbsp;echo $ac_n &quot;checking for $ac_hdr&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:2135: checking for $ac_hdr&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:2245: checking for $ac_hdr&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ac_cv_header_$ac_safe'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 2140 &quot;configure&quot;
+<BR>
++#line 2250 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;#include &lt;$ac_hdr&gt;
+<BR>
+&nbsp;EOF
+<BR>
+&nbsp;ac_try=&quot;$ac_cpp conftest.$ac_ext &gt;/dev/null 2&gt;conftest.out&quot;
+<BR>
+-{ (eval echo configure:2145: \&quot;$ac_try\&quot;) 1&gt;&amp;5; (eval $ac_try) 2&gt;&amp;5; }
+<BR>
++{ (eval echo configure:2255: \&quot;$ac_try\&quot;) 1&gt;&amp;5; (eval $ac_try) 2&gt;&amp;5; }
+<BR>
+&nbsp;ac_err=`grep -v '^ *+' conftest.out | grep -v &quot;^conftest.${ac_ext}\$&quot;`
+<BR>
+&nbsp;if test -z &quot;$ac_err&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+@@ -2169,12 +2279,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;echo $ac_n &quot;checking for struct addrinfo in &lt;netdb.h&gt;&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:2173: checking for struct addrinfo in &lt;netdb.h&gt;&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:2283: checking for struct addrinfo in &lt;netdb.h&gt;&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ucl_cv_st_addrinfo_in_netdb_h'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 2178 &quot;configure&quot;
+<BR>
++#line 2288 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;#include &lt;netdb.h&gt;
+<BR>
+&nbsp;EOF
+<BR>
+@@ -2200,12 +2310,12 @@
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
+&nbsp;echo $ac_n &quot;checking for sin6_len in struct sockaddr_in6&quot;&quot;... $ac_c&quot; 1&gt;&amp;6
+<BR>
+-echo &quot;configure:2204: checking for sin6_len in struct sockaddr_in6&quot; &gt;&amp;5
+<BR>
++echo &quot;configure:2314: checking for sin6_len in struct sockaddr_in6&quot; &gt;&amp;5
+<BR>
+&nbsp;if eval &quot;test \&quot;`echo '$''{'ucl_cv_sin6_len'+set}'`\&quot; = set&quot;; then
+<BR>
+&nbsp;&nbsp;&nbsp;echo $ac_n &quot;(cached) $ac_c&quot; 1&gt;&amp;6
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;cat &gt; conftest.$ac_ext &lt;&lt;EOF
+<BR>
+-#line 2209 &quot;configure&quot;
+<BR>
++#line 2319 &quot;configure&quot;
+<BR>
+&nbsp;#include &quot;confdefs.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#ifdef HAVE_NETINET6_IN6_H
+<BR>
+@@ -2221,7 +2331,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;; return 0; }
+<BR>
+&nbsp;EOF
+<BR>
+-if { (eval echo configure:2225: \&quot;$ac_compile\&quot;) 1&gt;&amp;5; (eval $ac_compile) 2&gt;&amp;5; }; then
+<BR>
++if { (eval echo configure:2335: \&quot;$ac_compile\&quot;) 1&gt;&amp;5; (eval $ac_compile) 2&gt;&amp;5; }; then
+<BR>
+&nbsp;&nbsp;&nbsp;rm -rf conftest*
+<BR>
+&nbsp;&nbsp;&nbsp;ucl_cv_sin6_len=yes
+<BR>
+&nbsp;else
+<BR>
+@@ -2246,7 +2356,7 @@
+<BR>
+&nbsp;# GCC-specific warning flags
+<BR>
+&nbsp;if test &quot;$GCC&quot; = yes
+<BR>
+&nbsp;then
+<BR>
+-        CFLAGS=&quot;$CFLAGS -W -Wall -Wwrite-strings -Wbad-function-cast -Wmissing-prototypes -Wcast-qual -Wmissing-declarations&quot;
+<BR>
++        CFLAGS=&quot;$CFLAGS -W -Wall -Wwrite-strings -Wbad-function-cast -Wmissing-prototypes -Wcast-qual -Wmissing-declarations -Werror&quot;
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
+&nbsp;# Done, create the output files....
+<BR>
+diff -ur vic-2.8ucl1.1.3.orig/common/configure.in vic-2.8ucl1.1.3/common/configure.in
+<BR>
+--- vic-2.8ucl1.1.3.orig/common/configure.in	Thu Feb 17 23:59:36 2000
+<BR>
++++ vic-2.8ucl1.1.3/common/configure.in	Tue Jun 26 13:08:24 2001
+<BR>
+@@ -131,6 +131,8 @@
+<BR>
+&nbsp;AC_SUBST(LIBOBJS)
+<BR>
+&nbsp;
+<BR>
+&nbsp;dnl AC_REPLACE_FUNCS(inet_pton inet_ntop)
+<BR>
++AC_CHECK_FUNCS(inet_pton)
+<BR>
++AC_CHECK_FUNCS(inet_ntop)
+<BR>
+&nbsp;
+<BR>
+&nbsp;AC_SEARCH_LIBS(socket, socket)
+<BR>
+&nbsp;AC_SEARCH_LIBS(inet_addr, nsl)
+<BR>
+diff -ur vic-2.8ucl1.1.3.orig/common/mbus_parser.c vic-2.8ucl1.1.3/common/mbus_parser.c
+<BR>
+--- vic-2.8ucl1.1.3.orig/common/mbus_parser.c	Thu Feb 17 23:59:36 2000
+<BR>
++++ vic-2.8ucl1.1.3/common/mbus_parser.c	Tue Jun 26 13:17:03 2001
+<BR>
+@@ -167,7 +167,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*i = strtol(m-&gt;buffer, &amp;p, 10);
+<BR>
+-	if (((*i == LONG_MAX) || (*i == LONG_MIN)) &amp;&amp; (errno == ERANGE)) {
+<BR>
++	if (((*i == (int)LONG_MAX) || (*i == (int)LONG_MIN)) &amp;&amp; (errno == ERANGE)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;debug_msg(&quot;integer out of range\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return FALSE;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+Only in vic-2.8ucl1.1.3.orig/vic/codec/tmn: TAGS
+<BR>
+Only in vic-2.8ucl1.1.3.orig/vic/codec/tmndec: Makefile.bak
+<BR>
+<PRE>
+-- 
+Craig Small VK2XLZ  GnuPG:1C1B D893 1418 2AF4 45EE  95CB C76C E5AC 12CA DFA5
+Eye-Net Consulting <A HREF="http://www.eye-net.com.au/">http://www.eye-net.com.au/</A>        &lt;csmall@eye-net.com.au&gt;
+MIEEE &lt;csmall@ieee.org&gt;                 Debian developer &lt;csmall@debian.org&gt;
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0094.html">Yann MORERE: "Where is netscape for debian potato 22r3 alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0092.html">Tom Vier: "Re: Pyxis machine checks cause lockup"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0095.html">Herbert Xu: "Re: Help needed on #95010"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0091.html">Craig Small: "Re: Help needed on #95010"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jul 05 2001 - 05:45:31 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

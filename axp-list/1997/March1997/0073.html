@@ -1,0 +1,144 @@
+<!-- received="Tue Mar  4 15:06:32 1997 " -->
+<!-- sent="Tue, 04 Mar 1997 14:56:58 +0500" -->
+<!-- name="Erik Evensen" -->
+<!-- email="erik@avalon.harvard.edu" -->
+<!-- subject="Re: gcc-2.7.2.2 / g77-0.5.20 on RH4.1" -->
+<!-- id="199703041956.OAA31960@avalon.harvard.edu" -->
+<!-- inreplyto="gcc-2.7.2.2 / g77-0.5.20 on RH4.1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gcc-2.7.2.2 / g77-0.5.20 on RH4.1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gcc-2.7.2.2 / g77-0.5.20 on RH4.1</h2>
+
+<b>Erik Evensen</b> (<a href="mailto:erik@avalon.harvard.edu"><i>erik@avalon.harvard.edu</i></a>)<br>
+<i>Tue, 04 Mar 1997 14:56:58 +0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#73">[ date ]</a><a href="index.html#73">[ thread ]</a><a href="subject.html#73">[ subject ]</a><a href="author.html#73">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0074.html">Philip Blundell: "alpha_ksyms patch for IPv6"</a>
+<li> <b>Previous message:</b> <a href="0072.html">Wintermute: "Re: 2.1 Kernel help req'd"</a>
+<li> <b>Maybe in reply to:</b> <a href="0071.html">Lev D Gelb: "gcc-2.7.2.2 / g77-0.5.20 on RH4.1"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0075.html">Toon Moene: "Re: gcc-2.7.2.2 / g77-0.5.20 on RH4.1"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; "L" == Lev D Gelb &lt;<a href="mailto:gelb@cheme.cornell.edu">gelb@cheme.cornell.edu</a>&gt; writes:</i><br>
+<p>
+<p>
+    L&gt; OK, I'm trying to compile the new release of g77 on my<br>
+    L&gt; redhat-4.1 box.<br>
+<p>
+I'm doing the same thing . . .<br>
+<p>
+    L&gt; I got the src.rpm for gcc-2.7.2.1, and the 2.7.2.2<br>
+    L&gt; distribution, unpacked the second, and applied the patches to<br>
+    L&gt; it.<br>
+<p>
+    L&gt; But, when I then try to apply the g77-0.5.20-included patch to<br>
+    L&gt; the resulting distribution, the patching fails while patching<br>
+    L&gt; "configure", which then does not work.<br>
+<p>
+Didn't even try this...<br>
+<p>
+    L&gt; If... I apply the g77 patch to the clean distribution and THEN<br>
+    L&gt; apply the RedHat patches, it gets about halfway through the<br>
+    L&gt; first "make" of the compiler, with lots of warnings about<br>
+    L&gt; "alloca", and then dies because it can't find "crt0.o"...<br>
+<p>
+Including stdlib.h in files which contain alloca gets rid of the warning<br>
+-- I'm not sure if it introduces any other problems or not yet.<br>
+<p>
+As for crt0.o -- what I did is change the occurence of gcrt0, mcrt0,<br>
+and crt0 in gcc.c and config/alpha/alpha.h to gcrt1, mcrt1, and crt1,<br>
+respectively. I'm not sure if this the correct fix but it does make<br>
+things happy for compiling.<br>
+<p>
+    L&gt; If... I just try to make gcc without g77, the RH patches and<br>
+    L&gt; the gcc-2.7.2.2 distribution work OK.<br>
+<p>
+    L&gt; If... I just apply the g77 patch to the clean distribution,<br>
+    L&gt; (e.g., following the g77 instructions) It dies on the first<br>
+    L&gt; compile:<br>
+<p>
+    L&gt; [root@eddie gcc]# make "LANGUAGES=c" cc -DIN_GCC -g<br>
+    L&gt; -I. -I. -I./config \<br>
+<p>
+    L&gt; -DGCC_INCLUDE_DIR=\"/usr/lib/gcc-lib/alpha-unknown-linux/2.7.2.2.f.2/include\"\<br>
+    L&gt; -DGPLUSPLUS_INCLUDE_DIR=\"/usr/lib/g++-include\" \<br>
+    L&gt; -DLOCAL_INCLUDE_DIR=\"/usr/local/include\" \<br>
+<p>
+    L&gt; -DCROSS_INCLUDE_DIR=\"/usr/lib/gcc-lib/alpha-unknown-linux/2.7.2.2.f.2/sys-include\"\<br>
+    L&gt; -DTOOL_INCLUDE_DIR=\"/usr/alpha-unknown-linux/include\" \ -c<br>
+    L&gt; `echo ./cccp.c | sed 's,^\./,,'` cccp.c:322: conflicting types<br>
+    L&gt; for `sys_errlist' /usr/include/stdio.h:216: previous<br>
+    L&gt; declaration of `sys_errlist' make: *** [cccp.o] Error 1<br>
+<p>
+What I did to fix this is make the following modification in all<br>
+pieces of code that reference sys_errlist (there aren't that many):<br>
+the code segment that reads:<br>
+<p>
+#if defined(bsd4_4)<br>
+extern const char *const sys_errlist[];<br>
+#else<br>
+extern char *sys_errlist[];<br>
+#endif<br>
+<p>
+should become:<br>
+<p>
+#if defined(bsd4_4) || defined(__linux__)<br>
+extern const char *const sys_errlist[];<br>
+#else<br>
+extern char *sys_errlist[];<br>
+#endif<br>
+<p>
+I've gotten xgcc to compile but it dies trying to compile enquire.c<br>
+with the message:<br>
+<p>
+./xgcc -B./  -DIN_GCC   -g -I./include    -DNO_MEM -DNO_LONG_DOUBLE_IO -O0 -I. -c ./enquire.c<br>
+xgcc: Internal compiler error: program cpp got fatal signal 11<br>
+gmake[1]: *** [enquire.o] Error 1<br>
+gmake[1]: Leaving directory `/home/erik/erik/tape-960117/gcc-2.7.2.2'<br>
+gmake: *** [bootstrap] Error 2<br>
+<p>
+It is absolutely consistent about dying at this point so I doubt<br>
+it is a memory problem like sig 11 usually implies.<br>
+<p>
+--erik<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0074.html">Philip Blundell: "alpha_ksyms patch for IPv6"</a>
+<li> <b>Previous message:</b> <a href="0072.html">Wintermute: "Re: 2.1 Kernel help req'd"</a>
+<li> <b>Maybe in reply to:</b> <a href="0071.html">Lev D Gelb: "gcc-2.7.2.2 / g77-0.5.20 on RH4.1"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0075.html">Toon Moene: "Re: gcc-2.7.2.2 / g77-0.5.20 on RH4.1"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

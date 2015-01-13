@@ -1,0 +1,139 @@
+<!-- received="Fri Aug  1 14:24:18 1997 " -->
+<!-- sent="Fri, 01 Aug 1997 11:18:41 -0700" -->
+<!-- name="Ivan Passos" -->
+<!-- email="ivan@cyclades.com" -->
+<!-- subject="Problems with kernels 2.1.x" -->
+<!-- id="Pine.SUN.3.91.970801085934.25282B-100000@Boris.InfoMagic.COM" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Problems with kernels 2.1.x</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Problems with kernels 2.1.x</h2>
+
+<b>Ivan Passos</b> (<a href="mailto:ivan@cyclades.com"><i>ivan@cyclades.com</i></a>)<br>
+<i>Fri, 01 Aug 1997 11:18:41 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#8">[ date ]</a><a href="index.html#8">[ thread ]</a><a href="subject.html#8">[ subject ]</a><a href="author.html#8">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0009.html">Tom Browder: "Re: Problem linking huge program"</a>
+<li> <b>Previous message:</b> <a href="0007.html">Henry M. Pierce: "Re: Problem linking huge program"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi, there,<br>
+<p>
+I'm trying to buid a kernel 2.1.47 under a AlphaPC and I'm having the <br>
+time of my life ...<br>
+<p>
+Well, let's see the environment:<br>
+<p>
+- Alpha PC164 366Mhz<br>
+- Linux RedHat 4.2 kernel version 2.0.30<br>
+<p>
+With this current kernel version, it's working just fine. But since <br>
+I need to port a driver to the Linux/Alpha 2.1.x kernel, I downloaded <br>
+the latest 2.1 kernel (2.1.47) and tried to compile it. <br>
+During the 'make boot', I got the following error:<br>
+<p>
+[root@alpha linux]# make dep ; make clean ; make boot<br>
+&lt;snip&gt;<br>
+rm -f core `find . -type f -name 'core' -print`<br>
+rm -f vmlinux System.map<br>
+rm -f .tmp* drivers/sound/configure<br>
+rm -f `find modules/ -type f -print`<br>
+rm -f submenu*<br>
+gcc -D__KERNEL__ -I/usr/src/source-2.1.47/include -Wall<br>
+-Wstrict-prototypes -O2<br>
+-fomit-frame-pointer -D__SMP__ -pipe -mno-fp-regs -ffixed-8  -c -o<br>
+init/main.o init/main.c<br>
+In file included from init/main.c:17:<br>
+/usr/src/source-2.1.47/include/linux/sched.h:107: parse error before <br>
+`tasklist_lock'<br>
+/usr/src/source-2.1.47/include/linux/sched.h:107: warning: data <br>
+definition has no type or storage class<br>
+In file included from init/main.c:17:<br>
+/usr/src/source-2.1.47/include/linux/sched.h:508: parse error before <br>
+`waitqueue_lock'<br>
+/usr/src/source-2.1.47/include/linux/sched.h:508: warning: data <br>
+definition has no type or storage class<br>
+/usr/src/source-2.1.47/include/linux/sched.h: In function <br>
+`add_wait_queue':<br>
+/usr/src/source-2.1.47/include/linux/sched.h:514: warning: implicit <br>
+declaration of function `write_lock_irqsave'<br>
+/usr/src/source-2.1.47/include/linux/sched.h:516: warning: implicit <br>
+declaration of function `write_unlock_irqrestore'<br>
+make: *** [init/main.o] Error 1<br>
+[root@alpha linux]#<br>
+<p>
+Ok, then I checked the /usr/src/linux/include/linux/sched.h file and <br>
+I figured out that the problem was in another file <br>
+(/usr/src/linux/include/asm/spinlock.h) that was (not) being <br>
+conditionally compiled according to the def flag __SMP__ (and exactly <br>
+the typedef for the structure type used by the variables that caused <br>
+the error above - rwlock_t - was inside the ifndef).<br>
+<p>
+So I editted the file /usr/src/linux/Makefile and disabled (commented <br>
+out) the SMP flag. Then the kernel compiles, but the machine doesn't <br>
+even boot with this kernel. It gets stuck just after the bootstrap.<br>
+<p>
+This compilation though is full of warnings as follows:<br>
+<p>
+sched.c: In function `wake_up_process':<br>
+sched.c:172: warning: `__r16' might be used uninitialized in this <br>
+function<br>
+sched.c:176: warning: `__r16' might be used uninitialized in this <br>
+function<br>
+sched.c: In function `process_timeout':<br>
+sched.c:172: warning: `__r16' might be used uninitialized in this <br>
+function<br>
+<p>
+I've tried earlier versions of 2.1.x kernels (2.1.46 and 2.1.43) with <br>
+no luck (exactly the same results).<br>
+<p>
+I hope somebody there can give me a hand ...<br>
+I thank you all in advance.<br>
+<p>
+Regards,<br>
+<pre>
+-- 
+*******************************************************************
+Cyclades Corporation                   Tel.: (510)770-9727 ext. 202
+Ivan Passos                       E-mail : <a href="mailto:ivan@cyclades.com">mailto:ivan@cyclades.com</a>
+Software Engineer                     WWW : <a href="http://www.cyclades.com">http://www.cyclades.com</a>
+*******************************************************************
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0009.html">Tom Browder: "Re: Problem linking huge program"</a>
+<li> <b>Previous message:</b> <a href="0007.html">Henry M. Pierce: "Re: Problem linking huge program"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

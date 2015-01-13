@@ -1,0 +1,169 @@
+<!-- received="Thu May 23 08:20:46 1996 " -->
+<!-- sent="Thu, 23 May 1996 08:20:46 -0701" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: `/sbin/clock' for the Jensen" -->
+<!-- id="199605231521.IAA30373@koala.azstarnet.com" -->
+<!-- inreplyto="`/sbin/clock' for the Jensen" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: `/sbin/clock' for the Jensen</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: `/sbin/clock' for the Jensen</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Thu, 23 May 1996 08:20:46 -0701</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#369">[ date ]</a><a href="index.html#369">[ thread ]</a><a href="subject.html#369">[ subject ]</a><a href="author.html#369">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0370.html">David Mosberger-Tang: "gdb-4.16 patch"</a>
+<li> <b>Previous message:</b> <a href="0368.html">Martin Ostermann: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<li> <b>Maybe in reply to:</b> <a href="0367.html">Martin Ostermann: "`/sbin/clock' for the Jensen"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0371.html">Martin Ostermann: "Re: `/sbin/clock' for the Jensen"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+OK, I integrated your changes.  There will be other changes to<br>
+util-linux so it is able to accomodate glibc, so I thought it would be<br>
+best if I have an uptodate source tree.  Could you verify that this<br>
+patch still works on the Jensen?<br>
+<p>
+	--david<br>
+<pre>
+--
+--- clock.8~	Wed Jan 17 21:43:09 1996
++++ clock.8	Thu May 23 08:13:27 1996
+@@ -22,7 +22,10 @@
+ Indicates that the CMOS clock is set to Universal Time.
+ .TP
+ .B \-A
+-Indicates that the clock is in the ARC Console's time
++Indicates that the clock is in the ARC Console's time.
++.TP
++.B \-J
++Indicates that the system is a Jensen (DEC Alpha) machine.
+ .TP
+ .B \-r
+ Read CMOS clock and print the result to stdout.
+--- clock.c~	Wed Jan 17 21:42:55 1996
++++ clock.c	Thu May 23 08:17:11 1996
+@@ -133,9 +133,13 @@
+  * V1.4.2axp: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a> (Jay Estabrook)
+  *	 Wed Jan 10 1996, modified to use /dev/port, not inb/outb.
+  *       Reason: LIBC support for inb/outb is hardwired to Alpha EV4 CPU.
++ *
++ * V1.4.3axp: <a href="mailto:ost@coments.rwth-aachen.de">ost@coments.rwth-aachen.de</a> (Martin Ostermann)
++ *	 Wed May 22 1996, modified to support J option for the Jensen
++ *       Reason: on a Jensen the RTC is at 0x170 instead of 0x70 
+  */
+ 
+-#define VERSION "1.4.2axp"
++#define VERSION "1.4.3axp"
+ 
+ #define USE_DEV_PORT
+ 
+@@ -165,6 +169,7 @@
+ int universal = 0;
+ int debug = 0;
+ int arcit = 0;
++int clockport = 0x70;
+ const char *pgm_name;
+ 
+ #ifdef USE_DEV_PORT
+@@ -182,6 +187,7 @@
+     "  a: get system time and adjust CMOS clock\n"
+     "  u: CMOS clock is in universal time\n"
+     "  A: CMOS clock is in Alpha ARC console time\n"
++    "  J: we are running on an Alpha Jensen\n"
+     "  v: print version (" VERSION ") and exit\n", pgm_name
+   );
+   exit (1);
+@@ -221,14 +227,14 @@
+ 
+ #ifdef USE_DEV_PORT
+   v = reg | 0x80;
+-  lseek(dev_port_fd, 0x70, 0);
++  lseek(dev_port_fd, clockport, 0);
+   write(dev_port_fd, &amp;v, 1);
+-  lseek(dev_port_fd, 0x71, 0);
++  lseek(dev_port_fd, clockport + 1, 0);
+   read(dev_port_fd, &amp;v, 1);
+   return v;
+ #else
+-  outb (reg | 0x80, 0x70);
+-  return inb (0x71);
++  outb (reg | 0x80, clockport);
++  return inb (clockport + 1);
+ #endif
+ }
+ 
+@@ -238,14 +244,14 @@
+ 
+ #ifdef USE_DEV_PORT
+   v = reg | 0x80;
+-  lseek(dev_port_fd, 0x70, 0);
++  lseek(dev_port_fd, clockport, 0);
+   write(dev_port_fd, &amp;v, 1);
+   v = val &amp; 0xff;
+-  lseek(dev_port_fd, 0x71, 0);
++  lseek(dev_port_fd, clockport + 1, 0);
+   write(dev_port_fd, &amp;v, 1);
+ #else
+-  outb (reg | 0x80, 0x70);
+-  outb (val, 0x71);
++  outb (reg | 0x80, clockport);
++  outb (val, clockport + 1);
+ #endif
+   return 0;
+ }
+@@ -303,7 +309,7 @@
+   int adjustment = 0;
+ 
+   pgm_name = argv[0];
+-  while ((arg = getopt (argc, argv, "rwsuaADv")) != -1)
++  while ((arg = getopt (argc, argv, "rwsuaAJDv")) != -1)
+     {
+       switch (arg)
+ 	{
+@@ -324,6 +330,9 @@
+ 	  break;
+         case 'A':
+ 	  arcit = 1;
++	  break;
++	case 'J':
++	  clockport = 0x170;
+ 	  break;
+         case 'D':
+ 	  debug = 1;
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0370.html">David Mosberger-Tang: "gdb-4.16 patch"</a>
+<li> <b>Previous message:</b> <a href="0368.html">Martin Ostermann: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<li> <b>Maybe in reply to:</b> <a href="0367.html">Martin Ostermann: "`/sbin/clock' for the Jensen"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0371.html">Martin Ostermann: "Re: `/sbin/clock' for the Jensen"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

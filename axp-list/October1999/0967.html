@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Assembly errors with lockmeter</TITLE>
+<META NAME="Author" CONTENT="Peter Rival (frival@zk3.dec.com)">
+<META NAME="Subject" CONTENT="Re: Assembly errors with lockmeter">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Assembly errors with lockmeter</H1>
+<HR>
+<P>
+<!-- received="Tue Nov 02 21:27:47 1999" -->
+<!-- isoreceived="19991103052747" -->
+<!-- sent="Tue, 02 Nov 1999 20:41:15 +0000" -->
+<!-- isosent="19991102204115" -->
+<!-- name="Peter Rival" -->
+<!-- email="frival@zk3.dec.com" -->
+<!-- subject="Re: Assembly errors with lockmeter" -->
+<!-- id="381F4C6B.E64E925D@zk3.dec.com" -->
+<!-- inreplyto="19991102121947.A29750@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: Assembly errors with lockmeter<BR>
+<STRONG>From: </STRONG>Peter Rival (<EM>frival@zk3.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Nov 02 1999 - 12:41:15 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#967">[ date ]</A>
+<A HREF="index.html#967">[ thread ]</A>
+<A HREF="subject.html#967">[ subject ]</A>
+<A HREF="author.html#967">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0968.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0966.html">Ebinger . Eric: "RE: Amaya 2.2 is out (and builds on Alpha)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0965.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0968.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0965.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Richard Henderson wrote:
+<BR>
+<P><EM>&gt; On Tue, Nov 02, 1999 at 07:24:09PM +0000, Peter Rival wrote:
+</EM><BR>
+<EM>&gt; &gt;         &quot;       stl_c %1,6f\n&quot;
+</EM><BR>
+<EM>&gt; &gt;         &quot;6:\n&quot;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Look close and think carefully.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; You shouldn't be storing to a label, but instead to %0.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P>Oh my God, I'm a moron.  I was reading from something I had scratched
+<BR>
+together earlier and the paper was at an angle and I combined the stl_c
+<BR>
+with the following beq and came up with junk.
+<BR>
+<P>After feeling stupid (and grabbing more coffee) I fixed it up as shown
+<BR>
+but now I still get the second error:
+<BR>
+<P>[frival@av8r kernel]$ gcc -D__KERNEL__
+<BR>
+-I/home/frival/lockwork/linux-2.3.22/include -Wall -Wstrict-prototypes
+<BR>
+-O2 -fno-strict-aliasing -D__SMP__ -pipe -mno-fp-regs -ffixed-8   -c
+<BR>
+lockmeter.c -o lockmeter.o
+<BR>
+{standard input}: Assembler messages:
+<BR>
+{standard input}:655: Internal error!
+<BR>
+Assertion failure in alpha_align at ./config/tc-alpha.c line 4518.
+<BR>
+Please report this bug.
+<BR>
+<P>Where this is what we see:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov $2,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stl_c $2,0($16)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq $2,6f
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb
+<BR>
+.section .text2,&quot;ax&quot;
+<BR>
+6:
+<BR>
+.previous
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addl $1,$31,$1    &lt;-- Line 655
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq $1,$L944
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $16,16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $31,$31,$18
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr $26,$lstat_update..ng
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br $31,$L943
+<BR>
+$L944:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rpcc $1
+<BR>
+<P>Is this an &quot;upgrade to GCC 2.95&quot; thing, or is something else wrong?
+<BR>
+This is a &quot;stock&quot; RH6.1 installed system.
+<BR>
+<P>&nbsp;- Pete
+<BR>
+<P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+Richard Henderson wrote:
+<blockquote TYPE=CITE>On Tue, Nov 02, 1999 at 07:24:09PM +0000, Peter Rival
+wrote:
+<br>>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+stl_c %1,6f\n"
+<br>>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "6:\n"
+<p>Look close and think carefully.
+<p>You shouldn't be storing to a label, but instead to %0.
+<br>&nbsp;</blockquote>
+Oh my God, I'm a moron.&nbsp; I was reading from something I had scratched
+together earlier and the paper was at an angle and I combined the stl_c
+with the following beq and came up with junk.
+<p>After feeling stupid (and grabbing more coffee) I fixed it up as shown
+but now I still get the second error:
+<p><tt>[frival@av8r kernel]$ gcc -D__KERNEL__ -I/home/frival/lockwork/linux-2.3.22/include
+-Wall -Wstrict-prototypes -O2 -fno-strict-aliasing -D__SMP__ -pipe -mno-fp-regs
+-ffixed-8&nbsp;&nbsp; -c lockmeter.c -o lockmeter.o</tt>
+<br><tt>{standard input}: Assembler messages:</tt>
+<br><tt>{standard input}:655: Internal error!</tt>
+<br><tt>Assertion failure in alpha_align at ./config/tc-alpha.c line 4518.</tt>
+<br><tt>Please report this bug.</tt>
+<p>Where this is what we see:
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mov $2,$1</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stl_c $2,0($16)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; beq $2,6f</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mb</tt>
+<br><tt>.section .text2,"ax"</tt>
+<br><tt>6:</tt>
+<br><tt>.previous</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; addl $1,$31,$1&nbsp;&nbsp;&nbsp;
+&lt;-- Line 655</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; beq $1,$L944</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ldq $16,16($30)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; bis $31,$31,$18</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; bsr $26,$lstat_update..ng</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; br $31,$L943</tt>
+<br><tt>$L944:</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rpcc $1</tt>
+<p>Is this an "upgrade to GCC&nbsp;2.95" thing, or is something else wrong?&nbsp;
+This is a "stock" RH6.1 installed system.
+<p>&nbsp;- Pete
+
+
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0968.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0966.html">Ebinger . Eric: "RE: Amaya 2.2 is out (and builds on Alpha)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0965.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0968.html">Richard Henderson: "Re: Assembly errors with lockmeter"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0965.html">Peter Rival: "Re: Assembly errors with lockmeter"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:55 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

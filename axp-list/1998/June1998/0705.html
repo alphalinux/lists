@@ -1,0 +1,155 @@
+<!-- received="Thu Jul  2 16:25:36 1998 " -->
+<!-- sent="Mon, 18 May 1998 00:26:30 +0300 (EET DST)" -->
+<!-- name="Kinnunen Kimmo" -->
+<!-- email="romulan@cs.tut.fi" -->
+<!-- subject="2.1.102 and IRQ allocation problem?" -->
+<!-- id="199805172126.AAA09431@korppi.cs.tut.fi" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>2.1.102 and IRQ allocation problem?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>2.1.102 and IRQ allocation problem?</h2>
+
+<b>Kinnunen Kimmo</b> (<a href="mailto:romulan@cs.tut.fi"><i>romulan@cs.tut.fi</i></a>)<br>
+<i>Mon, 18 May 1998 00:26:30 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#705">[ date ]</a><a href="index.html#705">[ thread ]</a><a href="subject.html#705">[ subject ]</a><a href="author.html#705">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0706.html">Jay.Estabrook@digital.com: "REPOST: Strange hangs"</a>
+<li> <b>Previous message:</b> <a href="0704.html">Thomas Bogendoerfer: "Re: kernel profiling in 2.1 ?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+It seems that 2.1.102 doesn't allocate IRQs properly for the peripherals.<br>
+Only IRQs for IDE driver gets allocated and that happens quite late in the<br>
+boot, you can come to this conclusion by looking at the 'Unexpected<br>
+interrupt'-messages before actual IRQ-allocation in the dmesg-listing.<br>
+<p>
+Neither SCSI-driver (ncr53c8xx) nor Tulip driver nor PS/2 mouse driver<br>
+nor the serial driver show up in /proc/interrupts list, although the<br>
+drivers do show up in the /proc/ioports list. I have compiled the kernel<br>
+with gcc and egcs, both giving the same IRQ-problem.<br>
+<p>
+I can get the system to boot up by using IDE drive as root and booting<br>
+the system in single user mode, but if I add the SCSI driver (by using<br>
+insmod) or try to set the networking up I get screenfulls of<br>
+<p>
+device_interrupt: unexpected interrupt xx<br>
+<p>
+..where xx is either 24 (SCSI) or 27 (Tulip) and the machine halts. If<br>
+I compile the SCSI-driver in the kernel, the system will die to something<br>
+like:<br>
+<p>
+swapper(1): Oops.. unable to handler kernel paging request at virtual address..<br>
+<p>
+I added one printk() in the beginning of request_irq()<br>
+(arch/alpha/kernel/irq.c) to see when the interrupt handler for IRQ actually<br>
+gets allocated. They're shown in the dmesg listing like this:<br>
+<p>
+Trying to allocate IRQ 14 for device ide0<br>
+<p>
+Has anyone else this kind of problem with 2.1.102?<br>
+<p>
+---- /proc/interrupts --------------------------------------------------<br>
+ 1:        246   keyboard<br>
+ 8:      44060   timer<br>
+14:         10 + ide0<br>
+15:       7614 + ide1<br>
+---- end of /proc/interrupts -------------------------------------------<br>
+<p>
+---- /proc/ioports -----------------------------------------------------<br>
+0060-006f : keyboard<br>
+0070-007f : timer<br>
+0170-0177 : ide1<br>
+01f0-01f7 : ide0<br>
+02f8-02ff : serial(auto)<br>
+0376-0376 : ide1<br>
+03c0-03df : vga+<br>
+03f6-03f6 : ide0<br>
+03f8-03ff : serial(auto)<br>
+8000-807f : Digital DS21041 Tulip<br>
+---- end of /proc/ioports ----------------------------------------------<br>
+<p>
+---- dmesg -------------------------------------------------------------<br>
+Linux version 2.1.102 (<a href="mailto:root@foo.bar">root@foo.bar</a>) (gcc version egcs-2.90.27 980315 (egcs-1.0.2 release)) #28 Sun May 17 22:29:39 EEST 1998<br>
+Command line: bootdevice=hdc5 bootfile=/vm21102_egcs.gz root=/dev/hdc2 single <br>
+Trying to allocate IRQ 8 for device timer<br>
+Console: 16 point font, 400 scans<br>
+Console: colour VGA+ 80x25, 1 virtual console (max 63)<br>
+Calibrating delay loop... 528.48 BogoMIPS<br>
+Memory: 127384k available<br>
+Swansea University Computer Society NET3.039 for Linux 2.1<br>
+NET3: Unix domain sockets 0.16 for Linux NET3.038.<br>
+Swansea University Computer Society TCP/IP for NET3.037<br>
+IP Protocols: ICMP, UDP, TCP<br>
+POSIX conformance testing by UNIFIX<br>
+Alpha PCI BIOS32 revision 0.04<br>
+PCI: Probing PCI hardware.<br>
+SMC37c669 Super I/O Controller found @ 0x3f0<br>
+Starting kswapd v 1.5 <br>
+Trying to allocate IRQ 1 for device keyboard<br>
+Serial driver version 4.25 with enabled<br>
+ttyS00 at 0x03f8 (irq = 4) is a 16550A<br>
+ttyS01 at 0x02f8 (irq = 3) is a 16550A<br>
+PS/2 auxiliary pointing device detected -- driver installed.<br>
+loop: registered device at major 7<br>
+device_interrupt: unexpected interrupt 3<br>
+device_interrupt: unexpected interrupt 4<br>
+device_interrupt: unexpected interrupt 14<br>
+hda: ST51080A, ATA DISK drive<br>
+device_interrupt: unexpected interrupt 14<br>
+device_interrupt: unexpected interrupt 15<br>
+hdc: QUANTUM BIGFOOT_CY4320A, ATA DISK drive<br>
+device_interrupt: unexpected interrupt 15<br>
+Trying to allocate IRQ 14 for device ide0<br>
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 14<br>
+Trying to allocate IRQ 15 for device ide1<br>
+ide1 at 0x170-0x177,0x376 on irq 15<br>
+hda: ST51080A, 1033MB w/128kB Cache, CHS=2100/16/63<br>
+hdc: QUANTUM BIGFOOT_CY4320A, 4134MB w/67kB Cache, CHS=8960/15/63<br>
+Floppy drive(s): fd0 is 2.88M<br>
+Trying to allocate IRQ 6 for device floppy<br>
+FDC 0 is a post-1991 82077<br>
+Partition check:<br>
+ hda: hda1 hda2 &lt; hda5 &gt;<br>
+ hdc: hdc1 &lt; hdc5 hdc6 &gt; hdc2 hdc3<br>
+VFS: Mounted root (ext2 filesystem) readonly.<br>
+Freeing unused kernel memory: 48k freed<br>
+---- end of dmesg ------------------------------------------------------<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0706.html">Jay.Estabrook@digital.com: "REPOST: Strange hangs"</a>
+<li> <b>Previous message:</b> <a href="0704.html">Thomas Bogendoerfer: "Re: kernel profiling in 2.1 ?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

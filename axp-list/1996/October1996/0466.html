@@ -1,0 +1,113 @@
+<!-- received="Tue Oct 15 04:17:44 1996 " -->
+<!-- sent="Tue, 15 Oct 1996 11:12:55 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: rpm 2.2.[56] failures" -->
+<!-- id="199610150748.BAA02959@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Pine.LNX.3.95.961014232120.16058C-100000@ns1.fni.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: rpm 2.2.[56] failures</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: rpm 2.2.[56] failures</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Tue, 15 Oct 1996 11:12:55 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#466">[ date ]</a><a href="index.html#466">[ thread ]</a><a href="subject.html#466">[ subject ]</a><a href="author.html#466">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0467.html">David A Rusling: "Re: General Comments (fwd)"</a>
+<li> <b>Previous message:</b> <a href="0465.html">Mihaly HOMONNAI: "Re: Headless udb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0468.html">D. Steven Daniel: "Re: Gee, it won't see my Hard Drive"</a>
+<li> <b>Reply:</b> <a href="0468.html">D. Steven Daniel: "Re: Gee, it won't see my Hard Drive"</a>
+<li> <b>Reply:</b> <a href="0474.html">Erik Troan: "Re: Gee, it won't see my Hard Drive"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Mon, 14 Oct 1996, Michael Brennen wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; I wrote earlier about rpm 2.2.5 failing.  Marin Purgar helped me create</i><br>
+<i>&gt; rpm 2.2.6 (thanks!), and it failed the same way.</i><br>
+<i>&gt; </i><br>
+<i>&gt; After some debugging I found the reason.  The failure is in</i><br>
+<i>&gt; ~/lib/install.c at the write on line 671:</i><br>
+<i>&gt; </i><br>
+<i>&gt; if ( write(p[1]), buf, bytesRead) != bytesRead )</i><br>
+<i>&gt; </i><br>
+<i>&gt; If bytesRead is zero (from the previous gzread()), the write will fail,</i><br>
+<i>&gt; returning -1.  My quick fix was to change line 672. </i><br>
+<i>&gt; </i><br>
+<i>&gt; Old:       cpioFailed = 1;</i><br>
+<i>&gt; </i><br>
+<i>&gt; New:       if (bytesRead) cpioFailed =1;</i><br>
+<i>&gt; </i><br>
+<i>&gt; This is on linux 2.1.3.  I don't know if the 2.1.x series changed expected</i><br>
+<i>&gt; behaviour of write() or if this is an error of rpm 2.2.[56].  From the</i><br>
+<i>&gt; write(2) man page; the note about the special file should apply here, as</i><br>
+<i>&gt; this is a pipe. </i><br>
+<i>&gt; </i><br>
+<i>&gt; RETURN VALUE</i><br>
+<i>&gt;        On success, the number of bytes written are returned (zero</i><br>
+<i>&gt;        indicates nothing was written).  On error, -1 is returned,</i><br>
+<i>&gt;        and  errno is set appropriately.  If count is zero and the</i><br>
+<i>&gt;        file descriptor refers  to  a  regular  file,  0  will  be</i><br>
+<i>&gt;        returned  without causing any other effect.  For a special</i><br>
+<i>&gt;        file, the results are not portable.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Comments are welcome, but it looks like an rpm bug to me.</i><br>
+<p>
+Hmm.. The behaviour _did_ change in 2.1.x - previously a write() with a zero<br>
+length _always_ returned zero, but that isn't actually 100% correct. It's<br>
+obviously correct (and required) on a normal file, and it's still true for<br>
+files.  But a write() of a zero-length buffer to any other media actually has<br>
+some "special semantics": it is often used to check for errors (without<br>
+actually having to write anything). <br>
+<p>
+In this case, I suspect that the error returned in errno is "EPIPE", ie all<br>
+readers have gone away. Returning -1 for that case is totally logical even if<br>
+the write length was 0. <br>
+<p>
+NOTE! This is _not_ somehting a portable program should depend on.  You<br>
+should never depend on any errors being returned this way, but at least it<br>
+doesn't look like a kernel bug, but a portability bug that just shows up with<br>
+2.1.x (and possibly other systems - it's especially likely to work this way<br>
+with network connections). <br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0467.html">David A Rusling: "Re: General Comments (fwd)"</a>
+<li> <b>Previous message:</b> <a href="0465.html">Mihaly HOMONNAI: "Re: Headless udb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0468.html">D. Steven Daniel: "Re: Gee, it won't see my Hard Drive"</a>
+<li> <b>Reply:</b> <a href="0468.html">D. Steven Daniel: "Re: Gee, it won't see my Hard Drive"</a>
+<li> <b>Reply:</b> <a href="0474.html">Erik Troan: "Re: Gee, it won't see my Hard Drive"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

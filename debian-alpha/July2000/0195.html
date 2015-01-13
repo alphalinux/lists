@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: dd bug or cdrom driver bug???</TITLE>
+<META NAME="Author" CONTENT="Alan P. Kennedy, Sr (alphahere@home.com )">
+<META NAME="Subject" CONTENT="Re: dd bug or cdrom driver bug???">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: dd bug or cdrom driver bug???</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 28 02:56:41 2000" -->
+<!-- isoreceived="20000728095641" -->
+<!-- sent="27 Jul 2000 20:13:45 -0500" -->
+<!-- isosent="20000728011345" -->
+<!-- name="Alan P. Kennedy, Sr" -->
+<!-- email="alphahere@home.com " -->
+<!-- subject="Re: dd bug or cdrom driver bug???" -->
+<!-- id="m3g0ovm4za.fsf@alphahere.home.com" -->
+<!-- inreplyto="Thu, 27 Jul 2000 22:35:58 +0100&quot;" -->
+<STRONG>Subject: </STRONG>Re: dd bug or cdrom driver bug???<BR>
+<STRONG>From: </STRONG>Alan P. Kennedy, Sr (<EM>alphahere@home.com </EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 27 2000 - 18:13:45 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#195">[ date ]</A>
+<A HREF="index.html#195">[ thread ]</A>
+<A HREF="subject.html#195">[ subject ]</A>
+<A HREF="author.html#195">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0196.html">John Leuner: "IA64"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0194.html">Thomas W.: "Re: install debian on Alphaserver DS20"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Christopher C. Chimelis: "Re: dd bug or cdrom driver bug???"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0174.html">Alan P. Kennedy, Sr: "Re: dd bug or cdrom driver bug???"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>Spent some time trying to figure out what is going with my cdrom
+<BR>
+drives with alpha.
+<BR>
+<P>Used stock 2.2.15 kernel from debian 
+<BR>
+<P>Here are the dmesg information about the cdrom drives.
+<BR>
+<P>hda: TOSHIBA CD-ROM XM-6302B, ATAPI CDROM drive
+<BR>
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 14
+<BR>
+hda: ATAPI 32X CD-ROM drive, 256kB Cache
+<BR>
+Uniform CDROM driver Revision: 2.56
+<BR>
+<P>ncr53c8xx: 53c810 detected 
+<BR>
+ncr53c810-0: rev=0x02, base=0x109100000, io_port=0x10000b000, irq=24
+<BR>
+ncr53c810-0: ID 7, Fast-10, Parity Checking
+<BR>
+ncr53c810-0: restart (scsi reset).
+<BR>
+scsi0 : QLogic ISP1020 SCSI on PCI bus 01 device 30 irq 47 I/O base 0x100009800
+<BR>
+scsi1 : ncr53c8xx - version 3.2a-2
+<BR>
+scsi : 2 hosts.
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ2DD-KS (C) DEC  Rev: 0306
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sda at scsi0, channel 0, id 0, lun 0
+<BR>
+&nbsp;&nbsp;Vendor:           Model: CRW620            Rev: 1.00
+<BR>
+&nbsp;&nbsp;Type:   CD-ROM                             ANSI SCSI revision: 02
+<BR>
+Detected scsi CD-ROM sr0 at scsi1, channel 0, id 5, lun 0
+<BR>
+scsi : detected 1 SCSI cdrom 1 SCSI disk total.
+<BR>
+ncr53c810-0-&lt;5,*&gt;: device did not report SYNC.
+<BR>
+sr0: scsi3-mmc drive: 6x/6x writer cd/rw xa/form2 cdda tray
+<BR>
+<P>First thing that I found out is that the i/o input error was correct. 
+<BR>
+The CDROM disk being used was damaged and the i/o input error was real.
+<BR>
+<P>I then got a good cdrom disk and found that the scsi cdrom worked
+<BR>
+like a charm with all the following commands:
+<BR>
+<P>dd if=/dev/scd0 of=cdrom.iso bs=8192 
+<BR>
+dd if=/dev/scd0 of=cdrom.iso bs=2048 
+<BR>
+dd if=/dev/scd0 of=cdrom.iso 
+<BR>
+<P>I then tried the same cdrom disk in the eide drive with the same
+<BR>
+commands (of course I changed /dev/scd0 to /dev/hda). 
+<BR>
+<P>The eide cdrom produced an i/o input error and the following errors
+<BR>
+were in the /var/log/massages file.
+<BR>
+<P>** Start error **
+<BR>
+Jul 27 19:04:35 alpha kernel: ATAPI device hda:
+<BR>
+Jul 27 19:04:35 alpha kernel:   Error: Illegal request -- (Sense key=0x05)
+<BR>
+Jul 27 19:04:35 alpha kernel:   Logical block address out of range -- (asc=0x21,
+<BR>
+&nbsp;ascq=0x00)
+<BR>
+Jul 27 19:04:35 alpha kernel: hda: command error: status=0x51 { DriveReady SeekC
+<BR>
+omplete Error }
+<BR>
+Jul 27 19:04:35 alpha kernel: hda: command error: error=0x52
+<BR>
+Jul 27 19:04:35 alpha kernel: end_request: I/O error, dev 03:00 (hda), sector 17
+<BR>
+3870
+<BR>
+Jul 27 19:04:35 alpha kernel: ATAPI device hda:
+<BR>
+Jul 27 19:04:35 alpha kernel:   Error: Illegal request -- (Sense key=0x05)
+<BR>
+Jul 27 19:04:35 alpha kernel:   Logical block address out of range -- (asc=0x21,
+<BR>
+&nbsp;ascq=0x00)
+<BR>
+Jul 27 19:13:27 alpha kernel: set_program_attributes(12000000 d8c000 14000000 45
+<BR>
+d1d0)
+<BR>
+Jul 27 19:13:29 alpha kernel: &lt;sc 0(84,1f4,11ffff940)&gt;&lt;sc 53(8,1f4,11ffff940)&gt;&lt;s
+<BR>
+c 0(17,1f4,11ffff940)&gt;&lt;sc 53(8,1f4,11ffff940)&gt;set_program_attributes(12000000 d8
+<BR>
+c000 14000000 45d1d0)
+<BR>
+Jul 27 19:27:36 alpha kernel: &lt;sc 0(84,1f4,11ffff960)&gt;&lt;sc 53(8,1f4,11ffff960)&gt;&lt;s
+<BR>
+c 0(17,1f4,11ffff960)&gt;&lt;sc 53(8,1f4,11ffff960)&gt;set_program_attributes(120000000 2
+<BR>
+3e000 140000000 56b50)
+<BR>
+** End error **
+<BR>
+<P>Now the interesting thing even with all the errors &quot;dd&quot; worked fine
+<BR>
+and when I compared all the images produced with &quot;cmp&quot; all the images
+<BR>
+were identical. The scsi iso images were identical to the eide cdrom
+<BR>
+images. I guess these errors really don't mean much. To be very frank
+<BR>
+I don't have a clue what these errors mean. Interesting enough even
+<BR>
+with a different cdrom disk (that is known good) I get the exact same
+<BR>
+errors. Note this is the same eide drive that would not work with
+<BR>
+cdparanoia. 
+<BR>
+<P>So I guess one should make sure that the cdrom disk is good in the
+<BR>
+first place. Especially before posting. :-)
+<BR>
+<P>So why did the i386 machine read the bad cdrom disk correctly? I
+<BR>
+suspect the reason is the i386 machine has a brand new scsi cdrom
+<BR>
+reader/writer that was able to read the damaged disk. That is of
+<BR>
+course a guess. If I have some time I may change cdrom drives and see.  
+<BR>
+<P>Does anyone know what these hda cdrom errors mean?
+<BR>
+<P>Thanks!!!
+<BR>
+<P>Alan
+<BR>
+<P><P><P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0196.html">John Leuner: "IA64"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0194.html">Thomas W.: "Re: install debian on Alphaserver DS20"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0199.html">Christopher C. Chimelis: "Re: dd bug or cdrom driver bug???"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0174.html">Alan P. Kennedy, Sr: "Re: dd bug or cdrom driver bug???"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:14 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

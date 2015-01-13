@@ -1,0 +1,159 @@
+<!-- received="Wed Jan  8 22:04:39 1997 " -->
+<!-- sent="Wed, 8 Jan 1997 22:01:58 -0500 (EST)" -->
+<!-- name="Jeff Odom" -->
+<!-- email="zeus@jhu.edu" -->
+<!-- subject="Re: lpr" -->
+<!-- id="32D45BF9.62CD@aod.com" -->
+<!-- inreplyto="Pine.LNX.3.95.961230200405.1369A-100000@cyberelk.elk.co.uk" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: lpr</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: lpr</h2>
+
+<b>Jeff Odom</b> (<a href="mailto:zeus@jhu.edu"><i>zeus@jhu.edu</i></a>)<br>
+<i>Wed, 8 Jan 1997 22:01:58 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#204">[ date ]</a><a href="index.html#204">[ thread ]</a><a href="subject.html#204">[ subject ]</a><a href="author.html#204">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0205.html">Terence D. Hairston: "Building Kernel on Linux Alpha"</a>
+<li> <b>Previous message:</b> <a href="0203.html">bruce a. campbell: "re: linker beta."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Okay, here's a patch to the lpr-0.13 sources that fix the problem of<br>
+printing to a remote printer.  Basically, one patch fixes the (improper?)<br>
+use of __ivailduser, the other a problem with k&amp;r varargs.  It's kinda an<br>
+ugly patch, but hey, it works...:)<br>
+<p>
+Simply cd to /usr/src/redhat/SOURCES/lpr and apply the patch.<br>
+<p>
+Jeff Odom<br>
+System Administrator<br>
+The Johns Hopkins Krieger Mind/Brain Institute<br>
+<p>
+<p>
+--- lpd/lpd.c	Wed Sep  4 16:31:49 1996<br>
++++ ../lpr.new/lpd/lpd.c	Tue Jan  7 22:28:25 1997<br>
+@@ -450,8 +450,11 @@<br>
+ 	hostf = fopen(_PATH_HOSTSEQUIV, "r");<br>
+ again:<br>
+ 	if (hostf) {<br>
+-#ifdef __alpha__<br>
++#ifdef __alpha__ <br>
++                if (!checkuser(hostf,fromb,baselen)) {<br>
++/*<br>
+ 		if (!__ivaliduser(hostf, fromb, DUMMY, DUMMY, baselen)) {<br>
++*/<br>
+ 			(void) fclose(hostf);<br>
+ 			return;<br>
+ 		}<br>
+@@ -470,3 +473,17 @@<br>
+ 	}<br>
+ 	fatal("Your host does not have line printer access");<br>
+ }<br>
++<br>
++int checkuser(FILE *fd, char *name, int baselen) {<br>
++        char basename[100],buf[100];<br>
++        strcpy(basename,name);<br>
++        basename[baselen]='\0';<br>
++<br>
++        while (fgets(buf,100,fd)!=NULL) {<br>
++                buf[strlen(buf)-1]='\0';<br>
++                if (!strcmp(buf,name) || !strcmp(buf,basename))<br>
++                        return 0;<br>
++                }<br>
++        return 1;<br>
++}<br>
++<br>
+--- lpd/printjob.c	Thu Dec  1 20:59:43 2016<br>
++++ ../lpr.new/lpd/printjob.c	Tue Jan  7 22:37:25 1997<br>
+@@ -45,7 +45,7 @@<br>
+ <br>
+ #include "lp.h"<br>
+ #include "pathnames.h"<br>
+-<br>
++#include &lt;stdarg.h&gt;<br>
+ #define DORETURN	0	/* absorb fork error */<br>
+ #define DOABORT		1	/* abort if dofork fails */<br>
+ <br>
+@@ -1289,9 +1289,37 @@<br>
+ }<br>
+ <br>
+ /*VARARGS1*/<br>
++/*<br>
+ status(msg, a1, a2, a3)<br>
+ 	char *msg;<br>
+ 	void *a1, *a2, *a3;<br>
++*/<br>
++void status(char *msg, ...)<br>
++{<br>
++        register int fd;<br>
++        char buf[BUFSIZ];<br>
++        char *s1=NULL, *s2=NULL;<br>
++<br>
++        va_list vlist;<br>
++        va_start(vlist, msg);<br>
++        s1=va_arg(vlist,char *);<br>
++        if (s1!=NULL)<br>
++                s2=va_arg(vlist,char *);<br>
++<br>
++        umask(0);<br>
++        fd = open(ST, O_WRONLY|O_CREAT, 0664);<br>
++        if (fd &lt; 0 || flock(fd, LOCK_EX) &lt; 0) {<br>
++                syslog(LOG_ERR, "%s: %s: %m", printer, ST);<br>
++                exit(1);<br>
++        }<br>
++        ftruncate(fd, 0);<br>
++        sprintf(buf, msg, s1, s2);<br>
++        strcat(buf, "\n");<br>
++        (void) write(fd, buf, strlen(buf));<br>
++        (void) close(fd);<br>
++        va_end(dummy);<br>
++}<br>
++/*<br>
+ {<br>
+ 	register int fd;<br>
+ 	char buf[BUFSIZ];<br>
+@@ -1308,3 +1336,4 @@<br>
+ 	(void) write(fd, buf, strlen(buf));<br>
+ 	(void) close(fd);<br>
+ }<br>
++*/<br>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0205.html">Terence D. Hairston: "Building Kernel on Linux Alpha"</a>
+<li> <b>Previous message:</b> <a href="0203.html">bruce a. campbell: "re: linker beta."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

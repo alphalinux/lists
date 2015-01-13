@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Problem after using BSD labeling for install of RH 5.</TITLE>
+<META NAME="Author" CONTENT="Matt Tilley (TilleyM@hlthsrc.com)">
+<META NAME="Subject" CONTENT="Problem after using BSD labeling for install of RH 5.2 - Help!">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Problem after using BSD labeling for install of RH 5.2 - Help!</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 05 19:10:30 1999" -->
+<!-- isoreceived="19990806021030" -->
+<!-- sent="Thu, 05 Aug 1999 09:09:09 -0400" -->
+<!-- isosent="19990805130909" -->
+<!-- name="Matt Tilley" -->
+<!-- email="TilleyM@hlthsrc.com" -->
+<!-- subject="Problem after using BSD labeling for install of RH 5.2 - Help!" -->
+<!-- id="s7a954e2.058@hlthsrc.com" -->
+<STRONG>Subject: </STRONG>Problem after using BSD labeling for install of RH 5.2 - Help!<BR>
+<STRONG>From: </STRONG>Matt Tilley (<EM>TilleyM@hlthsrc.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 05 1999 - 06:09:09 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#87">[ date ]</A>
+<A HREF="index.html#87">[ thread ]</A>
+<A HREF="subject.html#87">[ subject ]</A>
+<A HREF="author.html#87">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0088.html">Wes Nakamura: "slow nfs in one direction"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0086.html">Xiaozhou Qiu: "Re: [URGENT] I have some Question!!!"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0083.html">Suyudi Koeswanto: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Help!
+<BR>
+<P>Sorry for the long post, however I'm trying to give all of the info that one might need.  In quick summary the problem is that if I partition the disk using BSD style (RH 5.2 install on a Dec Alpha 200), I can't set-up my filesystems (in this case - keeping this as simple as I can, I only had /, swap and /usr that I wanted to set-up) - after sizing the disk with the partitions (three), toggling swap and ext2 (on / and usr) and coming back into the GUI install, I'm informed that the disk appears to be corrupt and I need to initialize it.  There are two options here - initialize or skip the disk.  If I skip the disk than I can't do my install (tried).  If I initialize the disk then I immediately get booted out of the install (vicous circle here).  In addition, I'm not happy with the information shown after sizing my paritions (it doesn't appear to accurately depict what it is I'm trying to do).
+<BR>
+<P>The disk is a Seagate ST15150N drive (a 4GB disk).
+<BR>
+<P>Here are the details:
+<BR>
+<P>Reading the FAQ's, and being told to use BSD labeling, I headed in that direction.  However I'm running into problems using BSD labeling and would like to know if anyone can tell me what step(s) I'm missing.
+<BR>
+<P>My problem is what happens when I do this.  Selecting /dev/sda (SCSI ID of 1), I use &quot;b&quot; directly after selecting &quot;fdisk&quot; (vs. disk druid) to put me into BSD style.  Following instructions to delete all partitions (even &quot;c&quot;, which I don't understand (why would I delete &quot;c&quot; when this seems to define the disk as a whole (from my SunOS days)).  Verify that all partitions are gone (&quot;p&quot; to verify).
+<BR>
+<P>Next, &quot;n&quot; and made partition &quot;a&quot;.  Started on cylinder 2 to allow room for aboot. Range shown is 1 - 1018.  Now I must select from inputting either the last cylinder, +size, +sizeM or +sizeK (the given cylinder range to select from at this point is (1 -1018).  I chose:  +128M  (for 128 MB for my root partition).
+<BR>
+Here is what I now see:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size             offset        fstype        fsize    bsize    cpg
+<BR>
+a:        247380        8246        unused        0        0      # (Cyl. 4*-    114*)
+<BR>
+<P>My first question is what is the &quot;*&quot; for after the cylinder number?
+<BR>
+<P>Next, &quot;n&quot; and made partition &quot;b&quot; (going to be swap).  First Cylinder I put 114 (thinking that it should start where the last left off (from what I remember from Solaris SunOS days).  Select &quot;+64M&quot; for the size, resulting in this output from &quot;p&quot;:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size                  offset        fstype        fsize    bsize     cpg
+<BR>
+a:        247380            8246        unused        0        0                        # (Cyl. 4*-    114*)
+<BR>
+b:        4294159188    931798     unused        0        0                        # (Cyl. 413*- 55)
+<BR>
+<P>Why do the cylinders, as well as the size look so messed up? I see what looks like from the spec sheet
+<BR>
+(<A HREF="http://www.seagate.com/support/disc/specs/st15150n.shtml">http://www.seagate.com/support/disc/specs/st15150n.shtml</A>) that this drive has 3,711 user CYLINDERS.  However, each time I select from the size perimeters given, the range of what I would perceive to be the cylinder is 1 - 1018,
+<BR>
+why is this?  What are the correct number of cylinders that I have to select from?  Can I divide up the 1018 by 4 GB to achieve a decent measure of how I can divide up the disk?  
+<BR>
+<P>if +64 MB is measured from cyl 4 to 114, than I should be able to select 118 cylinders past 115 for another +64 MB (right?).  Deleting &quot;b&quot; and selecting 230 for the last cylinder that I want this partition to land on yields this result:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size                  offset        fstype        fsize    bsize     cpg
+<BR>
+a:        247380            8246        unused        0        0                      # (Cyl. 4*-    114*)
+<BR>
+b:        956936        940044     unused        0        0                         # (Cyl. 416*- 840)
+<BR>
+<P>This seems more reasonable, but if the size is cumulative, wouldn't the size be  494760 (and not 956936)?  Also, if there are only 1018 cylinders and I've only utilized 128 MB, why would I already be close to 1,000 with only a
+<BR>
+fraction of the disk used?
+<BR>
+<P>I decided to try to continue the install.  First partition was started on the second cylinder and was set for +64MB.  The second was set by taking the number of cylinders shown for the &quot;a&quot; partition and doubling it (root = 64 MB, swap now equals 64 MB).  The third was taken by allocating +1000M (1 GB).  Here are the results:
+<BR>
+<P>#	size		offset		fstype	fsize	bsize	cpq
+<BR>
+<P>a:	247380		8246		unused	0	0		# (Cyl. 4*- 114*)
+<BR>
+b:	956536		940044		unused	0	0		#(Cyl 416*- 840*)
+<BR>
+c:	4290085664	6926640		unused	0	0		#(Cyl. 3065* - 905*)
+<BR>
+<P>Then changed fstype of &quot;B&quot; to swap; and the ext2 to the other two partitions (don't know whether this is right or wrong).  Wrote out to disk.  Needed to initialize the disk (setup RH 5.2 program said that I needed to do it because partition &quot;a&quot; was corrupt.)  Then:  &quot;install exited abnormally * received signal 11; but system shut down safely (may safely reboot system).
+<BR>
+<P>Reboot system and tried to install on disk setup that I just did.  Verified that file system lay out was same as I just setup * but system continues to crash (after trying to initialize the disk) in the same manner!!!!
+<BR>
+<P>Next, out of shear frustration I reentered the install program, used fdisk (non-BSD style) and set up three partitions (/, swap and usr) just to see if I could continue on.  Wrote table.  Then switched to BSD style (&quot;b&quot;) and verified that the table existed there as I created it above.  Then continued with the install * now I could set up my mount points (/ and usr), as well as defining my swap.  But this was done with the non-BSD style labeling (I think that it didn't see the disk as corrupted because I had used fdisk w/o BSD (even though I verified that my BSD format was still valid by &quot;b&quot; and &quot;p&quot;).  I then continued the install (time to install packages * after making &quot;ext2&quot; filesystems on /dev/sda1 and sda3).  Looks like install will finish this time.  
+<BR>
+<P>What should I have done to be able to utilize BSD style formating successfully?  What do I need to do to get swriteboot to work correctly (am guessing that the answer here is that I need to install on my BSD style of labeling).  Here are the things that I tried with swriteboot.  I do see the syntax for swriteboot (shown by not entering any arguments), but couldn't see anything obvious.  
+<BR>
+<P>Next, tried doing swrite for aboot:
+<BR>
+<P>Swriteboot *fl /dev/sda /boot/bootlx
+<BR>
+#message received:  swriteboot: partition number must be in range 1-8#
+<BR>
+#
+<BR>
+#swriteboot /dev/sda /boot/bootlx *f3
+<BR>
+open disk device: No such file or directory
+<BR>
+swriteboot *fl /dev/sda /boot/bootlx *f3
+<BR>
+# partition number range error message again (see above)
+<BR>
+#
+<BR>
+<P>I believe that swriteboot is writing boot information to the disk (/dev/sda) in the space that was provided (by starting the install on cylinder 2).  What is the signifance of /boot/bootlx?  This is not the kernel, so it must be the bootfile - is the bootfile being copied to the first cylinder - and if it is, can I see the bootfile (not to examine it, but just to be able to identify the location on the CD) on my 5.2 Install CD?
+<BR>
+<P>Kind of lost at the moment.......
+<BR>
+<P>- Thanks for any help or suggestions.  
+<BR>
+<P>- Matt
+<BR>
+<P><P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0088.html">Wes Nakamura: "slow nfs in one direction"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0086.html">Xiaozhou Qiu: "Re: [URGENT] I have some Question!!!"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0083.html">Suyudi Koeswanto: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:14:58 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

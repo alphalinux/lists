@@ -1,0 +1,175 @@
+<!-- received="Fri Nov 15 09:49:40 1996 " -->
+<!-- sent="Fri, 15 Nov 1996 15:28:49 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="Re: cdwrite-2.0 patches for axp" -->
+<!-- id="9611151528.ZM4394@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto="fabsoft@zarm.uni-bremen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: cdwrite-2.0 patches for axp</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: cdwrite-2.0 patches for axp</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 15 Nov 1996 15:28:49 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#693">[ date ]</a><a href="index.html#693">[ thread ]</a><a href="subject.html#693">[ subject ]</a><a href="author.html#693">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0694.html">Stephen J. Gaudet: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0692.html">Linus Torvalds: "Linux-2.1.10"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Oops, i forgot to include the patch, hereit is:<br>
+<p>
+------ snip ----------<br>
+<p>
+diff -u -r -P cdwrite-2.0/Makefile cdwrite-2.0-axp/Makefile<br>
+--- cdwrite-2.0/Makefile	Tue Nov 21 02:56:38 1995<br>
++++ cdwrite-2.0-axp/Makefile	Fri Nov 15 13:56:28 1996<br>
+@@ -1,8 +1,8 @@<br>
+ PROGS=	cdwrite isosize<br>
+ LINUX= /usr/src/linux<br>
+-CFLAGS=	-Wall -O2 -fomit-frame-pointer -ansi -pedantic -I $(LINUX)/include -I $(LINUX)/drivers<br>
++CFLAGS=	-Wall -O2 -fomit-frame-pointer -I $(LINUX)/include -I $(LINUX)/drivers<br>
+ LDFLAGS= -s<br>
+-BINDIR=	/usr/bin<br>
++BINDIR=	/usr/local/bin<br>
+ <br>
+ all:	$(PROGS)<br>
+ <br>
+diff -u -r -P cdwrite-2.0/cdwrite.c cdwrite-2.0-axp/cdwrite.c<br>
+--- cdwrite-2.0/cdwrite.c	Tue Nov 21 02:58:51 1995<br>
++++ cdwrite-2.0-axp/cdwrite.c	Fri Nov 15 13:43:40 1996<br>
+@@ -35,17 +35,27 @@<br>
+ #include &lt;sys/file.h&gt;<br>
+ #include &lt;sys/errno.h&gt;<br>
+ #include &lt;sys/time.h&gt;<br>
++#ifdef __alpha<br>
++#include "fixup_res.h"<br>
++#endif<br>
+ #include &lt;sys/resource.h&gt;<br>
+ #include &lt;sys/stat.h&gt;<br>
+ #include &lt;sys/time.h&gt;<br>
+ #include &lt;sys/ioctl.h&gt;<br>
+ #include &lt;unistd.h&gt;<br>
+ #include &lt;limits.h&gt;<br>
++#include &lt;asm/param.h&gt;<br>
++#ifndef HZ<br>
++#define HZ __KERNEL_HZ<br>
++#endif<br>
+ <br>
+ #include &lt;linux/version.h&gt;<br>
+ #ifndef LINUX_VERSION_CODE	/* Very old kernel? */<br>
+ #define LINUX_VERSION_CODE 0<br>
+ #endif<br>
++#if LINUX_VERSION_CODE &gt;= 0x020000 /* &lt;scsi/scsi.h&gt; introduced in 2.0 ?? */<br>
++#include &lt;scsi/scsi.h&gt;<br>
++#else<br>
+ #if LINUX_VERSION_CODE &gt;= 0x01031a /* &lt;linux/scsi.h&gt; introduced in 1.3.26 */<br>
+ #include &lt;linux/scsi.h&gt;<br>
+ #else<br>
+@@ -55,7 +65,9 @@<br>
+ #include "block/blk.h"<br>
+ #include "scsi/scsi.h"<br>
+ #endif<br>
+-#include "scsi/sg.h"<br>
++#endif<br>
++<br>
++#include &lt;scsi/sg.h&gt;<br>
+ <br>
+ #include &lt;string.h&gt;<br>
+ <br>
+@@ -934,7 +946,7 @@<br>
+    int reply_len;<br>
+    int speed_factor = 0;<br>
+    int dummy_write = 0;<br>
+-   unsigned long timeout = 10 * 60 * 100;<br>
++   unsigned long timeout = 10 * 60 * HZ;<br>
+ 				/* default timeout = 1 minute, but it */<br>
+ 				/* takes slightly longer than that to */<br>
+ 				/* write the leadin and leadout. (The */<br>
+diff -u -r -P cdwrite-2.0/fixup_res.h cdwrite-2.0-axp/fixup_res.h<br>
+--- cdwrite-2.0/fixup_res.h	Thu Jan  1 01:00:00 1970<br>
++++ cdwrite-2.0-axp/fixup_res.h	Fri Nov 15 12:37:17 1996<br>
+@@ -0,0 +1,35 @@<br>
++#include &lt;asm/resource.h&gt;<br>
++<br>
++#ifndef RLIMIT_CPU<br>
++#define RLIMIT_CPU __KERNEL_RLIMIT_CPU<br>
++#endif<br>
++#ifndef RLIMIT_FSIZE<br>
++#define RLIMIT_FSIZE __KERNEL_RLIMIT_FSIZE<br>
++#endif<br>
++#ifndef RLIMIT_DATA<br>
++#define RLIMIT_DATA __KERNEL_RLIMIT_DATA<br>
++#endif<br>
++#ifndef RLIMIT_STACK<br>
++#define RLIMIT_STACK __KERNEL_RLIMIT_STACK<br>
++#endif<br>
++#ifndef RLIMIT_CORE<br>
++#define RLIMIT_CORE __KERNEL_RLIMIT_CORE<br>
++#endif<br>
++#ifndef RLIMIT_RSS<br>
++#define RLIMIT_RSS __KERNEL_RLIMIT_RSS<br>
++#endif<br>
++#ifndef RLIMIT_NOFILE<br>
++#define RLIMIT_NOFILE __KERNEL_RLIMIT_NOFILE<br>
++#endif<br>
++#ifndef RLIMIT_AS<br>
++#define RLIMIT_AS __KERNEL_RLIMIT_AS<br>
++#endif<br>
++#ifndef RLIMIT_NPROC<br>
++#define RLIMIT_NPROC __KERNEL_RLIMIT_NPROC<br>
++#endif<br>
++#ifndef RLIMIT_MEMLOCK<br>
++#define RLIMIT_MEMLOCK __KERNEL_RLIMIT_MEMLOCK<br>
++#endif<br>
++#ifndef RLIM_NLIMITS<br>
++#define RLIM_NLIMITS __KERNEL_RLIM_NLIMITS<br>
++#endif<br>
+<p>
+------ snip ----------<br>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0694.html">Stephen J. Gaudet: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0692.html">Linus Torvalds: "Linux-2.1.10"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,144 @@
+<!-- received="Mon Jun 17 12:01:35 1996 " -->
+<!-- sent="Mon, 17 Jun 1996 12:01:35 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: procps-1.01 patches" -->
+<!-- id="199606171005.MAA22486@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="199606170309.UAA02809@koala.azstarnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: procps-1.01 patches</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: procps-1.01 patches</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Mon, 17 Jun 1996 12:01:35 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#189">[ date ]</a><a href="index.html#189">[ thread ]</a><a href="subject.html#189">[ subject ]</a><a href="author.html#189">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0190.html">Martin Ostermann: "Re: New kernel on Jensen"</a>
+<li> <b>Previous message:</b> <a href="0188.html">Harald Koenig: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>In reply to:</b> <a href="0183.html">David Mosberger-Tang: "procps-1.01 patches"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0201.html">David Mosberger-Tang: "Re: procps-1.01 patches"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; OK, I bit the bullet and upgraded to procps-1.01.  There is now a new</i><br>
+<i>&gt; patch at:</i><br>
+<i>&gt; </i><br>
+<i>&gt;  <a href="ftp://ftp.azstarnet.com/pub/linux/axp/glibc/procps-1.01axp.patch.gz">ftp://ftp.azstarnet.com/pub/linux/axp/glibc/procps-1.01axp.patch.gz</a></i><br>
+<p>
+I haven't checked your patches yet but here are some patches for<br>
+xcpustate which fix the 16/32bpp problem and also fixes the problem.<br>
+of resource initialisation.  <br>
+<p>
+just using base==0 for XtGetApplicationResources() is not portable <br>
+when sizeof(int) &lt; sizeof (void*).  I've tested the patch below on<br>
+i386 too.<br>
+<p>
+<p>
+<i>&gt; Harald, now I have a bug report for you (or any X-server hacker, I</i><br>
+<i>&gt; suppose): xcpustate prints the bar-chart all in black when running the</i><br>
+<i>&gt; latest XF86_S3 server in 16bpp mode.  In 8bpp mode, the stippling</i><br>
+<i>&gt; works just fine.  Bug or feature?</i><br>
+<p>
+client bug; patch see below.  I don't like this b/w display so I never<br>
+run xcpustate other than for a quick compilation check (which almost<br>
+ever happens on 8bpp as my default depth).<br>
+<p>
+-------------------------------------------------------------------------------<br>
+--- procps-1.01/xcpustate/xcpustate.c.orig	Mon Jun 17 09:49:00 1996<br>
++++ procps-1.01/xcpustate/xcpustate.c	Mon Jun 17 11:03:06 1996<br>
+@@ -28,9 +28,9 @@<br>
+ /* Application Resources - no particular widget */<br>
+ static XtResource application_resources[] = {<br>
+     {"interval", "Interval", XtRInt, sizeof(int),<br>
+-	    (Cardinal)&amp;interval, XtRInt, (caddr_t) &amp;defaultInterval},<br>
++	    0, XtRInt, (caddr_t) &amp;defaultInterval},<br>
+     {"count", "Count", XtRInt, sizeof(int),<br>
+-	    (Cardinal)&amp;count, XtRInt, (caddr_t) &amp;defaultCount},<br>
++	    0, XtRInt, (caddr_t) &amp;defaultCount},<br>
+ };<br>
+ <br>
+ /*<br>
+@@ -147,8 +147,13 @@<br>
+ <br>
+     if (argc &gt; 1)<br>
+ 	usage();<br>
+-	<br>
+-    XtGetApplicationResources(topLevel, 0, application_resources,<br>
++<br>
++    application_resources[0].resource_offset = <br>
++      (Cardinal)&amp;interval - (Cardinal)&amp;application_resources;<br>
++    application_resources[1].resource_offset = <br>
++      (Cardinal)&amp;count - (Cardinal)&amp;application_resources;<br>
++<br>
++    XtGetApplicationResources(topLevel, application_resources, application_resources,<br>
+ 			      XtNumber(application_resources), NULL, 0 );<br>
+ <br>
+     form = XtCreateManagedWidget("form", formWidgetClass, topLevel,<br>
+--- procps-1.01/xcpustate/Bar.c.orig	Mon Jun 17 11:14:51 1996<br>
++++ procps-1.01/xcpustate/Bar.c	Mon Jun 17 11:45:43 1996<br>
+@@ -160,15 +160,15 @@<br>
+ 	bcp-&gt;gray = (Pixmap *) XtMalloc(MAXGRAY * sizeof(Pixmap));<br>
+ 	for(i = 0; i &lt; MAXGRAY; i++) {<br>
+ 	    bcp-&gt;gray[i] = XCreatePixmapFromBitmapData(XtDisplay(new),<br>
+-	     DefaultRootWindow(XtDisplay(new)), gray_bits[i], 3, 3,<br>
+-	     WhitePixelOfScreen(XtScreen(new)),<br>
+-	     BlackPixelOfScreen(XtScreen(new)), 1);<br>
++	     DefaultRootWindow(XtDisplay(new)), gray_bits[i], 3, 3, 1, 0, 1);<br>
+ 	}<br>
+     }<br>
+     gcValues.stipple = bcp-&gt;gray[0];<br>
+     gcValues.fill_style = FillOpaqueStippled;<br>
++    gcValues.foreground = BlackPixelOfScreen(XtScreen(new));<br>
++    gcValues.background = WhitePixelOfScreen(XtScreen(new));<br>
+     w-&gt;bar.gc = XCreateGC(XtDisplay(new), DefaultRootWindow(XtDisplay(new)),<br>
+-     GCFillStyle | GCStipple, &amp;gcValues);<br>
++     GCFillStyle | GCStipple | GCForeground | GCBackground, &amp;gcValues);<br>
+     /* Width and height override length and thickness */<br>
+     if (w-&gt;bar.length == def_dimension)<br>
+ 	w-&gt;bar.length = DEF_LENGTH;<br>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0190.html">Martin Ostermann: "Re: New kernel on Jensen"</a>
+<li> <b>Previous message:</b> <a href="0188.html">Harald Koenig: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>In reply to:</b> <a href="0183.html">David Mosberger-Tang: "procps-1.01 patches"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0201.html">David Mosberger-Tang: "Re: procps-1.01 patches"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

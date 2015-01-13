@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 15 10:05:50 2000" -->
+<!-- isoreceived="20000315180550" -->
+<!-- sent="Tue, 14 Mar 2000 22:32:17 +0100 (CET)" -->
+<!-- isosent="20000314213217" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003142214150.7288-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="20000314130721.B20513@hq.fsmlabs.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Mar 14 2000 - 13:32:17 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#86">[ date ]</A>
+<A HREF="index.html#86">[ thread ]</A>
+<A HREF="subject.html#86">[ subject ]</A>
+<A HREF="author.html#86">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0087.html">Manfred Spraul: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0085.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0091.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0074.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0091.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 14 Mar 2000 yodaiken@fsmlabs.com wrote:
+<BR>
+<P><EM>&gt; But the SMP system should do n-times  as many user&lt;-&gt;kernel transitions
+</EM><BR>
+<EM>&gt; and so should still run into preemption points at a high speed: even
+</EM><BR>
+<EM>&gt; if each processor schedules less often. 
+</EM><BR>
+<P>yes, but as i outlined in the dual-CPU case, this is a statistical thing.
+<BR>
+There are workloads which are in high-latency code paths, and there having
+<BR>
+2 CPUs does not help - 100msec or 50msec doesnt matter much, the sound
+<BR>
+buffer is getting starved. There will also be still 100msec peaks at a 50%
+<BR>
+chance (compared to the nonpreemptive 1-CPU case). I dont think this needs
+<BR>
+many arguing, mixing two bad latency kernel 'point of executions' just
+<BR>
+does not help, it decreases noise but not conceptually. Latencies will get
+<BR>
+shorter by sqrt(2) (~50%) on average, if i remember correctly. With N CPUs
+<BR>
+it's getting better by sqrt(N), so a 4-CPU box will have twice as good
+<BR>
+average latencies than a 1-CPU box. The peaks will be still just as bad,
+<BR>
+and users will just hear half as many sound skipping as before, but it
+<BR>
+wont be gone.
+<BR>
+<P><EM>&gt; &gt; of course it has more footprint than 0 instructions [ == the current SMP
+</EM><BR>
+<EM>&gt; &gt; kernel].
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I thought that we had had this conversation in another setting and you
+</EM><BR>
+<EM>&gt; had argued that cache bloat was absolutely critical path.
+</EM><BR>
+<P>yes, thats possible :-) but here there is a (i believe big) quality
+<BR>
+difference, and in that case i believe the argument was about some minor
+<BR>
+microoptimization. But i do agree that doing the 'complete' preemptible
+<BR>
+solution adds more per-spinlock-operation (cache footprint) overhead than
+<BR>
+i'd like to have. Changing the icache footprint of spinlocks by 1 byte
+<BR>
+adds about 5k more kernel image size, so we are very sensitive on that
+<BR>
+one. One solution would be to make spinlocks a (highly optimized) function
+<BR>
+call [ducking down]:
+<BR>
+<P>&nbsp;de8:   68 00 00 00 00          pushl  $0x0
+<BR>
+&nbsp;ded:   e8 e2 ff ff ff          call   dd4 &lt;__spin_lock&gt;
+<BR>
+&nbsp;de8:   68 00 00 00 00          pushl  $0x0
+<BR>
+&nbsp;ded:   e8 e2 ff ff ff          call   dd4 &lt;__spin_unlock&gt;
+<BR>
+<P>20 bytes icache footprint. (__spin_lock is a special function
+<BR>
+auto-cleaning the stack so the addl $4, %esp is not needed.)
+<BR>
+<P>A typical spinlock aquire+release currently is:
+<BR>
+<P>&nbsp;de8:   f0 0f ba 2d 00 00 00    lock btsl $0x0,0x0
+<BR>
+&nbsp;def:   00 00
+<BR>
+&nbsp;df1:   0f 82 a0 00 00 00       jb     e97 &lt;dummyy+0xaf&gt;
+<BR>
+&nbsp;df7:   f0 0f ba 35 00 00 00    lock btrl $0x0,0x0
+<BR>
+&nbsp;dfe:   00 00
+<BR>
+<P>24 bytes. So a function-call based spin lock/unlock has ~20% less icache
+<BR>
+footprint. (but obviously it has higher overhead)
+<BR>
+<P>the function-call based spinlock implementation could be made even lower
+<BR>
+overhead for global spinlocks, where a helper function could do the
+<BR>
+lock/unlock:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_tasklist();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_tasklist();
+<BR>
+<P>this variant is half the icache footprint of inlined spinlocks.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0087.html">Manfred Spraul: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0085.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0091.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0074.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0091.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

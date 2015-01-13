@@ -1,0 +1,175 @@
+<!-- received="Sat Feb 24 15:53:46 1996 " -->
+<!-- sent="Sat, 24 Feb 96 15:53:46 -0500" -->
+<!-- name="Jay Estabrook - Alpha Migration Tools - LINUX Project" -->
+<!-- email="jestabro@brillig.amt.tay1.dec.com" -->
+<!-- subject="Re: NoName problems [long]" -->
+<!-- id="9602242053.AA17975@brillig.amt.tay1.dec.com" -->
+<!-- inreplyto="2BFCFC824E3@cclana.ucd.ie" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: NoName problems [long]</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: NoName problems [long]</h2>
+
+<b>Jay Estabrook - Alpha Migration Tools - LINUX Project</b> (<a href="mailto:jestabro@brillig.amt.tay1.dec.com"><i>jestabro@brillig.amt.tay1.dec.com</i></a>)<br>
+<i>Sat, 24 Feb 96 15:53:46 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#210">[ date ]</a><a href="index.html#210">[ thread ]</a><a href="subject.html#210">[ subject ]</a><a href="author.html#210">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0211.html">Mikael Nykvist: "ircII &amp; more fixes."</a>
+<li> <b>Previous message:</b> <a href="0209.html">NC11.TAYLOR: "WELCOME TO THE CONSTITUENT ELECTRONIC MAIL SERVICE"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; I have flashed the Blade MILO, and that works fine, I can load MILO</i><br>
+<i>&gt; from flash, and also directly from floppy without any problems. The</i><br>
+<i>&gt; problems start when I try to load the kernel from floppy to install</i><br>
+<i>&gt; BLADE. The following messages occur intermittently:</i><br>
+<i>&gt;  </i><br>
+<i>&gt;  unable to send byte 7 to FDC status=c0</i><br>
+<i>&gt;  </i><br>
+<i>&gt;  floppy0: timeout handler died: do_fd_request</i><br>
+<i>&gt;  </i><br>
+<i>&gt;  floppy0 unexpected interrupt</i><br>
+<i>&gt;   sensei</i><br>
+<i>&gt;   1c0</i><br>
+<i>&gt;   10 </i><br>
+<i>&gt;   sensei </i><br>
+<i>&gt;   1c1</i><br>
+<i>&gt;   10     [etc...]</i><br>
+<i>&gt; </i><br>
+<i>&gt; while trying to load the kernel, and trying to load the root floppy</i><br>
+<i>&gt; into memory. </i><br>
+<p>
+Alpha floppy support in older MILOs and kernels was notoriously flakey,<br>
+at least in my experience. More recent MILOs and kernels seem to be better.<br>
+<p>
+<p>
+<i>&gt; I can start linux, but *only* if I leave the root fs on fd0 and not </i><br>
+<i>&gt; in a ramdisk. Every time I try to use a ramdisk it hangs part way </i><br>
+<i>&gt; though loading into memory (mostly between 5 and 20 seconds into </i><br>
+<i>&gt; loading).</i><br>
+<p>
+Later (1.3.48+) kernels require different sytax for loading RAMdisk:<br>
+<p>
+	boot fd0:vmlinux.gz load_ramdisk=1 root=/dev/fd0<br>
+<p>
+instead of the older:<br>
+<p>
+	boot fd0:vmlinux.gz root=/dev/fd0 ramdisk=1440<br>
+<p>
+Try a recent kernel with the appropriate command, it may react better.<br>
+<p>
+<p>
+<i>&gt; Also I get machine checks from time to time:</i><br>
+<i>&gt; lca: machine check (la=0xffffffc0:00002084d0)</i><br>
+<i>&gt;  unknown error log size 408</i><br>
+<i>&gt; PC=ffffffc0:00003f7e78 PS=0003</i><br>
+<p>
+Do you "set MEMORY_SIZE 16" when MILO comes up? Or does MILO indicate that<br>
+it thinks there's only 16Mb of memory? If it thinks there's more, this can<br>
+often cause the above machine check message...<br>
+<p>
+Also, if the memory SIMMS are x32 and *not* x36 (ie nonparity vs parity),<br>
+some Alpha lowest-level firmware is known to have real problems setting it<br>
+up...<br>
+<p>
+<p>
+<i>&gt; If I use fd0 for the root fs, I can run fdisk, but I get loads </i><br>
+<i>&gt; of unaligned traps, for example hitting p causes 3/4 consecutive</i><br>
+<i>&gt; traps about 50% of the time.</i><br>
+<i>&gt;  fdisk(33): unaligned trap at 00000001:20005d00:</i><br>
+<i>&gt;                               00000001:40003906 2c21</i><br>
+<i>&gt; Since I tried to partition the disk, from then on whenever MILO/kernel</i><br>
+<i>&gt; does a partition check on hda, further traps occur.</i><br>
+<p>
+Unaligned traps are *NOT* indicative of hardware problems, but *software*<br>
+ones. FDISK, as a user of the MSDOS partition table and FS structures,<br>
+*will* do unaligned memory accesses (32 or 64 bit load/store on non-32 or<br>
+non-64 bit boundary, a no-no on the Alpha), because of the data structures<br>
+involved. These messages indicate simply that the kernel took an unaligned<br>
+access exception while running FDISK, and FIXED IT UP! Just ignore them...<br>
+<p>
+<p>
+<i>&gt; I have tried newer MILO/kernels, same messages, except for when MILO</i><br>
+<i>&gt; starts:</i><br>
+<i>&gt;  ..</i><br>
+<i>&gt;  hda: Quantum Fireball 1080 ...</i><br>
+<i>&gt;  hda: IRQ probe failed (-4)           &lt;&lt; new error</i><br>
+<i>&gt;  ide0 at 0x1f0-0x1f7, 0x3f6 on IRQ 14</i><br>
+<p>
+Yeah, I noticed this recently as well, it didn't used to say that... :-(<br>
+<p>
+However, things seem to work fine in spite of the message, on the boxes<br>
+where I've seen it.<br>
+<p>
+<p>
+<i>&gt; and trying ls fd0: while running MILO sometimes causes:</i><br>
+<i>&gt;  floppy0: timeout handler died: normal interrupt end.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I have tried 3 different floppy drives, and cables (including a</i><br>
+<i>&gt; 2.88MB drive, since my 1.44s are ageing a little), all of which</i><br>
+<i>&gt; work fine with a DOS/386, and replaced the IDE cable. I had a </i><br>
+<i>&gt; friend check the memory for parity errors running Checkit on his </i><br>
+<i>&gt; DOS 486, all ok (though I believe that may not be conclusive).</i><br>
+<i>&gt; </i><br>
+<i>&gt; Has anybody any idea what the cause of these errors can be?</i><br>
+<i>&gt; In particular, I suspect the memory might not be happy in the</i><br>
+<i>&gt; alpha, has anybody had trouble with any SIMMs that just plain</i><br>
+<i>&gt; refuse to work?</i><br>
+<p>
+Well, the only things I can suggest:<br>
+<p>
+1. try using the latest MILO from floppy, as well as the latest kernels,<br>
+   in hopes that the floppy drivers will be more tolerant.<br>
+<p>
+2. try using fresh floppies, with fresh low-level formatting and FS, maybe<br>
+   even formatted and filled on the same floppy drive.<br>
+<p>
+3, check out the SIMM types and sizes, as some combinations of type and size<br>
+   seems to cause problems on certain boxes, NONAME being one such...<br>
+<p>
+4. make sure MILO knows or has been told the correct total memory size.<br>
+<p>
+Good luck, let us know how you make out.<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools<br>
+Mailstop: TAY1-2                        (DTN) 227-4202<br>
+Digital Equipment Corp.                 (external) (508) 952-4202<br>
+151 Taylor Street                       enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0211.html">Mikael Nykvist: "ircII &amp; more fixes."</a>
+<li> <b>Previous message:</b> <a href="0209.html">NC11.TAYLOR: "WELCOME TO THE CONSTITUENT ELECTRONIC MAIL SERVICE"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

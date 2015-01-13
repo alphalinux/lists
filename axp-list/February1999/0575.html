@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: OffTopic: PovRay3 for AlphaLinux ?</TITLE>
+<META NAME="Author" CONTENT="Wes Bauske (wsb@paralleldata.com)">
+<META NAME="Subject" CONTENT="Re: OffTopic: PovRay3 for AlphaLinux ?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: OffTopic: PovRay3 for AlphaLinux ?</H1>
+<HR>
+<P>
+<!-- received="Thu Feb 18 21:13:26 1999 PST" -->
+<!-- sent="Thu, 18 Feb 1999 21:01:05 +0000" -->
+<!-- name="Wes Bauske" -->
+<!-- email="wsb@paralleldata.com" -->
+<!-- subject="Re: OffTopic: PovRay3 for AlphaLinux ?" -->
+<!-- id="36CC7F91.3B49F7BC@paralleldata.com" -->
+<!-- inreplyto="19990218114843.A865@czerny.toppoint.de" -->
+<STRONG>Wes Bauske</STRONG> (<A HREF="mailto:wsb@paralleldata.com?subject=Re:%20OffTopic:%20PovRay3%20for%20AlphaLinux%20?"><EM>wsb@paralleldata.com</EM></A>)<BR>
+<EM>Thu, 18 Feb 1999 21:01:05 +0000</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#575">[ date ]</A>
+<A HREF="index.html#575">[ thread ]</A>
+<A HREF="subject.html#575">[ subject ]</A>
+<A HREF="author.html#575">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0576.html">Andrei A. Dergatchev: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0574.html">Joachim Wesner: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0571.html">Daniel J. Frasnelli: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0576.html">Andrei A. Dergatchev: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Daniel J. Frasnelli wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; I'd suggest to check carefully that the code is never doing anything
+</EM><BR>
+<EM>&gt; &gt; wrong with &quot;subnormalized&quot; numbers. I found that -mieee option is
+</EM><BR>
+<EM>&gt; &gt; useless with my compiler and whenever my numbers are around
+</EM><BR>
+<EM>&gt; &gt; ...e-310 I'm getting Floating point exception.
+</EM><BR>
+<EM>&gt; Andrei,
+</EM><BR>
+<EM>&gt;         I am working with Curtis Olson (lead developer, FlightGear flight
+</EM><BR>
+<EM>&gt; simulator(FGFS) &lt;<A HREF="http://www.flightgear.org">http://www.flightgear.org</A>&gt;) on a similar problem.  Both he and
+</EM><BR>
+<EM>&gt; I are beginning to suspect bugs in the AXP port of egcs.  For example,
+</EM><BR>
+<EM>&gt; part of the graphics initialization routines in FGFS set up coordinates for
+</EM><BR>
+<EM>&gt; a 640x480 window.  As you might have read already, FGFS crashes with a
+</EM><BR>
+<EM>&gt; fpe upon startup.  Going through the code stepwise and watching the
+</EM><BR>
+<EM>&gt; variable values, there is a point where the following happens:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 1) Some of the coordinates are set to a number of order e-310 (obviously wrong)
+</EM><BR>
+<P>This looks like the real bug. Most likely a pointer is screwed up or
+<BR>
+you're using an uninitialized variable of some sort.
+<BR>
+<P><EM>&gt; 2) An integer divide is called which approximates the coordinates to 0.
+</EM><BR>
+<EM>&gt; 3) The result becomes a number x/0, which causes the fpe.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>Why is the code expecting a divide by zero to be valid??
+<BR>
+<P><EM>&gt; I am not sure where to start when debugging the problem, but it definately
+</EM><BR>
+<EM>&gt; seems to be compiler-related; programs like xlockmore's &quot;flow&quot; mode and
+</EM><BR>
+<EM>&gt; most GL modes, several graphical demos shipped with glut, and others
+</EM><BR>
+<EM>&gt; crash from similar conditions.  One might look through a debug of these
+</EM><BR>
+<EM>&gt; programs and point at Mesa or the Glut toolkit (many fpe occur during a
+</EM><BR>
+<EM>&gt; light position calculation).  I personally think this is a domino-like
+</EM><BR>
+<EM>&gt; effect where a bug in egcs causes strange and terrible miscalculations
+</EM><BR>
+<EM>&gt; with math operations in all software compiled by it.
+</EM><BR>
+<EM>&gt;         It does not seem to be an endian-ness or 64-bit problem, as I can
+</EM><BR>
+<EM>&gt; build FGFS under Irix (yes, using -64 and -mips4) and not have the same
+</EM><BR>
+<EM>&gt; problems.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Any thoughts?
+</EM><BR>
+<P>There are certain things you need to understand when you
+<BR>
+push the edges of FP representation. Linux Alpha in
+<BR>
+particular can run into problems with &quot;denormals&quot;. It has
+<BR>
+been discussed several times on this list. The end result
+<BR>
+is either try -mieee or, alter the code so that it detects
+<BR>
+very small numbers in those places where they can have bad
+<BR>
+effects on your calculation. As an example, I just modified
+<BR>
+some code because some less than bright programmer decided
+<BR>
+it made sense to do a FP &quot;if(value1 == value2)&quot;. On many
+<BR>
+systems, the Alpha included, it is difficult to ever attain
+<BR>
+identical FP values, unless they are input values to the
+<BR>
+program. The proper way to code such a test is to take the
+<BR>
+fabs(value1-value2) and see if it is smaller than some
+<BR>
+algorithm dependent NOISE value, along the lines of 1e-10 or
+<BR>
+so for the case I fixed. There are other types of issues
+<BR>
+too. All you do is modify the code to work on any system, not
+<BR>
+just the one you built it on, realizing that when you expect
+<BR>
+to generate small values, you need to be careful how you
+<BR>
+code things. I've run into this stuff many times and it
+<BR>
+is almost always straight forward to fix.
+<BR>
+<P>One other thing, I believe you have to turn on FP emulation
+<BR>
+in the kernel if you use -mieee so the kernel can do the
+<BR>
+fix up for the FPE.
+<BR>
+<P><P>Wes
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20OffTopic:%20PovRay3%20for%20AlphaLinux%20?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20OffTopic:%20PovRay3%20for%20AlphaLinux%20?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0576.html">Andrei A. Dergatchev: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0574.html">Joachim Wesner: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0571.html">Daniel J. Frasnelli: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0576.html">Andrei A. Dergatchev: "Re: OffTopic: PovRay3 for AlphaLinux ?"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Feb 18 1999 - 14:00:16 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

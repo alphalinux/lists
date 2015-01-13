@@ -1,0 +1,464 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: i386 drivers on alpha ?</H1> 
+	
+<!-- received="Sat Jul 21 20:36:45 2001" -->
+<!-- isoreceived="20010722033645" -->
+<!-- sent="Sat, 21 Jul 2001 11:30:40 -0600" -->
+<!-- isosent="20010721173040" -->
+<!-- name="Craig Tierney" -->
+<!-- email="ctierney@hpti.com" -->
+<!-- subject="Re: i386 drivers on alpha ?" -->
+<!-- id="20010721113040.E25353@hpti.com" -->
+<!-- inreplyto="ILELJNLMEDBLJDLBCJKMOEBFCBAA.ppetrakis@alphalinux.org" -->
+<STRONG>Subject: </STRONG>Re: i386 drivers on alpha ?<BR>
+<STRONG>From: </STRONG>Craig Tierney (<EM>ctierney@hpti.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Jul 21 10:30:40 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#241">[ date ]</A>
+<A HREF="index.shtml#241">[ thread ]</A>
+<A HREF="subject.shtml#241">[ subject ]</A>
+<A HREF="author.shtml#241">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0242.shtml">Peter Watkinson: "Ruffian PC164UX and RH7.1"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0240.shtml">Richard June: "RE: RedHat 7.1 on a PC164 with milo also for XL266?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0233.shtml">Peter Petrakis: "RE: i386 drivers on alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0242.shtml">Peter Watkinson: "Ruffian PC164UX and RH7.1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0233.shtml">Craig Tierney: "Re: i386 drivers on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+...discussion about patching Qlogic's FC driver deleted.
+<BR>
+<P>Below is my patch.  My strategy was to find the variables
+<BR>
+that are really dma_addr_t types, redefine those variables using that
+<BR>
+and get rid of the #ifdefs.  Then I replaced all BITS_PER_LONG with DMA_ADDR_SIZE 
+<BR>
+and defined DMA_ADDR_SIZE to be the correct size of dma_addr_t.
+<BR>
+<P>Disclaimer.  I don't claim what I did is correct, I just know that I can
+<BR>
+get it to work reliably by doing this.
+<BR>
+<P>This patch is against qla2x00src-4.27Beta.tgz.
+<BR>
+<P>Craig
+<BR>
+<P>diff -urN qla2x00-4.27Beta-clean/qla2x00.c qla2x00-4.27Beta/qla2x00.c
+<BR>
+--- qla2x00-4.27Beta-clean/qla2x00.c    Tue Apr 17 01:40:30 2001
+<BR>
++++ qla2x00-4.27Beta/qla2x00.c  Sat Jul 21 17:25:39 2001
+<BR>
+@@ -395,7 +395,7 @@
+<BR>
+&nbsp;#define  QLA2100_DELAY(sec)  mdelay(sec * HZ)
+<BR>
+<P>&nbsp;/* 4.10 */
+<BR>
+-#if  BITS_PER_LONG &gt; 32
+<BR>
++#if  DMA_BITS_SIZE &gt; 32
+<BR>
+&nbsp;#define pci_dma_lo32(a) (a &amp; 0xffffffff)
+<BR>
+&nbsp;#define pci_dma_hi32(a) ((a &gt;&gt; 32) &amp; 0xffffffff)
+<BR>
+&nbsp;#else
+<BR>
+@@ -405,7 +405,7 @@
+<BR>
+<P>&nbsp;#define  VIRT_TO_BUS(a) virt_to_bus((a))
+<BR>
+<P>-#if  BITS_PER_LONG &lt;= 32
+<BR>
++#if  DMA_BITS_SIZE &lt;= 32
+<BR>
+&nbsp;#define  VIRT_TO_BUS_LOW(a) (uint32_t)virt_to_bus(((void *)a))
+<BR>
+&nbsp;#define  VIRT_TO_BUS_HIGH(a) (uint32_t)(0x0)
+<BR>
+&nbsp;#else
+<BR>
+@@ -418,7 +418,7 @@
+<BR>
+<P>&nbsp;#define  STATIC
+<BR>
+<P>-#if  BITS_PER_LONG &lt;= 32
+<BR>
++#if  DMA_BITS_SIZE &lt;= 32
+<BR>
+&nbsp;#define  LS_64BITS(x) (uint32_t)((unsigned long)x)
+<BR>
+&nbsp;#define  MS_64BITS(x) (uint32_t)((unsigned long) 0x0)
+<BR>
+&nbsp;#else
+<BR>
+@@ -426,7 +426,7 @@
+<BR>
+&nbsp;#define  MS_64BITS(x) (uint32_t)(0xffffffff &amp; (((unsigned long)x)&gt;&gt;32) )
+<BR>
+&nbsp;#endif
+<BR>
+<P>-#if  BITS_PER_LONG &lt;= 32
+<BR>
++#if  DMA_BITS_SIZE &lt;= 32
+<BR>
+&nbsp;#define  MSB(x)          (uint8_t)(((uint16_t)(x) &gt;&gt; 8) &amp; 0xff)
+<BR>
+&nbsp;#define  LSB(x)          (uint8_t)(x &amp; 0xff)
+<BR>
+&nbsp;#define  MSW(x)          (uint16_t)(((uint32_t)(x) &gt;&gt; 16) &amp; 0xffff)
+<BR>
+@@ -1593,6 +1593,7 @@
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;host-&gt;base = (u_long) ha-&gt;mmpbase;
+<BR>
+&nbsp;#endif
+<BR>
++        printk(&quot;qla2100: MAXCHANNELS = %d\n&quot;, maxchannels);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;host-&gt;max_channel = maxchannels;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* fix: 07/31 host-&gt;max_lun = MAX_LUNS-1; */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;host-&gt;max_lun = ha-&gt;max_luns;
+<BR>
+@@ -4987,7 +4988,7 @@
+<BR>
+&nbsp;#if BITS_PER_LONG &gt; 32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Enable 64bit addressing for OS/System combination supporting it   */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* actual NVRAM bit is: nv-&gt;cntr_flags_1.enable_64bit_addressing     */
+<BR>
+-    /* but we will ignore it and use BITS_PER_LONG macro to setup for    */
+<BR>
++    /* but we will ignore it and use DMA_BITS_SIZE macro to setup for    */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 64 or 32 bit access of host memory in all x86/ia-64/Alpha systems */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;flags.enable_64bit_addressing = 1;
+<BR>
+&nbsp;#else
+<BR>
+@@ -4998,7 +4999,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ha-&gt;flags.enable_64bit_addressing)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;[[[ qla2x00: 64 Bit PCI Addressing Enabled ]]]\n&quot;);
+<BR>
+<P>-#if BITS_PER_LONG &gt; 32
+<BR>
++#if DMA_BITS_SIZE &gt; 32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Update our PCI device dma_mask for full 64 bit mask */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* ha-&gt;pdev-&gt;dma_mask = (pci_dma_t) 0xffffffffffffffffull; */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;pdev-&gt;dma_mask = 0xffffffffffffffff;
+<BR>
+@@ -5227,10 +5228,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;flags.set_cache_line_size_1   = nv-&gt;host_p.set_cache_line_size_1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;flags.enable_64bit_addressing = nv-&gt;host_p.enable_64bit_addressing;
+<BR>
+<P><P>-#if BITS_PER_LONG &gt; 32
+<BR>
++#if DMA_BITS_SIZE &gt; 32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Enable 64bit addressing for OS/System combination supporting it   */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* actual NVRAM bit is: nv-&gt;cntr_flags_1.enable_64bit_addressing     */
+<BR>
+-    /* but we will ignore it and use BITS_PER_LONG macro to setup for    */
+<BR>
++    /* but we will ignore it and use DMA_BITS_SIZE macro to setup for    */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 64 or 32 bit access of host memory in all x86/ia-64/Alpha systems */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;flags.enable_64bit_addressing = 1;
+<BR>
+&nbsp;#else
+<BR>
+@@ -5241,7 +5242,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ha-&gt;flags.enable_64bit_addressing)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;[[[ qla2x00: 64 Bit PCI Addressing Enabled ]]]\n&quot;);
+<BR>
+<P>-#if BITS_PER_LONG &gt; 32
+<BR>
++#if DMA_BITS_SIZE &gt; 32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Update our PCI device dma_mask for full 64 bit mask */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ha-&gt;pdev-&gt;dma_mask = 0xffffffffffffffff;
+<BR>
+&nbsp;#endif
+<BR>
+@@ -6198,11 +6199,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8_t     next_port_id[3];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8_t     host_port_id[3];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sns_data_t  *sns;
+<BR>
+-#if BITS_PER_LONG &gt; 32
+<BR>
+-                uint64_t    phys_address = 0;
+<BR>
+-#else
+<BR>
+-                uint32_t    phys_address = 0;
+<BR>
+-#endif
+<BR>
++                dma_addr_t   phys_address = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t    mb[MAILBOX_REGISTER_COUNT];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8_t     use_gan = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8_t     retry_count = 0;
+<BR>
+@@ -6587,11 +6584,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;STATIC uint8_t qla2100_sns_get_name( scsi_qla_host_t *ha, device_data_t *device, uint8_t flag ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8_t     lStatus = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t    wRetryCount;
+<BR>
+-#if BITS_PER_LONG &gt; 32
+<BR>
+-            uint64_t    phys_address = 0;
+<BR>
+-#else
+<BR>
+-            uint32_t    phys_address = 0;
+<BR>
+-#endif
+<BR>
++            dma_addr_t    phys_address = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t    mb[MAILBOX_REGISTER_COUNT];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t    subCmd, response;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sns_data_t  *sns;
+<BR>
+@@ -6896,11 +6889,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t mb[MAILBOX_REGISTER_COUNT];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port_list_entry_t *gn_list, *port_entry;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;device_data_t device;
+<BR>
+-#if BITS_PER_LONG &gt; 32
+<BR>
+-            uint64_t    phys_address = 0;
+<BR>
+-#else
+<BR>
+-            uint32_t    phys_address = 0;
+<BR>
+-#endif
+<BR>
++            dma_addr_t    phys_address = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t i, size;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t localdevices = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int retry_needed = 0;
+<BR>
+diff -urN qla2x00-4.27Beta-clean/qla2x00.h qla2x00-4.27Beta/qla2x00.h
+<BR>
+--- qla2x00-4.27Beta-clean/qla2x00.h    Mon Apr 16 23:56:47 2001
+<BR>
++++ qla2x00-4.27Beta/qla2x00.h  Sat Jul 21 17:24:47 2001
+<BR>
+@@ -34,12 +34,18 @@
+<BR>
+&nbsp;#define ISP2200
+<BR>
+&nbsp;#endif
+<BR>
+<P>+#ifdef __alpha__
+<BR>
++#define DMA_BITS_SIZE 32
+<BR>
++#else
+<BR>
++#define DMA_BITS_SIZE BITS_PER_LONG
+<BR>
++#endif
+<BR>
++
+<BR>
+<P>&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Driver debug definitions.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;/* #define QL_DEBUG_LEVEL_1 */      /* Output register accesses to COM1 */
+<BR>
+-/* #define QL_DEBUG_LEVEL_2 */      /* Output error msgs to COM1 */
+<BR>
++/* #define QL_DEBUG_LEVEL_2  */     /* Output error msgs to COM1 */
+<BR>
+&nbsp;/* #define QL_DEBUG_LEVEL_3 */      /* Output function trace msgs to COM1 */
+<BR>
+&nbsp;/* #define QL_DEBUG_LEVEL_4 */      /* Output NVRAM trace msgs to COM1 */
+<BR>
+&nbsp;/* #define QL_DEBUG_LEVEL_5 */      /* Output ring trace msgs to COM1 */
+<BR>
+@@ -2180,21 +2186,15 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Outstandings ISP commands. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srb_t           *outstanding_cmds[MAX_OUTSTANDING_COMMANDS];
+<BR>
+<P>-#if BITS_PER_LONG &gt; 32
+<BR>
+-    uint64_t        request_dma;        /* Physical address. */
+<BR>
+-#else
+<BR>
+-    uint32_t        request_dma;        /* Physical address. */
+<BR>
+-#endif
+<BR>
++    dma_addr_t      request_dma;        /* Physical address */
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_t       *request_ring;      /* Base virtual address */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_t       *request_ring_ptr;  /* Current address. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t        req_ring_index;     /* Current index. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t        req_q_cnt;          /* Number of available entries. */
+<BR>
+<P>-#if BITS_PER_LONG &gt; 32
+<BR>
+-    uint64_t        response_dma;       /* Physical address. */
+<BR>
+-#else
+<BR>
+-    uint32_t        response_dma;       /* Physical address. */
+<BR>
+-#endif
+<BR>
++    dma_addr_t        response_dma;       /* Physical address. */
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;response_t      *response_ring;     /* Base virtual address */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;response_t      *response_ring_ptr; /* Current address. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint16_t        rsp_ring_index;     /* Current index. */
+<BR>
+@@ -2235,11 +2235,7 @@
+<BR>
+&nbsp;#endif
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Firmware Initialization Control Block data */
+<BR>
+-#if BITS_PER_LONG &gt; 32
+<BR>
+-    uint64_t        init_cb_dma;         /* Physical address. */
+<BR>
+-#else
+<BR>
+-    uint32_t        init_cb_dma;         /* Physical address. */
+<BR>
+-#endif
+<BR>
++    dma_addr_t        init_cb_dma;         /* Physical address. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_cb_t       *init_cb;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Timeout timers. */
+<BR>
+@@ -2344,11 +2340,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;uint8_t     IoctlPassThru_InProgress;
+<BR>
+&nbsp;&nbsp;&nbsp;uint8_t     IoctlPassFCCT_InProgress;
+<BR>
+&nbsp;&nbsp;&nbsp;void       *ioctl_mem;
+<BR>
+-#if BITS_PER_LONG &gt; 32
+<BR>
+-  uint64_t      ioctl_mem_phys;
+<BR>
+-#else
+<BR>
+-  uint32_t      ioctl_mem_phys;
+<BR>
+-#endif
+<BR>
++  dma_addr_t      ioctl_mem_phys;
+<BR>
++
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/* HBA serial number */
+<BR>
+&nbsp;&nbsp;&nbsp;uint8_t     serial0;
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0242.shtml">Peter Watkinson: "Ruffian PC164UX and RH7.1"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0240.shtml">Richard June: "RE: RedHat 7.1 on a PC164 with milo also for XL266?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0233.shtml">Peter Petrakis: "RE: i386 drivers on alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0242.shtml">Peter Watkinson: "Ruffian PC164UX and RH7.1"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0233.shtml">Craig Tierney: "Re: i386 drivers on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Aug  1 06:11:41 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

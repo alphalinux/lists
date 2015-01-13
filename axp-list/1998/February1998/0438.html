@@ -1,0 +1,121 @@
+<!-- received="Wed Feb 25 14:49:12 1998 " -->
+<!-- sent="Wed, 25 Feb 1998 19:44:01 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="Re: Self-build PC164SX-kernel: clock twice too fase" -->
+<!-- id="199802251844.TAA19098@gueuze.ens-lyon.fr" -->
+<!-- inreplyto="199802241042.LAA02008@stefan.sime.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Self-build PC164SX-kernel: clock twice too fase</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Self-build PC164SX-kernel: clock twice too fase</h2>
+
+<b>Loic Prylli</b> (<a href="mailto:Loic.Prylli@ens-lyon.fr"><i>Loic.Prylli@ens-lyon.fr</i></a>)<br>
+<i>Wed, 25 Feb 1998 19:44:01 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#438">[ date ]</a><a href="index.html#438">[ thread ]</a><a href="subject.html#438">[ subject ]</a><a href="author.html#438">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0439.html">Uncle George : "Re: Compileing"</a>
+<li> <b>Previous message:</b> <a href="0437.html">Michal Jaegermann: "Re: Boolean &amp; alpha &amp;X11R6 et al"</a>
+<li> <b>In reply to:</b> <a href="0331.html">Martin Ostermann: "Re: RH5.0 &amp; Jensen"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+I may have solve the problem of clock running twice too fast:<br>
+<p>
+The time reported by our PWS500a (aka MIATA) was also running much too<br>
+fast (more than two hours per day). It seems that the interrupt<br>
+handler is called at least twice for some ticks (the hardware<br>
+interrupt state has probably not been reset properly after the first<br>
+interrupt).<br>
+<p>
+Here is the experiment I have done to understand the problem:<br>
+<p>
+At first I just try to adjust the microsecond per tick variable (with<br>
+tickadj from xntp package). I needed a microseond per tick value of<br>
+~835 instead of 977 as would imply (HZ= 1024).<br>
+<p>
+Suprisingly, under high HD activity the clock was accelerating by<br>
+more than 10% (enough to prevent any possible synchronisationby<br>
+NTP). Ethernet activity would make it go slower by about 10% also.<br>
+<p>
+I insert some code to measure the interval in processor cycles between<br>
+two calls to the timer_interrupt routine. An histogram told that about<br>
+one time out of six, the interval between calls to the timer_interrupt<br>
+routine was of the order of one microsecond, the rest of the time is<br>
+was a normal interval of about 1ms.<br>
+<p>
+So I just inserted a test at the beginning of the timer_interrupt, if<br>
+there has not been a significant number of clock cycles since last<br>
+call, the routine returns immediatly. Here an extract of the patch:<br>
+<p>
+--- linux/arch/alpha/kernel/time.c~     Wed Feb 18 11:50:56 1998<br>
++++ linux/arch/alpha/kernel/time.c      Wed Feb 18 11:53:05 1998<br>
+@@ -68,6 +68,8 @@<br>
+        now = rpcc();<br>
+        delta = now - state.last_time;<br>
+        state.last_time = now;<br>
++       if (delta &lt; state.cycles_per_tick / 16)<br>
++         return;<br>
+        if (delta &gt; state.max_cycles_per_tick) {<br>
+                int i, missed_ticks;<br>
+<p>
+<p>
+Also on our PWS hwrpb-&gt;cycle_freq is set to 0 (this can be seen in<br>
+/proc/cpuinfo) , I wonder if the line below in time_init() instruction<br>
+dangerous? (well is seems to work as is x/0 = 0 until now)? Does<br>
+anybody now how to obtain the cycle_freq on this architecture?<br>
+	state.scaled_ticks_per_cycle = ((unsigned long) HZ &lt;&lt; FIX_SHIFT) / hwrpb-&gt;cycle_freq; <br>
+<p>
+Lastly, I have made a patch to give gettimeofday microsecond<br>
+resolution, if anybody is interested to test it, I will send it.<br>
+<p>
+<p>
+Regards,<br>
+<p>
+Loic<br>
+<p>
+ <br>
+PS: this the third time since a week I try to send this message, maybe<br>
+messages originating from an e-mail adress not subscribed to the list<br>
+are silently dropped? Hope this time you will get it.<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0439.html">Uncle George : "Re: Compileing"</a>
+<li> <b>Previous message:</b> <a href="0437.html">Michal Jaegermann: "Re: Boolean &amp; alpha &amp;X11R6 et al"</a>
+<li> <b>In reply to:</b> <a href="0331.html">Martin Ostermann: "Re: RH5.0 &amp; Jensen"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

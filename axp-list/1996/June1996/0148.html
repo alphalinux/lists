@@ -1,0 +1,402 @@
+<!-- received="Thu Jun 13 15:10:50 1996 " -->
+<!-- sent="Thu, 13 Jun 1996 15:10:50 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: performance" -->
+<!-- id="199606132210.PAA12033@koala.azstarnet.com" -->
+<!-- inreplyto="performance" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: performance</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: performance</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Thu, 13 Jun 1996 15:10:50 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#148">[ date ]</a><a href="index.html#148">[ thread ]</a><a href="subject.html#148">[ subject ]</a><a href="author.html#148">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0149.html">Toon Moene: "Re: performance"</a>
+<li> <b>Previous message:</b> <a href="0147.html">Berndt Josef Wulf: "Re: performance"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Fri, 14 Jun 1996 07:24:16 +0930 (CST), Berndt Josef Wulf &lt;<a href="mailto:wulf@hotdog.ping.apana.org.au">wulf@hotdog.ping.apana.org.au</a>&gt; said:</i><br>
+<p>
+  Berndt&gt; Which program is this and where can I find the source code<br>
+  Berndt&gt; for it?<br>
+<p>
+The source for test3 is appended below.  Note that gcc is not doing a<br>
+good job at optimizing the code due to conservative alias analysis<br>
+(that's my best guess, at least).  If you want to get good performance<br>
+on an Alpha, change the subroutines to do the following:<br>
+<p>
+	(a) load all values from memory into temporary variables<br>
+<p>
+	(b) do all the operations<br>
+<p>
+	(c) store the results back into memory<br>
+<p>
+This is a way of telling gcc that there really is no aliasing going<br>
+on.  I did this for routine svmva() and its execution time dropped<br>
+from 1.07 down to 0.56 seconds according to gprof.  Unfortunately, I<br>
+managed to destroy my optimized source, but it's really straight<br>
+forward (if error-prone) to apply the above changes.  It's funny, the<br>
+existing code looks very much like it has been optimized for an x86<br>
+(only one or two temporary values are used in the unrolled loops).<br>
+<p>
+Another caveat: the file second.c uses times() which is known to be<br>
+broken on some (older?)  versions of the Linux/Alpha libc.  It would<br>
+be safer to use gettimeofday().<br>
+<p>
+	--david<br>
+<p>
+&lt;--test3.c--&gt;&lt;--test3.c--&gt;&lt;--test3.c--&gt;&lt;--test3.c--&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include "second.h"<br>
+<p>
+void<br>
+report (int nx, int lx, float op, float tm)<br>
+{<br>
+  float mf = -1.;<br>
+  if (tm &gt; 0.)<br>
+    mf = op / tm;<br>
+  printf ("%10d%10d%10.2f%10.2f\n", nx, lx, tm, mf);<br>
+}<br>
+<p>
+extern void  svm   (float, float *, float *, int);<br>
+extern void  svmva (float, float *, float *, float *, int);<br>
+extern void  svmsa (float, float *, float, float *, int);<br>
+extern void  vvm   (float *, float *, float *, int);<br>
+extern void  vva   (float *, float *, float *, int);<br>
+extern float vsum  (float *, int);<br>
+extern float vdot  (float *, float *, int);<br>
+<p>
+void<br>
+main (int argc, char *argv[])<br>
+{<br>
+#define LOOP 2000000<br>
+#define NM 7<br>
+#define NNX 500<br>
+  int OP, i, j, k, nx, nnx, lx, mmx;<br>
+  float a = .1, d, *x, *y, op, tm;<br>
+  double *px, *py, *pz;<br>
+  long str, LX, NX[NM] =<br>
+  {500, 1000, 5000, 10000, 50000, 100000, 500000};<br>
+  if (argc &lt; 2)<br>
+    {<br>
+      printf ("Usage : %s loop-multiplier [stride]\n", argv[0]);<br>
+      exit (1);<br>
+    }<br>
+  sscanf (argv[1], "%ld", &amp;LX);<br>
+  str = NNX;<br>
+  OP = 10;<br>
+  if (argc &gt; 2)<br>
+    sscanf (argv[2], "%ld", &amp;str);<br>
+  if (str &lt;= 0)<br>
+    str = NX[NM];<br>
+  LX *= LOOP;<br>
+  printf ("      Size     Loops      Time    MFlops\n");<br>
+  for (j = 0; j &lt; NM; j++)<br>
+    {<br>
+      nx = NX[j];<br>
+      lx = LX / nx;<br>
+      x = (float *) malloc (nx * sizeof (float));<br>
+      y = (float *) malloc (nx * sizeof (float));<br>
+      if (x == (float *) 0)<br>
+	{<br>
+	  puts ("Cannot allocate memory for x[]\n");<br>
+	  exit (-1);<br>
+	}<br>
+      if (y == (float *) 0)<br>
+	{<br>
+	  puts ("Cannot allocate memory for y[]\n");<br>
+	  exit (-1);<br>
+	}<br>
+      for (i = 0; i &lt; nx; i++)<br>
+	{<br>
+	  x[i] = 1.;<br>
+	  y[i] = 0.;<br>
+	}<br>
+      op = (1.e-3 * (OP * nx)) * (1.e-3 * lx);<br>
+      d = 0.;<br>
+      tm = second ();<br>
+      nnx = (nx &lt; str ? nx : str);<br>
+      for (k = 0; k &lt; lx; k++)<br>
+	for (i = 0; i &lt; nx; i += nnx)<br>
+	  {<br>
+	    mmx = nx - i;<br>
+	    mmx = (mmx &lt; nnx ? mmx : nnx);<br>
+	    svm (a, &amp;x[i], &amp;y[i], mmx);<br>
+	    svmva (a, &amp;x[i], &amp;y[i], &amp;y[i], mmx);<br>
+	    svmsa (a, &amp;x[i], a, &amp;y[i], mmx);<br>
+	    vvm (&amp;x[i], &amp;y[i], &amp;y[i], mmx);<br>
+	    vva (&amp;x[i], &amp;y[i], &amp;y[i], mmx);<br>
+	    d += vsum (&amp;x[i], mmx);<br>
+	    d -= vdot (&amp;x[i], &amp;x[i], mmx);<br>
+	  }<br>
+      tm = second () - tm;<br>
+      report (nx, lx, op, tm);<br>
+      free (x);<br>
+      free (y);<br>
+    }<br>
+}<br>
+void<br>
+svm (float a, float *x, float *y, int n)<br>
+{<br>
+  int i, m;<br>
+  float t1, t2;<br>
+  m = n &amp; ~7L;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = a * x[i + 0];<br>
+      t2 = a * x[i + 1];<br>
+      y[i + 0] = t1;<br>
+      t1 = a * x[i + 2];<br>
+      y[i + 1] = t2;<br>
+      t2 = a * x[i + 3];<br>
+      y[i + 2] = t1;<br>
+      t1 = a * x[i + 4];<br>
+      y[i + 3] = t2;<br>
+      t2 = a * x[i + 5];<br>
+      y[i + 4] = t1;<br>
+      t1 = a * x[i + 6];<br>
+      y[i + 5] = t2;<br>
+      t2 = a * x[i + 7];<br>
+      y[i + 6] = t1;<br>
+      y[i + 7] = t2;<br>
+    }<br>
+  for (i = m; i &lt; n; i++)<br>
+    y[i] = a * x[i];<br>
+  return;<br>
+}<br>
+void<br>
+svmva (float a, float *x, float *y, float *z, int n)<br>
+{<br>
+  int i, m;<br>
+  float t1, t2;<br>
+  m = n &amp; ~7L;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = a * x[i + 0];<br>
+      t2 = a * x[i + 1];<br>
+      t1 += y[i + 0];<br>
+      t2 += y[i + 1];<br>
+      z[i + 0] = t1;<br>
+      t1 = a * x[i + 2];<br>
+      z[i + 1] = t2;<br>
+      t1 += y[i + 2];<br>
+      t2 = a * x[i + 3];<br>
+      z[i + 2] = t1;<br>
+      t2 += y[i + 3];<br>
+      t1 = a * x[i + 4];<br>
+      z[i + 3] = t2;<br>
+      t1 += y[i + 4];<br>
+      t2 = a * x[i + 5];<br>
+      z[i + 4] = t1;<br>
+      t2 += y[i + 5];<br>
+      t1 = a * x[i + 6];<br>
+      z[i + 5] = t2;<br>
+      t2 = a * x[i + 7];<br>
+      t1 += y[i + 6];<br>
+      t2 += y[i + 7];<br>
+      z[i + 6] = t1;<br>
+      z[i + 7] = t2;<br>
+    }<br>
+  for (i = m; i &lt; n; i++)<br>
+    z[i] = y[i] + a * x[i];<br>
+  return;<br>
+}<br>
+void<br>
+svmsa (float a, float *x, float b, float *y, int n)<br>
+{<br>
+  int i, m;<br>
+  float t1, t2;<br>
+  m = n &amp; ~7L;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = a * x[i + 0];<br>
+      t2 = a * x[i + 1];<br>
+      t1 += b;<br>
+      t2 += b;<br>
+      y[i + 0] = t1;<br>
+      t1 = a * x[i + 2];<br>
+      y[i + 1] = t2;<br>
+      t1 += b;<br>
+      t2 = a * x[i + 3];<br>
+      y[i + 2] = t1;<br>
+      t2 += b;<br>
+      t1 = a * x[i + 4];<br>
+      y[i + 3] = t2;<br>
+      t1 += b;<br>
+      t2 = a * x[i + 5];<br>
+      y[i + 4] = t1;<br>
+      t2 += b;<br>
+      t1 = a * x[i + 6];<br>
+      y[i + 5] = t2;<br>
+      t2 = a * x[i + 7];<br>
+      t1 += b;<br>
+      t2 += b;<br>
+      y[i + 6] = t1;<br>
+      y[i + 7] = t2;<br>
+    }<br>
+  for (i = m; i &lt; n; i++)<br>
+    y[i] = a * x[i] + b;<br>
+  return;<br>
+}<br>
+void<br>
+vvm (float *x, float *y, float *z, int n)<br>
+{<br>
+  int i, m;<br>
+  float t1, t2;<br>
+  m = n &amp; ~7L;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = x[i + 0] * y[i + 0];<br>
+      t2 = x[i + 1] * y[i + 1];<br>
+      z[i + 0] = t1;<br>
+      t1 = x[i + 2] * y[i + 2];<br>
+      z[i + 1] = t2;<br>
+      t2 = x[i + 3] * y[i + 3];<br>
+      z[i + 2] = t1;<br>
+      t1 = x[i + 4] * y[i + 4];<br>
+      z[i + 3] = t2;<br>
+      t2 = x[i + 5] * y[i + 5];<br>
+      z[i + 4] = t1;<br>
+      t1 = x[i + 6] * y[i + 6];<br>
+      z[i + 5] = t2;<br>
+      t2 = x[i + 7] * y[i + 7];<br>
+      z[i + 6] = t1;<br>
+      z[i + 7] = t2;<br>
+    }<br>
+  for (i = m; i &lt; n; i++)<br>
+    z[i] = x[i] * y[i];<br>
+  return;<br>
+}<br>
+void<br>
+vva (float *x, float *y, float *z, int n)<br>
+{<br>
+  int i, m;<br>
+  float t1, t2;<br>
+  m = n &amp; ~7L;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = x[i + 0] + y[i + 0];<br>
+      t2 = x[i + 1] + y[i + 1];<br>
+      z[i + 0] = t1;<br>
+      t1 = x[i + 2] + y[i + 2];<br>
+      z[i + 1] = t2;<br>
+      t2 = x[i + 3] + y[i + 3];<br>
+      z[i + 2] = t1;<br>
+      t1 = x[i + 4] + y[i + 4];<br>
+      z[i + 3] = t2;<br>
+      t2 = x[i + 5] + y[i + 5];<br>
+      z[i + 4] = t1;<br>
+      t1 = x[i + 6] + y[i + 6];<br>
+      z[i + 5] = t2;<br>
+      t2 = x[i + 7] + y[i + 7];<br>
+      z[i + 6] = t1;<br>
+      z[i + 7] = t2;<br>
+    }<br>
+  for (i = m; i &lt; n; i++)<br>
+    z[i] = x[i] + y[i];<br>
+  return;<br>
+}<br>
+float<br>
+vsum (float *x, int n)<br>
+{<br>
+  int i, m;<br>
+  float vs, t1, t2, t3, t4;<br>
+  m = n &amp; ~7L;<br>
+  t1 = t2 = 0.f;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 += x[i + 0];<br>
+      t2 += x[i + 1];<br>
+      t1 += x[i + 4];<br>
+      t2 += x[i + 5];<br>
+      t1 += x[i + 2];<br>
+      t2 += x[i + 3];<br>
+      t1 += x[i + 6];<br>
+      t2 += x[i + 7];<br>
+    }<br>
+  vs = t1 + t2;<br>
+  for (i = m; i &lt; n; i++)<br>
+    vs += x[i];<br>
+  return vs;<br>
+}<br>
+float<br>
+vdot (float *x, float *y, int n)<br>
+{<br>
+  int i, m;<br>
+  float vs, t1, t2, s1, s2;<br>
+  m = n &amp; ~7L;<br>
+  s1 = s2 = t1 = t2 = 0.f;<br>
+  for (i = 0; i &lt; m; i += 8)<br>
+    {<br>
+      t1 = x[i + 0] * y[i + 0];<br>
+      s2 += t2;<br>
+      t2 = x[i + 1] * y[i + 1];<br>
+      s1 += t1;<br>
+      t1 = x[i + 2] * y[i + 2];<br>
+      s2 += t2;<br>
+      t2 = x[i + 3] * y[i + 3];<br>
+      s1 += t1;<br>
+      t1 = x[i + 4] * y[i + 4];<br>
+      s2 += t2;<br>
+      t2 = x[i + 5] * y[i + 5];<br>
+      s1 += t1;<br>
+      t1 = x[i + 6] * y[i + 6];<br>
+      s2 += t2;<br>
+      t2 = x[i + 7] * y[i + 7];<br>
+      s1 += t1;<br>
+    }<br>
+  vs = s1 + s2;<br>
+  for (i = m; i &lt; n; i++)<br>
+    vs += x[i] * y[i];<br>
+  return vs;<br>
+}<br>
+&lt;--second.c--&gt;&lt;--second.c--&gt;&lt;--second.c--&gt;&lt;--second.c--&gt;&lt;--second.c--&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;sys/times.h&gt;<br>
+#include "second.h"<br>
+<p>
+double <br>
+second ()<br>
+{<br>
+    struct tms buffer;<br>
+<p>
+    times(&amp;buffer);<br>
+    return buffer.tms_utime / (double) sysconf(_SC_CLK_TCK);<br>
+}<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0149.html">Toon Moene: "Re: performance"</a>
+<li> <b>Previous message:</b> <a href="0147.html">Berndt Josef Wulf: "Re: performance"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

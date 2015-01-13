@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Alpha 2.2.9: Too many open files problem</TITLE>
+<META NAME="Author" CONTENT="Matti Aarnio (matti.aarnio@sonera.fi)">
+<META NAME="Subject" CONTENT="Re: Alpha 2.2.9: Too many open files problem">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alpha 2.2.9: Too many open files problem</H1>
+<HR>
+<P>
+<!-- received="Wed Jun 30 21:00:26 1999" -->
+<!-- isoreceived="19990701040026" -->
+<!-- sent="Wed, 30 Jun 1999 20:54:56 +0300" -->
+<!-- isosent="19990630175456" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="Re: Alpha 2.2.9: Too many open files problem" -->
+<!-- id="19990630205456.S26016@mea.tmt.tele.fi" -->
+<!-- inreplyto="3779EE97.F633BA22@art-render.com" -->
+<STRONG>Subject: </STRONG>Re: Alpha 2.2.9: Too many open files problem<BR>
+<STRONG>From: </STRONG>Matti Aarnio (<EM>matti.aarnio@sonera.fi</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jun 30 1999 - 10:54:56 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#688">[ date ]</A>
+<A HREF="index.html#688">[ thread ]</A>
+<A HREF="subject.html#688">[ subject ]</A>
+<A HREF="author.html#688">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0689.html">designer seven: "Re: Stable Alpha on 2.2? How do we build a stable install?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0687.html">Greg Lindahl: "Re: Stable Alpha on 2.2? How do we build a stable install?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Jun 30, 1999 at 11:16:55AM +0100, John Connett wrote:
+<BR>
+<EM>&gt; Can anyone suggest how to diagnose a &quot;Too many open files in system&quot;
+</EM><BR>
+<EM>&gt; problem?
+</EM><BR>
+...
+<BR>
+<EM>&gt; Symptoms are as follows:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Running the same workload repeatedly and monitoring /proc/sys/fs/file-nr
+</EM><BR>
+<EM>&gt; the file-nr count gradually increases until it reaches (4096 10 4096). 
+</EM><BR>
+<EM>&gt; If file-max is then raised by &quot;echo 5000 &gt; /proc/sys/fs/file-max&quot; and
+</EM><BR>
+<EM>&gt; lsof(8) is run then ~500 files are reported as open.  What can be
+</EM><BR>
+<EM>&gt; happening with the other ~3500 files that the kernel thinks are open?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Look for  /proc/nnn/maps  listed inodes.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;They don't show up in open files, because they aren't &quot;open&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in usual filedescriptor sense...  (open file, mmap it, close the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fd --&gt; mmapped region without open file, but the inode (and file)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is in use.)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The symptoms you have are very familiar to me as glibc 2.1.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;contained BSD DB 2.x BTREE seems to leak mmap()ed file regions.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;You may have the same, or some other leakage.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Look for things like these in the mmap lists:
+<BR>
+<P>0000020000058000-0000020000072000 rw-s 0000000000000000 08:03 167939
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/var/tmp/027015 (deleted)
+<BR>
+0000020000072000-000002000008c000 rw-s 0000000000000000 08:03 167940
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/var/tmp/027015 (deleted)
+<BR>
+0000020000090000-00000200000aa000 rw-s 0000000000000000 08:03 167941
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/var/tmp/027015 (deleted)
+<BR>
+00000200000ae000-00000200000c8000 rw-s 0000000000000000 08:03 167942
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/var/tmp/027015 (deleted)
+<BR>
+<P><P><EM>&gt; Are any other utilities more suitable than lsof(8) for investigating
+</EM><BR>
+<EM>&gt; this?
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I would love to see a tool capable to do this thing smartly - lsof
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tries to be too low-level tool in most cases, and refuses to work
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if kernel symbol tables don't match the compiled in data...
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;However, &quot;cat&quot; is quite potent tool in itself..
+<BR>
+<P><EM>&gt; The system is a Alpha 21164, UX2/Ruffian motherboard running Red Hat 6.0
+</EM><BR>
+<EM>&gt; for Alpha.  The kernel is 2.2.9 with the Linux Virtual Server
+</EM><BR>
+<EM>&gt; (ipvs-0.4-2.2.9.tar.gz) patch applied.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Thanks in anticipation
+</EM><BR>
+<EM>&gt; John Connett (jrc@art-render.com)
+</EM><BR>
+<P>/Matti Aarnio &lt;matti.aarnio@sonera.fi&gt;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0689.html">designer seven: "Re: Stable Alpha on 2.2? How do we build a stable install?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0687.html">Greg Lindahl: "Re: Stable Alpha on 2.2? How do we build a stable install?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

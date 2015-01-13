@@ -1,0 +1,137 @@
+<!-- received="Sat May  4 17:39:20 1996 " -->
+<!-- sent="Sat, 4 May 1996 17:39:20 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="fix for some kernel unaligned accesses" -->
+<!-- id="9605050924.AA29357@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>fix for some kernel unaligned accesses</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>fix for some kernel unaligned accesses</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Sat, 4 May 1996 17:39:20 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#41">[ date ]</a><a href="index.html#41">[ thread ]</a><a href="subject.html#41">[ subject ]</a><a href="author.html#41">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0042.html">Eric Youngdale: "Building/booting a kernel for UMB."</a>
+<li> <b>Previous message:</b> <a href="0040.html">Berndt Josef Wulf: "Re: axp shops ?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+this fix (for 1.3.97) fixes some alignment problems for alpha for<br>
+fat (msdos) file system.  the problem in scsicam.c is triggered when<br>
+running "cfdisk".<br>
+<p>
+<p>
+Harald<br>
+-------------------------------------------------------------------------------<br>
+--- mnt/soft/linux/fs/fat/inode.c	Mon Apr 22 22:42:35 1996<br>
++++ linux/fs/fat/inode.c	Fri May  3 20:57:49 1996<br>
+@@ -242,7 +242,11 @@<br>
+ #define ROUND_TO_MULTIPLE(n,m) ((n) &amp;&amp; (m) ? (n)+(m)-1-((n)-1)%(m) : 0)<br>
+     /* don't divide by zero */<br>
+ <br>
++#ifdef __alpha__<br>
++	logical_sector_size = CF_LE_W(b-&gt;sector_size[0] | b-&gt;sector_size[1]&lt;&lt;8);<br>
++#else<br>
+ 	logical_sector_size = CF_LE_W(*(unsigned short *) &amp;b-&gt;sector_size);<br>
++#endif<br>
+ 	sector_mult = logical_sector_size &gt;&gt; SECTOR_BITS;<br>
+ 	MSDOS_SB(sb)-&gt;cluster_size = b-&gt;cluster_size*sector_mult;<br>
+ 	MSDOS_SB(sb)-&gt;fats = b-&gt;fats;<br>
+@@ -250,14 +254,24 @@<br>
+ 	MSDOS_SB(sb)-&gt;fat_length = CF_LE_W(b-&gt;fat_length)*sector_mult;<br>
+ 	MSDOS_SB(sb)-&gt;dir_start = (CF_LE_W(b-&gt;reserved)+b-&gt;fats*CF_LE_W(<br>
+ 	    b-&gt;fat_length))*sector_mult;<br>
++#ifdef __alpha__<br>
++	MSDOS_SB(sb)-&gt;dir_entries = CF_LE_W(b-&gt;dir_entries[0] | b-&gt;dir_entries[1]&lt;&lt;8);<br>
++#else<br>
+ 	MSDOS_SB(sb)-&gt;dir_entries = CF_LE_W(*((unsigned short *) &amp;b-&gt;dir_entries<br>
+ 	    ));<br>
++#endif<br>
+ 	MSDOS_SB(sb)-&gt;data_start = MSDOS_SB(sb)-&gt;dir_start+ROUND_TO_MULTIPLE((<br>
+ 	    MSDOS_SB(sb)-&gt;dir_entries &lt;&lt; MSDOS_DIR_BITS) &gt;&gt; SECTOR_BITS,<br>
+ 	    sector_mult);<br>
++#ifdef __alpha__<br>
++	data_sectors = (CF_LE_W(b-&gt;sectors[0] | b-&gt;sectors[1]&lt;&lt;8) ?<br>
++	    CF_LE_W(b-&gt;sectors[0] | b-&gt;sectors[1]&lt;&lt;8) :<br>
++	    CF_LE_L(b-&gt;total_sect))*sector_mult-MSDOS_SB(sb)-&gt;data_start;<br>
++#else<br>
+ 	data_sectors = (CF_LE_W(*((unsigned short *) &amp;b-&gt;sectors)) ?<br>
+ 	    CF_LE_W(*((unsigned short *) &amp;b-&gt;sectors)) :<br>
+ 	    CF_LE_L(b-&gt;total_sect))*sector_mult-MSDOS_SB(sb)-&gt;data_start;<br>
++#endif<br>
+ 	error = !b-&gt;cluster_size || !sector_mult;<br>
+ 	if (!error) {<br>
+ 		MSDOS_SB(sb)-&gt;clusters = b-&gt;cluster_size ? data_sectors/<br>
+--- mnt/soft/linux/drivers/scsi/scsicam.c	Thu Dec 14 15:59:41 1995<br>
++++ linux/drivers/scsi/scsicam.c	Fri May  3 18:17:59 1996<br>
+@@ -87,7 +87,7 @@<br>
+     struct partition *p, *largest = NULL;<br>
+     int i, largest_cyl;<br>
+     int cyl, ext_cyl, end_head, end_cyl, end_sector;<br>
+-    unsigned int logical_end, physical_end, ext_physical_end;<br>
++    unsigned int logical_end, physical_end, ext_physical_end, tmp;<br>
+     <br>
+ <br>
+     if (*(unsigned short *) (bh-&gt;b_data+510) == 0xAA55) {<br>
+@@ -121,7 +121,13 @@<br>
+     	    end_head * end_sector + end_sector;<br>
+ <br>
+ 	/* This is the actual _sector_ number at the end */<br>
++#ifdef __alpha__<br>
++	memcpy(&amp;logical_end, &amp;largest-&gt;start_sect, sizeof(int));<br>
++	memcpy(&amp;tmp, &amp;largest-&gt;nr_sects, sizeof(int));<br>
++	logical_end += tmp;<br>
++#else<br>
+ 	logical_end = largest-&gt;start_sect + largest-&gt;nr_sects;<br>
++#endif<br>
+ <br>
+ 	/* This is for &gt;1023 cylinders */<br>
+         ext_cyl= (logical_end-(end_head * end_sector + end_sector))<br>
+<p>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0042.html">Eric Youngdale: "Building/booting a kernel for UMB."</a>
+<li> <b>Previous message:</b> <a href="0040.html">Berndt Josef Wulf: "Re: axp shops ?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

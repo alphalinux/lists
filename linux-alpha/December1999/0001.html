@@ -1,0 +1,515 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [patch] alpha updates 2.3.30pre3+alpha-1</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="[patch] alpha updates 2.3.30pre3+alpha-1">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] alpha updates 2.3.30pre3+alpha-1</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 01 23:49:11 1999" -->
+<!-- isoreceived="19991202074911" -->
+<!-- sent="Thu, 2 Dec 1999 00:23:59 +0100 (CET)" -->
+<!-- isosent="19991201232359" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="[patch] alpha updates 2.3.30pre3+alpha-1" -->
+<!-- id="Pine.LNX.4.10.9912020004060.3581-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>[patch] alpha updates 2.3.30pre3+alpha-1<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Dec 01 1999 - 15:23:59 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1">[ date ]</A>
+<A HREF="index.html#1">[ thread ]</A>
+<A HREF="subject.html#1">[ subject ]</A>
+<A HREF="author.html#1">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Dominik Kubla: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+These are my latest alpha updates. They should go fine on the top of your
+<BR>
+current tree.
+<BR>
+<P>o	fixed mm activation on ev4 cpus (fixed by from Thorsten Kranzkowski)
+<BR>
+<P>o	removed variable udelay while waiting irqs to complete and removed
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a noop mb (the udelay could be removed completly for stability, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;but I am not 100% sure that the CPU has the time to deliver the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq in the middle of the __cli(); __sti();) So for now a udelay(1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is still there.
+<BR>
+<P>o	more detailed memory report at boot (like in i386).
+<BR>
+<P>o	fixed the SMP idle task creation to avoid rescheduling the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;child.
+<BR>
+<P>o	some minor cleanup in the smp boot, btw now I free the unused idle
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;task if the CPU fails to boot (could be done on i386 too I think).
+<BR>
+<P>o	removed initialize_secondary.
+<BR>
+<P>diff -urN alpha-linus/arch/alpha/kernel/irq.c 2.3.30pre3-alpha/arch/alpha/kernel/irq.c
+<BR>
+--- alpha-linus/arch/alpha/kernel/irq.c	Sun Nov 28 01:53:25 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/irq.c	Thu Dec  2 00:11:53 1999
+<BR>
+@@ -392,8 +392,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void show(char * str, void *where);
+<BR>
+&nbsp;
+<BR>
+-#define SYNC_OTHER_CPUS(x)	udelay((x)+1);
+<BR>
+-
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;wait_on_irq(int cpu, void *where)
+<BR>
+&nbsp;{
+<BR>
+@@ -414,7 +412,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Duh, we have to loop. Release the lock to avoid deadlocks */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock(&amp;global_irq_lock);
+<BR>
+-		mb();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (;;) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!--count) {
+<BR>
+@@ -422,7 +419,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;count = MAXCOUNT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__sti();
+<BR>
+-			SYNC_OTHER_CPUS(cpu);
+<BR>
++			udelay(1); /* make sure to run pending irqs */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__cli();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (atomic_read(&amp;global_irq_count))
+<BR>
+diff -urN alpha-linus/arch/alpha/kernel/setup.c 2.3.30pre3-alpha/arch/alpha/kernel/setup.c
+<BR>
+--- alpha-linus/arch/alpha/kernel/setup.c	Sun Nov 28 01:53:25 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/setup.c	Mon Nov 29 01:52:56 1999
+<BR>
+@@ -327,6 +327,28 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;#endif /* CONFIG_BLK_DEV_INITRD */
+<BR>
+&nbsp;}
+<BR>
++
+<BR>
++int __init page_is_ram(unsigned long pfn)
+<BR>
++{
+<BR>
++	struct memclust_struct * cluster;
+<BR>
++	struct memdesc_struct * memdesc;
+<BR>
++	int i;
+<BR>
++
+<BR>
++	memdesc = (struct memdesc_struct *) (hwrpb-&gt;mddt_offset + (unsigned long) hwrpb);
+<BR>
++	for_each_mem_cluster(memdesc, cluster, i)
+<BR>
++	{
+<BR>
++		if (pfn &gt;= cluster-&gt;start_pfn  &amp;&amp;
+<BR>
++		    pfn &lt; cluster-&gt;start_pfn + cluster-&gt;numpages)
+<BR>
++		{
+<BR>
++			if (cluster-&gt;usage &amp; 3)
+<BR>
++				return 0;
+<BR>
++			else
+<BR>
++				return 1;
+<BR>
++		}
+<BR>
++	}
+<BR>
++
+<BR>
++	return 0;
+<BR>
++}
+<BR>
+&nbsp;#undef PFN_UP
+<BR>
+&nbsp;#undef PFN_DOWN
+<BR>
+&nbsp;#undef PFN_PHYS
+<BR>
+diff -urN alpha-linus/arch/alpha/kernel/smp.c 2.3.30pre3-alpha/arch/alpha/kernel/smp.c
+<BR>
+--- alpha-linus/arch/alpha/kernel/smp.c	Wed Nov 24 18:22:03 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/kernel/smp.c	Mon Nov 29 20:48:13 1999
+<BR>
+@@ -396,6 +396,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static int __init fork_by_hand(void)
+<BR>
++{
+<BR>
++	struct pt_regs regs;
+<BR>
++	/*
+<BR>
++	 * don't care about the regs settings since
+<BR>
++	 * we'll never reschedule the forked task.
+<BR>
++	 */
+<BR>
++	return do_fork(CLONE_VM|CLONE_PID, 0, &amp;regs);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Bring one cpu online.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+@@ -409,18 +419,25 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to kernel_thread is irrelevant -- it's going to start where
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;HWRPB.CPU_restart says to start.  But this gets all the other
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;task-y sort of data structures set up like we wish.  */
+<BR>
+-	kernel_thread((void *)__smp_callin, NULL, CLONE_PID|CLONE_VM);
+<BR>
++	/*
+<BR>
++	 * We can't use kernel_thread since we must avoid to
+<BR>
++	 * reschedule the child.
+<BR>
++	 */
+<BR>
++	if (fork_by_hand() &lt; 0)
+<BR>
++		panic(&quot;failed fork for CPU %d&quot;, cpuid);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;idle = init_task.prev_task;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!idle)
+<BR>
+-                panic(&quot;No idle process for CPU %d&quot;, cpunum);
+<BR>
+-        del_from_runqueue(idle);
+<BR>
+-        init_tasks[cpunum] = idle;
+<BR>
+-        idle-&gt;processor = cpuid;
+<BR>
+-
+<BR>
+-	/* Schedule the first task manually.  */
+<BR>
+-	/* ??? Ingo, what is this?  */
+<BR>
+-	idle-&gt;has_cpu = 1;
+<BR>
++                panic(&quot;No idle process for CPU %d&quot;, cpuid);
+<BR>
++
+<BR>
++	idle-&gt;processor = cpuid;
+<BR>
++	__cpu_logical_map[cpunum] = cpuid;
+<BR>
++	cpu_number_map[cpuid] = cpunum;
+<BR>
++	idle-&gt;has_cpu = 1; /* we schedule the first task manually */
+<BR>
++ 
+<BR>
++	del_from_runqueue(idle);
+<BR>
++	unhash_process(idle);
+<BR>
++	init_tasks[cpunum] = idle;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBGS((&quot;smp_boot_one_cpu: CPU %d state 0x%lx flags 0x%lx\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpuid, idle-&gt;state, idle-&gt;flags));
+<BR>
+@@ -442,13 +459,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;barrier();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	/* we must invalidate our stuff as we failed to boot the CPU */
+<BR>
++	__cpu_logical_map[cpunum] = -1;
+<BR>
++	cpu_number_map[cpuid] = -1;
+<BR>
++
+<BR>
++	/* the idle task is local to us so free it as we don't use it */
+<BR>
++	free_task_struct(idle);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;SMP: Processor %d is stuck.\n&quot;, cpuid);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;alive:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Another &quot;Red Snapper&quot;. */
+<BR>
+-	cpu_number_map[cpuid] = cpunum;
+<BR>
+-	__cpu_logical_map[cpunum] = cpuid;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -579,16 +601,6 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* smp_init sets smp_threads_ready -- that's enough.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Only broken Intel needs this, thus it should not even be
+<BR>
+- * referenced globally.
+<BR>
+- */
+<BR>
+-
+<BR>
+-void __init
+<BR>
+-initialize_secondary(void)
+<BR>
+-{
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+diff -urN alpha-linus/arch/alpha/mm/init.c 2.3.30pre3-alpha/arch/alpha/mm/init.c
+<BR>
+--- alpha-linus/arch/alpha/mm/init.c	Sun Nov 28 01:53:25 1999
+<BR>
++++ 2.3.30pre3-alpha/arch/alpha/mm/init.c	Mon Nov 29 02:15:25 1999
+<BR>
+@@ -273,12 +273,42 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++static void printk_memory_info(void)
+<BR>
++{
+<BR>
++	unsigned long codesize, reservedpages, datasize, initsize, tmp;
+<BR>
++	extern int page_is_ram(unsigned long) __init;
+<BR>
++	extern char _text, _etext, _data, _edata;
+<BR>
++	extern char __init_begin, __init_end;
+<BR>
++
+<BR>
++	/* printk all informations */
+<BR>
++	reservedpages = 0;
+<BR>
++	for (tmp = 0; tmp &lt; max_low_pfn; tmp++)
+<BR>
++		/*
+<BR>
++		 * Only count reserved RAM pages
+<BR>
++		 */
+<BR>
++		if (page_is_ram(tmp) &amp;&amp; PageReserved(mem_map+tmp))
+<BR>
++			reservedpages++;
+<BR>
++
+<BR>
++	codesize =  (unsigned long) &amp;_etext - (unsigned long) &amp;_text;
+<BR>
++	datasize =  (unsigned long) &amp;_edata - (unsigned long) &amp;_data;
+<BR>
++	initsize =  (unsigned long) &amp;__init_end - (unsigned long) &amp;__init_begin;
+<BR>
++
+<BR>
++	printk(&quot;Memory: %luk/%luk available (%luk kernel code, %luk reserved, %luk data, %luk init)\n&quot;,
+<BR>
++	       (unsigned long) nr_free_pages() &lt;&lt; (PAGE_SHIFT-10),
+<BR>
++	       max_mapnr &lt;&lt; (PAGE_SHIFT-10),
+<BR>
++	       codesize &gt;&gt; 10,
+<BR>
++	       reservedpages &lt;&lt; (PAGE_SHIFT-10),
+<BR>
++	       datasize &gt;&gt; 10,
+<BR>
++	       initsize &gt;&gt; 10);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;void
+<BR>
+&nbsp;mem_init(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max_mapnr = num_physpages = max_low_pfn;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;totalram_pages += free_all_bootmem();
+<BR>
+-	printk(&quot;Memory: %luk available\n&quot;, totalram_pages &lt;&lt; (PAGE_SHIFT-10));
+<BR>
++
+<BR>
++	printk_memory_info();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+diff -urN alpha-linus/include/asm-alpha/mmu_context.h 2.3.30pre3-alpha/include/asm-alpha/mmu_context.h
+<BR>
+--- alpha-linus/include/asm-alpha/mmu_context.h	Wed Dec  1 03:35:41 1999
+<BR>
++++ 2.3.30pre3-alpha/include/asm-alpha/mmu_context.h	Wed Dec  1 23:55:22 1999
+<BR>
+@@ -160,6 +160,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;thread.ptbr
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= ((unsigned long) next_mm-&gt;pgd - IDENT_ADDR) &gt;&gt; PAGE_SHIFT;
+<BR>
++
+<BR>
++	__reload_thread(&amp;current-&gt;thread);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;__EXTERN_INLINE void
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Dominik Kubla: "Re: [patch] 2.3.30pre3 alpha updates"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

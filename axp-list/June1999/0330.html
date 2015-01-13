@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: RH 6.0 and unaligned traps</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: RH 6.0 and unaligned traps">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: RH 6.0 and unaligned traps</H1>
+<HR>
+<P>
+<!-- received="Wed Jun 16 17:24:59 1999" -->
+<!-- isoreceived="19990617002459" -->
+<!-- sent="Wed, 16 Jun 1999 09:01:58 -0600 (MDT)" -->
+<!-- isosent="19990616150158" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: RH 6.0 and unaligned traps" -->
+<!-- id="199906161501.JAA19578@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="199906160950.LAA02642@alpha.mdy.univie.ac.at" -->
+<STRONG>Subject: </STRONG>Re: RH 6.0 and unaligned traps<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jun 16 1999 - 08:01:58 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#330">[ date ]</A>
+<A HREF="index.html#330">[ thread ]</A>
+<A HREF="subject.html#330">[ subject ]</A>
+<A HREF="author.html#330">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0331.html">Bret Orsburn: "RH 6.0: How does this new stuff work?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0329.html">Jim Simmons: "Re: Various 6.0 issues"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0327.html">Stefan Boresch: "RH 6.0 and unaligned traps"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0327.html">Michal Jaegermann: "Re: RH 6.0 and unaligned traps"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Stefan Boresch wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Is there a more general solution to the various unaligned trap
+</EM><BR>
+<EM>&gt; messages resurfacing in RH 6.0 in the works.
+</EM><BR>
+<P>The only one I know if fixing the code.
+<BR>
+<P><EM>&gt;  but my syslog abounds with such messages from emacs,
+</EM><BR>
+<EM>&gt; in.identd and Banner
+</EM><BR>
+<P>Smells like &quot;new and improved&quot; libraries may be somehow responsible
+<BR>
+for that.  I do not know that for sure but this has that feel.
+<BR>
+<P><EM>&gt; but I am happy to recompile programs if someone with a
+</EM><BR>
+<EM>&gt; much deeper understanding of Unix system programming than myself can
+</EM><BR>
+<EM>&gt; locate the troublespots...
+</EM><BR>
+<P>Likely the best approach I know is to use something which Richard
+<BR>
+Henderson posted on this list some year ago and which I quote below.
+<BR>
+This converts unaligned access attempts into exceptions and you may catch
+<BR>
+them in a debugger.  The thing is that unaligned traps often indicate
+<BR>
+real bugs - like misaligned stack, dubious access through &quot;smart(-ass)&quot;
+<BR>
+pointer games and the like.  In general you do not want fetches and
+<BR>
+stores to happen through pointers which were cast to something (like
+<BR>
+cast to *long) with a stricter alignment requirements than originals
+<BR>
+(say individual cells in an array of chars).  If you really need
+<BR>
+something like that you require a properly aligned copy.
+<BR>
+<P>With identified libraries issues there is no much point in talking
+<BR>
+about it on this list; beyond notifying fellow sufferers.  People
+<BR>
+responsible for glibc should get bug reports and the more the merrier.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P>&nbsp;Date: Mon, 6 Apr 1998 20:38:02 -0700
+<BR>
+&nbsp;From: Richard Henderson &lt;rth@dot.cygnus.com&gt;
+<BR>
+&nbsp;Subject: Re: tracking down unaligned accesses
+<BR>
+<P><P>&nbsp;[ CC'ed to axp-list because of general interest. ]
+<BR>
+<P>&nbsp;On Mon, Apr 06, 1998 at 11:15:14PM -0400, Gene McCulley wrote:
+<BR>
+<EM> &gt; I am currently porting a large (1.6 million lines of code) application
+</EM><BR>
+<EM> &gt; to the Alpha.  It has worked previously with the -taso stuff, but now
+</EM><BR>
+<EM> &gt; I am making it 64-bit clean and eliminating all of the sizeof(void *)
+</EM><BR>
+<EM> &gt; assumptions.  I am working under Digital Unix, but this step was
+</EM><BR>
+<EM> &gt; necessary so that we can move to Linux/Alpha.
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt; I am getting the unaligned access messages:
+</EM><BR>
+<EM> &gt; Unaligned access pid=5293 &lt;sim&gt; va=0x1420f365c pc=0x1207ac030 ra=0x1207abff4 inst=0xb54c0000
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt; Is there a way to trap these in the debugger or some other way to
+</EM><BR>
+<EM> &gt; facilitate finding these?
+</EM><BR>
+<P>&nbsp;The following will tell both Digital Unix and Linux (post 2.1.20 or so)
+<BR>
+&nbsp;to deliver a SIGBUS rather than fix up the access.  This makes the 
+<BR>
+&nbsp;problem significantly easier to debug.
+<BR>
+<P><P>&nbsp;r~
+<BR>
+<P>&nbsp;--VbJkn9YxBvnuCH5J
+<BR>
+&nbsp;Content-Type: text/plain; charset=us-ascii
+<BR>
+&nbsp;Content-Disposition: attachment; filename=&quot;unaligned.c&quot;
+<BR>
+<P>&nbsp;#ifndef __linux__
+<BR>
+&nbsp;#include &lt;sys/sysinfo.h&gt;
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;#include &lt;asm/sysinfo.h&gt;
+<BR>
+&nbsp;#include &lt;asm/unistd.h&gt;
+<BR>
+<P>&nbsp;static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+<P>&nbsp;void trap_unaligned(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+&nbsp;}
+<BR>
+<P>&nbsp;#ifdef TEST
+<BR>
+&nbsp;static int tmp[2];
+<BR>
+&nbsp;int main(int ac)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;if (ac &gt; 1) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;trap_unaligned();
+<BR>
+&nbsp;&nbsp;&nbsp;return *(int *)((char *)tmp + 1);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+<P>&nbsp;--VbJkn9YxBvnuCH5J--
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0331.html">Bret Orsburn: "RH 6.0: How does this new stuff work?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0329.html">Jim Simmons: "Re: Various 6.0 issues"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0327.html">Stefan Boresch: "RH 6.0 and unaligned traps"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0327.html">Michal Jaegermann: "Re: RH 6.0 and unaligned traps"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:26 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

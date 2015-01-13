@@ -1,0 +1,178 @@
+<!-- received="Sat Mar 29 22:07:55 1997 " -->
+<!-- sent="Sat, 29 Mar 1997 21:00:16 -0600 (CST)" -->
+<!-- name="Terry L. Ridder" -->
+<!-- email="terrylr@edgar.blauedonau.com" -->
+<!-- subject="I remember this problem now ( was Re: resourcebits.h problem )" -->
+<!-- id="199703300231.VAA02499@alef.bogon.nul" -->
+<!-- inreplyto="199703300124.UAA31211@www.webdevelop.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>I remember this problem now ( was Re: resourcebits.h problem )</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>I remember this problem now ( was Re: resourcebits.h problem )</h2>
+
+<b>Terry L. Ridder</b> (<a href="mailto:terrylr@edgar.blauedonau.com"><i>terrylr@edgar.blauedonau.com</i></a>)<br>
+<i>Sat, 29 Mar 1997 21:00:16 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#823">[ date ]</a><a href="index.html#823">[ thread ]</a><a href="subject.html#823">[ subject ]</a><a href="author.html#823">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<li> <b>Previous message:</b> <a href="0822.html">Al Potter: "Re: resourcebits.h problem"</a>
+<li> <b>In reply to:</b> <a href="0821.html">Steven Kokinos: "Re: resourcebits.h problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sat, 29 Mar 1997, Steven Kokinos wrote:<br>
+<p>
+&lt;snip&gt;<br>
+<p>
+I remember this problem.<br>
+<p>
+For some reason the asm-alpha/resource.h file is different from <br>
+all the other resource.h files.<br>
+<p>
+If you look at the following files you will see what I mean.<br>
+/usr/src/linux/include/asm-i386/resource.h<br>
+/usr/src/linux/include/asm-mips/resource.h<br>
+/usr/src/linux/include/asm-alpha/resource.h &lt;--- different from the others.<br>
+/usr/src/linux/include/asm-m68k/resource.h<br>
+/usr/src/linux/include/asm-ppc/resource.h<br>
+<p>
+Now look at /usr/include/features.h at the line<br>
+     77 #undef  __KERNEL_STRICT_NAMES<br>
+     78<br>
+     79 /* Suppress kernel-name space pollution unless user expressedly asks<br>
+     80    for it.  */<br>
+     81 #ifndef _LOOSE_KERNEL_NAMES<br>
+     82 # define __KERNEL_STRICT_NAMES<br>
+     83 #endif<br>
+<p>
+Now look at /usr/include/linux/resource.h<br>
+<p>
+     63 #ifndef __KERNEL_STRICT_NAMES<br>
+     64 # define RLIMIT_CPU     __KERNEL_RLIMIT_CPU<br>
+     65 # define RLIMIT_FSIZE   __KERNEL_RLIMIT_FSIZE<br>
+     66 # define RLIMIT_DATA    __KERNEL_RLIMIT_DATA<br>
+     67 # define RLIMIT_STACK   __KERNEL_RLIMIT_STACK<br>
+     68 # define RLIMIT_CORE    __KERNEL_RLIMIT_CORE<br>
+     69 # define RLIMIT_RSS     __KERNEL_RLIMIT_RSS<br>
+     70 # define RLIMIT_NOFILE  __KERNEL_RLIMIT_NOFILE<br>
+     71 # define RLIMIT_AS      __KERNEL_RLIMIT_AS<br>
+     72 # define RLIMIT_NPROC   __KERNEL_RLIMIT_NPROC<br>
+     73 # define RLIMIT_MEMLOCK __KERNEL_RLIMIT_MEMLOCK<br>
+     74<br>
+     75 # define RLIM_NLIMITS   __KERNEL_RLIM_NLIMITS<br>
+     76<br>
+     77 # define RLIM_INFINITY  __KERNEL_RLIM_INFINITY<br>
+     78<br>
+     79 # define RUSAGE_SELF    __KERNEL_RUSAGE_SELF<br>
+     80 # define RUSAGE_CHILDREN __KERNEL_RUSAGE_CHILDREN<br>
+     81 # define RUSAGE_BOTH    __KERNEL_RUSAGE_BOTH<br>
+     82<br>
+     83 # define PRIO_MIN       __KERNEL_PRIO_MIN<br>
+     84 # define PRIO_MAX       __KERNEL_PRIO_MAX<br>
+     85<br>
+     86 # define PRIO_PROCESS   __KERNEL_PRIO_PROCESS<br>
+     87 # define PRIO_PGRP      __KERNEL_PRIO_PGRP<br>
+     88 # define PRIO_USER      __KERNEL_PRIO_USER<br>
+     89 #endif /* __KERNEL_STRICT_NAMES */<br>
+<p>
+<p>
+There are three solutions:<br>
+<p>
+1. Edit all the source files to use the Alpha definitions instead of the 'normal'<br>
+definitions.<br>
+<p>
+2. Edit /usr/include/features.h and make sure that KERNEL_STRICT_NAMES is undef'd.<br>
+instead of:<br>
+     77 #undef  __KERNEL_STRICT_NAMES<br>
+     78<br>
+     79 /* Suppress kernel-name space pollution unless user expressedly asks<br>
+     80    for it.  */<br>
+     81 #ifndef _LOOSE_KERNEL_NAMES<br>
+     82 # define __KERNEL_STRICT_NAMES<br>
+     83 #endif<br>
+<p>
+have<br>
+<p>
+     77 #undef  __KERNEL_STRICT_NAMES<br>
+     78<br>
+     79 /* Suppress kernel-name space pollution unless user expressedly asks<br>
+     80    for it.  */<br>
+     81 #ifndef _LOOSE_KERNEL_NAMES<br>
+     82 # undef __KERNEL_STRICT_NAMES  &lt;--- NOTICE THE CHANGE HERE<br>
+     83 #endif<br>
+<p>
+3. Somewhere after where '#include &lt;features.h&gt;' is in the source files<br>
+add the following line:<br>
+<p>
+'#undef __KERNEL_STRICT_NAMES'<br>
+<p>
+<p>
+I guess a question would be "Why is the Alpha /usr/src/linux/include/asm-alpha/resource.h file<br>
+different from all the other asm resource.h files?"<br>
+<p>
+<p>
+<p>
+<i>&gt; </i><br>
+<i>&gt; It seems that although the file is there, it is having some sort of </i><br>
+<i>&gt; problem.  I checked it, and did a diff with the same file from the new </i><br>
+<i>&gt; glibc distribution and it is ok.</i><br>
+<i>&gt; </i><br>
+<i>&gt; -Steve</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; --</i><br>
+<i>&gt; Steven Kokinos - Web Developers Network - <a href="http://www.webdevelop.com/">http://www.webdevelop.com/</a></i><br>
+<i>&gt; <a href="mailto:steve@webdevelop.com">steve@webdevelop.com</a> - 60 Day free trial for developers!</i><br>
+<i>&gt; Industry leading development environment, multiple T1 network.</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<p>
+Terry L. Ridder<br>
+Blue Danube Software (Blaue Donau Software)<br>
+"We do not write software, we compose it."<br>
+<p>
+"And every hour of every day I'm learning more<br>
+the more I learn, the less I know about before<br>
+the less I know, the more I want to look around<br>
+digging deep for clues on higher ground."<br>
+==Higher Ground== UB40<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<li> <b>Previous message:</b> <a href="0822.html">Al Potter: "Re: resourcebits.h problem"</a>
+<li> <b>In reply to:</b> <a href="0821.html">Steven Kokinos: "Re: resourcebits.h problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0824.html">Michal Jaegermann: "Re: resourcebits.h problem"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

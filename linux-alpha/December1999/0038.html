@@ -1,0 +1,389 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: RLIM_INFINITY</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="RLIM_INFINITY">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RLIM_INFINITY</H1>
+<HR>
+<P>
+<!-- received="Fri Dec 10 04:38:49 1999" -->
+<!-- isoreceived="19991210123849" -->
+<!-- sent="Wed, 8 Dec 1999 22:45:23 -0800" -->
+<!-- isosent="19991209064523" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="RLIM_INFINITY" -->
+<!-- id="19991208224523.A721@twiddle.net" -->
+<STRONG>Subject: </STRONG>RLIM_INFINITY<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Dec 08 1999 - 22:45:23 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#38">[ date ]</A>
+<A HREF="index.html#38">[ thread ]</A>
+<A HREF="subject.html#38">[ subject ]</A>
+<A HREF="author.html#38">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Andrea Arcangeli: "[patch] missing icache flush on alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Rich Payne: "SMP problem....maybe ??"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+There's no sense playing compatibility games with 2^63.
+<BR>
+<P><P>r~
+<BR>
+<P><P><P>diff -rup linux/include/asm-alpha/resource.h 2.3.32-2/include/asm-alpha/resource.h
+<BR>
+--- linux/include/asm-alpha/resource.h	Thu Jul 29 13:37:22 1999
+<BR>
++++ 2.3.32-2/include/asm-alpha/resource.h	Wed Dec  8 22:39:39 1999
+<BR>
+@@ -18,6 +18,13 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.  Fine, it's unsigned, but
+<BR>
++ * we retain the old value for compatibility, especially with DU. 
+<BR>
++ * When you run into the 2^63 barrier, you call me.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	0x7ffffffffffffffful
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS							\
+<BR>
+diff -rup linux/include/asm-arm/resource.h 2.3.32-2/include/asm-arm/resource.h
+<BR>
+--- linux/include/asm-arm/resource.h	Mon Aug  2 10:19:52 1999
+<BR>
++++ 2.3.32-2/include/asm-arm/resource.h	Wed Dec  8 22:33:55 1999
+<BR>
+@@ -18,6 +18,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS					\
+<BR>
+diff -rup linux/include/asm-i386/resource.h 2.3.32-2/include/asm-i386/resource.h
+<BR>
+--- linux/include/asm-i386/resource.h	Wed Dec  8 22:21:56 1999
+<BR>
++++ 2.3.32-2/include/asm-i386/resource.h	Wed Dec  8 22:39:45 1999
+<BR>
+@@ -18,6 +18,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS					\
+<BR>
+diff -rup linux/include/asm-m68k/resource.h 2.3.32-2/include/asm-m68k/resource.h
+<BR>
+--- linux/include/asm-m68k/resource.h	Mon Aug  9 12:27:31 1999
+<BR>
++++ 2.3.32-2/include/asm-m68k/resource.h	Wed Dec  8 22:35:22 1999
+<BR>
+@@ -18,6 +18,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS	\
+<BR>
+diff -rup linux/include/asm-mips/resource.h 2.3.32-2/include/asm-mips/resource.h
+<BR>
+--- linux/include/asm-mips/resource.h	Mon Jul 26 22:41:09 1999
+<BR>
++++ 2.3.32-2/include/asm-mips/resource.h	Wed Dec  8 22:35:00 1999
+<BR>
+@@ -25,6 +25,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS 10			/* Number of limit flavors.  */
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS					\
+<BR>
+diff -rup linux/include/asm-ppc/resource.h 2.3.32-2/include/asm-ppc/resource.h
+<BR>
+--- linux/include/asm-ppc/resource.h	Wed Dec  8 22:22:18 1999
+<BR>
++++ 2.3.32-2/include/asm-ppc/resource.h	Wed Dec  8 22:34:12 1999
+<BR>
+@@ -14,6 +14,13 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS							\
+<BR>
+diff -rup linux/include/asm-sh/resource.h 2.3.32-2/include/asm-sh/resource.h
+<BR>
+--- linux/include/asm-sh/resource.h	Wed Dec  8 22:21:59 1999
+<BR>
++++ 2.3.32-2/include/asm-sh/resource.h	Wed Dec  8 22:34:49 1999
+<BR>
+@@ -18,6 +18,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define INIT_RLIMITS					\
+<BR>
+diff -rup linux/include/asm-sparc/resource.h 2.3.32-2/include/asm-sparc/resource.h
+<BR>
+--- linux/include/asm-sparc/resource.h	Tue Aug 31 11:23:30 1999
+<BR>
++++ 2.3.32-2/include/asm-sparc/resource.h	Wed Dec  8 22:34:26 1999
+<BR>
+@@ -24,6 +24,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;#define INIT_RLIMITS				\
+<BR>
+&nbsp;{						\
+<BR>
+diff -rup linux/include/asm-sparc64/resource.h 2.3.32-2/include/asm-sparc64/resource.h
+<BR>
+--- linux/include/asm-sparc64/resource.h	Mon Aug  2 22:07:16 1999
+<BR>
++++ 2.3.32-2/include/asm-sparc64/resource.h	Wed Dec  8 22:34:35 1999
+<BR>
+@@ -24,6 +24,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define RLIM_NLIMITS	10
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * SuS says limits have to be unsigned.
+<BR>
++ * Which makes a ton more sense anyway.
+<BR>
++ */
+<BR>
++#define RLIM_INFINITY	(~0UL)
+<BR>
++
+<BR>
+&nbsp;#ifdef __KERNEL__
+<BR>
+&nbsp;#define INIT_RLIMITS				\
+<BR>
+&nbsp;{						\
+<BR>
+diff -rup linux/include/linux/resource.h 2.3.32-2/include/linux/resource.h
+<BR>
+--- linux/include/linux/resource.h	Wed Dec  8 22:21:56 1999
+<BR>
++++ 2.3.32-2/include/linux/resource.h	Wed Dec  8 22:33:44 1999
+<BR>
+@@ -37,13 +37,6 @@ struct	rusage {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long	ru_nivcsw;		/* involuntary &quot; */
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+-/*
+<BR>
+- * SuS says limits have to be unsigned.
+<BR>
+- *
+<BR>
+- * Which makes a ton more sense anyway.
+<BR>
+- */
+<BR>
+-#define RLIM_INFINITY	(~0UL)
+<BR>
+-
+<BR>
+&nbsp;struct rlimit {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long	rlim_cur;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long	rlim_max;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Andrea Arcangeli: "[patch] missing icache flush on alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Rich Payne: "SMP problem....maybe ??"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

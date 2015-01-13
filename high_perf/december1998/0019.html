@@ -1,0 +1,850 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: how to optimize dgemm? No.2</TITLE>
+<META NAME="Author" CONTENT="Kazushige Goto (goto@statabo.rim.or.jp)">
+<META NAME="Subject" CONTENT="how to optimize dgemm? No.2">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>how to optimize dgemm? No.2</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:34 1999 EST" -->
+<!-- sent="Wed, 09 Dec 1998 23:14:55 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="how to optimize dgemm? No.2" -->
+<!-- id="19981209231455P.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="19981130231931B.goto@statabo.rim.or.jp" -->
+<STRONG>Kazushige Goto</STRONG> (<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.2"><EM>goto@statabo.rim.or.jp</EM></A>)<BR>
+<EM>Wed, 09 Dec 1998 23:14:55 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#19">[ date ]</A>
+<A HREF="index.html#19">[ thread ]</A>
+<A HREF="subject.html#19">[ subject ]</A>
+<A HREF="author.html#19">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Adam C. Powell, IV: "Re: Was: Port3/Lucent Technologies, Now: lapack stuff"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Johannes G.D. Hausmann: "Was: Port3/Lucent Technologies, Now: lapack stuff"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0023.html">naohiko shimizu: "Re: how to optimize dgemm? No.2"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>This is a second part document of DGEMM.
+<BR>
+<P>3. Addressing of C matirx.
+<BR>
+<P>It's easy to determine :-).
+<BR>
+<P>&lt;&lt; 27 MFLops &gt;&gt;
+<BR>
+<P>&nbsp;&nbsp;int i, j, l;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; m; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = 0; l &lt; k; l++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += b[l + j * ldb] * a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>4. Blocking
+<BR>
+<P>To use cache effectively,  we can(must?) use a algorithm which is
+<BR>
+called &quot;blocking&quot;. First, we apply most inner loop.
+<BR>
+<P><P>&lt;&lt; 48 MFlops&gt;&gt;
+<BR>
+<P>#define MIN(a,b)   ((a)&gt;(b)? (b):(a))
+<BR>
+#define P 40
+<BR>
+<P>&nbsp;&nbsp;int i, j, l;
+<BR>
+&nbsp;&nbsp;int ls;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls+=P){          /* Blocking */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; m; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls; l &lt; MIN(k, ls+P); l++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += b[l + j * ldb] * a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>Then, apply second innter loop.
+<BR>
+<P><P>&lt;&lt; 44 MFlops&gt;&gt;
+<BR>
+<P>#define MIN(a,b)   ((a)&gt;(b)? (b):(a))
+<BR>
+#define P 40
+<BR>
+#define Q 16
+<BR>
+<P>&nbsp;&nbsp;int i, j, l;
+<BR>
+&nbsp;&nbsp;int ls, is;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){    /* Blocking */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is; i &lt; MIN(m, is+Q); i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls; l &lt; MIN(k, ls+P); l++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += b[l + j * ldb] * a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+}
+<BR>
+<P>At now, we can not determine P and Q.
+<BR>
+<P><P>4. Copying
+<BR>
+<P>There are two variations.
+<BR>
+<P>&nbsp;&nbsp;a. calculate directly.
+<BR>
+&nbsp;&nbsp;b. fist copy matrices to stack flame, then calculate.
+<BR>
+<P>It seems that (a) is better than (b), because (b)'s overhead is pretty 
+<BR>
+heavy.  But it may not correct on 21164(maybe it's same on other
+<BR>
+architecture).
+<BR>
+<P>Direct calculation causes some problems -- cache congruence and DTB
+<BR>
+misses.
+<BR>
+<P>When leading dimensions are just 2^n(512, 1024, 2048, ...) or some
+<BR>
+particluar values such as 768, ...,  it's much slower(about half)
+<BR>
+than others.  This is called cache congruence.  For example,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leading Dimension  |   MFlops
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------------------+----------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;510         |   43.46
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;511         |   40.48
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;512         |   21.75          &lt;- much slower
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;513         |   40.84
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;514         |   43.55
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------------------------
+<BR>
+<P>When we calculate on large matrix(large leading dimension),  we expect 
+<BR>
+or hope it runs same speed, but it tends to be slower as leading
+<BR>
+dimension.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leading Dimension  |   MFlops
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------------------+----------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;500         |   44.36
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1000         |   43.27
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1500         |   43.01
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2000         |   42.71
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...         |   it takes toooo long. I gave up.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P>I'm afraid that this table is hard to understand.  So I show table
+<BR>
+which run on optimized direct/copying dgemm routines(they took almost
+<BR>
+same algorithm except for direct or copying).
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;optmized dgemm routine(cache congruence)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;----------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leading Dimension  |   direct   |   copying
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------------------+-------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;504         |   661.78   |   807.23
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;508         |   536.18   |   787.36
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;512         |   138.67(*)|   820.15
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;516         |   525.38   |   774.45
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;520         |   644.99   |   805.77
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;----------------------------------------------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;optmized dgemm routine(DTB misses)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;----------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leading Dimension  |   direct   |   copying
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------------------+-------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;400         |   673.68   |   810.12
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;800         |   666.14   |   805.03
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1200         |   664.36   |   817.79
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1600         |   650.91   |   813.12
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2000         |   645.57   |   821.86
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2400         |   635.02   |   820.46
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;----------------------------------------------
+<BR>
+<P>What's difference between them?  To answer it, I explain with a good
+<BR>
+tool which is called &quot;performance counter&quot;(PMCTR).  This counter, which 
+<BR>
+is in Alpha CPU, shows us various useful information(cycles, DTB
+<BR>
+misses, load/store count...).
+<BR>
+<P># To use PMCTR, we must modify milo(PAL code) and kernel, though.
+<BR>
+<P>These values contain a little bit errors, because PMCTR can not count
+<BR>
+on specific process(USER means all of processes except for Kernel and
+<BR>
+PAL).
+<BR>
+<P># long long .... long time, to mesure it.......  Huu....
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;direct(leading dimention = 1000)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I t e m          &lt; P A L &gt;           &lt; O S &gt;            &lt; U S E R&gt;
+<BR>
+Cycles              :57550152(  3.2)   50328787(  2.8)      1701192831( 94.0)
+<BR>
+Instructions        :34082981(  1.1)    7208644(  0.2)      3171976954( 98.7)
+<BR>
+nonissue cycles     :28085767(  5.4)   12809484(  2.5)       476459896( 92.1)
+<BR>
+split-issue cycles  :  179652(  1.4)     517078(  4.0)        12103980( 94.6)
+<BR>
+pipe-dry cycles     : 8154991(  7.5)    8794179(  8.1)        92090944( 84.5)
+<BR>
+replay trap         : 1030132(  9.1)     841867(  7.5)         9420666( 83.4)
+<BR>
+single-issue cycles : 6991917( 12.6)    2055396(  3.7)        46372009( 83.7)
+<BR>
+dual-issue cycles   :13540825(  3.6)     836121(  0.2)       366379019( 96.2)
+<BR>
+triple-issue cycles :       0(  0.0)       2261(  0.0)       503074753(100.0)
+<BR>
+quad-issue cycles   :       0(  0.0)       3906(  0.0)       220827314(100.0)
+<BR>
+flow-change insns   : 6686147( 16.2)     431793(  1.0)        34211383( 82.8)
+<BR>
+IntOps issued       : 1360591(  0.6)    1199895(  0.5)       235511911( 98.9)
+<BR>
+FPOps issued        :       0(  0.0)         12(  0.0)      2105000001(100.0)
+<BR>
+loads issued        : 2276139(  0.3)    1096963(  0.1)       776251092( 99.6)
+<BR>
+stores issued       :   21963(  0.1)     334926(  1.6)        21000003( 98.3)
+<BR>
+Icache issued       :16814563(  1.6)   11358401(  1.1)      1033736604( 97.3)
+<BR>
+Dcache accesses     : 2298628(  0.3)    1731192(  0.2)       797250356( 99.5)
+<BR>
+S cache access      : 2024299(  0.4)    2264914(  0.5)       498771558( 99.1)
+<BR>
+long(&gt;15) stalls    :  227432(  3.2)     216772(  3.0)         6669097( 93.8)
+<BR>
+PC-mispredicts      :   97820( 65.6)      51288( 34.4)              44(  0.0)
+<BR>
+BR-mispredicts      :       6(  0.0)     134071(  4.6)         2793377( 95.4)
+<BR>
+Icache/RFB misses   :   35227( 12.0)     220505( 75.3)           37023( 12.6)
+<BR>
+ITB misses          :      32(100.0)          0(  0.0)               0(  0.0)
+<BR>
+Dcache LD misses    : 1037252(  0.1)    1960608(  0.3)       733383534( 99.6)
+<BR>
+DTB misses          :   82316(  3.8)        499(  0.0)         2093747( 96.2)
+<BR>
+LDs merged in MAF   :    5771(  0.0)     146924(  0.1)       249981039( 99.9)
+<BR>
+LDU replay traps    : 1028635( 83.9)     197183( 16.1)               4(  0.0)
+<BR>
+WB/MAF replay traps :    2502(  0.0)     758730(  7.1)         9985798( 92.9)
+<BR>
+MB stall cycles     :   29722(  2.4)    1227877( 97.6)              12(  0.0)
+<BR>
+LDx_L instructions  :       0(  0.0)       9359(100.0)               0(  0.0)
+<BR>
+Scache misses       :  608891(  4.5)     563866(  4.1)        12475116( 91.4)
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;copying(leading dimention = 1000)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I t e m          &lt; P A L &gt;           &lt; O S &gt;            &lt; U S E R&gt;
+<BR>
+Cycles              :22630326(  1.6)   26782138(  1.9)      1389113959( 96.6)
+<BR>
+Instructions        :10041953(  0.3)    6613082(  0.2)      3064465670( 99.5)
+<BR>
+nonissue cycles     : 9589458(  3.8)   20890488(  8.2)       224256235( 88.0)
+<BR>
+split-issue cycles  :   37879(  0.4)     352991(  4.0)         8470085( 95.6)
+<BR>
+pipe-dry cycles     : 6624444(  6.2)    8928737(  8.3)        91679061( 85.5)
+<BR>
+replay trap         :  314146(  2.5)     612803(  5.0)        11434078( 92.5)
+<BR>
+single-issue cycles : 2063888(  7.3)    1190912(  4.2)        25022547( 88.5)
+<BR>
+dual-issue cycles   : 3984511(  1.2)     569822(  0.2)       325932120( 98.6)
+<BR>
+triple-issue cycles :       0(  0.0)       5822(  0.0)       468973424(100.0)
+<BR>
+quad-issue cycles   :       0(  0.0)       5640(  0.0)       245133385(100.0)
+<BR>
+flow-change insns   : 1978314(  5.2)     344252(  0.9)        35838539( 93.9)
+<BR>
+IntOps issued       :  345393(  0.3)     907142(  0.8)       110849734( 98.9)
+<BR>
+FPOps issued        :       0(  0.0)          6(  0.0)      2037152001(100.0)
+<BR>
+loads issued        :  662904(  0.1)     991766(  0.1)       861625203( 99.8)
+<BR>
+stores issued       :   17185(  0.1)     287554(  1.5)        19000003( 98.4)
+<BR>
+Icache issued       : 4771180(  0.5)    4682886(  0.5)       968471068( 99.0)
+<BR>
+Dcache accesses     :  680286(  0.1)    3865593(  0.4)       880625550( 99.5)
+<BR>
+S cache access      : 1486992(  0.4)    1205931(  0.3)       382070734( 99.3)
+<BR>
+long(&gt;15) stalls    :  116345(  4.2)     180011(  6.6)         2448747( 89.2)
+<BR>
+PC-mispredicts      :   25189( 38.9)      39495( 61.0)              38(  0.1)
+<BR>
+BR-mispredicts      :      40(  0.0)      13353(  0.9)         1418903( 99.1)
+<BR>
+Icache/RFB misses   :  212017( 36.8)     175389( 30.5)          188426( 32.7)
+<BR>
+ITB misses          :      11(100.0)          0(  0.0)               0(  0.0)
+<BR>
+Dcache LD misses    :  352476(  0.0)    1580582(  0.2)       797500776( 99.8)
+<BR>
+DTB misses          :   12893(  2.0)         93(  0.0)          622252( 98.0)
+<BR>
+LDs merged in MAF   :    4664(  0.0)      44524(  0.0)       428926948(100.0)
+<BR>
+LDU replay traps    :  294586( 66.1)     151238( 33.9)             134(  0.0)
+<BR>
+WB/MAF replay traps :     220(  0.0)     187368(  1.7)        10681438( 98.3)
+<BR>
+MB stall cycles     :   23600(  2.3)     987487( 97.7)               0(  0.0)
+<BR>
+LDx_L instructions  :       0(  0.0)       7598(100.0)               0(  0.0)
+<BR>
+Scache misses       :  414992(  3.0)     516696(  3.7)        12976391( 93.3)
+<BR>
+<P><P>These tables are pretty heavy, so you might confuse.
+<BR>
+<P><P>&nbsp;&nbsp;ITEM                   direct         copying      RATIO (direct/copying)
+<BR>
+---------------------------------------------------------------------------
+<BR>
+Cycles              :  1701192831     1389113959        1.22
+<BR>
+Instructions        :  3171976954     3064465670        1.04
+<BR>
+nonissue cycles     :   476459896      224256235        2.12
+<BR>
+split-issue cycles  :    12103980        8470085        1.42
+<BR>
+pipe-dry cycles     :    92090944       91679061        1.00
+<BR>
+replay trap         :     9420666       11434078        0.82
+<BR>
+single-issue cycles :    46372009       25022547        1.85
+<BR>
+dual-issue cycles   :   366379019      325932120        1.12
+<BR>
+triple-issue cycles :   503074753      468973424        1.07
+<BR>
+quad-issue cycles   :   220827314      245133385        0.90
+<BR>
+flow-change insns   :    34211383       35838539        0.95
+<BR>
+IntOps issued       :   235511911      110849734        2.12
+<BR>
+FPOps issued        :  2105000001     2037152001        1.03
+<BR>
+loads issued        :   776251092      861625203        0.90
+<BR>
+stores issued       :    21000003       19000003        1.10
+<BR>
+Icache issued       :  1033736604      968471068        1.06
+<BR>
+Dcache accesses     :   797250356      880625550        0.90
+<BR>
+S cache access      :   498771558      382070734        1.30
+<BR>
+long(&gt;15) stalls    :     6669097        2448747        2.72(*)
+<BR>
+PC-mispredicts      :          44             38        ----
+<BR>
+BR-mispredicts      :     2793377        1418903        1.97
+<BR>
+Icache/RFB misses   :       37023         188426        0.20
+<BR>
+ITB misses          :           0              0        ----
+<BR>
+Dcache LD misses    :   733383534      797500776        0.92
+<BR>
+DTB misses          :     2093747         622252        3.36(*)
+<BR>
+LDs merged in MAF   :   249981039      428926948        0.58(*)
+<BR>
+LDU replay traps    :           4            134        ----
+<BR>
+WB/MAF replay traps :     9985798       10681438        0.93
+<BR>
+MB stall cycles     :          12              0        ----
+<BR>
+LDx_L instructions  :           0              0        ----
+<BR>
+Scache misses       :    12475116       12976391        0.96
+<BR>
+<P><P>Please take notice of &quot;DTB misses&quot;,  its ratio is 3.36.   DTB is
+<BR>
+filled by PAL code and it takes too long.  I do not know how long it
+<BR>
+takes(please refer to attached program).  So I calculate.  Thus, 
+<BR>
+it takes about 950 clocks(RPCC says about 860 clocks).
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DTB miss operation
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I t e m          &lt; P A L &gt;           &lt; O S &gt;            &lt; U S E R&gt;
+<BR>
+Cycles              :     757( 77.9)        196( 20.2)              19(  2.0)
+<BR>
+Instructions        :      47( 92.2)          0(  0.0)               4(  7.8)
+<BR>
+nonissue cycles     :     460( 99.6)          0(  0.0)               2(  0.4)
+<BR>
+split-issue cycles  :       3(100.0)          0(  0.0)               0(  0.0)
+<BR>
+pipe-dry cycles     :     412( 96.9)          0(  0.0)              13(  3.1)
+<BR>
+replay trap         :       2(100.0)          0(  0.0)               0(  0.0)
+<BR>
+single-issue cycles :      13( 76.5)          0(  0.0)               4( 23.5)
+<BR>
+dual-issue cycles   :      17(100.0)          0(  0.0)               0(  0.0)
+<BR>
+triple-issue cycles :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+quad-issue cycles   :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+flow-change insns   :       8( 88.9)          0(  0.0)               1( 11.1)
+<BR>
+IntOps issued       :      16(100.0)          0(  0.0)               0(  0.0)
+<BR>
+FPOps issued        :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+loads issued        :       3( 75.0)          0(  0.0)               1( 25.0)
+<BR>
+stores issued       :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+Icache issued       :      23( 82.1)          0(  0.0)               5( 17.9)
+<BR>
+Dcache accesses     :       3( 75.0)          0(  0.0)               1( 25.0)
+<BR>
+S cache access      :      15( 83.3)          0(  0.0)               3( 16.7)
+<BR>
+long(&gt;15) stalls    :       3(100.0)          0(  0.0)               0(  0.0)
+<BR>
+PC-mispredicts      :       1(100.0)          0(  0.0)               0(  0.0)
+<BR>
+BR-mispredicts      :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+Icache/RFB misses   :       2( 66.7)          0(  0.0)               1( 33.3)
+<BR>
+ITB misses          :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+Dcache LD misses    :       3( 75.0)          0(  0.0)               1( 25.0)
+<BR>
+DTB misses          :       1( 50.0)          0(  0.0)               1( 50.0)
+<BR>
+LDs merged in MAF   :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+LDU replay traps    :       2(100.0)          0(  0.0)               0(  0.0)
+<BR>
+WB/MAF replay traps :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+MB stall cycles     :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+LDx_L instructions  :       0(  ---)          0(  ---)               0(  ---)
+<BR>
+Scache misses       :       8( 88.9)          0(  0.0)               1( 11.1)
+<BR>
+<P><P>I also mesured DTB misses on ld(leading dimension)=2000 and compared
+<BR>
+against ld=1000.  The theoretical ratio is 8, but it's much worse on
+<BR>
+direct calculation.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The ratio of DTB misses
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;------------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leading Dimension  |    1000  |     2000  |   ratio 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------------------+----------+-----------+----------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;direct         | 2093747  | 26788263  |   12.79
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;copying        |  622252  |  5151404  |    8.27
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;------------------------------------------------------
+<BR>
+<P>Conclution:
+<BR>
+&nbsp;&nbsp;We may(should?) take copying method to reduce DTB misses.
+<BR>
+<P>Extra Information.
+<BR>
+&nbsp;&nbsp;Do you know how long it takes to move register from main memory?
+<BR>
+&nbsp;&nbsp;(no DTB miss, only cache miss)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clocks of moving from memory
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1st level | 2nd level | 3rd level | main memory
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-------------+-----------+-----------+-------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2     |      8    |     27    |     134
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---------------------------------------------------
+<BR>
+&nbsp;&nbsp;
+<BR>
+Continue to No.3
+<BR>
+<P># It was pretty heavy.... tired.
+<BR>
+<P>Thanks,
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.2">goto@statabo.rim.or.jp</A>
+<BR>
+<P><P><P>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+$message:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ascii &quot;%ld\n&quot;
+<BR>
+<P>#define SIZE 1024*1024
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+$dummy  :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.space 8*SIZE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.quad 0
+<BR>
+<P>$dummy2  :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.text
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl	main
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent	main
+<BR>
+main:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp	$29,0($27)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, -32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$26, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$6, $dummy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$5, SIZE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$loop:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$3, 0($6)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq	$6, 8, $6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subq	$5, 1, $5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bgt	$5, $loop
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rpcc	$0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f0, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fmov	$f0, $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rpcc	$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subl	$1, $0, $17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$16, $message
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$26, printf
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$26, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clr	$0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end main
+<BR>
+<P><P>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I t e m          &lt; P A L &gt;           &lt; O S &gt;            &lt; U S E R&gt;
+<BR>
+Cycles              :841694024(  5.7)  467923843(  3.2)     13384449433( 91.1)
+<BR>
+Instructions        :438882906(  1.7)   66633172(  0.3)     25375797655( 98.0)
+<BR>
+nonissue cycles     :452487461( 10.2)  329793362(  7.4)      3658785135( 82.4)
+<BR>
+split-issue cycles  : 2568830(  2.5)    4991705(  4.9)        94301523( 92.6)
+<BR>
+pipe-dry cycles     :122281048( 13.8)  107391420( 12.1)       655141542( 74.0)
+<BR>
+replay trap         :18180167( 22.9)    2293654(  2.9)        59066625( 74.3)
+<BR>
+single-issue cycles :90036920( 18.8)   15711521(  3.3)       372783457( 77.9)
+<BR>
+dual-issue cycles   :174246340(  5.6)    2141935(  0.1)      2951392260( 94.4)
+<BR>
+triple-issue cycles :       0(  0.0)     429217(  0.0)      4020433775(100.0)
+<BR>
+quad-issue cycles   :       0(  0.0)    3706962(  0.2)      1760249267( 99.8)
+<BR>
+flow-change insns   :85946754( 23.7)    2113938(  0.6)       274852064( 75.7)
+<BR>
+IntOps issued       :18807758(  1.0)   14351081(  0.7)      1884081309( 98.3)
+<BR>
+FPOps issued        :       0(  0.0)         98(  0.0)     16840000001(100.0)
+<BR>
+loads issued        :29386620(  0.5)    8023613(  0.1)      6210784239( 99.4)
+<BR>
+stores issued       :  175532(  0.1)    3490153(  2.0)       168001622( 97.9)
+<BR>
+Icache issued       :238531183(  2.8)   29699819(  0.4)      8204292556( 96.8)
+<BR>
+Dcache accesses     :29570262(  0.5)   13857156(  0.2)      6378006221( 99.3)
+<BR>
+S cache access      :27331269(  0.7)   13469663(  0.3)      3969119743( 99.0)
+<BR>
+long(&gt;15) stalls    : 2941030(  5.6)    1411024(  2.7)        47736999( 91.6)
+<BR>
+PC-mispredicts      : 1348690( 71.4)     540882( 28.6)             370(  0.0)
+<BR>
+BR-mispredicts      :    1223(  0.0)      67035(  0.3)        22345543( 99.7)
+<BR>
+Icache/RFB misses   :  298327( 12.6)    1700645( 72.0)          361679( 15.3)
+<BR>
+ITB misses          :     260(100.0)          0(  0.0)               0(  0.0)
+<BR>
+Dcache LD misses    :18264354(  0.3)    8605617(  0.1)      5838806976( 99.5)
+<BR>
+DTB misses          : 1223620(  4.4)        849(  0.0)        26788263( 95.6)
+<BR>
+LDs merged in MAF   :   48748(  0.0)    1494676(  0.1)      1996543335( 99.9)
+<BR>
+LDU replay traps    :18140020( 91.0)    1790381(  9.0)             555(  0.0)
+<BR>
+WB/MAF replay traps :   27309(  0.0)      44646(  0.1)        58216534( 99.9)
+<BR>
+MB stall cycles     :  267732(  2.6)    9979054( 97.4)            2292(  0.0)
+<BR>
+LDx_L instructions  :       0(  0.0)      87203(100.0)               0(  0.0)
+<BR>
+Scache misses       : 5959809(  5.7)    4462748(  4.3)        93337972( 90.0)
+<BR>
+<P><P>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I t e m          &lt; P A L &gt;           &lt; O S &gt;            &lt; U S E R&gt;
+<BR>
+Cycles              :229751423(  2.0)  336746468(  2.9)     11082456462( 95.1)
+<BR>
+Instructions        :83659478(  0.3)   60983836(  0.2)     24505910953( 99.4)
+<BR>
+nonissue cycles     :143801699(  6.8)  169852262(  8.1)      1792187898( 85.1)
+<BR>
+split-issue cycles  :  354696(  0.5)    4009482(  5.6)        67181945( 93.9)
+<BR>
+pipe-dry cycles     :58809729(  7.3)   36401150(  4.5)       709906515( 88.2)
+<BR>
+replay trap         : 3440808(  3.7)    3597469(  3.9)        84884366( 92.3)
+<BR>
+single-issue cycles :17323087(  7.9)    8848198(  4.0)       192463502( 88.0)
+<BR>
+dual-issue cycles   :33323312(  1.3)    2784437(  0.1)      2607158586( 98.6)
+<BR>
+triple-issue cycles :       0(  0.0)      42145(  0.0)      3751788586(100.0)
+<BR>
+quad-issue cycles   :       0(  0.0)     458158(  0.0)      1961113860(100.0)
+<BR>
+flow-change insns   :16514290(  5.4)    2597946(  0.9)       286371054( 93.7)
+<BR>
+IntOps issued       : 3270098(  0.4)    7265740(  0.8)       885462583( 98.8)
+<BR>
+FPOps issued        :       0(  0.0)         70(  0.0)     16297072009(100.0)
+<BR>
+loads issued        : 5527759(  0.1)    7154792(  0.1)      6889783639( 99.8)
+<BR>
+stores issued       :  137601(  0.1)    2138112(  1.4)       148001691( 98.5)
+<BR>
+Icache issued       :42560119(  0.5)   46981666(  0.6)      7724262543( 98.9)
+<BR>
+Dcache accesses     : 5665455(  0.1)   14945119(  0.2)      7037001444( 99.7)
+<BR>
+S cache access      :13620681(  0.4)   10677937(  0.3)      3052853894( 99.2)
+<BR>
+long(&gt;15) stalls    : 1470558(  6.6)    1489637(  6.6)        19443736( 86.8)
+<BR>
+PC-mispredicts      :  239246( 43.1)     314949( 56.8)             326(  0.1)
+<BR>
+BR-mispredicts      :    1283(  0.0)      50717(  0.4)        11311660( 99.5)
+<BR>
+Icache/RFB misses   : 1700169( 36.7)    1272585( 27.4)         1664040( 35.9)
+<BR>
+ITB misses          :     249(100.0)          0(  0.0)               0(  0.0)
+<BR>
+Dcache LD misses    : 3687679(  0.1)   16178308(  0.3)      6375418876( 99.7)
+<BR>
+DTB misses          :  128544(  2.4)       4684(  0.1)         5151404( 97.5)
+<BR>
+LDs merged in MAF   :   37113(  0.0)    2670839(  0.1)      3430618214( 99.9)
+<BR>
+LDU replay traps    : 3286998( 66.4)    1665591( 33.6)             295(  0.0)
+<BR>
+WB/MAF replay traps :    1172(  0.0)    1088719(  1.3)        80825378( 98.7)
+<BR>
+MB stall cycles     :  186524(  2.3)    7921648( 97.7)              42(  0.0)
+<BR>
+LDx_L instructions  :       0(  0.0)      82343(100.0)               0(  0.0)
+<BR>
+Scache misses       : 4663041(  4.2)    5114323(  4.6)       101125812( 91.2)
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Adam C. Powell, IV: "Re: Was: Port3/Lucent Technologies, Now: lapack stuff"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Johannes G.D. Hausmann: "Was: Port3/Lucent Technologies, Now: lapack stuff"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0023.html">naohiko shimizu: "Re: how to optimize dgemm? No.2"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:39 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

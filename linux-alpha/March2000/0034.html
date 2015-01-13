@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Sun Mar 12 23:47:14 2000" -->
+<!-- isoreceived="20000313074714" -->
+<!-- sent="Sun, 12 Mar 2000 09:53:29 -0800 (PST)" -->
+<!-- isosent="20000312175329" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003120944340.5794-100000@penguin.transmeta.com" -->
+<!-- inreplyto="20000312033656.A24552@hq.fsmlabs.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Mar 12 2000 - 09:53:29 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#34">[ date ]</A>
+<A HREF="index.html#34">[ thread ]</A>
+<A HREF="subject.html#34">[ subject ]</A>
+<A HREF="author.html#34">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0033.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0035.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0033.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, 12 Mar 2000 yodaiken@fsmlabs.com wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So what happens on a uniprocessor when
+</EM><BR>
+<EM>&gt;              level triggered arrives
+</EM><BR>
+<EM>&gt;              no-ack dispatch of level trigger
+</EM><BR>
+<EM>&gt;              higher priority  level arrives
+</EM><BR>
+<EM>&gt;              dispatch second driver
+</EM><BR>
+<EM>&gt;              ack.
+</EM><BR>
+<EM>&gt;              
+</EM><BR>
+<EM>&gt; Acks are not vector specific, so does the unacked level irq assert again?
+</EM><BR>
+<P>Acks _are_ vector specific. It's just that you don't need to specify the
+<BR>
+vector, because the local APIC knows which one it must be (very simple: it
+<BR>
+must always be the highest-priority in-service irq).
+<BR>
+<P><EM>&gt; BTW: Is it correct to say that 
+</EM><BR>
+<EM>&gt;              ack after a level causes a operation on both local and io-apic
+</EM><BR>
+<EM>&gt;              ack after an edge is purely local.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If so, what happens with
+</EM><BR>
+<EM>&gt;              level triggered arrives
+</EM><BR>
+<EM>&gt;              no-ack dispatch of level trigger
+</EM><BR>
+<EM>&gt;              higher priority  EDGE arrives
+</EM><BR>
+<EM>&gt;              ack (intended to ack edge) 
+</EM><BR>
+<P>The nesting is always ok, because the local APIC knows which interrupts
+<BR>
+are in service, and thus also knows which one is &quot;active&quot; (the highest
+<BR>
+priority in-service one).
+<BR>
+<P>I personally think it's a stupid design (it would be so easy for software
+<BR>
+to just explicitly say _which_ IRQ to ACK, and I don't see the point of
+<BR>
+not requireing that and make it explicit), but it's straightforward.
+<BR>
+<P><EM>&gt; Is it now an error to do __sti in interrupt mode?
+</EM><BR>
+<P>No, why would it be?
+<BR>
+<P>Doing an __sti in interrupts will let higher-priority interrupts in. As it
+<BR>
+always has.
+<BR>
+<P>I think it's probably stupid most of the time, and shows that something is
+<BR>
+wrong (an interrupt should not take long enough for it to matter that we
+<BR>
+do an __sti), but sometimes that kind of stupidity is a result of horrible
+<BR>
+hardware latencies (eg the time it takes to read a sector from the IDE
+<BR>
+disk using programmed IO).
+<BR>
+<P><EM>&gt; What happens on 
+</EM><BR>
+<EM>&gt;              level triggered arrives
+</EM><BR>
+<EM>&gt;              no-ack dispatch of level trigger
+</EM><BR>
+<EM>&gt;              timer irq arives
+</EM><BR>
+<EM>&gt;              ack (intended to ack edge) 
+</EM><BR>
+<EM>&gt;              process switch from timer code.
+</EM><BR>
+<P>That would be a horrible bug, and would ALWAYS have been a horrible bug.
+<BR>
+<P>Quite regardless of how you do interrupts: it doesn't matter where youput
+<BR>
+the ACK's, you always need to make sure that irq masking etc is correct,
+<BR>
+and you must NOT allow a context switch while an interrupt handler is
+<BR>
+still running.
+<BR>
+<P>The kernel _only_ does a process switch on return to user level. That very
+<BR>
+much includes the case above; the timer interrupt obviously is not
+<BR>
+returnign to user level.
+<BR>
+<P>You're making these problems up.
+<BR>
+<P><EM>&gt; I really dislike hardware interrupt  priorities since they have nothing
+</EM><BR>
+<EM>&gt; to do with the OS' ideas of importance and are complex to work with.
+</EM><BR>
+<P>I agree. I think interrupt controllers should be simple masks, nothing
+<BR>
+more, nothing less.
+<BR>
+<P>However, I'm not designing the hardware.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0033.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0035.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0033.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

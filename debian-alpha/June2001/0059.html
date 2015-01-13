@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: memory leak in 2.4 kernel - ways to debug ??</TITLE>
+<META NAME="Author" CONTENT="Marius Hillenbrand (marius@sirius.inka.de)">
+<META NAME="Subject" CONTENT="memory leak in 2.4 kernel - ways to debug ??">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>memory leak in 2.4 kernel - ways to debug ??</H1>
+<HR>
+<P>
+<!-- received="Tue Jun 12 22:06:15 2001" -->
+<!-- isoreceived="20010613050615" -->
+<!-- sent="Tue, 12 Jun 2001 19:41:10 +0200" -->
+<!-- isosent="20010612174110" -->
+<!-- name="Marius Hillenbrand" -->
+<!-- email="marius@sirius.inka.de" -->
+<!-- subject="memory leak in 2.4 kernel - ways to debug ??" -->
+<!-- id="20010612194110.A1213@sirius.inka.de" -->
+<STRONG>Subject: </STRONG>memory leak in 2.4 kernel - ways to debug ??<BR>
+<STRONG>From: </STRONG>Marius Hillenbrand (<EM>marius@sirius.inka.de</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jun 12 2001 - 10:41:10 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#59">[ date ]</A>
+<A HREF="index.html#59">[ thread ]</A>
+<A HREF="subject.html#59">[ subject ]</A>
+<A HREF="author.html#59">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0060.html">Craig Small: "Re: Raid-1 woes"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0058.html">Ron Farrer: "Re: 2.4 with alpha/potato?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>Since I've upgraded my 164LX 533Mhz-Alpha to 384 MB RAM (from 128MB),
+<BR>
+kernel 2.4 sometimes &quot;eats up&quot; about 160MB which is obviously not the expected
+<BR>
+behaviour.
+<BR>
+At the moment I'm using kernel 2.4.5-pre1, but the problem also occurs in
+<BR>
+earlier versions of 2.4 (I updated to the pre-version, hoping that the
+<BR>
+problem would have been fixed).
+<BR>
+Testing with 2.2 is rather difficult, since many of my filesystems are
+<BR>
+reiserfs now and the 2.2.19-reiserfs-patch can't mount these partitions.
+<BR>
+<P>Has anybody else experienced this problem (sorry, if this is a FAQ) ??
+<BR>
+What possibilities are there to debug this behaviour (i'm far away from
+<BR>
+a kernel hacker) ??
+<BR>
+<P>Here are some diagnostic outputs, only init (+gettys), the logging-daemons, 2x
+<BR>
+bash, gpm and the software to write this mail are running (mutt+vi).
+<BR>
+<P>free:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;total       used       free     shared    buffers     cached
+<BR>
+Mem:        382304     237424     144880          0       1776      50200
+<BR>
+-/+ buffers/cache:     185448     196856
+<BR>
+Swap:            0          0          0
+<BR>
+<P>ps axv:
+<BR>
+&nbsp;PID TTY      STAT   TIME  MAJFL   TRS   DRS  RSS %MEM COMMAND
+<BR>
+&nbsp;&nbsp;&nbsp;1 ?        S      0:03      0  1069  1442  880  0.2 init
+<BR>
+&nbsp;&nbsp;&nbsp;2 ?        SW     0:00      0     0     0    0  0.0 [keventd]
+<BR>
+&nbsp;&nbsp;&nbsp;3 ?        SW     0:01      0     0     0    0  0.0 [kswapd]
+<BR>
+&nbsp;&nbsp;&nbsp;4 ?        SW     0:00      0     0     0    0  0.0 [kreclaimd]
+<BR>
+&nbsp;&nbsp;&nbsp;5 ?        SW     0:00      0     0     0    0  0.0 [bdflush]
+<BR>
+&nbsp;&nbsp;&nbsp;6 ?        SW     0:00      0     0     0    0  0.0 [kupdated]
+<BR>
+&nbsp;&nbsp;66 ?        SW     0:00      0     0     0    0  0.0 [kreiserfsd]
+<BR>
+&nbsp;157 ?        S      0:00      0  1065  5062 1184  0.3 /sbin/syslogd
+<BR>
+&nbsp;159 ?        S      0:00      0  1053  1514  888  0.2 /sbin/klogd
+<BR>
+&nbsp;312 tty3     S      0:00      0  1044  1435  872  0.2 /sbin/getty 115200 tty3
+<BR>
+&nbsp;313 tty4     S      0:00      0  1044  1435  872  0.2 /sbin/getty 115200 tty4
+<BR>
+&nbsp;314 tty5     S      0:00      0  1044  1435  872  0.2 /sbin/getty 115200 tty5
+<BR>
+&nbsp;315 tty6     S      0:00      0  1044  1435  872  0.2 /sbin/getty 115200 tty6
+<BR>
+&nbsp;322 tty2     S      0:00      0  1746  6509 2216  0.5 -bash
+<BR>
+1183 tty1     S      0:00      0  1746  6493 2192  0.5 -bash
+<BR>
+1213 tty1     S      0:00      0  1782  6809 2608  0.6 mutt
+<BR>
+1218 tty1     S      0:00      0  1505  5590 2176  0.5 /usr/bin/editor /tmp/mut 1225 ?        S      0:00      0  1119  1440  840  0.2 /usr/sbin/gpm -m /dev/ps 1226 tty2     R      0:00      0  1112  7775 2120  0.5 ps axv
+<BR>
+<P>The 0.-percentages show, that the huge (for me) memory usage of 185M isn't
+<BR>
+produced by a running program. Calculated with bc, 167M are left for the
+<BR>
+kernel - even too much if you loaded hundreds of modules.
+<BR>
+<P>head of top:
+<BR>
+&nbsp;&nbsp;7:32pm  up  1:28,  2 users,  load average: 0.00, 0.00, 0.00
+<BR>
+19 processes: 18 sleeping, 1 running, 0 zombie, 0 stopped
+<BR>
+CPU states:  0.2% user,  0.2% system,  0.0% nice, 99.4% idle
+<BR>
+Mem:  382304K av, 238448K used, 143856K free,      0K shrd,   1776K buff
+<BR>
+Swap:      0K av,      0K used,      0K free                 50184K cached
+<BR>
+<P>/proc/meminfo:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;total:    used:    free:  shared: buffers:  cached:
+<BR>
+Mem:  391479296 243105792 148373504        0  1818624 51388416
+<BR>
+Swap:        0        0        0
+<BR>
+MemTotal:       382304 kB
+<BR>
+MemFree:        144896 kB
+<BR>
+MemShared:           0 kB
+<BR>
+Buffers:          1776 kB
+<BR>
+Cached:          50184 kB
+<BR>
+Active:           4272 kB
+<BR>
+Inact_dirty:     39752 kB
+<BR>
+Inact_clean:      7936 kB
+<BR>
+Inact_target:        0 kB
+<BR>
+HighTotal:           0 kB
+<BR>
+HighFree:            0 kB
+<BR>
+LowTotal:       382304 kB
+<BR>
+LowFree:        144896 kB
+<BR>
+SwapTotal:           0 kB
+<BR>
+SwapFree:            0 kB
+<BR>
+<P>Thanks in advance for any tips,
+<BR>
+Marius Hillenbrand
+<BR>
+<PRE>
+-- 
+living a RISCy life
+PGP PublicKey: <A HREF="http://sites.inka.de/sirius/marius.key.asc">http://sites.inka.de/sirius/marius.key.asc</A>
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0060.html">Craig Small: "Re: Raid-1 woes"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0058.html">Ron Farrer: "Re: 2.4 with alpha/potato?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jul 05 2001 - 05:45:31 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

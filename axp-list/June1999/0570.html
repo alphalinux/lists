@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Kernel questions (not mine)</TITLE>
+<META NAME="Author" CONTENT="Jay.Estabrook@digital.com (Jay.Estabrook@digital.com)">
+<META NAME="Subject" CONTENT="Re: Kernel questions (not mine)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Kernel questions (not mine)</H1>
+<HR>
+<P>
+<!-- received="Sat Jun 26 07:59:48 1999" -->
+<!-- isoreceived="19990626145948" -->
+<!-- sent="Fri, 25 Jun 1999 00:34:42 -0400" -->
+<!-- isosent="19990625043442" -->
+<!-- name="Jay.Estabrook@digital.com" -->
+<!-- email="Jay.Estabrook@digital.com" -->
+<!-- subject="Re: Kernel questions (not mine)" -->
+<!-- id="199906250434.AAA02121@alpha1.estabrook.org" -->
+<!-- inreplyto="Pine.LNX.4.10.9906241443290.18107-100000@talisman.mv.com" -->
+<STRONG>Subject: </STRONG>Re: Kernel questions (not mine)<BR>
+<EM>Jay.Estabrook@digital.com</EM><BR>
+<STRONG>Date: </STRONG>Thu Jun 24 1999 - 21:34:42 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#570">[ date ]</A>
+<A HREF="index.html#570">[ thread ]</A>
+<A HREF="subject.html#570">[ subject ]</A>
+<A HREF="author.html#570">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0571.html">designer seven: "some odd problems with MD5 on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0569.html">Jeff Garzik: "2.2.10 alpha kernel building (was Re: [Q]: weird spinlock messages &amp; kernel selection)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0516.html">Rich Payne: "Kernel questions (not mine)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0516.html">Jay.Estabrook@digital.com: "Re: Kernel questions (not mine)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;&gt;&gt; Rich Payne said:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ---------- Forwarded message ----------
+</EM><BR>
+<EM>&gt; Date: Thu, 24 Jun 1999 14:45:38 -0400 (EDT)
+</EM><BR>
+<EM>&gt; From: Christopher T. Lansdown &lt;lansdoct@screech.cs.alfred.edu&gt;
+</EM><BR>
+<EM>&gt; To: Rich Payne &lt;rdp@talisman.alphalinux.org&gt;
+</EM><BR>
+<EM>&gt; Subject: Re: Is anyone on the axp list?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Hello,
+</EM><BR>
+<EM>&gt;         I have a few kernel related questions:
+</EM><BR>
+<EM>&gt; 1. Why does the kernel start out at 0x10000000, and thus all normal stuff
+</EM><BR>
+<EM>&gt; that is kalloc()ed has a virt_to_bus address somewhere after that?
+</EM><BR>
+<P>First off, virt_to_bus() provides an address FOR A BUS DEVICE TO ISSUE to
+<BR>
+get access to host memory (often referred to as DMA).
+<BR>
+<P>On Alpha, we define a direct-map PCI DMA window (a range of addresses on the
+<BR>
+PCI bus) which will be translated, by the core logic chipset, into host memory
+<BR>
+addresses. We normally set this window at some high PCI bus address, above
+<BR>
+where other devices have had their local memory configured; on most Alpha
+<BR>
+platforms this window goes at 1Gb, for a length of 1Gb; newer platforms may
+<BR>
+direct-map an additional 1Gb at 2Gb, or start at 2Gb for 2Gb.
+<BR>
+<P>So, a page of memory at physical address 0 would return a virt_to_bus()
+<BR>
+address of 1Gb + 0 (0x40000000). A page at the end of 256Mb of memory would
+<BR>
+return 1Gb + 0x0fffe000 (0x4fffe000) as a virt_to_bus(). Most kmalloc'd
+<BR>
+memory will be below 0x300000 or above the end of the kernel (0x500000 and
+<BR>
+up, usually).
+<BR>
+<P><EM>&gt; 2. How is ISA DMA memory forced down to an adress in the first 16MB of
+</EM><BR>
+<EM>&gt; RAM?  (i.e. how is it that dma memory has a virt_to_bus address in the
+</EM><BR>
+<EM>&gt; first 16MB of memory?  Is there something special done to make the memory
+</EM><BR>
+<EM>&gt; dma memory instead of simply doing kalloc() than virt_to_bus() on it?)
+</EM><BR>
+<P>There are currently no PCI DMA windows in the address range 0 - 16Mb, which
+<BR>
+makes &quot;true&quot; ISA devices (24-bit addresses) unsupported on Alpha. Most
+<BR>
+common so-called ISA devices actually can work with 32-bit addresses,
+<BR>
+allowing them to access to the PCI DMA window range usually located at 1Gb.
+<BR>
+Some, like Adaptec 1540, are true ISA, and thus difficult to support with
+<BR>
+the current direct-map PCI DMA window scheme.
+<BR>
+<P>The LINUX kernel does support the request for ISA DMA-able memory via kmalloc
+<BR>
+flags, but this is useless on Alpha.
+<BR>
+<P>But wait! There's hope... ;-}
+<BR>
+<P>In addition to the direct-map windows, there is support in the hardware for
+<BR>
+what is called in the documentation &quot;scatter-gather&quot; windows. These employ a
+<BR>
+single-level-page-table-like scheme, to allow physical memory addresses that
+<BR>
+are larger than 4Gb (32 bits) to be mapped to by 32-bit PCI bus addresses.
+<BR>
+<P>Using this scheme, Digital UNIX currently manages a scatter-gather window
+<BR>
+starting at 8Mb for a length of 8Mb, so that true ISA devices, along with
+<BR>
+typical PCI devices, can gain access to ANY physical memory up to the
+<BR>
+hardware memory limits (32Gb on DS20, and probably more on the 8200/8400
+<BR>
+series). There's no reason that LINUX on Alpha couldn't use the same
+<BR>
+technique.
+<BR>
+<P>But, this flexibility comes at a price: that 8Mb scatter-gather window is
+<BR>
+a limited resource and must be managed, ie BOTH &quot;allocate&quot; AND &quot;free&quot; MUST
+<BR>
+be used by drivers who need to acquire and release a range of addresses for
+<BR>
+their device to use to access host memory.
+<BR>
+<P>Unfortunately, this is not something that most LINUX drivers have
+<BR>
+considered, with the exception of some of the SPARC-specific ones.
+<BR>
+<P>It also means that official generic large-memory configuration support in
+<BR>
+LINUX will most likely be added in 2.3 (or 2.5), as it cannot be added into
+<BR>
+just Alpha code, it needs common driver involvement at some level.
+<BR>
+<P>--Jay++
+<BR>
+<P>-------------------------------------------------------------------------------
+<BR>
+&nbsp;&nbsp;American Non Sequitur Society: we don't make sense, but we do like pizza...
+<BR>
+<P>Jay A Estabrook                            Alpha Motherboards - LINUX Project
+<BR>
+Compaq Computer Corporation - SHR3-2/R28   (508) 841-3241 or (DTN) 237-3241
+<BR>
+334 South Street, Shrewsbury, MA 01545     Jay.Estabrook@digital.com
+<BR>
+-------------------------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0571.html">designer seven: "some odd problems with MD5 on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0569.html">Jeff Garzik: "2.2.10 alpha kernel building (was Re: [Q]: weird spinlock messages &amp; kernel selection)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0516.html">Rich Payne: "Kernel questions (not mine)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0516.html">Jay.Estabrook@digital.com: "Re: Kernel questions (not mine)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

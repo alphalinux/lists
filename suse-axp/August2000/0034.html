@@ -1,0 +1,263 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] netscape only runs as root (and RH inc</TITLE>
+<META NAME="Author" CONTENT="William H. Magill (magill@isc.upenn.edu)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] netscape only runs as root (and RH incompatibilities)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] netscape only runs as root (and RH incompatibilities)</H1>
+<HR>
+<P>
+<!-- received="Wed Aug 23 16:35:22 2000" -->
+<!-- isoreceived="20000823233522" -->
+<!-- sent="Wed, 23 Aug 2000 11:42:05 -0400 (EDT)" -->
+<!-- isosent="20000823154205" -->
+<!-- name="William H. Magill" -->
+<!-- email="magill@isc.upenn.edu" -->
+<!-- subject="Re: [suse-axp] netscape only runs as root (and RH incompatibilities)" -->
+<!-- id="200008231542.e7NFg5E09389@falstaff.isc-net.upenn.edu" -->
+<!-- inreplyto="[suse-axp] netscape only runs as root (and RH incompatibilities)" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] netscape only runs as root (and RH incompatibilities)<BR>
+<STRONG>From: </STRONG>William H. Magill (<EM>magill@isc.upenn.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Aug 23 2000 - 08:42:05 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#34">[ date ]</A>
+<A HREF="index.html#34">[ thread ]</A>
+<A HREF="subject.html#34">[ subject ]</A>
+<A HREF="author.html#34">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0030.html">Thadeu Penna: "[suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0035.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0030.html">William H. Magill: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;   &gt;  The remainning one concerns Nerdscape:
+</EM><BR>
+<EM>&gt;   &gt; I can run it as root (actually also as any other LOCAL user). The
+</EM><BR>
+<EM>&gt;   &gt; weird thing is  NIS users can start it, it loads but it does not
+</EM><BR>
+<EM>&gt;   &gt; display :( All other X apps that I have tried (emacs, xterm,
+</EM><BR>
+<EM>&gt;   &gt; gnome,etc.) are working  fine.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;   I've got the same problem. I've tried to fix the reason of this problem
+</EM><BR>
+<EM>&gt;   using strace, but failed. It seems that after fork() one child process
+</EM><BR>
+<EM>&gt;   just dies, but the parent process remains waiting. I haven't find out
+</EM><BR>
+<EM>&gt;   the reason why.
+</EM><BR>
+<EM>&gt;   So I also don't know what to do.
+</EM><BR>
+<P>One issue might be with the startup.
+<BR>
+<P>Netscape needs an environment under the user's home directory before it can
+<BR>
+run. (especially for java.) It's supposed to create it, but sometimes
+<BR>
+cannot. That leads to unpredictable behaviour. NIS users might fall into
+<BR>
+this category. 
+<BR>
+<P>Tru64 uses the following script as /usr/bin/X11/netscape to get around the
+<BR>
+problem of the missing setup, installed as ugo excutable, it checks the
+<BR>
+environment and then launches the &quot;real netscape.&quot;
+<BR>
+<P>The variable &quot;MOZILLA_HOME&quot; might be the real key.
+<BR>
+<P>---------&lt;cut here /usr/bin/X11/netscape&gt;------
+<BR>
+#!/bin/sh
+<BR>
+#
+<BR>
+# This script is intended to be installed at /usr/bin/X11/netscape.
+<BR>
+#
+<BR>
+# Before running the real netscape binary at /usr/bin/X11/real-netscape,
+<BR>
+# the script does the following:
+<BR>
+#
+<BR>
+# o If the $HOME/.netscape directory does not already exist, 
+<BR>
+#   it creates the netscape default cache and archive directories,
+<BR>
+#   $HOME/.netscape/cache and $HOME/.netscape/archive.
+<BR>
+#
+<BR>
+# o It checks to see if the user has a netscape preferences file at
+<BR>
+#   $HOME/.netscape/preferences.js.  If not, the system default netscape 
+<BR>
+#   preferences file is copied into that location, which allows Navigator 
+<BR>
+#   to come up with the Tru64 UNIX Unix home page loaded. 
+<BR>
+#
+<BR>
+# o It sets MOZILLA_HOME to /usr/lib/netscape before executing the
+<BR>
+#   real netscape binary. Communicator looks at MOZILLA_HOME as a fallback 
+<BR>
+#   or default mechanism for Plug-in, Java Applet, and Nethelp support 
+<BR>
+#   in addition to the existing mechanisms from previous releases.
+<BR>
+#   See the /usr/lib/netscape/README file for details.
+<BR>
+#
+<BR>
+<P>set -e
+<BR>
+<P>REAL_NETSCAPE=/usr/bin/X11/real-netscape
+<BR>
+DEF_PREFS=/usr/doc/netscape/default-netscape-preferences
+<BR>
+NLIBDIR=/usr/lib/netscape
+<BR>
+INSTDIR=$HOME/.netscape
+<BR>
+CACHEDIR=$INSTDIR/cache
+<BR>
+ARCHDIR=$INSTDIR/archive
+<BR>
+<P>#
+<BR>
+# Create $HOME/.netscape cache and archive if needed
+<BR>
+#
+<BR>
+if [ ! -e $INSTDIR ]; then
+<BR>
+&nbsp;&nbsp;mkdir -p $CACHEDIR
+<BR>
+&nbsp;&nbsp;mkdir $ARCHDIR
+<BR>
+&nbsp;&nbsp;chmod -Rf 700 $INSTDIR
+<BR>
+fi
+<BR>
+<P>#
+<BR>
+# Create default preferences file if needed
+<BR>
+#
+<BR>
+if [ ! -e $INSTDIR/preferences.js ]; then
+<BR>
+&nbsp;&nbsp;if [ -e $DEF_PREFS ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp -f $DEF_PREFS $INSTDIR/preferences.js
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;chmod 600 $INSTDIR/preferences.js
+<BR>
+&nbsp;&nbsp;fi
+<BR>
+fi
+<BR>
+<P>#
+<BR>
+# Set MOZILLA_HOME to the Netscape installation directory.
+<BR>
+# 
+<BR>
+MOZILLA_HOME=$NLIBDIR
+<BR>
+export MOZILLA_HOME
+<BR>
+<P>#
+<BR>
+# Set MOZILLA_NO_ASYNC_DNS to True.
+<BR>
+# 
+<BR>
+# MOZILLA_NO_ASYNC_DNS=True
+<BR>
+# export MOZILLA_NO_ASYNC_DNS
+<BR>
+<P>#
+<BR>
+# Set NPX_PLUGIN_PATH to the plug-in directory.
+<BR>
+# This example sets the NPX_PLUGIN_PATH to the default
+<BR>
+# install directory of the Adobe Acrobat viewer plug-in.
+<BR>
+#
+<BR>
+# ADIR=/usr/local/Acrobat4
+<BR>
+# PATH=$PATH:$ADIR/bin
+<BR>
+# export PATH
+<BR>
+# PCONFIG=alphaosf
+<BR>
+# NPX_PLUGIN_PATH=$ADIR/Browsers/$PCONFIG
+<BR>
+# export NPX_PLUGIN_PATH
+<BR>
+<P>exec $REAL_NETSCAPE -name netscape -no-about-splash -xrm '*nsMotifFSBCdeMode: Tr
+<BR>
+ue' -xrm '*menuBar*openRadio.mappedWhenManaged: False' $*
+<BR>
+<P><P>-----------------&lt;cut here&gt;-------------
+<BR>
+<P><PRE>
+-- 
+                        www.tru64unix.compaq.com
+                              www.tru64.org
+                             comp.unix.tru64
+                        
+T.T.F.N.
+William H. Magill                          Senior Systems Administrator
+Information Services and Computing (ISC)   University of Pennsylvania
+Internet: magill@isc.upenn.edu             magill@acm.org
+<A HREF="http://www.isc-net.upenn.edu/~magill/">http://www.isc-net.upenn.edu/~magill/</A>
+<P>-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0035.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0033.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0030.html">Thadeu Penna: "[suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0035.html">Yuri Iliash: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0030.html">William H. Magill: "Re: [suse-axp] netscape only runs as root (and RH incompatibilities)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Fri Sep 01 2000 - 05:04:01 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,111 @@
+<!-- received="Mon Dec  9 22:26:38 1996 " -->
+<!-- sent="Mon, 9 Dec 1996 20:20:56 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@cs.arizona.edu" -->
+<!-- subject="mailx-5.5 fix" -->
+<!-- id="199612100320.UAA00763@kangaroo.cs.arizona.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>mailx-5.5 fix</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>mailx-5.5 fix</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@cs.arizona.edu"><i>davidm@cs.arizona.edu</i></a>)<br>
+<i>Mon, 9 Dec 1996 20:20:56 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#383">[ date ]</a><a href="index.html#383">[ thread ]</a><a href="subject.html#383">[ subject ]</a><a href="author.html#383">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0384.html">Jim Nance: "Re: Unable to do FTP or NFS install"</a>
+<li> <b>Previous message:</b> <a href="0382.html">Huw Davies: "Re: Unable to do FTP or NFS install"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I finally got tired of getting those silly 5 line windows when<br>
+printing the mail headers from within "mail" ("h" command).  Turns out<br>
+setscreensize() in main.c depends on TIOCGETP which is not fully<br>
+emulated in Linux (in particular the baudrates are always returned as<br>
+0).  Since the TIOCGETP ioctl() call is deprecated, I figured it's<br>
+better to fix mail (rather than the kernel).  The patch below does<br>
+this.  I suppose it would be better to autoconf for tcgetattr(), but<br>
+the check for __GNU_LIBRARY__ should be safe.  Note that this bug is<br>
+in no way Alpha specific.<br>
+<p>
+Also, I think it would be nice to document the "screen" variable.  As<br>
+far as I can tell, it's nowhere mentioned in the man page (sorry, I<br>
+don't have a patch for this).<br>
+<p>
+	--david<br>
+<p>
+--- main.c-old	Mon Dec  9 20:08:32 1996<br>
++++ main.c	Mon Dec  9 20:07:39 1996<br>
+@@ -280,16 +280,29 @@<br>
+  */<br>
+ setscreensize()<br>
+ {<br>
+-	struct sgttyb tbuf;<br>
+ 	struct winsize ws;<br>
++	speed_t ospeed = B9600;<br>
+ <br>
+ 	if (ioctl(1, TIOCGWINSZ, (char *) &amp;ws) &lt; 0)<br>
+ 		ws.ws_col = ws.ws_row = 0;<br>
+-	if (ioctl(1, TIOCGETP, &amp;tbuf) &lt; 0)<br>
+-		tbuf.sg_ospeed = B9600;<br>
+-	if (tbuf.sg_ospeed &lt; B1200)<br>
++#ifdef __GNU_LIBRARY__<br>
++	{<br>
++		struct termios tbuf;<br>
++<br>
++		if (tcgetattr(1, &amp;tbuf) == 0)<br>
++			ospeed = cfgetospeed(&amp;tbuf);<br>
++	}<br>
++#else<br>
++	{<br>
++		struct sgttyb tbuf;<br>
++<br>
++		if (ioctl(1, TIOCGETP, &amp;tbuf) == 0)<br>
++			ospeed = tbuf.sg_ospeed;<br>
++	}<br>
++#endif<br>
++	if (ospeed &lt; B1200)<br>
+ 		screenheight = 9;<br>
+-	else if (tbuf.sg_ospeed == B1200)<br>
++	else if (ospeed == B1200)<br>
+ 		screenheight = 14;<br>
+ 	else if (ws.ws_row != 0)<br>
+ 		screenheight = ws.ws_row;<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0384.html">Jim Nance: "Re: Unable to do FTP or NFS install"</a>
+<li> <b>Previous message:</b> <a href="0382.html">Huw Davies: "Re: Unable to do FTP or NFS install"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

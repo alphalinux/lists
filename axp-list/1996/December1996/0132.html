@@ -1,0 +1,93 @@
+<!-- received="Wed Dec  4 02:17:08 1996 " -->
+<!-- sent="Wed, 4 Dec 1996 01:06:18 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: mlockall() still causes 100 % oops in 2.0.27" -->
+<!-- id="199612040706.BAA22292@atheist.tamu.edu" -->
+<!-- inreplyto="199612032117.WAA00396@alpha.franken.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: mlockall() still causes 100 % oops in 2.0.27</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: mlockall() still causes 100 % oops in 2.0.27</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Wed, 4 Dec 1996 01:06:18 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#132">[ date ]</a><a href="index.html#132">[ thread ]</a><a href="subject.html#132">[ subject ]</a><a href="author.html#132">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0133.html">Hiroshi NAKASHIMA: "EB164 and linload"</a>
+<li> <b>Previous message:</b> <a href="0131.html">Maurice Hilarius: "Re: Active vs Passive SCSI Termination"</a>
+<li> <b>In reply to:</b> <a href="0110.html">Thomas Bogendoerfer: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Unable to handle kernel paging request at virtual address 0000015555720000</i><br>
+<i>&gt; [...]</i><br>
+<i>&gt; 0000015555720000-0000015555772000 ---p 00000000000ae000 08:01 19433</i><br>
+<i>&gt; [...]</i><br>
+<i>&gt; Hope this helps someone.</i><br>
+<p>
+Indeed it does.  The appended is not what I would have called the ideal<br>
+fix, as it doesn't do the right thing for vmas that are, e.g., exec only,<br>
+but it does keep the kernel from crashing.<br>
+<p>
+It would be cleaner imho, though slower, to make a call into some other <br>
+part of the mm directly that would assert that a given page is present.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+--- mlock.c.orig        Wed Dec  4 00:55:53 1996<br>
++++ mlock.c     Wed Dec  4 01:05:37 1996<br>
+@@ -124,10 +124,10 @@ static int mlock_fixup(struct vm_area_st<br>
+                        pages = -pages;<br>
+                vma-&gt;vm_mm-&gt;locked_vm += pages;<br>
+ <br>
+-               if (newflags &amp; VM_LOCKED)<br>
++               if ((newflags &amp; (VM_LOCKED|VM_READ)) == (VM_LOCKED|VM_READ))<br>
+                        while (start &lt; end) {<br>
+-                               char c;<br>
+-                               get_user(c,(char *) start);<br>
++                               int c;<br>
++                               get_user(c,(int *) start);<br>
+                                __asm__ __volatile__("": :"r" (c));<br>
+                                start += PAGE_SIZE;<br>
+                        }<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0133.html">Hiroshi NAKASHIMA: "EB164 and linload"</a>
+<li> <b>Previous message:</b> <a href="0131.html">Maurice Hilarius: "Re: Active vs Passive SCSI Termination"</a>
+<li> <b>In reply to:</b> <a href="0110.html">Thomas Bogendoerfer: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

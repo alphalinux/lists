@@ -1,0 +1,229 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] Eliminating the year2020 problem from</TITLE>
+<META NAME="Author" CONTENT="Alex Rhomberg (rhomberg@ife.ee.ethz.ch)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] Eliminating the year2020 problem from the installation.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] Eliminating the year2020 problem from the installation.</H1>
+<HR>
+<P>
+<!-- received="Wed Jul 05 14:54:38 2000" -->
+<!-- isoreceived="20000705215438" -->
+<!-- sent="Wed, 05 Jul 2000 12:01:20 +0200" -->
+<!-- isosent="20000705100120" -->
+<!-- name="Alex Rhomberg" -->
+<!-- email="rhomberg@ife.ee.ethz.ch" -->
+<!-- subject="Re: [suse-axp] Eliminating the year2020 problem from the installation." -->
+<!-- id="39630770.4C70F25E@ife.ee.ethz.ch" -->
+<!-- inreplyto="Pine.LNX.4.10.10007032331560.2836-100000@lucia.kjist.ac.kr" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] Eliminating the year2020 problem from the installation.<BR>
+<STRONG>From: </STRONG>Alex Rhomberg (<EM>rhomberg@ife.ee.ethz.ch</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jul 05 2000 - 03:01:20 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#13">[ date ]</A>
+<A HREF="index.html#13">[ thread ]</A>
+<A HREF="subject.html#13">[ subject ]</A>
+<A HREF="author.html#13">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0014.html">Sven Denninghoff: "[suse-axp] SuSE 6.4 on AS400"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0012.html">Wayne Chan: "[suse-axp] LVM question"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0004.html">G. Hugh Song: "Re: [suse-axp] Eliminating the year2020 problem from the installation."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0004.html">Alex Rhomberg: "Re: [suse-axp] Eliminating the year2020 problem from the installation."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&quot;G. Hugh Song&quot; wrote:
+<BR>
+<P><EM>&gt; I pleasantly found out that SuSE finally figured out how to get the
+</EM><BR>
+<EM>&gt; clock right at last with SuSE-6.4.  Unfortunately, for some
+</EM><BR>
+<EM>&gt; historical reasons, I still have many files with time stamp 2020.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Does anybody have a shell-script file that can change the year stamp
+</EM><BR>
+<EM>&gt; only?
+</EM><BR>
+<P>Here's a perl script I used. Given my perl today, I'd probably write the
+<BR>
+same now in 5 lines :-)
+<BR>
+You can't change the attributes of symlinks. If you want to change their
+<BR>
+data, you have to delete and link freshly.
+<BR>
+<P>- Alex
+<BR>
+===================================================================================
+<BR>
+<P>#!/usr/bin/perl -w
+<BR>
+<P># chyear
+<BR>
+# changes access or modification year of a file
+<BR>
+# based on a program by Robert Harley
+<BR>
+# Author: Alex Rhomberg &lt;rhomberg@ife.ee.ethz.ch&gt;
+<BR>
+<P>#usage: first come the options (-a to modify access, -m to modify modify
+<BR>
+time)
+<BR>
+#then comes fromyear, then toyear, then the filenames
+<BR>
+#filenames can also be supplied through stdin
+<BR>
+<P>#examples:
+<BR>
+#touch /tmp/now; find / -newer /tmp/now |chyear 2038 1998; rm /tmp/now
+<BR>
+#touch /tmp/now; chyear 2038 1998 `find / -newer /tmp/now`; rm /tmp/now
+<BR>
+<P>my $usage = 
+<BR>
+&nbsp;&nbsp;&quot;Usage: $0 [-m] [-a] &lt;fromyear&gt; &lt;toyear&gt; [&lt;file1&gt; [&lt;file2&gt; [...]]]\n&quot;.
+<BR>
+&nbsp;&nbsp;&quot;\t-m modifies modify time, -a the access time\n&quot;.
+<BR>
+&nbsp;&nbsp;&quot;if no option is given, both times are modified\n&quot;.
+<BR>
+&nbsp;&nbsp;&quot;if no filename is given, they are taken from stdin\n&quot;;
+<BR>
+<P>use POSIX; # needed for mktime
+<BR>
+<P>die $usage if $#ARGV &lt; 1;
+<BR>
+<P>my ($modacc, $modmod) = (0,0);
+<BR>
+<P>while ($ARGV[0] =~ /^-(.*)$/) {
+<BR>
+&nbsp;&nbsp;shift;
+<BR>
+&nbsp;&nbsp;$modacc = 1 if $1 eq 'a';
+<BR>
+&nbsp;&nbsp;$modmod = 1 if $1 eq 'm';
+<BR>
+&nbsp;&nbsp;die $usage unless $1 =~ /^[am]$/;
+<BR>
+}
+<BR>
+<P>$modacc = $modmod = 1 unless $modacc||$modmod;
+<BR>
+<P>die $usage if $#ARGV &lt; 1;
+<BR>
+<P>my $fromyear = shift;
+<BR>
+my $toyear = shift;
+<BR>
+<P>die &quot;$0: years are strange\n&quot; if (($fromyear &lt; 1970) || ($fromyear &gt;
+<BR>
+2037) ||
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;($toyear   &lt; 1970) || ($toyear   &gt;
+<BR>
+2037));
+<BR>
+<P>if (@ARGV) {
+<BR>
+&nbsp;&nbsp;while(@ARGV) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$_ = shift;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;chyear($fromyear, $toyear, $_) unless -l $_;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+} else {
+<BR>
+&nbsp;&nbsp;while (&lt;&gt;) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;chomp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;chyear($fromyear, $toyear, $_) unless -l $_;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+}
+<BR>
+<P>sub chyear {
+<BR>
+&nbsp;&nbsp;my $fy = shift() - 1900;
+<BR>
+&nbsp;&nbsp;my $ty = shift() - 1900;
+<BR>
+&nbsp;&nbsp;my $file = shift;
+<BR>
+<P>&nbsp;&nbsp;my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$atime,$mtime,$ctime,$blksize,$blocks)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;= lstat($file);
+<BR>
+<P>&nbsp;&nbsp;my @time = localtime ($atime);
+<BR>
+<P>&nbsp;&nbsp;my $mod = 0;
+<BR>
+<P>&nbsp;&nbsp;if($modacc) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if ($time[5] == $fy) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$time[5] = $ty;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$atime = mktime(@time);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$mod = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;if ($mod) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;print &quot;changing $file\n&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;utime $atime, $mtime, $file if $mod;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+}
+<BR>
+<P><PRE>
+-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0014.html">Sven Denninghoff: "[suse-axp] SuSE 6.4 on AS400"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0012.html">Wayne Chan: "[suse-axp] LVM question"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0004.html">G. Hugh Song: "Re: [suse-axp] Eliminating the year2020 problem from the installation."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0004.html">Alex Rhomberg: "Re: [suse-axp] Eliminating the year2020 problem from the installation."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:16 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

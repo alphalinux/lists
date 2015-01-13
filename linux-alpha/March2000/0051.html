@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 20:45:04 2000" -->
+<!-- isoreceived="20000314044504" -->
+<!-- sent="Thu, 9 Mar 2000 13:39:51 +0100 (CET)" -->
+<!-- isosent="20000309123951" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.21.0003091325320.1608-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.10.10003131401280.2069-100000@chiara.csoma.elte.hu" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Mar 09 2000 - 04:39:51 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#51">[ date ]</A>
+<A HREF="index.html#51">[ thread ]</A>
+<A HREF="subject.html#51">[ subject ]</A>
+<A HREF="author.html#51">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0052.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0050.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0047.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0047.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000, Ingo Molnar wrote:
+<BR>
+<P><EM>&gt;no. First, this is definitely not going to happen before 2.5. And even in
+</EM><BR>
+<EM>&gt;that case we do not care about copy_user latencies. Adding 'may preempt'
+</EM><BR>
+<P>So why the lowlatency patch is doing this stuff if you think
+<BR>
+current-&gt;need_reshed is going to be zero during the copy_user business?
+<BR>
+<P>--- linux/include/asm-i386/uaccess.h.orig	Sat Feb  5 03:13:21 2000
+<BR>
++++ linux/include/asm-i386/uaccess.h	Sat Feb  5 03:22:15 2000
+<BR>
+@@ -6,6 +6,7 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;linux/sched.h&gt;
+<BR>
++#include &lt;linux/condsched.h&gt;
+<BR>
+&nbsp;#include &lt;asm/page.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define VERIFY_READ 0
+<BR>
+@@ -253,6 +254,7 @@
+<BR>
+&nbsp;#define __copy_user(to,from,size)					\
+<BR>
+&nbsp;do {									\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;							\
+<BR>
++	conditional_schedule();						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	movl %3,%0\n&quot;					\
+<BR>
+@@ -275,6 +277,7 @@
+<BR>
+&nbsp;#define __copy_user_zeroing(to,from,size)				\
+<BR>
+&nbsp;do {									\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;							\
+<BR>
++	conditional_schedule();						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	movl %3,%0\n&quot;					\
+<BR>
+@@ -324,6 +327,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (size &amp; 3) {					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:						\
+<BR>
++		conditional_schedule();				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;			\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:\n&quot;					\
+<BR>
+@@ -408,6 +412,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int __d0, __d1;						\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch (size &amp; 3) {					\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:						\
+<BR>
++		conditional_schedule();				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;0:	rep; movsl\n&quot;			\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:\n&quot;					\
+<BR>
+<P><EM>&gt;We care about generic unbound kernel-space routines. Quality RT-capable
+</EM><BR>
+<EM>&gt;kernel code will only happen in the long run if _all_ (but a well
+</EM><BR>
+<EM>&gt;specified) section can be preempted and spinlocks are held for a bound
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<BR>
+<EM>&gt;amount of time, and we do not need any explicit 'cpu_preemptable'
+</EM><BR>
+&nbsp;^^^^^^^^^^^^^^
+<BR>
+<P>Unless you want to add also a slowww conditional schedule within the
+<BR>
+spin_unlock() (that will trigger at the last lock released if need_resched
+<BR>
+is 1), then the preemtible kernel won't preemt anything if the timeslice
+<BR>
+expired while any spinlock was held. And you also for sure payed the cost
+<BR>
+to avoid preemption during the spin_lock/unlock.
+<BR>
+<P>So you pay and you get _nothing_ unless you pay even more.
+<BR>
+<P>IMHO most of the code needs at least a basic kind of serialization lock
+<BR>
+held so the preemtable kernel is not going to have much changes to
+<BR>
+preempt.
+<BR>
+<P>And the only place of kernel that would be really worty to be preemtable
+<BR>
+are CPU bound parts that runs with none lock held. And copy user is that
+<BR>
+case. Making copy_user preemtable is only a per-CPU cacheline cost at
+<BR>
+ret_from_interrupt time. Making the kernel fully preemtable is a locking
+<BR>
+bloat with still necessary explicit reschedule all over the place to
+<BR>
+provide low latency.
+<BR>
+<P>For example in the free_inodes the preemtable kernel won't buy anything.
+<BR>
+The same for shrink_mmap and most other places where you correctly added
+<BR>
+the conditional schedule in the lowlatency patch. You'll have to keep the
+<BR>
+conditional schedule even with the preemtable kernel there. And you'll
+<BR>
+also pay the double cost the lock fast path.
+<BR>
+<P>I currently don't believe preemptible kernel is the way to go. Allowing
+<BR>
+some CPU bound part that runs with no locks to be preemtable looks a nice
+<BR>
+latency optimization with no downside instead.
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0052.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0050.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0047.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0047.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

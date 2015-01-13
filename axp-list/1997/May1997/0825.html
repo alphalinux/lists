@@ -1,0 +1,110 @@
+<!-- received="Wed May 28 17:31:22 1997 " -->
+<!-- sent="Wed, 28 May 1997 23:24:53 +0200 (CEST)" -->
+<!-- name="Thomas Pornin" -->
+<!-- email="bip@orion.ens.fr" -->
+<!-- subject="2.0.30 + shmctl" -->
+<!-- id="199705282124.XAA06124@orion.ens.fr" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>2.0.30 + shmctl</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>2.0.30 + shmctl</h2>
+
+<b>Thomas Pornin</b> (<a href="mailto:bip@orion.ens.fr"><i>bip@orion.ens.fr</i></a>)<br>
+<i>Wed, 28 May 1997 23:24:53 +0200 (CEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#825">[ date ]</a><a href="index.html#825">[ thread ]</a><a href="subject.html#825">[ subject ]</a><a href="author.html#825">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0826.html">Rick Windham: "Re: Progress on failed UDB+RH4.2 clean install"</a>
+<li> <b>Previous message:</b> <a href="0824.html">Torsten Zirzlaff: "Two erros which got me concerned"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+I have some problem using shared memory functions with a 2.0.30 kernel<br>
+on my UDB. This breaks X programs using shared memory extensions, namely<br>
+Quake (but not only). I have searched the mailinglist archive, but I have<br>
+not found many information; anyway, I came upon something I find rather<br>
+disturbing: a call to shmctl() with IPC_STAT as argument should fill<br>
+a struct shmid_ds, which contains a struct ipc_perm, declared this way<br>
+in /usr/include/linux/ipc.h :<br>
+<p>
+struct ipc_perm<br>
+{<br>
+  key_t  key;<br>
+  ushort uid;   /* owner euid and egid */<br>
+  ushort gid;<br>
+  ushort cuid;  /* creator euid and egid */<br>
+  ushort cgid;<br>
+  ushort mode;  /* access modes see mode flags below */<br>
+  ushort seq;   /* sequence number */<br>
+};<br>
+<p>
+But, in user land, it is declared this way (/usr/include/sys/ipc_buf.h):<br>
+<p>
+struct ipc_perm<br>
+{<br>
+  key_t __key;                          /* key */<br>
+  __uid_t uid;                          /* owner's user ID */<br>
+  __gid_t gid;                          /* owner's group ID */<br>
+  __uid_t cuid;                         /* creator's user ID */<br>
+  __gid_t cgid;                         /* creator's group ID */<br>
+  __mode_t mode;                        /* read/write permission */<br>
+  unsigned short int __seq;             /* sequence number */<br>
+};<br>
+<p>
+The main problem is that a ushort is two bytes long, and a __uid_t is<br>
+four bytes long. This is much disturbing; the kernel uses its definition<br>
+in the values it returns, but userland programs use the other one. This<br>
+breaks gdb (from RedHat 4.1), xquake (the 1.06 elf binary), and any<br>
+program using shmctl(), including all the X programs using XShmPutImage()<br>
+and similar functions.<br>
+My kernel is a clean 2.0.30 from ftp.kernel.org, no patch (and no<br>
+axp-diff patch).<br>
+<p>
+What is the cure ? Recompiling a kernel with a patched definition of<br>
+ipc_perm ? Or does it exist a cleaner solution ?<br>
+<p>
+Thanks in advance for any answer.<br>
+<p>
+(please Cc: a copy to me &lt;<a href="mailto:bip@orion.ens.fr">bip@orion.ens.fr</a>&gt; directly, because I seem to<br>
+be only randomly subscribed to the mailinglist)<br>
+<p>
+	--Thomas Pornin<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0826.html">Rick Windham: "Re: Progress on failed UDB+RH4.2 clean install"</a>
+<li> <b>Previous message:</b> <a href="0824.html">Torsten Zirzlaff: "Two erros which got me concerned"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: RE: 2.1.130 and pppd</TITLE>
+<META NAME="Author" CONTENT="B. James Phillippe (bryan@terran.org)">
+<META NAME="Subject" CONTENT="RE: 2.1.130 and pppd">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: 2.1.130 and pppd</H1>
+<HR>
+<P>
+<!-- received="Mon Dec 14 08:20:34 1998 PST" -->
+<!-- sent="Mon, 14 Dec 1998 00:20:55 -0800 (PST)" -->
+<!-- name="B. James Phillippe" -->
+<!-- email="bryan@terran.org" -->
+<!-- subject="RE: 2.1.130 and pppd" -->
+<!-- id="Pine.LNX.4.04.9812140014320.12488-100000@earth.terran.org" -->
+<!-- inreplyto="000201be2739$b060b6e0$cc000001@PC_VIGNAUD.xandmail.com" -->
+<STRONG>B. James Phillippe</STRONG> (<A HREF="mailto:bryan@terran.org?subject=RE:%202.1.130%20and%20pppd"><EM>bryan@terran.org</EM></A>)<BR>
+<EM>Mon, 14 Dec 1998 00:20:55 -0800 (PST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#541">[ date ]</A>
+<A HREF="index.html#541">[ thread ]</A>
+<A HREF="subject.html#541">[ subject ]</A>
+<A HREF="author.html#541">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0540.html">Vignaud Jean-Baptiste: "RE: 2.1.130 and pppd"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0502.html">B. James Phillippe: "Re: 2.1.130 and pppd"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 14 Dec 1998, Vignaud Jean-Baptiste wrote:
+<BR>
+<P><EM>&gt; &gt; From: B. James Phillippe [mailto:<A HREF="mailto:bryan@terran.org?subject=RE:%202.1.130%20and%20pppd">bryan@terran.org</A>]
+</EM><BR>
+...
+<BR>
+<EM>&gt; &gt; YES.  There IS a fatal bug in the 2.1 kernel with networking.  I have
+</EM><BR>
+<EM>&gt; &gt; observed several Kernel panics, all from skput:over.  All but one were
+</EM><BR>
+<EM>&gt; &gt; dev:ppp0 (the oddball was eth0).  The address is consistant across each
+</EM><BR>
+<EM>&gt; &gt; panic (even the oddball for eth0) so this should not be hard to find.
+</EM><BR>
+<EM>&gt; &gt; Without a -g compiled kernel, the closest I could see was
+</EM><BR>
+<EM>&gt; &gt; rcv_proto_vjc_uncomp.  However, I am rebuilding a 2.1.131 with -g and will
+</EM><BR>
+<EM>&gt; &gt; try to nail this bastard tonight.  It's already caused me major grief and
+</EM><BR>
+<EM>&gt; &gt; some filesystem damage.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I'v observed exactly the same behaviour on my sx164, the ppp compressor
+</EM><BR>
+<EM>&gt; was provocating kernel panic in rcv_proto_vjc_uncomp. To continue using
+</EM><BR>
+<EM>&gt; pppd you have to specify the &quot;novj&quot; option to the pppd...
+</EM><BR>
+<P>Yes, I have since found the exact line where the Panic occurs (with the
+<BR>
+symbol kernel and gdb).  I put in a new check to catch the problem and give
+<BR>
+me more information.  It has just succeeded this evening, after nearly two
+<BR>
+days of uptime.  Here is the patch showing my test code (this is for
+<BR>
+debugging only, but has the side-effect of avoiding the panic):
+<BR>
+<P>--- drivers/net/ppp.c.orig	Mon Dec 14 00:18:06 1998
+<BR>
++++ drivers/net/ppp.c	Sat Dec 12 01:30:37 1998
+<BR>
+@@ -2047,6 +2047,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;ppp: error in VJ decompression\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++	/*BP*/if( skb-&gt;tail+(new_count+PPP_HDRLEN-skb-&gt;len) &gt; skb-&gt;end ) {
+<BR>
++	    printk( KERN_ERR &quot;Avoiding PPP Panic! t:%p,e:%p c:%d,l:%d\n&quot;,
+<BR>
++		skb-&gt;tail, skb-&gt;end, new_count, skb-&gt;len );
+<BR>
++	    return 0;
+<BR>
++	}/*BP*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;skb_put(skb, new_count + PPP_HDRLEN - skb-&gt;len);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return rcv_proto_ip(ppp, skb);
+<BR>
+&nbsp;}
+<BR>
+<P>And here it is in action:
+<BR>
+<P>Dec 13 23:54:25 earth kernel: Avoiding PPP Panic! t:fffffc0000a1bdce,e:fffffc0000a1be70 c:0,l:1470 
+<BR>
+<P>I have not had time to look further.  It is possible there is a bug other
+<BR>
+than just trusting the return value of the VJ decompression algorithm.
+<BR>
+I'll post here and linux-kernel when I have more info.
+<BR>
+<P>cheers,
+<BR>
+-bp
+<BR>
+<PRE>
+--
+B. James Phillippe	. <A HREF="mailto:bryan@terran.org?subject=RE:%202.1.130%20and%20pppd">bryan@terran.org</A>
+Linux Engineer/Admin	. <A HREF="http://www.terran.org/~bryan">http://www.terran.org/~bryan</A>
+Member since 1.1.59	. finger:<A HREF="mailto:bryan@earth.terran.org?subject=RE:%202.1.130%20and%20pppd">bryan@earth.terran.org</A>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=RE:%202.1.130%20and%20pppd">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=RE:%202.1.130%20and%20pppd">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0540.html">Vignaud Jean-Baptiste: "RE: 2.1.130 and pppd"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0502.html">B. James Phillippe: "Re: 2.1.130 and pppd"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Dec 14 1998 - 01:00:17 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

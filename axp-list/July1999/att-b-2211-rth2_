@@ -1,0 +1,168 @@
+diff -rup 2.2.11-rth1/Makefile 2.2.11-axp/Makefile
+--- 2.2.11-rth1/Makefile	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/Makefile	Sun Jul  4 22:54:10 1999
+@@ -1,7 +1,7 @@
+ VERSION = 2
+ PATCHLEVEL = 2
+ SUBLEVEL = 11
+-EXTRAVERSION = -rth1
++EXTRAVERSION = -rth2
+ 
+ ARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
+ 
+diff -rup 2.2.11-rth1/arch/alpha/kernel/process.c 2.2.11-axp/arch/alpha/kernel/process.c
+--- 2.2.11-rth1/arch/alpha/kernel/process.c	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/arch/alpha/kernel/process.c	Sun Jul  4 22:37:30 1999
+@@ -329,7 +329,6 @@ int copy_thread(int nr, unsigned long cl
+ 	p->tss.ksp = (unsigned long) childstack;
+ 	p->tss.pal_flags = 1;	/* set FEN, clear everything else */
+ 	p->tss.flags = current->tss.flags;
+-	p->tss.mm_context = p->tss.asn = 0;
+ 
+ 	return 0;
+ }
+diff -rup 2.2.11-rth1/arch/alpha/kernel/smp.c 2.2.11-axp/arch/alpha/kernel/smp.c
+--- 2.2.11-rth1/arch/alpha/kernel/smp.c	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/arch/alpha/kernel/smp.c	Sun Jul  4 22:30:13 1999
+@@ -864,9 +864,11 @@ ipi_flush_tlb_mm(void *x)
+ void
+ flush_tlb_mm(struct mm_struct *mm)
+ {
+-	if (mm == current->mm)
++	if (mm == current->mm) {
+ 		flush_tlb_current(mm);
+-	else
++		if (atomic_read(&mm->count) == 1)
++			return;
++	} else
+ 		flush_tlb_other(mm);
+ 
+ 	if (smp_call_function(ipi_flush_tlb_mm, mm, 1, 1)) {
+@@ -894,15 +896,17 @@ flush_tlb_page(struct vm_area_struct *vm
+ 	struct flush_tlb_page_struct data;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
++	if (mm == current->mm) {
++		flush_tlb_current_page(mm, vma, addr);
++		if (atomic_read(&current->mm->count) == 1)
++			return;
++	} else
++		flush_tlb_other(mm);
++	
+ 	data.vma = vma;
+ 	data.mm = mm;
+ 	data.addr = addr;
+ 
+-	if (mm == current->mm)
+-		flush_tlb_current_page(mm, vma, addr);
+-	else
+-		flush_tlb_other(mm);
+-	
+ 	if (smp_call_function(ipi_flush_tlb_page, &data, 1, 1)) {
+ 		printk(KERN_CRIT "flush_tlb_page: timed out\n");
+ 	}
+diff -rup 2.2.11-rth1/arch/alpha/mm/fault.c 2.2.11-axp/arch/alpha/mm/fault.c
+--- 2.2.11-rth1/arch/alpha/mm/fault.c	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/arch/alpha/mm/fault.c	Sun Jul  4 22:38:01 1999
+@@ -42,7 +42,6 @@ get_new_mmu_context(struct task_struct *
+ {
+ 	unsigned long new = __get_new_mmu_context();
+ 	mm->context = new;
+-	p->tss.mm_context = new;
+ 	p->tss.asn = new & HARDWARE_ASN_MASK;
+ }
+ 
+diff -rup 2.2.11-rth1/include/asm-alpha/mmu_context.h 2.2.11-axp/include/asm-alpha/mmu_context.h
+--- 2.2.11-rth1/include/asm-alpha/mmu_context.h	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/include/asm-alpha/mmu_context.h	Sun Jul  4 22:51:39 1999
+@@ -75,9 +75,9 @@ extern unsigned long last_asn;
+ 
+ /*
+  * NOTE! The way this is set up, the high bits of the "asn_cache" (and
+- * "mm->context" and tss.mm_context) are the ASN _version_ code. A version
+- * of 0 is always considered invalid, so to invalidate another process you
+- * only need to do "p->tss.mm_context = p->mm->context = 0".
++ * "mm->context") are the ASN _version_ code. A version of 0 is always
++ * considered invalid, so to invalidate another process you only need
++ * to do "p->mm->context = 0".
+  *
+  * If we need more ASN's than the processor has, we invalidate the old
+  * user TLB's (tbiap()) and start a new ASN version. That will automatically
+@@ -127,19 +127,23 @@ ev5_get_mmu_context(struct task_struct *
+ {
+ 	/* Check if our ASN is of an older version, or on a different CPU,
+ 	   and thus invalid.  */
++	/* ??? If we have two threads on different cpus, we'll continually
++	   fight over the context.  Find a way to record a per-mm, per-cpu
++	   value for the asn.  */
+ 
+ 	unsigned long asn = cpu_last_asn(smp_processor_id());
+ 	struct mm_struct *mm = p->mm;
+ 	unsigned long mmc = mm->context;
+ 	
+-	if ((p->tss.mm_context ^ asn) & ~HARDWARE_ASN_MASK) {
+-		if ((mmc ^ asn) & ~HARDWARE_ASN_MASK) {
+-			mmc = __get_new_mmu_context();
+-			mm->context = mmc;
+-		}
+-		p->tss.mm_context = mmc;
+-		p->tss.asn = mmc & HARDWARE_ASN_MASK;
++	if ((mmc ^ asn) & ~HARDWARE_ASN_MASK) {
++		mmc = __get_new_mmu_context();
++		mm->context = mmc;
+ 	}
++
++	/* Always update the PCB ASN.  Another thread may have allocated
++	   a new mm->context (via flush_tlb_mm) without the ASN serial
++	   number wrapping.  We have no way to detect when this is needed.  */
++	p->tss.asn = mmc & HARDWARE_ASN_MASK;
+ }
+ 
+ #ifdef CONFIG_ALPHA_GENERIC
+diff -rup 2.2.11-rth1/include/asm-alpha/pgtable.h 2.2.11-axp/include/asm-alpha/pgtable.h
+--- 2.2.11-rth1/include/asm-alpha/pgtable.h	Sat Jun 12 06:40:54 1999
++++ 2.2.11-axp/include/asm-alpha/pgtable.h	Sun Jul  4 22:51:39 1999
+@@ -49,7 +49,6 @@ ev4_flush_tlb_other(struct mm_struct *mm
+ __EXTERN_INLINE void
+ ev5_flush_tlb_current(struct mm_struct *mm)
+ {
+-	mm->context = 0;
+ 	get_new_mmu_context(current, mm);
+ 	reload_context(current);
+ }
+diff -rup 2.2.11-rth1/include/asm-alpha/processor.h 2.2.11-axp/include/asm-alpha/processor.h
+--- 2.2.11-rth1/include/asm-alpha/processor.h	Sun Jul  4 22:46:49 1999
++++ 2.2.11-axp/include/asm-alpha/processor.h	Sun Jul  4 21:58:28 1999
+@@ -55,15 +55,6 @@ struct thread_struct {
+ 	 */
+ 	unsigned long flags;
+ 
+-	/* The full version of the ASN including serial number.
+-
+-	   Two threads running on two different processors must of necessity
+-	   have different serial numbers.  Having this duplicated from
+-	   mm->context allows them to be slightly out of sync preventing 
+-	   the asn from incrementing each and every time the two threads
+-	   are scheduled.  */
+-	unsigned long mm_context;
+-
+ 	/* Perform syscall argument validation (get/set_fs). */
+ 	mm_segment_t fs;
+ 
+@@ -80,7 +71,7 @@ struct thread_struct {
+ 	0, 0, 0, \
+ 	0, 0, 0, \
+ 	0, 0, 0, \
+-	0, 0, \
++	0, \
+ 	KERNEL_DS \
+ }
+ 
+
+--BOKacYhQ+x31HxR3--
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+

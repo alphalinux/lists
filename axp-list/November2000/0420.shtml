@@ -1,0 +1,239 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> ux164 (ruffian) fixes</H1> 
+	
+<!-- received="Tue Nov 21 20:27:20 2000" -->
+<!-- isoreceived="20001122042720" -->
+<!-- sent="Tue, 21 Nov 2000 18:46:09 +0300" -->
+<!-- isosent="20001121154609" -->
+<!-- name="Ivan Kokshaysky" -->
+<!-- email="ink@jurassic.park.msu.ru" -->
+<!-- subject="ux164 (ruffian) fixes" -->
+<!-- id="20001121184609.A2889@jurassic.park.msu.ru" -->
+<STRONG>Subject: </STRONG>ux164 (ruffian) fixes<BR>
+<STRONG>From: </STRONG>Ivan Kokshaysky (<EM>ink@jurassic.park.msu.ru</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Nov 21 07:46:09 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#420">[ date ]</A>
+<A HREF="index.shtml#420">[ thread ]</A>
+<A HREF="subject.shtml#420">[ subject ]</A>
+<A HREF="author.shtml#420">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0421.shtml">T. Martin: "Re: www.bochs.com"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0419.shtml">Jay Estabrook: "Re: www.bochs.com"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0436.shtml">Richard Henderson: "Re: ux164 (ruffian) fixes"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Two issues preventing ruffians from booting 2.4 (with bridges patch)
+<BR>
+were found and fixed.
+<BR>
+&nbsp;- rather trivial one: someone decided that interrupt 4
+<BR>
+&nbsp;&nbsp;&nbsp;(irq 20 from builtin scsi) is 'bogus' ;-)
+<BR>
+&nbsp;- another issue is way not trivial and cost Michal and me a
+<BR>
+&nbsp;&nbsp;&nbsp;lot of sweat. Type 1 PCI configuration space accesses (and to
+<BR>
+&nbsp;&nbsp;&nbsp;some degree type 0 accesses to the bridge itself) were subtly
+<BR>
+&nbsp;&nbsp;&nbsp;broken. In other words, these accesses were failing randomly
+<BR>
+&nbsp;&nbsp;&nbsp;causing all sorts of havoc. At some point I managed to break
+<BR>
+&nbsp;&nbsp;&nbsp;them completely just by adding one extra mb()...
+<BR>
+&nbsp;&nbsp;&nbsp;Copying the code from 2.2 solved the problem - but it's a kind
+<BR>
+&nbsp;&nbsp;&nbsp;of magic.
+<BR>
+&nbsp;&nbsp;&nbsp;Interesting, other pyxis machines do not seem to be so sensitive,
+<BR>
+&nbsp;&nbsp;&nbsp;so I guess some design problems with ux164 motherboard - all this
+<BR>
+&nbsp;&nbsp;&nbsp;looks pretty much like timing issues.
+<BR>
+<P>Many thanks to Michal for that painful and time consuming testing
+<BR>
+he has done.
+<BR>
+<P>Ivan.
+<BR>
+<P>--- 2.4.0t11/arch/alpha/kernel/core_cia.c	Fri Oct 27 21:55:01 2000
+<BR>
++++ linux/arch/alpha/kernel/core_cia.c	Thu Nov 16 17:46:54 2000
+<BR>
+@@ -119,6 +119,7 @@ conf_read(unsigned long addr, unsigned c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stat0 = *(vip)CIA_IOC_CIA_ERR;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)CIA_IOC_CIA_ERR = stat0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
++	*(vip)CIA_IOC_CIA_ERR; /* re-read to force write */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If Type1 access, must set CIA CFG. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (type1) {
+<BR>
+@@ -128,6 +129,7 @@ conf_read(unsigned long addr, unsigned c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)CIA_IOC_CFG;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;draina();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcheck_expected(0) = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcheck_taken(0) = 0;
+<BR>
+@@ -171,6 +173,7 @@ conf_write(unsigned long addr, unsigned 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stat0 = *(vip)CIA_IOC_CIA_ERR;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)CIA_IOC_CIA_ERR = stat0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
++	*(vip)CIA_IOC_CIA_ERR; /* re-read to force write */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If Type1 access, must set CIA CFG.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (type1) {
+<BR>
+@@ -180,6 +183,7 @@ conf_write(unsigned long addr, unsigned 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)CIA_IOC_CFG;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;draina();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcheck_expected(0) = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcheck_taken(0) = 0;
+<BR>
+@@ -188,7 +192,7 @@ conf_write(unsigned long addr, unsigned 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Access configuration space.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)addr = value;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+-	mb();  /* magic */
+<BR>
++	*(vip)addr; /* read back to force the write */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcheck_expected(0) = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+@@ -606,7 +610,8 @@ do_init_arch(int is_pyxis)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vip)CIA_IOC_ERR_MASK = temp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Clear all currently pending errors.  */
+<BR>
+-	*(vip)CIA_IOC_CIA_ERR = 0;
+<BR>
++	temp = *(vip)CIA_IOC_CIA_ERR;
+<BR>
++	*(vip)CIA_IOC_CIA_ERR = temp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Turn on mchecks.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = *(vip)CIA_IOC_CIA_CTRL;
+<BR>
+--- 2.4.0t11/arch/alpha/kernel/sys_ruffian.c	Sun Nov  5 16:16:43 2000
+<BR>
++++ linux/arch/alpha/kernel/sys_ruffian.c	Tue Nov 21 00:25:42 2000
+<BR>
+@@ -56,9 +56,9 @@ ruffian_init_irq(void)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+&nbsp;
+<BR>
+-	/* Not interested in the bogus interrupts (0,3,4,6), 
+<BR>
++	/* Not interested in the bogus interrupts (0,3,6),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NMI (1), HALT (2), flash (5), or 21142 (8).  */
+<BR>
+-	init_pyxis_irqs(0x17f0000);
+<BR>
++	init_pyxis_irqs(0x16f0000);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0421.shtml">T. Martin: "Re: www.bochs.com"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0419.shtml">Jay Estabrook: "Re: www.bochs.com"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0436.shtml">Richard Henderson: "Re: ux164 (ruffian) fixes"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Fri Dec  1 08:00:08 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

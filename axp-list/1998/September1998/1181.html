@@ -1,0 +1,179 @@
+<!-- received="Sat Oct  3 01:14:32 1998 " -->
+<!-- sent="Sat, 03 Oct 1998 06:08:00 GMT" -->
+<!-- name="axp@amazing.ch" -->
+<!-- email="axp@amazing.ch" -->
+<!-- subject="raid/md" -->
+<!-- id="27098045.u10t12e.57d3a-dworz@amazing.ch" -->
+<!-- inreplyto="¨Ö	@¨Ö	@requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>raid/md</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>raid/md</h2>
+
+<a href="mailto:axp@amazing.ch"><i>axp@amazing.ch</i></a><br>
+<i>Sat, 03 Oct 1998 06:08:00 GMT</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1181">[ date ]</a><a href="index.html#1181">[ thread ]</a><a href="subject.html#1181">[ subject ]</a><a href="author.html#1181">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1182.html">gkoch@usa.net: "Re: AS200, 4/166"</a>
+<li> <b>Previous message:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi<br>
+<p>
+Yesterday I added one more disk to my Alpha and<br>
+I used the opportunity to create some raid-arrays.<br>
+<p>
+As I had some troubles to get it working, I thought,<br>
+I'd share my findings with you:<br>
+<p>
+<p>
+I got "raidtools-0_51beta9" and "raid0145-19980913-2_0_35"<br>
+from ftp.kernel.org/pub/linux/kernel/deamons (or<br>
+something very similar).<br>
+<p>
+I have RH5.1, Kernel 2.0.35 from RH (without any<br>
+patches), egcs1.1a on a PC164.<br>
+<p>
+<p>
+The Raid-patches for the Kernel applied cleanly<br>
+(beside one patch to asm-i386/irq.h (I think)).<br>
+<p>
+<p>
+To compile the Tools I needed to make the<br>
+following changes:<br>
+<p>
+In "/usr/src/linux/include/asm-alpha/bitops.h" I added<br>
+--------------------------------------------------<br>
+extern inline int ffs(int word)<br>
+{<br>
+	int result = ffz(~word);<br>
+	return word ? result+1 : 0;<br>
+}<br>
+--------------------------------------------------<br>
+right after the definition of ffz (took that one from<br>
+a 2.1.xxx Kernel)<br>
+<p>
+<p>
+"/usr/src/linux/include/linux/raid/md.h" was missing<br>
+a "#include &lt;asm/segment.h&gt;".<br>
+<p>
+I think, that was all I changed.<br>
+<p>
+<p>
+<p>
+As the doc is a bit unclear (no comment), here a<br>
+short rundown on hot to use it:<br>
+<p>
+1. make a new kernel with:<br>
+--------------------------------------------------<br>
+ CONFIG_BLK_DEV_MD=y<br>
+ CONFIG_AUTODETECT_RAID=y<br>
+ CONFIG_MD_LINEAR=y<br>
+ CONFIG_MD_STRIPED=y<br>
+ CONFIG_MD_MIRRORING=y<br>
+ CONFIG_MD_RAID5=y<br>
+--------------------------------------------------<br>
+(you don't need all raid-levels if you don't want<br>
+to...)<br>
+<p>
+<p>
+2. compile and install the tools:<br>
+"cd raidtools;./configure;make;make install"<br>
+<p>
+<p>
+3. create "/etc/raidtab". mine looks like this:<br>
+--------------------------------------------------<br>
+raiddev /dev/md0<br>
+    raid-level                0<br>
+    nr-raid-disks             3<br>
+    nr-spare-disks            0<br>
+    chunk-size                16<br>
+    persistent-superblock     1<br>
+<p>
+    device                    /dev/sdc2<br>
+    raid-disk                 0<br>
+    device                    /dev/sde2<br>
+    raid-disk                 1<br>
+    device                    /dev/sdf2<br>
+    raid-disk                 2<br>
+<p>
+raiddev /dev/md1<br>
+    raid-level                0<br>
+    nr-raid-disks             2<br>
+    nr-spare-disks            0<br>
+    chunk-size                16<br>
+    persistent-superblock     1<br>
+<p>
+    device                    /dev/sdd1<br>
+    raid-disk                 0<br>
+    device                    /dev/sdf1<br>
+    raid-disk                 1<br>
+--------------------------------------------------<br>
+(The persistent-superblock isn't documented anywhere,<br>
+but it's needed for normal operation. also the<br>
+chunk-size entry is mandatory).<br>
+<p>
+<p>
+4. use "fdisk" to set the partitiontype to "86" for all<br>
+the future raid-partitions (needed for autodetection<br>
+on the next reboot (you can even put the root on a<br>
+raid-partition, but of course you need to keep the<br>
+kernel on a non-raid-partition).<br>
+<p>
+<p>
+5. "mkraid -a"<br>
+<p>
+<p>
+6. "mke2fs /dev/md0" and "mke2fs /dev/md1"<br>
+<p>
+<p>
+7. make entries in your "/etc/fstab".<br>
+<p>
+<p>
+8. mount them and use them :)<br>
+<p>
+<p>
+Hope I didn't forget anything. It works for me (so<br>
+far). No warranty....<br>
+<p>
+<p>
+Bye<br>
+ dworz<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1182.html">gkoch@usa.net: "Re: AS200, 4/166"</a>
+<li> <b>Previous message:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

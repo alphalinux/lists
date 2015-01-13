@@ -1,0 +1,155 @@
+<!-- received="Thu Apr 18 20:13:07 1996 " -->
+<!-- sent="Thu, 18 Apr 1996 20:13:07 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="bad blocks on SCSI disk with NCR 810 controller :-(" -->
+<!-- id="9604181811.AA02119@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="199604180354.XAA02533@redhat.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>bad blocks on SCSI disk with NCR 810 controller :-(</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>bad blocks on SCSI disk with NCR 810 controller :-(</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Thu, 18 Apr 1996 20:13:07 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#273">[ date ]</a><a href="index.html#273">[ thread ]</a><a href="subject.html#273">[ subject ]</a><a href="author.html#273">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0274.html">Jaime Garatuza-Payan: "boot DOS"</a>
+<li> <b>Previous message:</b> <a href="0272.html">Jay Estabrook - Alpha Migration Tools - LINUX Project: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<li> <b>In reply to:</b> <a href="0269.html">Donnie Barnes: "AlphaStation info"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0291.html">Harald Koenig: "Re: bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<li> <b>Maybe reply:</b> <a href="0291.html">Harald Koenig: "Re: bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+two days ago I got a lot of bad blocks (~280 1k blocks) on a RZ26L 1GB disk <br>
+in a XL266 workstation.  trying to fix those bad blocks I found out some<br>
+interesting and bad things:<br>
+<p>
+1) "badblocks" (which is used by "e2fsck -c" to find bad blocks) doesn't<br>
+work reasonable when the disk is connected to an NCR scsi controller.<br>
+most of the time "badblocks" didn't find any of the bad blocks (but I got<br>
+*lots* of kernel messages like the one below).  I tried the same with<br>
+my i486 PC which has an NCR 810 too: same story.  <br>
+when I connected the disk to a good old Adaptec AHA1542 badblocks found<br>
+lots of errors which could be inserted in the bad block list of ext2fs.<br>
+<p>
+-------------------------------------------------------------------------------<br>
+scsi0 channel 0 : resetting for second half of retries.<br>
+SCSI bus is being reset for host 0.<br>
+scsi0 : DCMD|DBC=0x50000000, DNAD=0x4044cf0 (virt 0xfffffc0000044cf0)<br>
+         DSA=0x4014214 (virt 0xfffffc0000014214)<br>
+         DSPS=0x4044e00, TEMP=0x4044a50 (virt 0xfffffc0000044a50), DMODE=0x80<br>
+         SXFER=0x8, SCNTL3=0x13<br>
+         phase=MSGIN, 0 bytes in SCSI FIFO<br>
+         STEST0=0x6<br>
+scsi0 : DSP 0x4044ce8 (virt 0xfffffc0000044ce8) -&gt;<br>
+0x4044ce8 (virt 0xfffffc0000044ce8) : 0x50000000 0x04044e00 (virt 0xfffffc0000044e00)<br>
+0x4044cf0 (virt 0xfffffc0000044cf0) : 0x60000200 0x00000000 (virt 0x0000000000000000)<br>
+0x4044cf8 (virt 0xfffffc0000044cf8) : 0x78388000 0x00000000 (virt 0x0000000000000000)<br>
+0x4044d00 (virt 0xfffffc0000044d00) : 0x0f000001 0x04044660 (virt 0xfffffc0000044660)<br>
+0x4044d08 (virt 0xfffffc0000044d08) : 0x78389000 0x00000000 (virt 0x0000000000000000)<br>
+0x4044d10 (virt 0xfffffc0000044d10) : 0xc0000004 0x0404465c (virt 0xfffffc000004465c) 0x0000b434 (virt 0x0000000000000000)<br>
+scsi0 : issue queue<br>
+scsi0 : schedule dsa array :<br>
+scsi0 : end schedule dsa array<br>
+scsi0 : reconnect_dsa_head :<br>
+scsi0 : end reconnect_dsa_head<br>
+scsi0: lost command 26461<br>
+scsi0 : target 0 accepting period 100ns offset 8 10.00MHz FAST SCSI-II<br>
+scsi0 : setting target 0 to period 100ns offset 8 10.00MHz FAST SCSI-II<br>
+SCSI disk error : host 0 channel 0 id 0 lun 0 return code = 18000002<br>
+Current error sd08:00: sense key Medium Error<br>
+Additional sense indicates Unrecovered read error<br>
+scsidisk I/O error: dev 08:00, sector 1639970<br>
+SCSI disk error : host 0 channel 0 id 0 lun 0 return code = 18000002<br>
+Current error sd08:00: sense key Medium Error<br>
+Additional sense indicates Unrecovered read error<br>
+scsidisk I/O error: dev 08:00, sector 1639972<br>
+-------------------------------------------------------------------------------<br>
+<p>
+the error handling/recovery for the NCR driver really has to be fixed!!<br>
+with only this controller I wouldn't have been able to locate the bad blocks<br>
+and isolate the files which are in trouble and mark those files bad.<br>
+<p>
+<p>
+2) the other nasty thing is that there is no tool to check or print the <br>
+bad blocks marked in a ext2fs (linked to inode #1) which makes it impossible<br>
+to check if "e2fsck" did work correctly (other than hacking the e2fsck <br>
+sources of course).<br>
+<p>
+<p>
+3) two of the files which got corrupted are <br>
+	/var/lib/rpm/fileindex.rpm<br>
+	/var/lib/rpm/packages.rpm<br>
+for rpm.v2.  is there any way to check/rebuild/... those data base files ?<br>
+<p>
+"rpm -q -a" goes into a loop after listing ~130 packages and  only<br>
+prints (null)-(null)-(null) forever :-(<br>
+<p>
+<p>
+<p>
+after realizing that there are that many bad blocks (in bursts of 16k every<br>
+316k which seem to be one cylinder of 79sectors/8heads) I desiced to <br>
+low level format the disk after making a backup of the whole disk using dd.<br>
+at the end of the low lever format (using my PC, how to do this with an<br>
+alpha workstation btw?) I got the end status <br>
+<p>
+	Sensekey 0x06 ASC 0x2a ASCQ 0xff80<br>
+<p>
+where sensekey 0x06 means "media change" in SCSI-II and the ASC/ASCQ values<br>
+are vendor dependant.  does anyone know what this means for a DEC RZ26L disk?<br>
+<p>
+are there any known hardware problems with this disk type ?<br>
+is this likely to happen again (took me 2 days alltogether :-( ?<br>
+<p>
+<p>
+Thanks,<br>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0274.html">Jaime Garatuza-Payan: "boot DOS"</a>
+<li> <b>Previous message:</b> <a href="0272.html">Jay Estabrook - Alpha Migration Tools - LINUX Project: "Re: Troubles with Linux/Alpha BLADE 0.3 for Alpha XL 266"</a>
+<li> <b>In reply to:</b> <a href="0269.html">Donnie Barnes: "AlphaStation info"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0291.html">Harald Koenig: "Re: bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<li> <b>Maybe reply:</b> <a href="0291.html">Harald Koenig: "Re: bad blocks on SCSI disk with NCR 810 controller :-("</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

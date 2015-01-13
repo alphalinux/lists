@@ -1,0 +1,99 @@
+<!-- received="Wed May  8 21:16:52 1996 " -->
+<!-- sent="Wed, 8 May 1996 21:16:52 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: gdb" -->
+<!-- id="199605081753.KAA24010@web.azstarnet.com" -->
+<!-- inreplyto="199605081753.KAA24010@web.azstarnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Wed, 8 May 1996 21:16:52 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#137">[ date ]</a><a href="index.html#137">[ thread ]</a><a href="subject.html#137">[ subject ]</a><a href="author.html#137">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Eric Youngdale: "Re: gdb"</a>
+<li> <b>Previous message:</b> <a href="0136.html">David  Mosberger: "Re: gdb"</a>
+<li> <b>In reply to:</b> <a href="0137.html">Linus Torvalds: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Reply:</b> <a href="0137.html">Linus Torvalds: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 8 May 1996, David  Mosberger wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; But if somebody starts to work on the linker optimizations proposed by</i><br>
+<i>&gt; Linus, do keep in mind that the calling convention requires $27 (pv) to</i><br>
+<i>&gt; point to the starting address of the called function.  It is possible to</i><br>
+<i>&gt; avoid having to load $27 but only if the global pointer register has the</i><br>
+<i>&gt; same value in the caller and the callee.  In that case, you'd have to skip</i><br>
+<i>&gt; the prologue code that establishes the gp (normally the first two instructions).</i><br>
+<i>&gt; </i><br>
+<i>&gt; I know this is an old hat, but it keeps biting people...</i><br>
+<p>
+Yeah, bit me when I did the gcc optimization, which was why I eventually <br>
+decided that we can't do it with gcc at all for the normal case.<br>
+<p>
+However, my gcc was perfectly fine for stand-alone objects (notably: kernel)<br>
+with just one gp-value.  It also resulted in impressive improvements in <br>
+kernel size (it was _really_ noticeable - surprisingly much so at first <br>
+look, and the gp table shrunk to some much nicer proportions). <br>
+<p>
+<i>&gt; PS: Not to give the wrong impression: the optimization looks *very* promising</i><br>
+<i>&gt; and I think it's well worth doing.  Even if you can't get rid of the load of</i><br>
+<i>&gt; $27, it still is preferable to use a bsr instruction since it won't have a</i><br>
+<i>&gt; data dependency on the load of $27 and since it is always predicted correctly.</i><br>
+<p>
+Umm. That does help a bit, but not really that much. It's much better if <br>
+the linker just gets rid of the $27 stuff completely. It most probably <br>
+requires that the linker have all of the result binary in memory so that <br>
+it can fix up the addresses easily to jump over the ldgp thing, but I do <br>
+believe it would be noticeable for real-life code (maybe not fortran ;-)<br>
+<p>
+Most functions calls are going to be withing the 4MB window, and they are <br>
+going to be to a function with the same gp value (doesn't the current <br>
+linker warn you when it has to use multiple gp's? I've never seen that <br>
+warning, so it hasn't happened with any programs I've done, but it might <br>
+happen with programs I'm not aware of).<br>
+<p>
+Also note that the jsr-&gt;bsr optimization actually cuts down on the gp <br>
+table quite a lot, so just applying the optimization would also make it <br>
+less likely that we need multiple gp's per binary (I'm not counting <br>
+shared libraries or stuff like that - they obviously have their own <br>
+gp's).<br>
+<p>
+		Linus<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Eric Youngdale: "Re: gdb"</a>
+<li> <b>Previous message:</b> <a href="0136.html">David  Mosberger: "Re: gdb"</a>
+<li> <b>In reply to:</b> <a href="0137.html">Linus Torvalds: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Reply:</b> <a href="0137.html">Linus Torvalds: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

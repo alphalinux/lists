@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.43 alpha broken with &gt;2g of ram</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: 2.3.43 alpha broken with &gt;2g of ram">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.43 alpha broken with &gt;2g of ram</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 11 22:59:48 2000" -->
+<!-- isoreceived="20000212065948" -->
+<!-- sent="Thu, 10 Feb 2000 19:48:10 +0100 (CET)" -->
+<!-- isosent="20000210184810" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: 2.3.43 alpha broken with &gt;2g of ram" -->
+<!-- id="Pine.LNX.4.21.0002110349470.9001-100000@alpha.random" -->
+<!-- inreplyto="200002110012.QAA05554@pizda.ninka.net" -->
+<STRONG>Subject: </STRONG>Re: 2.3.43 alpha broken with >2g of ram<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 10 2000 - 10:48:10 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#115">[ date ]</A>
+<A HREF="index.html#115">[ thread ]</A>
+<A HREF="subject.html#115">[ subject ]</A>
+<A HREF="author.html#115">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0116.html">Jan-Benedict Glaw: "IRQ for TIMER and RTC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0114.html">Peter Rival: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0108.html">David S. Miller: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0120.html">David S. Miller: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0108.html">Andrea Arcangeli: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 10 Feb 2000, David S. Miller wrote:
+<BR>
+<P><EM>&gt;It sounds just like the SCSI drivers need to be fixed to use
+</EM><BR>
+<EM>&gt;the new PCI dma interfaces, that's all.
+</EM><BR>
+[..]
+<BR>
+<EM>&gt;I have such changes for the two biggies, aic7xxx and sym53c8xx.
+</EM><BR>
+<EM>&gt;Qlogic,ISP is already done and in Linus's tree.
+</EM><BR>
+<P>_All_ drivers that does some kind of PCI-DMA are been broken by 2.3.43
+<BR>
+(not only the network and scsi drivers).
+<BR>
+<P>There are not a few SCSI drivers and some network card in the kernel.
+<BR>
+<P>andrea@alpha:~/kernel/2.3.43/drivers &gt; find scsi/ -type f | wc -l
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;252
+<BR>
+andrea@alpha:~/kernel/2.3.43/drivers &gt; find -type f | wc -l
+<BR>
+&nbsp;&nbsp;&nbsp;1820
+<BR>
+<P>Not all drivers are doing PCI-DMA of course, but a good percentage yes and
+<BR>
+brekaing the whole thing is something should be done at the _start_ and
+<BR>
+not at the _end_ of an unstable branch IMVHO (btw, I am assuming we are at
+<BR>
+the end). Here I don't have the 9 alpha platforms each with more than
+<BR>
+2giga of ram and all the device driver tha does PCI-DMA to try out if they
+<BR>
+works or not. And that's not my own problem but I think it's a problem of
+<BR>
+most maintainers of the drivers. To be sure all is working correctly it's
+<BR>
+necessary to give the time to the people who has all this flavours of
+<BR>
+hardware to test the thing and feed us bugreports.
+<BR>
+<P>And I am not either sure if all alpha plaforms are capable of a PCIMMU and
+<BR>
+if they can support more than 2/4giga of ram at the same time, Richard
+<BR>
+what's going on (in 2.3.43) for:
+<BR>
+<P>o	irongate
+<BR>
+o	polaris
+<BR>
+o	t2
+<BR>
+<P>In 2.3.43 they have _no_ way to work _even_ supposing all drivers out
+<BR>
+there would be just using the pci_map/umap if there's more then 2/4 giga
+<BR>
+of RAM in the system. Is the hardware memory limited to 2/4 giga for such
+<BR>
+platforms?
+<BR>
+<P>And what you break is not something that won't compile. Is not either
+<BR>
+something that won't work. All will work fine and compile until the
+<BR>
+unlucky user will try to run a special driver on a certain flavour of
+<BR>
+alpha with &gt;2g of RAM installed in the system.
+<BR>
+<P><EM>&gt;not do is work on forward-porting the band-aid 2TB support hacks you
+</EM><BR>
+<EM>&gt;did for 2.2.x (which for 2.2.x was the correct way to do it) and
+</EM><BR>
+<P>If I won't do anything what is going to happen is that 2.4.0 will produce
+<BR>
+random bug reports on alpha only with a bigmemory setup and that's very
+<BR>
+bad IMHO. Such big machines should be the ones running most reliable. Give
+<BR>
+me a good reason for not doing that or tell me a shostopper that my way
+<BR>
+has please.
+<BR>
+<P>Since you say you just fixed your commonly used drivers you also know the
+<BR>
+only downside you would have from running my work is that the dcache and
+<BR>
+the icache and the other kernel-proper stuff will stay locked in the first
+<BR>
+2giga of RAM (at least if I am not going to add a __GFP_XX in the
+<BR>
+allocations). But that doesn't seems a problem at all to me. Is it a
+<BR>
+problem for you? I think nobody needs more than 2giga of RAM outside
+<BR>
+userspace/shm memory and outside the page cache in the next few years.
+<BR>
+<P>And no, in my way I won't do I/O bounces with the updated scsi drivers and
+<BR>
+I'll use the whole memory for allocating skb on updated nic drivers
+<BR>
+(hoping the hardware and your recent work in arch/alpha/kernel/core_* is
+<BR>
+not buggy).
+<BR>
+<P>When 2.5.0 will be out removing all the |__GFP_XX will be done with a
+<BR>
+script simpler than the one that cleanedup the fops initializers and the
+<BR>
+__GFP_XX will be defined as a zero. And once the script will return I'll
+<BR>
+break things exactly as you did in 2.3.43 (but at that time most drivers
+<BR>
+will been updated and breaking in 2.5.0 is not a problem at all) and
+<BR>
+during 2.4.* I always run rock solid and as fast and as powerful as
+<BR>
+the official 2.4.*.
+<BR>
+<P>I'd appreciate if you reply telling me where I am wrong. Thanks.
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0116.html">Jan-Benedict Glaw: "IRQ for TIMER and RTC"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0114.html">Peter Rival: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0108.html">David S. Miller: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0120.html">David S. Miller: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0108.html">Andrea Arcangeli: "Re: 2.3.43 alpha broken with &gt;2g of ram"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,44 @@
+/****
+ From: "Christian Groessler" <cpg@aladdin.de>
+ To: axp-list@redhat.com
+ Date: Thu, 19 Aug 1999 10:52:55 +0100
+ Subject: Re: Unaligned traps et al
+
+
+ The following program creates a subshell and all programs
+ started from therein will SIGBUS on unaligned accesses.
+***/
+/* 28-May-98, chris */
+
+
+#ifndef __linux__
+#include <sys/sysinfo.h>
+#else
+#include <asm/sysinfo.h>
+#include <asm/unistd.h>
+
+static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+                      int *start, void *arg, unsigned long flag)
+{
+  syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+}
+#endif
+
+void trap_unaligned(void)
+{
+  unsigned int buf[2];
+  buf[0] = SSIN_UACPROC;
+  buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+  setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+}
+
+#include <stdio.h>
+
+int main()
+{
+  trap_unaligned();
+  printf("creating subshell with SIGBUS setting!\n");
+  execl("/bin/bash","/bin/bash",(char *)0);
+  return(0); /* not reached */
+}
+

@@ -1,0 +1,117 @@
+<!-- received="Fri Apr 18 03:52:57 1997 " -->
+<!-- sent="Fri, 18 Apr 1997 00:59:50 -0700" -->
+<!-- name="Randy Chapman" -->
+<!-- email="chapman@wilbursoft.com" -->
+<!-- subject="Re: SIGFPE -- the answer!" -->
+<!-- id="9704180059.ZM19652@wilbursoft.com" -->
+<!-- inreplyto="jrp@jrp.tiac.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SIGFPE -- the answer!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SIGFPE -- the answer!</h2>
+
+<b>Randy Chapman</b> (<a href="mailto:chapman@wilbursoft.com"><i>chapman@wilbursoft.com</i></a>)<br>
+<i>Fri, 18 Apr 1997 00:59:50 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#805">[ date ]</a><a href="index.html#805">[ thread ]</a><a href="subject.html#805">[ subject ]</a><a href="author.html#805">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0806.html">Scott Manley: "Still no luck with PAM"</a>
+<li> <b>Previous message:</b> <a href="0804.html">Ryan Rafferty: "Re: serial ports"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Yup, that and the ieee_set_fp_control bit and -mieee did the charm!  Time to<br>
+move on and finish java/linux/axp!!!!<br>
+<p>
+thanks!<br>
+--randy<br>
+<p>
+On Apr 16, 11:17pm, RHS Linux User wrote:<br>
+} Subject: SIGFPE -- the answer!<br>
+} [ cc'ed to axp-list for everyone's edification ]<br>
+} Randy,<br>
+}<br>
+} I can be soooo dense sometimes.  Remember the divide-by-zero<br>
+} exception handling problem you were having?  I figured out what<br>
+} was *really* going on.<br>
+}<br>
+} Seeing as I wrote the floating-point emulation code for Linux/Alpha<br>
+} (or, more accurately, I wrote the code for another project which I<br>
+} then gave to David M-T to hammer into the Linux sources), I shoulda<br>
+} known this.<br>
+}<br>
+} Anyhow: there is a way to turn off those nasty SIGFPE's and get the<br>
+} results you want.  It's a "secret" system call (osf_setsysinfo)<br>
+} which can be used to set the floating-point exception enable bits<br>
+} in the process struct.<br>
+}<br>
+} Here's da goods:  To read and write the floating-point exception<br>
+} enable bits, you can use the following routines:<br>
+}<br>
+} 	#include &lt;asm/fpu.h&gt;<br>
+}<br>
+} 	#define __NR_getsysinfo 256<br>
+} 	#define __NR_setsysinfo 257<br>
+}<br>
+} 	unsigned long read_fpe_bits()<br>
+} 	{<br>
+} 	    unsigned long fpcw;<br>
+} 	    syscall(__NR_getsysinfo, 45, &amp;fpcw, sizeof(fpcw), 0, 0);<br>
+} 	    return(fpcw &amp; IEEE_TRAP_ENABLE_MASK);<br>
+} 	}<br>
+}<br>
+} 	void write_fpe_bits(unsigned long fpcw)<br>
+} 	{<br>
+} 	    syscall(__NR_setsysinfo, 14, &amp;fpcw, sizeof(fpcw), 0, 0);<br>
+} 	}<br>
+}<br>
+} The bits themselves are defined in /usr/include/asm/fpu.h.<br>
+} Look for "IEEE_TRAP_ENABLE_xxx".  Apparently INV (invalid operand),<br>
+} DZE (divide-by-zero) and OVF (overflow) are turned ON by default<br>
+} for all processes, and you have to turn them off manually.<br>
+}<br>
+} Hope this helps!<br>
+}<br>
+} --<br>
+} Jim Paradis   <a href="mailto:jrp@jrp.tiac.net">jrp@jrp.tiac.net</a><br>
+} <a href="http://www.tiac.net/users/jrp/index.html">http://www.tiac.net/users/jrp/index.html</a><br>
+} "It's not procrastination, it's my new Just-In-Time Workload Management<br>
+System!"<br>
+}-- End of excerpt from RHS Linux User<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0806.html">Scott Manley: "Still no luck with PAM"</a>
+<li> <b>Previous message:</b> <a href="0804.html">Ryan Rafferty: "Re: serial ports"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

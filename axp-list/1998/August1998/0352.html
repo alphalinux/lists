@@ -1,0 +1,148 @@
+<!-- received="Fri Aug  7 10:27:07 1998 " -->
+<!-- sent="Fri, 7 Aug 1998 15:20:04 +0200" -->
+<!-- name="Georg Wittig" -->
+<!-- email="Georg.Wittig@gmd.de" -->
+<!-- subject="patch for Xserver crash on alpha" -->
+<!-- id="" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>patch for Xserver crash on alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>patch for Xserver crash on alpha</h2>
+
+<b>Georg Wittig</b> (<a href="mailto:Georg.Wittig@gmd.de"><i>Georg.Wittig@gmd.de</i></a>)<br>
+<i>Fri, 7 Aug 1998 15:20:04 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#352">[ date ]</a><a href="index.html#352">[ thread ]</a><a href="subject.html#352">[ subject ]</a><a href="author.html#352">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0353.html">vbajaj@portal.stwing.upenn.edu: "GL Laptop?"</a>
+<li> <b>Previous message:</b> <a href="0351.html">Stephen J. Gaudet: "Re: WYSE terminals on Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Found this one in comp.os.linux.x. Don't know yet if it really fixes<br>
+the problem.<br>
+<p>
+ ----------------------------------------------------------------------------<br>
+<p>
+From: <a href="mailto:raphael@cs.uky.edu">raphael@cs.uky.edu</a><br>
+Newsgroups: comp.os.linux.x<br>
+Subject: Bug fixed in XFree86 for Linux/AXP<br>
+Date: Thu, 06 Aug 1998 18:40:28 GMT<br>
+Message-ID: &lt;<a href="mailto:6qctat$9fj$1@nnrp1.dejanews.com">6qctat$9fj$1@nnrp1.dejanews.com</a>&gt;<br>
+NNTP-Posting-Host: 128.163.146.41<br>
+X-Article-Creation-Date: Thu Aug 06 18:40:28 1998 GMT<br>
+<p>
+A while ago I reported a bug with XF86 servers under Linux/AXP.<br>
+I have now tracked down and corrected this bug.<br>
+<p>
+It is due to an assumption that fd_mask is 32 bits wide.  On Linux/AXP,<br>
+fd_mask is 65 bits wide.  The symptom was that client #27 leads to a segment<br>
+violation.  The cure is to use lffs() instead of the library ffs(), differing<br>
+only in that the parameter is long, not int.  This fix needs to be placed<br>
+in several locations (but not all where ffs() is used), and there is one<br>
+other mod necessary.<br>
+<p>
+Besides minor changes to reduce the number of compiler warnings,<br>
+here are the necessary fixes:<br>
+<p>
+-----<br>
+<p>
+<p>
+diff -r xc/programs/Xserver/os/WaitFor.c /tmp/xc/programs/Xserver/os/WaitFor.c<br>
+85a86,100<br>
+<i>&gt; #if defined(__linux__) &amp;&amp; defined(__alpha__) /* raphael: added */</i><br>
+<i>&gt; #define ffs lffs</i><br>
+<i>&gt; int lffs(unsigned long mask) {</i><br>
+<i>&gt;     register i;</i><br>
+<i>&gt;     if ( ! mask ) return 0;</i><br>
+<i>&gt;     i = 1;</i><br>
+<i>&gt;     while (! (mask &amp; 1)) {</i><br>
+<i>&gt;       i++;</i><br>
+<i>&gt;       mask = mask &gt;&gt; 1;</i><br>
+<i>&gt;     }</i><br>
+<i>&gt;     return i;</i><br>
+<i>&gt; }</i><br>
+<i>&gt; #else</i><br>
+<i>&gt; #endif</i><br>
+<i>&gt;</i><br>
+144a160<br>
+<i>&gt; #define dbprintf(list)  printf list  /* raphael */</i><br>
+422c438,439<br>
+&lt;       client_index = ConnectionTranslation[curclient + (i &lt;&lt; 5)];<br>
+<pre>
+---
+&gt;       client_index = /* raphael: modified */
+&gt;           ConnectionTranslation[curclient + (i * (sizeof(__fd_mask) * 8))];
+<p>
+diff -r xc/programs/Xserver/os/connection.c
+/tmp/xc/programs/Xserver/os/connecti on.c 167a168,172
+<p>
+&gt; #if defined(__linux__) &amp;&amp; defined(__alpha__) /* raphael: added */
+&gt; #define ffs lffs
+&gt; extern int lffs(long);
+&gt; #endif
+&gt;
+diff -r xc/programs/Xserver/os/io.c /tmp/xc/programs/Xserver/os/io.c
+87a88,92
+&gt; #if defined(__linux__) &amp;&amp; defined(__alpha__) /* raphael: added */
+&gt; #define ffs lffs
+&gt; extern int lffs(long);
+&gt; #endif
+&gt;
+970c975,976
+&lt;     register int index, base, mask;
+<pre>
+---
+&gt;     register int index, base;
+&gt;     register long mask; /* raphael */
+<p>
+<p>
+-----== Posted via Deja News, The Leader in Internet Discussion ==-----
+<a href="http://www.dejanews.com/rg_mkgrp.xp">http://www.dejanews.com/rg_mkgrp.xp</a>   Create Your Own Free Member Forum
+<p>
+<p>
+<p>
+<pre>
+-- 
+Georg Wittig	GMD			<a href="mailto:email:Georg.Wittig@gmd.de">email:Georg.Wittig@gmd.de</a>
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	Remove /etc/passwd.  Remove /etc/group too,
+	if you want to make it interesting...   Then reboot the machine.
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0353.html">vbajaj@portal.stwing.upenn.edu: "GL Laptop?"</a>
+<li> <b>Previous message:</b> <a href="0351.html">Stephen J. Gaudet: "Re: WYSE terminals on Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

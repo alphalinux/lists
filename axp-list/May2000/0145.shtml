@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Fixing &quot;unaligned trap&quot; errors</H1> 
+	
+<!-- received="Sun May 21 01:36:23 2000" -->
+<!-- isoreceived="20000521083623" -->
+<!-- sent="Sat, 20 May 2000 11:41:42 -0600 (MDT)" -->
+<!-- isosent="20000520174142" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Fixing &quot;unaligned trap&quot; errors" -->
+<!-- id="200005201741.LAA13710@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="87g0re2zui.fsf@linuxcare.com" -->
+<STRONG>Subject: </STRONG>Re: Fixing "unaligned trap" errors<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Sat May 20 10:41:42 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#145">[ date ]</A>
+<A HREF="index.shtml#145">[ thread ]</A>
+<A HREF="subject.shtml#145">[ subject ]</A>
+<A HREF="author.shtml#145">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0146.shtml">Michal Jaegermann: "Re: Tru64 Unix Disklabel program and Linux disks"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0144.shtml">Michal Jaegermann: "Re: aticle about DS10 / ccc vs gcc"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0161.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0130.shtml">Michal Jaegermann: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+David Huggins-Daines posted a very informative archive on the &quot;unaligned
+<BR>
+trap&quot; problem which explains what it is in a much greater detail than
+<BR>
+FAQ entry on www.alphalinux.org. :-)
+<BR>
+<P>I still have some commments.  First, it looks like that one again it is
+<BR>
+a time for a &quot;periodic posting&quot; (it was posted on this list in the past
+<BR>
+more than once) of a program which is of a great help if one is hunting
+<BR>
+for troublesome spots.  An advantage of it is that you will get a bomb
+<BR>
+instead of a trap and a message so you can catch its location in a
+<BR>
+debugger like gdb.  Here it goes:
+<BR>
+<P>/****
+<BR>
+&nbsp;From: &quot;Christian Groessler&quot; &lt;cpg@aladdin.de&gt;
+<BR>
+&nbsp;To: axp-list@redhat.com
+<BR>
+&nbsp;Date: Thu, 19 Aug 1999 10:52:55 +0100
+<BR>
+&nbsp;Subject: Re: Unaligned traps et al
+<BR>
+<P><P>&nbsp;The following program creates a subshell and all programs
+<BR>
+&nbsp;started from therein will SIGBUS on unaligned accesses.
+<BR>
+***/
+<BR>
+/* 28-May-98, chris */
+<BR>
+<P><P>#ifndef __linux__
+<BR>
+#include &lt;sys/sysinfo.h&gt;
+<BR>
+#else
+<BR>
+#include &lt;asm/sysinfo.h&gt;
+<BR>
+#include &lt;asm/unistd.h&gt;
+<BR>
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P>void trap_unaligned(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+}
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+<P>int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;trap_unaligned();
+<BR>
+&nbsp;&nbsp;printf(&quot;creating subshell with SIGBUS setting!\n&quot;);
+<BR>
+&nbsp;&nbsp;execl(&quot;/bin/bash&quot;,&quot;/bin/bash&quot;,(char *)0);
+<BR>
+&nbsp;&nbsp;return(0); /* not reached */
+<BR>
+}
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; /* sizeof(struct foo) == 12 */
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^^^^^^^^^^^^^^^
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Don't bet on it!!!
+<BR>
+<EM>&gt; struct foo {
+</EM><BR>
+<EM>&gt;         int a, b, c;
+</EM><BR>
+<EM>&gt; };
+</EM><BR>
+<P><P>A C compiler, by its definition, is free to allocate a structure with
+<BR>
+&quot;holes&quot; so sizeof(struct foo) __may__ turn out to be, say, 24 even if
+<BR>
+sum of sizes of this structure elements are 12.  In this particular case
+<BR>
+you can, probably, assume that a compiler is relatively &quot;sane&quot; and that
+<BR>
+sizeof(struct foo) is indeed 12 even without checking but I have seen
+<BR>
+problems caused by similar, if not so blatant, assumptions.  The problem
+<BR>
+is compounded by the fact that C does not really provide a good portable
+<BR>
+way out of this bind (save, possibly, of making this into an array of
+<BR>
+bytes).  gcc has for such occasions , mentioned by David, '__attribute__
+<BR>
+((packed))' construct but this is a compiler specific extension.
+<BR>
+<P>If you peek inside Linux kernel headers (NOT glibc headers) then
+<BR>
+you will find multiple instances where '__attribute__ ((packed))'
+<BR>
+was used as a layout of many structures has to be tightly controlled.
+<BR>
+<P>A code generated by gcc to access structure elements may not be the
+<BR>
+same in an absence or presence of '__attribute__ ((packed))' - even
+<BR>
+if a structure layout in memory happens to be identical.  In the later
+<BR>
+case you will not see &quot;unaligned access&quot; messages - if your code
+<BR>
+was otherwise correct. :-)  If a code is meant to be used with
+<BR>
+some other compiler you may use a preprocessor to hide conditionally
+<BR>
+such bits (define a macro which expands to __attribute__ ((packed))
+<BR>
+or to nothing - depending on a compiler used) but what other compiler
+<BR>
+will do with your structures and a code cannot be predicted in advance.
+<BR>
+<P>Last, but not least, I encountered cases when &quot;unaligned accesses&quot;
+<BR>
+were side-effects of real bugs.  For example, trying to store
+<BR>
+long in a space which was allocated for int, or an attempt to
+<BR>
+access a wrong location on a stack, __may__ end up with an
+<BR>
+unaligned trap.  OTOH it may not, so do not take that for a reliable
+<BR>
+indicator, but problems of that sort are worth of an investigation
+<BR>
+not only for a performance reasons.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0146.shtml">Michal Jaegermann: "Re: Tru64 Unix Disklabel program and Linux disks"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0144.shtml">Michal Jaegermann: "Re: aticle about DS10 / ccc vs gcc"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0130.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0161.shtml">David Huggins-Daines: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0130.shtml">Michal Jaegermann: "Re: Fixing &quot;unaligned trap&quot; errors"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Jun  1 09:46:25 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

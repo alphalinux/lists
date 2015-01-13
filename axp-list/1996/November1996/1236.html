@@ -1,0 +1,123 @@
+<!-- received="Wed Nov 27 06:24:49 1996 " -->
+<!-- sent="Wed, 27 Nov 1996 12:12:54 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="100 % reproduceable oops with 2.0.26-axp (mlockall)" -->
+<!-- id="9611271212.ZM484@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>100 % reproduceable oops with 2.0.26-axp (mlockall)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>100 % reproduceable oops with 2.0.26-axp (mlockall)</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Wed, 27 Nov 1996 12:12:54 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1236">[ date ]</a><a href="index.html#1236">[ thread ]</a><a href="subject.html#1236">[ subject ]</a><a href="author.html#1236">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1237.html">Topi Kanerva: "Re: using linux instead of osf"</a>
+<li> <b>Previous message:</b> <a href="1235.html">Christian Moench: "X-Server for DEC TGA2-Graphic Adaptor"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Trying to make cdwrite-2.0 a realtime program, i found that<br>
+system call mlockall causes a 100 % reproduceable oops at my Avanti.<br>
+The kernel is 2.0.26 with axp-diffs 2.0.21<br>
+<p>
+This is the oops - producing program:<br>
+<p>
+#include &lt;unistd.h&gt;<br>
+#include &lt;string.h&gt;<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;sys/resource.h&gt;<br>
+#include &lt;sys/mman.h&gt;<br>
+#include &lt;asm/unistd.h&gt;<br>
+<p>
+#ifdef __alpha<br>
+#define _syscall1(type,name,type1,arg1)	   \<br>
+type name(type1 arg1)                      \<br>
+{			                   \<br>
+	return syscall(__NR_##name, arg1); \<br>
+}<br>
+<p>
+_syscall1(int,mlockall,int,flags);<br>
+#endif<br>
+<p>
+int main(int argc,char *argv[])<br>
+{<br>
+  if (mlockall( MCL_CURRENT )) perror("mlockall");<br>
+  return 0;<br>
+}<br>
+<p>
+this is the oops-message:<br>
+<p>
+Nov 27 11:59:17 fabserver1 kernel: Unable to handle kernel paging request at virtual<br>
+ address 0000015555720000<br>
+Nov 27 11:59:17 fabserver1 kernel: oops(283): Oops 0<br>
+Nov 27 11:59:17 fabserver1 kernel: pc = [&lt;fffffc0000331cc0&gt;] ps = 0000<br>
+Nov 27 11:59:17 fabserver1 kernel: rp = [&lt;fffffc00003320d0&gt;] sp = fffffc00090fdea0<br>
+<p>
+and this was told by gdb vmlinuz:<br>
+<p>
+(gdb) list *0xfffffc0000331cc0<br>
+0xfffffc0000331cc0 is in mlock_fixup (mlock.c:129).<br>
+124                             pages = -pages;<br>
+125                     vma-&gt;vm_mm-&gt;locked_vm += pages;<br>
+126<br>
+127                     if (newflags &amp; VM_LOCKED)<br>
+128                             while (start &lt; end) {<br>
+129                                     char c = get_user((char *) start);<br>
+130                                     __asm__ __volatile__("": :"r" (c));<br>
+131                                     start += PAGE_SIZE;<br>
+132                             }<br>
+133             }<br>
+<p>
+BTW, the same program runs without oops at my pentium under 2.0.26.<br>
+I first doubted the axp-diffs-patch was responsible for the oops, but mlock.c<br>
+isn't touched by the patch.<br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1237.html">Topi Kanerva: "Re: using linux instead of osf"</a>
+<li> <b>Previous message:</b> <a href="1235.html">Christian Moench: "X-Server for DEC TGA2-Graphic Adaptor"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

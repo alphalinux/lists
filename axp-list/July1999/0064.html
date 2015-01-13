@@ -1,0 +1,483 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: problem with unaligned access on Alpha</TITLE>
+<META NAME="Author" CONTENT="Maciej W. Rozycki (macro@ds2.pg.gda.pl)">
+<META NAME="Subject" CONTENT="Re: problem with unaligned access on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: problem with unaligned access on Alpha</H1>
+<HR>
+<P>
+<!-- received="Mon Jul 05 18:14:55 1999" -->
+<!-- isoreceived="19990706011455" -->
+<!-- sent="Mon, 5 Jul 1999 19:23:06 +0200 (MET DST)" -->
+<!-- isosent="19990705172306" -->
+<!-- name="Maciej W. Rozycki" -->
+<!-- email="macro@ds2.pg.gda.pl" -->
+<!-- subject="Re: problem with unaligned access on Alpha" -->
+<!-- id="Pine.GSO.3.96.990629205947.17807E-100000@delta.private.ds2.pg.gda.pl" -->
+<!-- inreplyto="199906291507.JAA15833@ellpspace.math.ualberta.ca" -->
+<STRONG>Subject: </STRONG>Re: problem with unaligned access on Alpha<BR>
+<STRONG>From: </STRONG>Maciej W. Rozycki (<EM>macro@ds2.pg.gda.pl</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jul 05 1999 - 10:23:06 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#64">[ date ]</A>
+<A HREF="index.html#64">[ thread ]</A>
+<A HREF="subject.html#64">[ subject ]</A>
+<A HREF="author.html#64">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0065.html">Phil_Carmody: "Finally booted RH6, but [p|th]ings still go wrong"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0063.html">Greg Lindahl: "Re: DEC FORTRAN in AXP-Linux"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 29 Jun 1999, Michal Jaegermann wrote:
+<BR>
+<P><EM>&gt; Aligning your own data is usually not a very big problem.  egcs does a
+</EM><BR>
+<EM>&gt; pretty good job with it by itself; sometimes too good. :-) But from time
+</EM><BR>
+<EM>&gt; to time you have to pick apart &quot;alien&quot; structures - like ethernet packet
+</EM><BR>
+<EM>&gt; headers, or file system descriptors, or you name it.  They have their
+</EM><BR>
+<EM>&gt; own layout and alignment requirements, which you cannot change, and one
+</EM><BR>
+<EM>&gt; has to be a bit careful not to run afoul of a compiler.
+</EM><BR>
+<P>&nbsp;As I promised, I am posting the code I am getting using various ways of
+<BR>
+accessing unaligned data.
+<BR>
+<P>&nbsp;The programs I used to test are horrible (don't try to run them ;-) ) but
+<BR>
+I believe they're about minimal necessary to stop egcs making any
+<BR>
+assumptions on addresses of variables.  The programs were compiled using
+<BR>
+&quot;gcc version egcs-2.91.66 19990314 (egcs-1.1.2 release)&quot; with optimization
+<BR>
+level set to &quot;-O3&quot; (no other compiler options) for ev4 and for i386.
+<BR>
+<P><P><P>&nbsp;For 32-bit quantities the program is as follows:
+<BR>
+<P>typedef struct { uint32_t v __attribute__((packed)); } uint32_s;
+<BR>
+<P>volatile int32_t *src, *dst;
+<BR>
+<P>int main(int argc)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;src = (void *)argc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dst = (void *)~argc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*src = argc;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (src - dst) + *dst;
+<BR>
+}
+<BR>
+<P>&nbsp;itoh32_u is a macro.
+<BR>
+<P>1. Accessing as if data were aligned:
+<BR>
+<P>itoh32_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint32_t *)&amp;(*dst)) = *((uint32_t *)&amp;(*src))
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000400:   00 00 45 a4     ldq     t1,0(t4)
+<BR>
+&nbsp;&nbsp;&nbsp;120000404:   00 00 24 a4     ldq     t0,0(t3)
+<BR>
+&nbsp;&nbsp;&nbsp;120000408:   00 00 42 89     lds     $f10,0(t1)
+<BR>
+&nbsp;&nbsp;&nbsp;12000040c:   00 00 41 99     sts     $f10,0(t0)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;80483cf:       a1 5c 95 04 08          movl   0x804955c,%eax
+<BR>
+&nbsp;80483d4:       8b 15 58 95 04 08       movl   0x8049558,%edx
+<BR>
+&nbsp;80483da:       8b 00                   movl   (%eax),%eax
+<BR>
+&nbsp;80483dc:       89 02                   movl   %eax,(%edx)
+<BR>
+<P><P>2. Accessing using pointer casting:
+<BR>
+<P>itoh32_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint32_t *)&amp;(*dst)) =
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(((uint32_t)((((uint8_t *)&amp;(*src)))[0])) |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((uint32_t)((((uint8_t *)&amp;(*src)))[1]) &lt;&lt; 8) |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((uint32_t)((((uint8_t *)&amp;(*src)))[2]) &lt;&lt; 16) |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((uint32_t)((((uint8_t *)&amp;(*src)))[3]) &lt;&lt; 24)) 
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000400:   00 00 57 a4     ldq     t1,0(t9)
+<BR>
+&nbsp;&nbsp;&nbsp;120000404:   00 00 16 a7     ldq     t10,0(t8)
+<BR>
+&nbsp;&nbsp;&nbsp;120000408:   01 00 c2 2c     ldq_u   t5,1(t1)
+<BR>
+&nbsp;&nbsp;&nbsp;12000040c:   07 34 40 40     addq    t1,0x1,t6
+<BR>
+&nbsp;&nbsp;&nbsp;120000410:   02 00 a2 2c     ldq_u   t4,2(t1)
+<BR>
+&nbsp;&nbsp;&nbsp;120000414:   01 54 40 40     addq    t1,0x2,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000418:   00 00 82 2c     ldq_u   t3,0(t1)
+<BR>
+&nbsp;&nbsp;&nbsp;12000041c:   08 74 40 40     addq    t1,0x3,t7
+<BR>
+&nbsp;&nbsp;&nbsp;120000420:   03 00 62 2c     ldq_u   t2,3(t1)
+<BR>
+&nbsp;&nbsp;&nbsp;120000424:   c6 00 c7 48     extbl   t5,t6,t5
+<BR>
+&nbsp;&nbsp;&nbsp;120000428:   c5 00 a1 48     extbl   t4,t0,t4
+<BR>
+&nbsp;&nbsp;&nbsp;12000042c:   c4 00 82 48     extbl   t3,t1,t3
+<BR>
+&nbsp;&nbsp;&nbsp;120000430:   c3 00 68 48     extbl   t2,t7,t2
+<BR>
+&nbsp;&nbsp;&nbsp;120000434:   21 17 c1 48     sll     t5,0x8,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000438:   27 17 a2 48     sll     t4,0x10,t6
+<BR>
+&nbsp;&nbsp;&nbsp;12000043c:   22 17 63 48     sll     t2,0x18,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000440:   01 04 81 44     or      t3,t0,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000444:   01 04 27 44     or      t0,t6,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000448:   01 04 22 44     or      t0,t1,t0
+<BR>
+&nbsp;&nbsp;&nbsp;12000044c:   00 00 38 b0     stl     t0,0(t10)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;80483d1:       8b 0d 7c 95 04 08       movl   0x804957c,%ecx
+<BR>
+&nbsp;80483d7:       0f b6 41 01             movzbl 0x1(%ecx),%eax
+<BR>
+&nbsp;80483db:       0f b6 11                movzbl (%ecx),%edx
+<BR>
+&nbsp;80483de:       c1 e0 08                shll   $0x8,%eax
+<BR>
+&nbsp;80483e1:       09 c2                   orl    %eax,%edx
+<BR>
+&nbsp;80483e3:       0f b6 41 02             movzbl 0x2(%ecx),%eax
+<BR>
+&nbsp;80483e7:       c1 e0 10                shll   $0x10,%eax
+<BR>
+&nbsp;80483ea:       09 c2                   orl    %eax,%edx
+<BR>
+&nbsp;80483ec:       0f b6 41 03             movzbl 0x3(%ecx),%eax
+<BR>
+&nbsp;80483f0:       8b 1d 78 95 04 08       movl   0x8049578,%ebx
+<BR>
+&nbsp;80483f6:       c1 e0 18                shll   $0x18,%eax
+<BR>
+&nbsp;80483f9:       09 c2                   orl    %eax,%edx
+<BR>
+&nbsp;80483fb:       89 13                   movl   %edx,(%ebx)
+<BR>
+<P><P>3. Accessing using packed structures: 
+<BR>
+<P>itoh32_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint32_t *)&amp;(*dst)) = (((uint32_s *)&amp;(*src)))-&gt;v
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000400:   00 00 65 a4     ldq     t2,0(t4)
+<BR>
+&nbsp;&nbsp;&nbsp;120000404:   00 00 c4 a4     ldq     t5,0(t3)
+<BR>
+&nbsp;&nbsp;&nbsp;120000408:   00 00 43 2c     ldq_u   t1,0(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;12000040c:   03 00 23 2c     ldq_u   t0,3(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;120000410:   c2 04 43 48     extll   t1,t2,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000414:   41 0d 23 48     extlh   t0,t2,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000418:   02 04 41 44     or      t1,t0,t1
+<BR>
+&nbsp;&nbsp;&nbsp;12000041c:   00 00 46 b0     stl     t1,0(t5)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh32_u(*dst, *src);
+<BR>
+&nbsp;80483cf:       a1 5c 95 04 08          movl   0x804955c,%eax
+<BR>
+&nbsp;80483d4:       8b 15 58 95 04 08       movl   0x8049558,%edx
+<BR>
+&nbsp;80483da:       8b 00                   movl   (%eax),%eax
+<BR>
+&nbsp;80483dc:       89 02                   movl   %eax,(%edx)
+<BR>
+<P><P><P>&nbsp;For 16-bit quantities the program is as follows:
+<BR>
+<P>typedef struct { uint16_t v __attribute__((packed)); } uint16_s;
+<BR>
+<P>volatile int16_t *src, *dst;
+<BR>
+<P>int main(int argc)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;src = (void *)argc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dst = (void *)~argc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*src = argc;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (src - dst) + *dst;
+<BR>
+}
+<BR>
+<P>1. Accessing as if data were aligned:
+<BR>
+<P>itoh16_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint16_t *)&amp;(*dst)) = *((uint16_t *)&amp;(*src)) 
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000414:   00 00 a7 a4     ldq     t4,0(t6)
+<BR>
+&nbsp;&nbsp;&nbsp;120000418:   00 00 86 a4     ldq     t3,0(t5)
+<BR>
+&nbsp;&nbsp;&nbsp;12000041c:   00 00 45 2c     ldq_u   t1,0(t4)
+<BR>
+&nbsp;&nbsp;&nbsp;120000420:   00 00 64 2c     ldq_u   t2,0(t3)
+<BR>
+&nbsp;&nbsp;&nbsp;120000424:   c2 02 45 48     extwl   t1,t4,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000428:   43 02 64 48     mskwl   t2,t3,t2
+<BR>
+&nbsp;&nbsp;&nbsp;12000042c:   61 03 44 48     inswl   t1,t3,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000430:   01 04 23 44     or      t0,t2,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000434:   00 00 24 3c     stq_u   t0,0(t3)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;80483d0:       a1 5c 95 04 08          movl   0x804955c,%eax
+<BR>
+&nbsp;80483d5:       8b 15 58 95 04 08       movl   0x8049558,%edx
+<BR>
+&nbsp;80483db:       66 8b 00                movw   (%eax),%ax
+<BR>
+&nbsp;80483de:       66 89 02                movw   %ax,(%edx)
+<BR>
+<P><P>2. Accessing using pointer casting:
+<BR>
+<P>itoh16_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint16_t *)&amp;(*dst)) =
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(((uint16_t)((((uint8_t *)&amp;(*src)))[0])) |
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((uint16_t)((((uint8_t *)&amp;(*src)))[1]) &lt;&lt; 8)) 
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000414:   00 00 76 a4     ldq     t2,0(t8)
+<BR>
+&nbsp;&nbsp;&nbsp;120000418:   00 00 c8 a4     ldq     t5,0(t7)
+<BR>
+&nbsp;&nbsp;&nbsp;12000041c:   01 00 23 2c     ldq_u   t0,1(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;120000420:   07 34 60 40     addq    t2,0x1,t6
+<BR>
+&nbsp;&nbsp;&nbsp;120000424:   00 00 43 2c     ldq_u   t1,0(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;120000428:   00 00 86 2c     ldq_u   t3,0(t5)
+<BR>
+&nbsp;&nbsp;&nbsp;12000042c:   c1 00 27 48     extbl   t0,t6,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000430:   c2 00 43 48     extbl   t1,t2,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000434:   25 17 21 48     sll     t0,0x8,t4
+<BR>
+&nbsp;&nbsp;&nbsp;120000438:   44 02 86 48     mskwl   t3,t5,t3
+<BR>
+&nbsp;&nbsp;&nbsp;12000043c:   02 04 45 44     or      t1,t4,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000440:   61 03 46 48     inswl   t1,t5,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000444:   01 04 24 44     or      t0,t3,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000448:   00 00 26 3c     stq_u   t0,0(t5)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;80483d1:       a1 6c 95 04 08          movl   0x804956c,%eax
+<BR>
+&nbsp;80483d6:       66 0f b6 10             movzbw (%eax),%dx
+<BR>
+&nbsp;80483da:       66 0f b6 40 01          movzbw 0x1(%eax),%ax
+<BR>
+&nbsp;80483df:       8b 0d 68 95 04 08       movl   0x8049568,%ecx
+<BR>
+&nbsp;80483e5:       66 c1 e0 08             shlw   $0x8,%ax
+<BR>
+&nbsp;80483e9:       09 c2                   orl    %eax,%edx
+<BR>
+&nbsp;80483eb:       66 89 11                movw   %dx,(%ecx)
+<BR>
+<P><P>3. Accessing using packed structures:
+<BR>
+<P>itoh16_u(*dst, *src)
+<BR>
+<P>&nbsp;is expanded into:
+<BR>
+<P>*((uint16_t *)&amp;(*dst)) = (((uint16_s *)&amp;(*src)))-&gt;v
+<BR>
+<P>The resulting code:
+<BR>
+<P>Alpha:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;&nbsp;&nbsp;120000414:   00 00 68 a4     ldq     t2,0(t7)
+<BR>
+&nbsp;&nbsp;&nbsp;120000418:   00 00 c7 a4     ldq     t5,0(t6)
+<BR>
+&nbsp;&nbsp;&nbsp;12000041c:   00 00 43 2c     ldq_u   t1,0(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;120000420:   01 00 83 2c     ldq_u   t3,1(t2)
+<BR>
+&nbsp;&nbsp;&nbsp;120000424:   00 00 a6 2c     ldq_u   t4,0(t5)
+<BR>
+&nbsp;&nbsp;&nbsp;120000428:   c2 02 43 48     extwl   t1,t2,t1
+<BR>
+&nbsp;&nbsp;&nbsp;12000042c:   44 0b 83 48     extwh   t3,t2,t3
+<BR>
+&nbsp;&nbsp;&nbsp;120000430:   45 02 a6 48     mskwl   t4,t5,t4
+<BR>
+&nbsp;&nbsp;&nbsp;120000434:   02 04 44 44     or      t1,t3,t1
+<BR>
+&nbsp;&nbsp;&nbsp;120000438:   61 03 46 48     inswl   t1,t5,t0
+<BR>
+&nbsp;&nbsp;&nbsp;12000043c:   01 04 25 44     or      t0,t4,t0
+<BR>
+&nbsp;&nbsp;&nbsp;120000440:   00 00 26 3c     stq_u   t0,0(t5)
+<BR>
+<P>ia32:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;itoh16_u(*dst, *src);
+<BR>
+&nbsp;80483d0:       a1 5c 95 04 08          movl   0x804955c,%eax
+<BR>
+&nbsp;80483d5:       8b 15 58 95 04 08       movl   0x8049558,%edx
+<BR>
+&nbsp;80483db:       66 8b 00                movw   (%eax),%ax
+<BR>
+&nbsp;80483de:       66 89 02                movw   %ax,(%edx)
+<BR>
+<P><P><P>&nbsp;As you see both the second and the third case give correct program
+<BR>
+behaviour though &quot;byte fiddling&quot; is more expensive than packed structures. 
+<BR>
+<P>&nbsp;For Alpha the first case is certainly the fastest but it fails in some
+<BR>
+cases. 
+<BR>
+<P>&nbsp;For ia32 the compiler knows the bus interface supports unaligned accesses
+<BR>
+and produces the fastest code possible for both the first and the third
+<BR>
+case.
+<BR>
+<P><PRE>
+-- 
++  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
++--------------------------------------------------------------+
++        e-mail: macro@ds2.pg.gda.pl, PGP key available        +
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0065.html">Phil_Carmody: "Finally booted RH6, but [p|th]ings still go wrong"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0063.html">Greg Lindahl: "Re: DEC FORTRAN in AXP-Linux"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:34 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

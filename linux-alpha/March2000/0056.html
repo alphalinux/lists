@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 14 06:22:30 2000" -->
+<!-- isoreceived="20000314142230" -->
+<!-- sent="Mon, 13 Mar 2000 15:15:15 -0800 (PST)" -->
+<!-- isosent="20000313231515" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131511040.1031-100000@penguin.transmeta.com" -->
+<!-- inreplyto="Pine.LNX.4.21.0003140006460.14501-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 15:15:15 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#56">[ date ]</A>
+<A HREF="index.html#56">[ thread ]</A>
+<A HREF="subject.html#56">[ subject ]</A>
+<A HREF="author.html#56">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0057.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0058.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0078.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0058.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 14 Mar 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt; On Mon, 13 Mar 2000, Jamie Lokier wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;Note: In many cases, spinlock_irqsave doesn't need to do the
+</EM><BR>
+<EM>&gt; &gt;spinlock_depth thing on UP. [..]
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It doesn't need that in SMP either.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;[..] However, not all cases: the code in the
+</EM><BR>
+<EM>&gt; &gt;lock region might wake up another task.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If you wakeup another task you don't risk to get rescheduled before you
+</EM><BR>
+<EM>&gt; drop the lock.
+</EM><BR>
+<P>What Jamie is referring to is:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_irqsave(a);	/* No-op - no counter increment */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock(b);		/* count = 1 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wakeup_other_task()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_irqsave(runqueue_list);	/* no-op */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.. wakeup, current-&gt;need_resched = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqsave(runqueue_list);	/* no-op */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock(b);		/* Decrement, count = 0;  !!!! BOOM !!!!! */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irqrestore(b);
+<BR>
+<P>so IF you check for &quot;needs_resched&quot; after a spin_unlock(), then you can't
+<BR>
+do the simple and efficient optimization I was talking about, because the
+<BR>
+counters are not really precise - they rely on interrupts not happening.
+<BR>
+<P>Problems like this is why I'm a big believer in NOT overdesigning things.
+<BR>
+Keep it simple and STUPID, and you'll live a healthy long life. And let's
+<BR>
+not mess with SMP.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0057.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0058.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0078.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0058.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,164 @@
+<!-- received="Tue Sep 15 17:39:30 1998 " -->
+<!-- sent="Tue, 15 Sep 1998 13:35:28 -0700 (PDT)" -->
+<!-- name="B. James Phillippe" -->
+<!-- email="bryan@terran.org" -->
+<!-- subject="Re: aboot problems with AlphaStation 200" -->
+<!-- id="199809151939.OAA29675@dfw-ix16.ix.netcom.com" -->
+<!-- inreplyto="199809151939.OAA29675@dfw-ix16.ix.netcom.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: aboot problems with AlphaStation 200</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: aboot problems with AlphaStation 200</h2>
+
+<b>B. James Phillippe</b> (<a href="mailto:bryan@terran.org"><i>bryan@terran.org</i></a>)<br>
+<i>Tue, 15 Sep 1998 13:35:28 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#309">[ date ]</a><a href="index.html#309">[ thread ]</a><a href="subject.html#309">[ subject ]</a><a href="author.html#309">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0310.html">B. James Phillippe: "Re: ANA-6944A/TX"</a>
+<li> <b>Previous message:</b> <a href="0308.html">Jeff Noxon: "Re: aboot problems with AlphaStation 200"</a>
+<li> <b>In reply to:</b> <a href="0311.html">Peter Petrakis: "[ANNOUNCE: Metro-X for Linux/Alpha]"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 15 Sep 1998, Rob Rupprath wrote:<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Hello,</i><br>
+<i>&gt; </i><br>
+<i>&gt; I recently purchased an AlphaStation 200 4/233 and installed RedHat 5.1</i><br>
+<i>&gt; on it.  This comes with kernel 2.0.24, but I need some features not</i><br>
+<p>
+You mean 2.0.34. ?<br>
+<p>
+<i>&gt; compiled into the default kernel so I compiled my own (2.0.24 + RedHat</i><br>
+<i>&gt; Patches).  I have been using the Avanti-s boot disk. My drive</i><br>
+<i>&gt; configuration is as follows:</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	/dev/sda1	(Approx 5MB) No Mount Point, recoommended by aboot</i><br>
+<i>&gt; 	/dev/sda2	(Approx 1.85GB) /</i><br>
+<i>&gt; 	/dev/sda3	(Approx 128MB) swap</i><br>
+<p>
+One comment.  This partitioning scheme should work, but there is an<br>
+unnecessary step: the reserved space at the beginning of the disk does not<br>
+need to be a partition.  In other words, if you simply start your first<br>
+partition at an offset (other than zero :) from the beginning of the drive,<br>
+this is sufficient.  This way you do not need any "useless partitions".<br>
+The only requirement is that the empty space you reserve is enough for<br>
+aboot (about 1-2MB is typical).  Here is what my disklabel looks like:<br>
+<p>
+% fdisk <br>
+Using /dev/sda as default device!<br>
+<p>
+Command (m for help): b<br>
+<p>
+BSD disklabel command (m for help): p<br>
+<p>
+4 partitions:<br>
+#        size   offset    fstype   [fsize bsize   cpg]<br>
+  a:   131936     8246      swap                        # (Cyl.    2 - 17)<br>
+  b:  1030750   140182      ext2                        # (Cyl.   18 - 142)<br>
+  c:  4510562  1170932      ext2                        # (Cyl.  143 - 689)<br>
+  d:  2704688  5681494      ext2                        # (Cyl.  690 - 1017)<br>
+<p>
+BSD disklabel command (m for help): q             <br>
+% <br>
+<p>
+<i>&gt; 	Now when I try to install the new kernel by doing a "swriteboot /dev/sda</i><br>
+<i>&gt; boot1x vmlinux.gz" it suceeds, but the machine will never boot again, not</i><br>
+<i>&gt; even from the floppy (Unable to mount rootfs).  I suppose I have the syntax</i><br>
+<i>&gt; wrong somewhere.</i><br>
+<p>
+The Alpha does not suffer from the limited boot concept employed by PC's.<br>
+In a PC, your boot loader must be very small and is subject to the<br>
+restrictions of the BIOS (large disks, etc).  Therefore, the boot loader<br>
+itself must contain the actual physical offset of the kernel image to load.<br>
+This is why we have to reinstall LILO on a PC every time we change the<br>
+kernel.  This is not required (nor should be done) for Alpha.  For the<br>
+Alpha (using SRM, as you are), you simply install aboot once.  Forever<br>
+after, you can stick as many kernels as you want in as many places as you<br>
+want (more or less), and simply specify that filename instead at the SRM<br>
+prompt.<br>
+<p>
+The command for installing aboot is "swriteboot /dev/sda bootlx".  I don't<br>
+know what effect this will have on your partition scheme because of the<br>
+first partition starting at offset zero.  I suspect that it will be okay as<br>
+long as you don't ever try to use /dev/sda1.<br>
+<p>
+Next, lets say you build a new kernel.  Copy the file<br>
+linux/arch/alpha/boot/vmlinux.gz to some location, say,<br>
+/boot/new-kernel.gz.  Now you can reboot, and at the &gt;&gt;&gt; SRM prompt, you<br>
+can select it like this:<br>
+<p>
+<i>&gt;&gt;&gt; boot dka0 -file 2/new-kernel.gz -flags root=/dev/sda2</i><br>
+<p>
+<i>&gt; 	Are 2.0.x kernels not good for alpha systems?  In reading the archives</i><br>
+<i>&gt; many people are running 2.1.x If anyone has any helpful answers on the hd</i><br>
+<i>&gt; boot issue please let me know.  I have no problem installing the machine</i><br>
+<p>
+You should start with a 2.0 kernel.  I would suggest getting the 2.0.35<br>
+kernel and applying the alpha patches from gatekeeper.dec.com, I don't<br>
+recall the subdirectory (for some reason I always have trouble finding<br>
+it...).  Pick the "Avanti" kernel type and answer yes to SRM support.  The<br>
+2.1 kernels are supposed to be much better for Alpha, but unfortunately<br>
+I've never gotten one to work, and they sound quite broken in many regards<br>
+right now.  I'd suggest waiting for a while.  When you do go for a 2.1<br>
+kernel, you'll want to make sure you have a later version of egcs (1.1 is<br>
+out now) and Maciej's patch for aboot.<br>
+<p>
+<i>&gt; again if necessary.  I also get a lot of segmentation faults when doing</i><br>
+<i>&gt; simple things like "man ls".  In my messages file there are a lot of</i><br>
+<i>&gt; "unaligned trap" errors.  Is this normal?</i><br>
+<p>
+I'd suggest going to RedHat's errata section on the website and finding out<br>
+about all of the bugfixes made before you do anything else (there are some<br>
+biggies).  The man problem is fixed in an update.<br>
+<p>
+After you get your Alpha up and going, drop me a note with your opinion of<br>
+the system and satisfaction level, and also what your primary use is (if<br>
+you don't mind :)<br>
+<p>
+Hope this helps,<br>
+-bp<br>
+<pre>
+--
+B. James Phillippe &lt;<a href="mailto:bryan@terran.org">bryan@terran.org</a>&gt;
+Linux Software Engineer, WGTI.
+<a href="http://earth.terran.org/~bryan">http://earth.terran.org/~bryan</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0310.html">B. James Phillippe: "Re: ANA-6944A/TX"</a>
+<li> <b>Previous message:</b> <a href="0308.html">Jeff Noxon: "Re: aboot problems with AlphaStation 200"</a>
+<li> <b>In reply to:</b> <a href="0311.html">Peter Petrakis: "[ANNOUNCE: Metro-X for Linux/Alpha]"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

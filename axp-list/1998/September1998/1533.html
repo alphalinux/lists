@@ -1,0 +1,154 @@
+<!-- received="Mon Oct 12 01:40:55 1998 " -->
+<!-- sent="Sun, 11 Oct 1998 21:31:40 -0700 (PDT)" -->
+<!-- name="Mr. James W. Laferriere" -->
+<!-- email="babydr@baby-dragons.com" -->
+<!-- subject="Re: various network drivers at Linux kernels (was: Miata Networking...)" -->
+<!-- id="199810112324.BAA17108@punt.aladdin.de" -->
+<!-- inreplyto="Pine.SUN.3.91.981011201906.10565C-100000@yukon" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: various network drivers at Linux kernels (was: Miata Networking...)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: various network drivers at Linux kernels (was: Miata Networking...)</h2>
+
+<b>Mr. James W. Laferriere</b> (<a href="mailto:babydr@baby-dragons.com"><i>babydr@baby-dragons.com</i></a>)<br>
+<i>Sun, 11 Oct 1998 21:31:40 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1533">[ date ]</a><a href="index.html#1533">[ thread ]</a><a href="subject.html#1533">[ subject ]</a><a href="author.html#1533">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1534.html">Jaap Schellekens: "sox, mpg123, amp. Problems, problems. *sigh*"</a>
+<li> <b>Previous message:</b> <a href="1532.html">Steve G: "Weird Boot Problem after Ramdisk is inserted"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+	Hello Donald,  Got v1.04 &amp; am compiling up 2.0.35 + alan pre-14<br>
+	now ,  Will report back soon on the mii-diag necessity problem.<br>
+	Hth, JimL<br>
+<p>
+On Sun, 11 Oct 1998, Donald Becker wrote:<br>
+<i>&gt; On Sun, 11 Oct 1998, Matti Aarnio wrote:</i><br>
+<i>&gt; &gt; The version of the Tulip driver at 2.1.124 contains various other</i><br>
+<i>&gt; &gt; bugfixes, most important of which (I think) is SKB allocation out-of-memory</i><br>
+<i>&gt; &gt; handling code, which Donald has not yet believed to be necessary for those</i><br>
+<i>&gt; &gt; drivers which have rx_skbuff[] rings.  :-(</i><br>
+<i>&gt; </i><br>
+<i>&gt; Look again: the older versions of the tulip driver (and most other</i><br>
+<i>&gt; descriptor-based bus-master driver) used an drop-immediately scheme.  If</i><br>
+<i>&gt; they could not allocate a refill skbuff, they dropped the packet and kept</i><br>
+<i>&gt; the old skbuff on the receive ring.  This was to avoid having the chip ever</i><br>
+<i>&gt; shut down from lack of receive buffers.</i><br>
+<i>&gt; </i><br>
+<i>&gt; This worked pretty well until there was a kernel version that tended to keep</i><br>
+<i>&gt; too little free memory around for interrupt handlers.  Even though there was</i><br>
+<i>&gt; plenty of physical memory, it was all being used for buffer cache.  This</i><br>
+<i>&gt; caused drivers to drop a lot of packets even though a few milliseconds later</i><br>
+<i>&gt; the kernel could come up with a whole bunch of free memory.</i><br>
+<i>&gt; </i><br>
+<i>&gt; So I slowly changed all of my descriptor-based drivers to instead use a</i><br>
+<i>&gt; "buffer deficit" scheme, where the driver passes all  of the received</i><br>
+<i>&gt; packets to the queue layer in the first phase, and then refills the receive</i><br>
+<i>&gt; ring later.  If the machine runs temporarily short of memory the recieve</i><br>
+<i>&gt; ring will be refilled at the next Rx interrupt.  Only if it's persistently</i><br>
+<i>&gt; short of memory will the receive ring empty of buffers and drop packets.</i><br>
+<i>&gt; </i><br>
+<i>&gt; This "buffer deficit" scheme has another beneficial effect: most new chips</i><br>
+<i>&gt; which implement hardware flow control can only trigger FC packets when</i><br>
+<i>&gt; running out of buffers, not in response to a driver-level request.  BTW,</i><br>
+<i>&gt; hardware flow control is unrelated to the misnamed code in the new kernel.</i><br>
+<i>&gt; That new code should be called "randomly drop packets when actually doing</i><br>
+<i>&gt; work".</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; Speaking of which, a quick browse shows me that: </i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; tulip.c at 2.0.35 has this rx_skbuff[] ring problem.</i><br>
+<i>&gt; </i><br>
+<i>&gt; See above -- it just has a different structure.</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; 3c59x.c (up to and including version 0.99G!) driver does blow up if that</i><br>
+<i>&gt; &gt; ring can not be refilled successfully...</i><br>
+<i>&gt; </i><br>
+<i>&gt; The 3c59x.c driver has a related bug: it has a limit check at the end of a</i><br>
+<i>&gt; loop instead of the beginning.  (A mistaken optimization on my part.)  If</i><br>
+<i>&gt; the receive ring cannot be filled and empties completely, there are</i><br>
+<i>&gt; obviously no packets to receive.  But with the limit check at the end of the</i><br>
+<i>&gt; loop, the driver will think that and old, already-processed packet is a new</i><br>
+<i>&gt; one.  Disaster occurs..  This same bug exists in the eepro100.c driver.</i><br>
+<i>&gt; (However the current tulip driver *does* have the check in the correct</i><br>
+<i>&gt; place.)</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; eepro100.c's code (at 2.1.124, v0.36) is rather unclear at what it does,</i><br>
+<i>&gt; &gt; but it looks likely to be able to survive the situation.</i><br>
+<i>&gt; </i><br>
+<i>&gt; That old driver version has another low-memory receive bug, and a multicast</i><br>
+<i>&gt; list race condition.  The new driver, v1.04, supports newer board versions, is</i><br>
+<i>&gt; much more robust when rapidly changing large multicast filters (Appletalk</i><br>
+<i>&gt; environments!), cache aligns transmit descriptors, and enables hardware flow</i><br>
+<i>&gt; control on the i82558.</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; de4x5.c (v0.542) driver will always alloc a new skb at an Alpha, and</i><br>
+<i>&gt; &gt; then copy the data there.  If the alloc fails, it is skipped. (No kernel</i><br>
+<i>&gt; &gt; crash from that...)  (But this isn't Donald's  rx_skbuff[]  beasts either..)</i><br>
+<i>&gt; </i><br>
+<i>&gt; That's similar to what my drivers used to do.  It's a natural progression</i><br>
+<i>&gt; from the original driver model, which was "copy into a fresh skbuff", to the</i><br>
+<i>&gt; zero-copy "receive directly into an skbuff and refill the slot immediately".</i><br>
+<i>&gt; </i><br>
+<i>&gt; An advantage to copying with the Alpha is that the Tulip must have</i><br>
+<i>&gt; word-aligned receive buffers.  With 14 byte Ethernet headers, the IP headers</i><br>
+<i>&gt; are always misaligned.  The Linux protocol code doesn't (didn't) have</i><br>
+<i>&gt; get_unaligned() calls for disassembling packets, so uncopied packets cause</i><br>
+<i>&gt; alignment traps.  When copying packets (or with a better chip) you can do</i><br>
+<i>&gt; skb_reserve(skb,2) to align the IP header.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Donald Becker					  <a href="mailto:becker@cesdis.gsfc.nasa.gov">becker@cesdis.gsfc.nasa.gov</a></i><br>
+<i>&gt; USRA-CESDIS, Center of Excellence in Space Data and Information Sciences.</i><br>
+<i>&gt; Code 930.5, Goddard Space Flight Center,  Greenbelt, MD.  20771</i><br>
+<i>&gt; 301-286-0882	     <a href="http://cesdis.gsfc.nasa.gov/people/becker/whoiam.html">http://cesdis.gsfc.nasa.gov/people/becker/whoiam.html</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; -</i><br>
+<i>&gt; To unsubscribe from this list: send the line "unsubscribe linux-net" in</i><br>
+<i>&gt; the body of a message to majordomo@vger.rutgers.edu</i><br>
+<i>&gt; </i><br>
+<p>
+ 				, JimL<br>
++-----------------------------------------------------------------------+ <br>
+<i>|  James W. Laferriere  -  Network  Engineer  - <a href="mailto:babydr@baby-dragons.com">babydr@baby-dragons.com</a> |</i><br>
+<i>|   System Techniques   -  25416  -  22nd S.  - Des-Moines, WA  98198   |</i><br>
+<i>|     Give me VMS     -or-   Give me Linux   -but-   only on AXP        |</i><br>
++-----------------------------------------------------------------------+<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1534.html">Jaap Schellekens: "sox, mpg123, amp. Problems, problems. *sigh*"</a>
+<li> <b>Previous message:</b> <a href="1532.html">Steve G: "Weird Boot Problem after Ramdisk is inserted"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

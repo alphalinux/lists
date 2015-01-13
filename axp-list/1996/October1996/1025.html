@@ -1,0 +1,99 @@
+<!-- received="Thu Oct 24 12:16:51 1996 " -->
+<!-- sent="Thu, 24 Oct 1996 10:52:07 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: Compile (Linker) Problem: relocation truncated to fit" -->
+<!-- id="199610241552.KAA13416@atheist.tamu.edu" -->
+<!-- inreplyto="9610241429.ZM15260@fabsoft2.zarm.uni-bremen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Compile (Linker) Problem: relocation truncated to fit</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Compile (Linker) Problem: relocation truncated to fit</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Thu, 24 Oct 1996 10:52:07 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1025">[ date ]</a><a href="index.html#1025">[ thread ]</a><a href="subject.html#1025">[ subject ]</a><a href="author.html#1025">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1026.html">RHS Linux User: "Re: RPM upgrade"</a>
+<li> <b>Previous message:</b> <a href="1024.html">Tim Bosinius: "UDB SCSI Problem"</a>
+<li> <b>In reply to:</b> <a href="1016.html">Zarmfab Software Development: "Compile (Linker) Problem: relocation truncated to fit"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Trying to Compile Xemacs in my avanti i get many messages :</i><br>
+<i>&gt; relocation truncated to fit: LITERAL ....</i><br>
+<i>&gt; in the final link stage. The messages are all refering to functions that</i><br>
+<i>&gt; are defined in static libaries. </i><br>
+<p>
+With small programs, that is a sign of having linked ECOFF object<br>
+files into the ELF executable.  However, I've recently had two reports<br>
+of very large programs (CLAPACK and a recent g++ snapshot) exceeding<br>
+the maximum .got segment size also yielding this message.<br>
+<p>
+The current ELF linker implements .got compression, which cuts a third<br>
+to a half of the size off the ECOFF .lita size, but does not allow<br>
+multiple .got subsections.  That was a bit o' nastiness I didn't want<br>
+to fool with and I thought I'd gotten away with it when the X server<br>
+linked with room to spare.  Suffice to say that I am now working on it.<br>
+<p>
+As a workaround, you should be able to get things to work by turning<br>
+the static libraries into shared libraries and sticking them in the<br>
+Xemacs libexec bin directory.  This because each library gets its own<br>
+.got section and so effectively achives the desired result of multiple<br>
+sections for the application.<br>
+<p>
+The former operation would be like so:<br>
+<p>
+  ld -shared -o libfoo.so --whole-archive libfoo.a --no-whole-archive<br>
+<p>
+and the latter like<br>
+<p>
+  gcc -o xemacs -Wl,-rpath,/usr/libexec/emacs/version/alpha-linux ...<br>
+<p>
+Oh, and you'll need to do the build like <br>
+<p>
+  LD_LIBRARY_PATH=path make <br>
+<p>
+where path is a colon separated path to the directories of the .so<br>
+files in the build directory.  This because emacs will need them to<br>
+load while it dumps itself.<br>
+<p>
+<p>
+r~<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1026.html">RHS Linux User: "Re: RPM upgrade"</a>
+<li> <b>Previous message:</b> <a href="1024.html">Tim Bosinius: "UDB SCSI Problem"</a>
+<li> <b>In reply to:</b> <a href="1016.html">Zarmfab Software Development: "Compile (Linker) Problem: relocation truncated to fit"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

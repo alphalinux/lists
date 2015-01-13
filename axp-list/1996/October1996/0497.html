@@ -1,0 +1,217 @@
+<!-- received="Tue Oct 15 21:42:53 1996 " -->
+<!-- sent="Tue, 15 Oct 1996 19:22:46 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="2.1.4 exception question" -->
+<!-- id="199610160022.TAA24271@atheist.tamu.edu" -->
+<!-- inreplyto="mail -s unsubscribe axp-list1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>2.1.4 exception question</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>2.1.4 exception question</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Tue, 15 Oct 1996 19:22:46 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#497">[ date ]</a><a href="index.html#497">[ thread ]</a><a href="subject.html#497">[ subject ]</a><a href="author.html#497">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0498.html">Richard Henderson: "Re: libelf for Alpha?"</a>
+<li> <b>Previous message:</b> <a href="0496.html">J. Zimmitti: "XQuake Core Dumps w/ RH 4.0"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0509.html">Linus Torvalds: "Re: 2.1.4 exception question"</a>
+<li> <b>Reply:</b> <a href="0509.html">Linus Torvalds: "Re: 2.1.4 exception question"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I am aware that quite a bit was hashed about on linux-kernel recently,<br>
+but to clarify, I'm wondering about the implementation of read/write<br>
+as they exist in 2.1.4.  I take as my example the routines from<br>
+drivers/char/mem.c.<br>
+<p>
+As it stands, copy_{to,from}_user correctly trap the exception, but <br>
+the surrounding code does nothing with the status returned from those<br>
+functions.<br>
+<p>
+According to my understanding of the recent discussion, the appended<br>
+patch is required to make the code correct.  Specifically, it actually<br>
+tests the return values and returns the amount actually written.  Is<br>
+this indeed correct?  Should this pattern be replicated to the other<br>
+drivers?<br>
+<p>
+What about bits like those in, e.g., arch/alpha/kernel/osf_sys.c<br>
+osf_filldir() that similarly assume that the entire buffer is valid,<br>
+and blithely attempts to fill it all despite the fact that it <br>
+generates oodles of exceptions? <br>
+<p>
+Or, on a slightly different tack, sys_newstat that never returns<br>
+an error.  Or the set_termios bits which don't recognize that the<br>
+copy_from_user failed.  True, POSIX says we needn't reliably report<br>
+such errors, but is this what _we_ want in this situation?<br>
+<p>
+Just wondering what the Official Position on these issues are <br>
+before doing wholesale changes.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+*** mem.c.orig	Tue Oct 15 18:42:40 1996<br>
+--- mem.c	Tue Oct 15 18:51:59 1996<br>
+*************** static long read_mem(struct inode * inod<br>
+*** 51,57 ****<br>
+  {<br>
+  	unsigned long p = file-&gt;f_pos;<br>
+  	unsigned long end_mem;<br>
+! 	int read;<br>
+  <br>
+  	if (count &lt; 0)<br>
+  		return -EINVAL;<br>
+--- 51,57 ----<br>
+  {<br>
+  	unsigned long p = file-&gt;f_pos;<br>
+  	unsigned long end_mem;<br>
+! 	long read;<br>
+  <br>
+  	if (count &lt; 0)<br>
+  		return -EINVAL;<br>
+*************** static long read_mem(struct inode * inod<br>
+*** 60,79 ****<br>
+  		return 0;<br>
+  	if (count &gt; end_mem - p)<br>
+  		count = end_mem - p;<br>
+  	read = 0;<br>
+  #if defined(__sparc__) /* we don't have page 0 mapped on sparc.. */<br>
+! 	while (p &lt; PAGE_SIZE &amp;&amp; count &gt; 0) {<br>
+! 		put_user(0,buf);<br>
+  		buf++;<br>
+  		p++;<br>
+- 		count--;<br>
+  		read++;<br>
+  	}<br>
+  #endif<br>
+! 	copy_to_user(buf, __va(p), count);<br>
+! 	read += count;<br>
+  	file-&gt;f_pos += read;<br>
+! 	return read;<br>
+  }<br>
+  <br>
+  static long write_mem(struct inode * inode, struct file * file,<br>
+--- 60,81 ----<br>
+  		return 0;<br>
+  	if (count &gt; end_mem - p)<br>
+  		count = end_mem - p;<br>
++ <br>
+  	read = 0;<br>
+  #if defined(__sparc__) /* we don't have page 0 mapped on sparc.. */<br>
+! 	while (p &lt; PAGE_SIZE &amp;&amp; read &lt; count) {<br>
+! 		if (put_user(0,buf))<br>
+! 			goto error;<br>
+  		buf++;<br>
+  		p++;<br>
+  		read++;<br>
+  	}<br>
+  #endif<br>
+! 	read += count - copy_to_user(buf, __va(p), count);<br>
+! <br>
+! error:<br>
+  	file-&gt;f_pos += read;<br>
+! 	return read || !count ? read : -EFAULT;<br>
+  }<br>
+  <br>
+  static long write_mem(struct inode * inode, struct file * file,<br>
+*************** static long write_mem(struct inode * ino<br>
+*** 81,87 ****<br>
+  {<br>
+  	unsigned long p = file-&gt;f_pos;<br>
+  	unsigned long end_mem;<br>
+! 	int written;<br>
+  <br>
+  	if (count &lt; 0)<br>
+  		return -EINVAL;<br>
+--- 83,89 ----<br>
+  {<br>
+  	unsigned long p = file-&gt;f_pos;<br>
+  	unsigned long end_mem;<br>
+! 	long written;<br>
+  <br>
+  	if (count &lt; 0)<br>
+  		return -EINVAL;<br>
+*************** static long write_mem(struct inode * ino<br>
+*** 90,109 ****<br>
+  		return 0;<br>
+  	if (count &gt; end_mem - p)<br>
+  		count = end_mem - p;<br>
+  	written = 0;<br>
+  #if defined(__sparc__) /* we don't have page 0 mapped on sparc.. */<br>
+! 	while (p &lt; PAGE_SIZE &amp;&amp; count &gt; 0) {<br>
+  		/* Hmm. Do something? */<br>
+  		buf++;<br>
+  		p++;<br>
+- 		count--;<br>
+  		written++;<br>
+  	}<br>
+  #endif<br>
+! 	copy_from_user(__va(p), buf, count);<br>
+! 	written += count;<br>
+  	file-&gt;f_pos += written;<br>
+! 	return count;<br>
+  }<br>
+  <br>
+  static int mmap_mem(struct inode * inode, struct file * file, struct vm_area_struct * vma)<br>
+--- 92,111 ----<br>
+  		return 0;<br>
+  	if (count &gt; end_mem - p)<br>
+  		count = end_mem - p;<br>
++ <br>
+  	written = 0;<br>
+  #if defined(__sparc__) /* we don't have page 0 mapped on sparc.. */<br>
+! 	while (p &lt; PAGE_SIZE &amp;&amp; written &lt; count) {<br>
+  		/* Hmm. Do something? */<br>
+  		buf++;<br>
+  		p++;<br>
+  		written++;<br>
+  	}<br>
+  #endif<br>
+! 	written += count - copy_from_user(__va(p), buf, count);<br>
+! <br>
+  	file-&gt;f_pos += written;<br>
+! 	return written || !count ? written : -EFAULT;<br>
+  }<br>
+  <br>
+  static int mmap_mem(struct inode * inode, struct file * file, struct vm_area_struct * vma)<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0498.html">Richard Henderson: "Re: libelf for Alpha?"</a>
+<li> <b>Previous message:</b> <a href="0496.html">J. Zimmitti: "XQuake Core Dumps w/ RH 4.0"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0509.html">Linus Torvalds: "Re: 2.1.4 exception question"</a>
+<li> <b>Reply:</b> <a href="0509.html">Linus Torvalds: "Re: 2.1.4 exception question"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

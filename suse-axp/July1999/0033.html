@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.</TITLE>
+<META NAME="Author" CONTENT="Stefan Schroepfer (scr@iis.fhg.de)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP</H1>
+<HR>
+<P>
+<!-- received="Thu Jul 29 10:54:27 1999" -->
+<!-- isoreceived="19990729175427" -->
+<!-- sent="Thu, 29 Jul 1999 11:52:37 +0200" -->
+<!-- isosent="19990729095237" -->
+<!-- name="Stefan Schroepfer" -->
+<!-- email="scr@iis.fhg.de" -->
+<!-- subject="Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP" -->
+<!-- id="37A02464.41C67EA6@iis.fhg.de" -->
+<!-- inreplyto="XFMail.990728222258.stepan@suse.de" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP<BR>
+<STRONG>From: </STRONG>Stefan Schroepfer (<EM>scr@iis.fhg.de</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 29 1999 - 02:52:37 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#33">[ date ]</A>
+<A HREF="index.html#33">[ thread ]</A>
+<A HREF="subject.html#33">[ subject ]</A>
+<A HREF="author.html#33">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Andre Fuechsel: "[suse-axp] DEC 2000 Model 300"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Stefan Reinauer: "[suse-axp] Re: [SuSE AXP] SMP in SuSEAlpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0031.html">Stefan Reinauer: "Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0031.html">Stefan Schroepfer: "Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Stefan Reinauer wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I am not sure, but I don't think so. Afaicr XFree is compiled with -mcpu=ev6
+</EM><BR>
+<EM>&gt; and the X servers show up lots of unaligned accesses.
+</EM><BR>
+<P>I have to correct myself. Although I came across cases where
+<BR>
+generating ev56 code was sufficient to avoid unaligned traps,
+<BR>
+this is not generally the case. Usually one has to patch the
+<BR>
+sources.
+<BR>
+<P><EM>&gt; Well, it would be sufficient to include an -mcpu= statement in the specs file.
+</EM><BR>
+<EM>&gt; I haven't tried the latest egcs snapshots. But I remember that someone postet a
+</EM><BR>
+<P>The latest one I bootstrapped was from early June. Code compiled
+<BR>
+with it showed performance improvements here and there on ev56
+<BR>
+machines over egcs 1.1.2 compiled code.
+<BR>
+Note that the egcs crew took over gcc maintenance back in May,
+<BR>
+gcc 2.95 (what was called egcs 1.2 before the merge) will be
+<BR>
+released very soon.
+<BR>
+<P><EM>&gt; description of how to track down and get rid of the unaligned accesses (first
+</EM><BR>
+<EM>&gt; one should be the harder) on the redhat-alpha list. If I find it, I can post it
+</EM><BR>
+<EM>&gt; to this list and have a look at the squid problems.
+</EM><BR>
+<P>I searched my private archive of axp-list and appended excerpts
+<BR>
+of two messages below. Hope this helps.
+<BR>
+<P>Regards,
+<BR>
+Stefan Schroepfer
+<BR>
+scr@iis.fhg.de
+<BR>
+<P><P><P><P>This is what Richanrd Herderson &lt;rth@dot.cygnus.com&gt;
+<BR>
+posted to axp-list (Mon, 6 Apr 1998 20:38:02 -0700):
+<BR>
+<P>The following will tell both Digital Unix and Linux (post 2.1.20 or so)
+<BR>
+to deliver a SIGBUS rather than fix up the access.  This makes the 
+<BR>
+problem significantly easier to debug.
+<BR>
+<P>r~
+<BR>
+<P><PRE>
+---
+<P>#ifndef __linux__
+#include &lt;sys/sysinfo.h&gt;
+#else
+#include &lt;asm/sysinfo.h&gt;
+#include &lt;asm/unistd.h&gt;
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long
+size,
+                      int *start, void *arg, unsigned long flag)
+{
+  syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+}
+#endif
+<P>void trap_unaligned(void)
+{
+  unsigned int buf[2];
+  buf[0] = SSIN_UACPROC;
+  buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+  setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+}
+<P>#ifdef TEST
+static int tmp[2];
+int main(int ac)
+{
+  if (ac &gt; 1) 
+    trap_unaligned();
+  return *(int *)((char *)tmp + 1);
+}
+#endif
+<P>---
+<P>And this is what Thomas Leitner &lt;tom@finwds01.tu-graz.ac.at&gt;
+replied:
+<P>You don't need that. The unaligned access message tells you all you
+need.
+Just start your program in gdb and set a breakpoint at the address
+0x1207ac030 with
+<P>(gdb) b *0x1207ac030
+<P>then run your program and it stops right where the unaligned access
+happens. At least this is the case under Digital Unix and I suppose
+Linux should do the same.
+<P>Tom
+<P>--
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Andre Fuechsel: "[suse-axp] DEC 2000 Model 300"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Stefan Reinauer: "[suse-axp] Re: [SuSE AXP] SMP in SuSEAlpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0031.html">Stefan Reinauer: "Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0031.html">Stefan Schroepfer: "Re: [suse-axp] Unaligned-Traps w. Squid under SuSE 6.1 AXP"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:39 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,299 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Milo List: Re: Milo 2.2 - things are becoming generic.</TITLE>
+<META NAME="Author" CONTENT="Stefan Reinauer (stepan@suse.de)">
+<META NAME="Subject" CONTENT="Re: Milo 2.2 - things are becoming generic.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Milo 2.2 - things are becoming generic.</H1>
+<HR>
+<P>
+<!-- received="Thu Sep 09 11:25:18 1999" -->
+<!-- isoreceived="19990909182518" -->
+<!-- sent="Wed, 8 Sep 1999 22:30:09 +0200 (MEST)" -->
+<!-- isosent="19990908203009" -->
+<!-- name="Stefan Reinauer" -->
+<!-- email="stepan@suse.de" -->
+<!-- subject="Re: Milo 2.2 - things are becoming generic." -->
+<!-- id="Pine.LNX.4.10.9909082017350.13179-100000@Wotan.suse.de" -->
+<!-- inreplyto="19990908182954.A2907@snowball.ucd.ie" -->
+<STRONG>Subject: </STRONG>Re: Milo 2.2 - things are becoming generic.<BR>
+<STRONG>From: </STRONG>Stefan Reinauer (<EM>stepan@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Sep 08 1999 - 13:30:09 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#21">[ date ]</A>
+<A HREF="index.html#21">[ thread ]</A>
+<A HREF="subject.html#21">[ subject ]</A>
+<A HREF="author.html#21">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0022.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0020.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 8 Sep 1999, Nikita Schmidt wrote:
+<BR>
+<P><EM>&gt; &gt; 1. Make a platform dependant milo link against a generic kernel. This
+</EM><BR>
+<EM>&gt; &gt;    means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+</EM><BR>
+<EM>&gt; &gt;    Makefile and this selects the correct palcode and dependencies in the
+</EM><BR>
+<EM>&gt; &gt;    different source files as well as the hard coded hwrpb.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; ..and the machine vector.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Good idea: this way kernel bits and most of MILO will have to be
+</EM><BR>
+<EM>&gt; compiled only once in a multi-platform build.
+</EM><BR>
+<P>*wargl* Of course. I haven't thought of this. If we do it like the kernel
+<BR>
+and &quot;alias&quot; the alpha_mv to the platform specific machine vector, we don'
+<BR>
+have all the problems as long as we still have non-generic milos.
+<BR>
+<P><EM>&gt; &gt;    To do this, I need to initialize the hwrpb and alpha_mv before I do
+</EM><BR>
+<EM>&gt; &gt;    any I/O. Afaik, this means we have no possibility to do any output on
+</EM><BR>
+<EM>&gt; &gt;    vga/serial in the stub and relocation code.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Why do you need HWRPB for I/O?  Alpha_mv alone should suffice, and it
+</EM><BR>
+<EM>&gt; will be statically linked into MILO anyway.
+</EM><BR>
+<P>I actually thought about using the hwrpb for cpu detection to get some
+<BR>
+hint on the used hardware. This is of course not neccessary if we take the
+<BR>
+machine vector from the defines.
+<BR>
+And yes, only alpha_mv is needed for I/O. This solves the no-IO problem at
+<BR>
+least for the moment :)
+<BR>
+<P><EM>&gt; I don't think that &quot;production&quot; (non-debug) MILOs should do any I/O
+</EM><BR>
+<EM>&gt; before passing control to the uncompressed full image.  For the debug
+</EM><BR>
+<EM>&gt; versions even a less than ideal solution should be fine.
+</EM><BR>
+<P>True. On the other hand, it's just the debug versions that need debug
+<BR>
+output. I had rather big problems to determine my errors with exactly no
+<BR>
+output, when I started.
+<BR>
+<P><EM>&gt; Apparently yes, at least as a string of characters: see
+</EM><BR>
+<EM>&gt; GetConfigurationData call in the firmware vector.  There is also
+</EM><BR>
+<EM>&gt; ReturnExtendedSystemInformation in the vendor vector which provides
+</EM><BR>
+<EM>&gt; system information in more reasonable form, but it is not available on
+</EM><BR>
+<EM>&gt; the Deskstation ARCS firmware.
+</EM><BR>
+<P>Since I have some statement from the deskstation guys that they won't
+<BR>
+continue development on their flawed-by-design firmware, I don't think
+<BR>
+this is a real big problem. Afaik only the 164UX and 164BX use it. (Am I
+<BR>
+wrong?) which milo is used for the BX at all? PC164 or Ruffian?
+<BR>
+I haven't seen such a board life yet.
+<BR>
+<P><EM>&gt; ARC passes SystemPartition, OSLoadFilename, OSLoadPartition, and
+</EM><BR>
+<EM>&gt; OSLoadOptions to linload/ldmilo.  IIRC, current practice is that
+</EM><BR>
+<EM>&gt; OSLoadFilename points to the MILO image file and OSLoadOptions get
+</EM><BR>
+<EM>&gt; passed as arguments to the kernel.  You probably can stick additional
+</EM><BR>
+<EM>&gt; information into OSLoadFilename after the MILO filename, if you really
+</EM><BR>
+<EM>&gt; need it.
+</EM><BR>
+<P>I made some tests on our Ruffians and it seems that at least Jay's hacked
+<BR>
+version of ldmilo ignores the OSLoadFileName. I just entered &quot;blubb&quot; there
+<BR>
+(which is the german equivalent of &quot;foo&quot;) and it just loaded &quot;milo&quot;
+<BR>
+Having ldmilo interpreting this variable would be very nice. Or we leave
+<BR>
+it as it is now and &quot;misuse&quot; the meaning of it (not that elegant)
+<BR>
+<P><EM>&gt; Are you thinking of doing more generic MILOs - e.g., one MILO per
+</EM><BR>
+<EM>&gt; PALcode?  What exactly possibilities are there for different system
+</EM><BR>
+<EM>&gt; types that a single MILO can serve?  Maybe they are detectable by the
+</EM><BR>
+<EM>&gt; MILO itself?
+</EM><BR>
+<P>I even thought about a single milo for all boxes. This may be to big
+<BR>
+though. But one per palcode is a very good idea since it wouldn't be much
+<BR>
+bigger. I stripped down my milo from 490k to about 410k. (Only with ncr,
+<BR>
+but debug versions. a version linked against the generic kernel is about
+<BR>
+20k bigger at the moment)
+<BR>
+The comparable 2.0 milo is a bit more than 360k, but I really think, this
+<BR>
+can still be optimized.
+<BR>
+<P><EM>&gt; I don't like to rely on anything from the console, as it makes it harder
+</EM><BR>
+<EM>&gt; to eventually support flashable MILOs.  Information obtained from the
+</EM><BR>
+<EM>&gt; firmware should be used only as a convenience (e.g., for autoboot), not
+</EM><BR>
+<EM>&gt; for vital decisions such as system type or memory size.  It might be
+</EM><BR>
+<EM>&gt; nice, for instance, to fill HWRPB's DSR with the symbolic system name
+</EM><BR>
+<EM>&gt; obtained through GetConfigurationData(): there is nothing in the system
+</EM><BR>
+<EM>&gt; that depends on it, but it will show up nicely in /proc/cpuinfo.
+</EM><BR>
+<P>Yes, you are right. On the other hand, we could just &quot;decide&quot; that only a
+<BR>
+specific milo is allowed for flashing and a generic milo can be put on an
+<BR>
+installation CD for example. ;-&gt;
+<BR>
+<P><EM>&gt; Head.S?  I thought it was micropal.S.  The idea at this stage is not to
+</EM><BR>
+<EM>&gt; swap the PALcode, but rather pass the control to MILO in PALmode so it
+</EM><BR>
+<EM>&gt; can relocate itself to where it wants to be and *then* swap to its
+</EM><BR>
+<EM>&gt; PALcode, after it has been put in its permanent place.
+</EM><BR>
+<P>Of course it's micropal.S. I just can't read the source sometimes :)
+<BR>
+<P><EM>&gt; Currently MILO swaps PALcode three times (two on MIKASA), which is
+</EM><BR>
+<EM>&gt; clearly redundant.
+</EM><BR>
+<P>Ups? I only found two of them.. once in boot_main (which is the one not
+<BR>
+executed on MIKASA) and once in devices.c
+<BR>
+Why is it sufficient for Mikasa to swap palcodes later? Couldn't we do
+<BR>
+that just for the other platforms, too ?
+<BR>
+<P>Again, the same for the wrfen at the very beginning of
+<BR>
+boot_main.c:__main() - if it's not neccessary (or possible) on Ruffian, is
+<BR>
+it really neccessary on other boards? I'd like to get the boot process a
+<BR>
+bit more stripped down and/or explained for a real release of the current
+<BR>
+code.
+<BR>
+<P><EM>&gt; &gt; * MILO license. MILO itself is under a free Digital license, the kernel
+</EM><BR>
+<EM>&gt; &gt;   which is linked against milo ist GPL, so I guess the result has to be
+</EM><BR>
+<EM>&gt; &gt;   GPL again. Am I wrong? I just don't want to run into problems here.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I'm not an expert so I can't advise on this, but I think you're right.
+</EM><BR>
+<EM>&gt; There is however one nasty clause in the Digital's licence that requires
+</EM><BR>
+<EM>&gt; anybody who makes changes to the code to &quot;prominently mark&quot; those
+</EM><BR>
+<EM>&gt; modifications &quot;as not part of the original&quot;.  What a nuisance!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I had an idea to overcome it with a statment saying that the original
+</EM><BR>
+<EM>&gt; code is on gatekeeper.dec.com and that you can run diff and see exactly
+</EM><BR>
+<EM>&gt; what changes have been made, but it is not what I'd actually call
+</EM><BR>
+<EM>&gt; &quot;prominent&quot; marking...
+</EM><BR>
+<P>Well.. I just read the LICENSE file and it seems to state that everything
+<BR>
+except the PALcode and the BIOS emulation is GPL. The headers of the
+<BR>
+sources on the other hand give not a single statement about GPL.
+<BR>
+What shall I do now with files that I threw away and rewrote completely?
+<BR>
+I sometimes took the kernel source and just copied the function headers to
+<BR>
+be sure what it refers to in the kernel. On the other hand, I did the same
+<BR>
+with the milo sources. For example, I took the entry.S of the kernel and
+<BR>
+stripped it down until it fitted my needs. What license header do I have
+<BR>
+to put in the file before release?
+<BR>
+I don't think that anyone would give this a wrong sense, but as I had lots
+<BR>
+of contract problems with buerocratic german publishers, I try to be kind
+<BR>
+of aware now :)
+<BR>
+<P><P><PRE>
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         			AlphaPowered
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0022.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0020.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

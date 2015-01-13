@@ -1,0 +1,280 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Alpha/Linux FP denormal processing</H1> 
+	
+<!-- received="Tue Sep 19 14:36:34 2000" -->
+<!-- isoreceived="20000919213634" -->
+<!-- sent="Tue, 19 Sep 2000 09:16:28 -0500 (EST)" -->
+<!-- isosent="20000919141628" -->
+<!-- name="Brad Lucier" -->
+<!-- email="lucier@math.purdue.edu" -->
+<!-- subject="Re: Alpha/Linux FP denormal processing" -->
+<!-- id="200009191416.JAA12026@polya.math.purdue.edu" -->
+<!-- inreplyto="39C731E0.F495718B@voicenet.com" -->
+<STRONG>Subject: </STRONG>Re: Alpha/Linux FP denormal processing<BR>
+<STRONG>From: </STRONG>Brad Lucier (<EM>lucier@math.purdue.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Sep 19 07:16:28 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#409">[ date ]</A>
+<A HREF="index.shtml#409">[ thread ]</A>
+<A HREF="subject.shtml#409">[ subject ]</A>
+<A HREF="author.shtml#409">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0410.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0408.shtml">Vanco, Donald: "RE: CETS and Linux and alphas"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0395.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0410.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0395.shtml">Brad Lucier: "Re: Alpha/Linux FP denormal processing"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here's the program:
+<BR>
+<P>int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;double x = 1.0;
+<BR>
+&nbsp;&nbsp;for (x = 1.0; x != 0.0; x *=0.5)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;%e\n&quot;, x);
+<BR>
+}
+<BR>
+<P>Here's the end of the output:
+<BR>
+<P>6.324040e-322
+<BR>
+3.162020e-322
+<BR>
+1.581010e-322
+<BR>
+7.905050e-323
+<BR>
+3.952525e-323
+<BR>
+1.976263e-323
+<BR>
+9.881313e-324
+<BR>
+4.940656e-324
+<BR>
+<P>Here's the compiler I use:
+<BR>
+<P>popov-141% gcc -v
+<BR>
+Reading specs from /export/u10/gcc-2.95.1/lib/gcc-lib/alphaev6-unknown-linux-gnu/2.95.1/specs
+<BR>
+gcc version 2.95.1 19990816 (release)
+<BR>
+<P>and here's the assembler (there are no trapb instructions because
+<BR>
+this is 21264 and they aren't needed):
+<BR>
+<P>popov-143% cat testdenorm.s
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.file   1 &quot;testdenorm.c&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.arch ev6
+<BR>
+.section        .rodata
+<BR>
+$LC1:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ascii &quot;%e\12\0&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+$LC0:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating 1.00000000000000000000e0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+$LC2:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating 5.00000000000000000000e-1
+<BR>
+.text
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl main
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent main
+<BR>
+main:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.eflag 48
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.frame $15,32,$26,0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mask 0x4008000,-32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp $29,0($27)
+<BR>
+$main..ng:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $30,-32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq $26,0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq $15,8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov $30,$15
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $1,$LC0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f10,0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt $f10,16($15)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $1,$LC0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f10,0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt $f10,16($15)
+<BR>
+$L3:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f10,16($15)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpteqsu $f10,$f31,$f11    &lt;=  su implies ieee fp version of instruction
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbeq $f11,$L6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br $31,$L4
+<BR>
+$L6:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $16,$LC1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f17,16($15)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr $26,printf
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp $29,0($26)
+<BR>
+$L5:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f10,16($15)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $1,$LC2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt $f11,0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;multsu $f10,$f11,$f12    &lt;=  su implies ieee fp version of instruction
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fmov $f12,$f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt $f10,16($15)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br $31,$L3
+<BR>
+$L4:
+<BR>
+$L2:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mov $15,$30
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $26,0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $15,8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $30,32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret $31,($26),1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end main
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ident  &quot;GCC: (GNU) 2.95.1 19990816 (release)&quot;
+<BR>
+<P>Brad Lucier
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; CPU dont matter, as well as gcc. all denorm FP numbers are trapped to the kernel,
+</EM><BR>
+<EM>&gt; as the FPU ( even up to a 21264 ) cant process them :-/
+</EM><BR>
+<EM>&gt; /gat
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Brad Lucier wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; You don't say what compiler or CPU you're using.  Try -mieee with gcc.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; Brad Lucier
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; &gt; Is there anyone who has knowledge of how FPU underflows of denormal numbers
+</EM><BR>
+<EM>&gt; &gt; &gt; are to be processed in Alpha/linux.  The concept of a ieee rolling underflow
+</EM><BR>
+<EM>&gt; &gt; &gt; seems to stop at the smallest  FPU normalized number. Tests expect that the
+</EM><BR>
+<EM>&gt; &gt; &gt; smallest should go to e-324. on True64 the test will go till e-324 if u use
+</EM><BR>
+<EM>&gt; &gt; &gt; the ieee switch. On alpha/linux I cannot get it to go beyond e-308, no
+</EM><BR>
+<EM>&gt; &gt; &gt; matter what FloatingPointControlRegister bits i set.
+</EM><BR>
+<EM>&gt; &gt; &gt; /gat
+</EM><BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0410.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0408.shtml">Vanco, Donald: "RE: CETS and Linux and alphas"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0395.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0410.shtml">Uncle George: "Re: Alpha/Linux FP denormal processing"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0395.shtml">Brad Lucier: "Re: Alpha/Linux FP denormal processing"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sun Oct  1 07:47:34 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

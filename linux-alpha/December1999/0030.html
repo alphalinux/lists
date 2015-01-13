@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [patch] irq rewrite</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: [patch] irq rewrite">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [patch] irq rewrite</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 08 17:56:55 1999" -->
+<!-- isoreceived="19991209015655" -->
+<!-- sent="Wed, 8 Dec 1999 16:17:48 +0100 (CET)" -->
+<!-- isosent="19991208151748" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: [patch] irq rewrite" -->
+<!-- id="Pine.LNX.4.10.9912081548460.466-100000@alpha.random" -->
+<!-- inreplyto="19991207213936.A17249@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: [patch] irq rewrite<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Dec 08 1999 - 07:17:48 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#30">[ date ]</A>
+<A HREF="index.html#30">[ thread ]</A>
+<A HREF="subject.html#30">[ subject ]</A>
+<A HREF="author.html#30">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0031.html">Brynn Rogers: "Redhat 6.0 on multia,   stock ethernet driver has misaligned code"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0033.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0029.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 7 Dec 1999, Richard Henderson wrote:
+<BR>
+<P><EM>&gt;(3) I think you should continue to manage _alpha_irq_masks from
+</EM><BR>
+<EM>&gt;generic code instead of having a separate instance of cached_irq_mask
+</EM><BR>
+<EM>&gt;from virtually every sys_foo.c.
+</EM><BR>
+<P>Not only from every sys_foo.c but for every irq controller driver. It make
+<BR>
+sense that each controller manages its own local caching of the masking
+<BR>
+because they are all per-controller caches. So each controller is free to
+<BR>
+cache the information in its preferred way. But yes, by sharing the
+<BR>
+_alpha_irq_mask we would avoid to waste some byte of memory. I did such
+<BR>
+choice to generate the cleaner code possible and to left local things that
+<BR>
+are local (so I didn't had to bother about side effects of the changes
+<BR>
+inside each irq controller driver and I could basically cut-and-paste
+<BR>
+arch/i386/kernel/i8259.c). If there won't be side effects and advantages
+<BR>
+I'll agree to replace the per-irq cache with a global cache of course.
+<BR>
+<P><EM>&gt;(6)
+</EM><BR>
+<EM>&gt;        case 1:
+</EM><BR>
+<EM>&gt;-               handle_irq(RTC_IRQ, -1, &amp;regs);
+</EM><BR>
+<EM>&gt;+               handle_irq(RTC_IRQ, &amp;regs);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;A timer tick that comes in through entInt(1,...) need not
+</EM><BR>
+<EM>&gt;and should not be acked.  PALcode has already done that. 
+</EM><BR>
+<EM>&gt;I don't see a mechanism for this.
+</EM><BR>
+<P>I know very well of such problem and infact my code is still very
+<BR>
+experimental and I _don't_ use the RTC as timer interrupt so I don't care
+<BR>
+about its acking and masking right now (I noticed the purpose of passing
+<BR>
+-1 as ack in the old code was to skip the mask and ack).
+<BR>
+<P>Of course I'll have to implement a special RTC hw_interrupt_type vector
+<BR>
+that does nothing in the ack and mask callback. I can set the handler in
+<BR>
+the common code for all platforms. This looks very cleaner than passing a
+<BR>
+magic value to the irq main routine to differentiate between irq types.
+<BR>
+<P><EM>&gt;That's all I see for now.  If I get ambitious this evening
+</EM><BR>
+<EM>&gt;I may see about updating the patch for all of sys_foo.c and
+</EM><BR>
+<EM>&gt;try it out on some other systems.
+</EM><BR>
+<P>Many thanks! IMHO another option would be to ignore the other sys_*.c
+<BR>
+until the tsunami platform (the one I use for developement) will be
+<BR>
+completly stable (so addressing the RTC case plus the SMP case that
+<BR>
+doesn't boot here). So we won't risk having to fix two times the other
+<BR>
+platforms if we'll need to redesign something. In other words I would
+<BR>
+suggest to update only the platform necessary for the developement until
+<BR>
+we'll be completly happy. Of course if you'll do the update your patch
+<BR>
+will be _very_ welcome even now! But beware: we'll risk a bit having to do
+<BR>
+it again later...
+<BR>
+<P><P>I'll address your other points ASAP.
+<BR>
+<P>Thanks for your comments!
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0031.html">Brynn Rogers: "Redhat 6.0 on multia,   stock ethernet driver has misaligned code"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0029.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0033.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0029.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

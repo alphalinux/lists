@@ -1,0 +1,246 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Patch to prevent OOPS in __copy_user</TITLE>
+<META NAME="Author" CONTENT="Larry Woodman (woodman@missioncriticallinux.com)">
+<META NAME="Subject" CONTENT="Patch to prevent OOPS in __copy_user">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Patch to prevent OOPS in __copy_user</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 28 20:45:04 2000" -->
+<!-- isoreceived="20000429034504" -->
+<!-- sent="Thu, 27 Apr 2000 09:44:40 -0400" -->
+<!-- isosent="20000427134440" -->
+<!-- name="Larry Woodman" -->
+<!-- email="woodman@missioncriticallinux.com" -->
+<!-- subject="Patch to prevent OOPS in __copy_user" -->
+<!-- id="39084447.3FCEE98A@missioncriticallinux.com" -->
+<STRONG>Subject: </STRONG>Patch to prevent OOPS in __copy_user<BR>
+<STRONG>From: </STRONG>Larry Woodman (<EM>woodman@missioncriticallinux.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 27 2000 - 06:44:40 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#17">[ date ]</A>
+<A HREF="index.html#17">[ thread ]</A>
+<A HREF="subject.html#17">[ subject ]</A>
+<A HREF="author.html#17">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0018.html">Larry Woodman: "time_init() patch for Alpha."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0016.html">Larry Woodman: "Patch to eliminate idle loop from kernel profiling output."</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This patch prevents an OOPS when you pass a NULL buffer address
+<BR>
+to recvfrom().  The __copy_user() was not protecting a stq with an
+<BR>
+exception
+<BR>
+table entry so when it chewed on a bad address the kernel did an OOPS
+<BR>
+instead of properly handling the fault.
+<BR>
+<P>Attached is:  1.) the one-line kernel patch,  2.) the server that passes
+<BR>
+the
+<BR>
+NULL buffer to recvfrom(), and 3.) the client that sends junk to the
+<BR>
+server.
+<BR>
+<P>To recreate the problem run the server in the background then run the
+<BR>
+client.  The server will OOPS without the patch.
+<BR>
+<P><P>Larry Woodman
+<BR>
+<A HREF="http://www.missioncriticallinux.com">http://www.missioncriticallinux.com</A>
+<BR>
+<P><P><P><P><P>
+diff -u --recursive linux-2.3.99-pre3.vanilla/arch/alpha/lib/copy_user.S linux/arch/alpha/lib/copy_user.S
+<BR>
+--- linux-2.3.99-pre3.vanilla/arch/alpha/lib/copy_user.S	Fri Apr 30 11:22:19 1999
+<BR>
++++ linux/arch/alpha/lib/copy_user.S	Mon Apr 27 08:11:24 2020
+<BR>
+@@ -80,7 +80,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extql $3,$7,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extqh $2,$7,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $3,$1,$1
+<BR>
+-	stq $1,0($6)
+<BR>
++	EXO( stq $1,0($6) )
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $7,8,$7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subq $0,8,$0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq $6,8,$6
+<BR>
+<P><P><P>
+#include &lt;unistd.h&gt; 
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/socket.h&gt; 
+<BR>
+#include &lt;netinet/in.h&gt; 
+<BR>
+#include &lt;errno.h&gt; 
+<BR>
+#include &lt;getopt.h&gt;
+<BR>
+<P>#define BUFLEN	8192
+<BR>
+<P>/* defaults */
+<BR>
+int	port = 1300;
+<BR>
+<P>main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int			sock, bytes;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct sockaddr_in	s;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char			*buf[BUFLEN];
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (sock &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;socket&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bzero((void*)&amp;s, sizeof(s));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s.sin_family = AF_INET; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s.sin_port = htons(port);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s.sin_addr.s_addr = INADDR_ANY;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (bind(sock, (struct sockaddr*)&amp;s, sizeof(s)) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;bind&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((bytes = recvfrom(sock, NULL, BUFLEN, 0, NULL, NULL)) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;recvfrom&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;recvfrom returned %d bytes\n&quot;, bytes);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(0);	
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P>}
+<BR>
+<P><P><P><P>
+#include &lt;unistd.h&gt; 
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/socket.h&gt; 
+<BR>
+#include &lt;netinet/in.h&gt; 
+<BR>
+#include &lt;errno.h&gt; 
+<BR>
+#include &lt;getopt.h&gt;
+<BR>
+<P>#define BUFLEN	8192
+<BR>
+<P>/* defaults */
+<BR>
+int	port = 1300;
+<BR>
+char	*buf = &quot;abcdefghijklmnopqrstuvwxyz&quot;;
+<BR>
+<P>main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int			sock, bytes;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct sockaddr_in	to;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (sock &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;socket&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bzero((void*)&amp;to, sizeof(to));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to.sin_family = AF_INET; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to.sin_port = htons(port);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to.sin_addr.s_addr = inet_addr(&quot;127.0.0.1&quot;);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((bytes = sendto(sock, buf, strlen(buf), 0, &amp;to, sizeof(to))) &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;sendto&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(4);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;sendto returned %d bytes\n&quot;, bytes);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(0);	
+<BR>
+}
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0018.html">Larry Woodman: "time_init() patch for Alpha."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0016.html">Larry Woodman: "Patch to eliminate idle loop from kernel profiling output."</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

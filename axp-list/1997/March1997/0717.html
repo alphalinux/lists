@@ -1,0 +1,136 @@
+<!-- received="Tue Mar 25 13:39:12 1997 " -->
+<!-- sent="Tue, 25 Mar 1997 18:34:02 +0000" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@snowball.ucd.ie" -->
+<!-- subject="Re: Floppy, finger, date" -->
+<!-- id="199703251728.JAA07221@icarus.icarus.com" -->
+<!-- inreplyto="Pine.OSF.3.95.970325154328.16272A-100000@dipfis.ge.infn.it" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Floppy, finger, date</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Floppy, finger, date</h2>
+
+<b>Nikita Schmidt</b> (<a href="mailto:cetus@snowball.ucd.ie"><i>cetus@snowball.ucd.ie</i></a>)<br>
+<i>Tue, 25 Mar 1997 18:34:02 +0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#717">[ date ]</a><a href="index.html#717">[ thread ]</a><a href="subject.html#717">[ subject ]</a><a href="author.html#717">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0718.html">vaughan@Zeus.itdc.edu: "Re: UDB clock woes... (Its 2017) (no, not the usual)"</a>
+<li> <b>Previous message:</b> <a href="0716.html">Terry L. Ridder: "POV &amp; GDB (Re: Problems with POV and related question. )"</a>
+<li> <b>In reply to:</b> <a href="0713.html">David Lew: "qmail probs compiling"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Mar 25, Marco Corte wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Now three new problems:</i><br>
+<i>&gt; </i><br>
+...<br>
+<i>&gt; </i><br>
+<i>&gt; 3. How to tell my S3 server (3.1.2G) a "wrong" date so that I doesn't</i><br>
+<i>&gt;    expire without changing the date on the whole system?</i><br>
+<i>&gt; </i><br>
+<p>
+Unfortunately, I'm not really into RedHat distribution, so I cannot say<br>
+anything about first two problems.  As for X server spoofing, my<br>
+approach is following:<br>
+1) build a shared library that defines `time' (see source code below);<br>
+2) make a setuid wrapper that starts X server with that library.<br>
+Since in pre-2.0 versions of glibc LD_PRELOAD fails on setuid<br>
+executables (more precisely, if real uid != effective uid) even when the<br>
+library name does not contain slashes (in ld-2.0.so setuid binaries can<br>
+be LD_PRELOADed with a library if its name is reasonably secure, i.e.<br>
+contains no slashes), a setuid wrapper is needed to set both real and<br>
+effective uids to 0 prior to running the X server.  That's not good: for<br>
+example, X server remains rooty and cannot be killed from xinit when the<br>
+session is over (one has to press ctrl-alt-bs), and there may be<br>
+some security flaws with this approach, but I couldn't see any other<br>
+way (rebuilding ld-1.93.so is not worth it).<br>
+<p>
+OK, let's take a look at the code.<br>
+<p>
+---------------- libfaketime.c ----------------<br>
+#include &lt;time.h&gt;<br>
+<p>
+time_t time (time_t *t)<br>
+{<br>
+	if (t) *t = 844124400;<br>
+	return 844124400;<br>
+}<br>
+-------------------- X.c ----------------------<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;unistd.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+<p>
+main (int argc, char *argv[])<br>
+{<br>
+	setenv ("LD_PRELOAD", "/usr/local/lib/libfaketime.so", 1);<br>
+	setuid (0);<br>
+	execv ("/usr/X11R6/bin/Xserver", argv);<br>
+	perror ("Cannot execute /usr/X11R6/bin/Xserver");<br>
+	return 1;<br>
+}<br>
+------------------ Makefile -------------------<br>
+FLAGS = -O2 -pipe -fomit-frame-pointer -s<br>
+XBIN = /usr/X11R6/bin<br>
+<p>
+all: X libfaketime.so<br>
+<p>
+X: X.c<br>
+	gcc $(FLAGS) -o $@ $&lt;<br>
+<p>
+libfaketime.so: libfaketime.c<br>
+	gcc $(FLAGS) -shared -nostdlib -o $@ $&lt;<br>
+<p>
+install: all<br>
+	cp libfaketime.so /usr/local/lib<br>
+	mv $(XBIN)/X $(XBIN)/Xserver<br>
+	cp X $(XBIN)/X<br>
+	chown root.root $(XBIN)/X<br>
+	chmod u+s $(XBIN)/X<br>
+-----------------------------------------------<br>
+<p>
+Be careful with the install part.  The idea is that the wrapper<br>
+described above gets installed in /usr/X11R6/bin and runs Xserver<br>
+(which can be just a link to the real binary; I did not want to put<br>
+any particular name in X.c).  If you already have something called<br>
+/usr/X11R6/bin/Xserver, don't run make install, or you'll lose it!<br>
+<p>
+	Kit<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0718.html">vaughan@Zeus.itdc.edu: "Re: UDB clock woes... (Its 2017) (no, not the usual)"</a>
+<li> <b>Previous message:</b> <a href="0716.html">Terry L. Ridder: "POV &amp; GDB (Re: Problems with POV and related question. )"</a>
+<li> <b>In reply to:</b> <a href="0713.html">David Lew: "qmail probs compiling"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

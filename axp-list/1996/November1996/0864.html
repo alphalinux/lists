@@ -1,0 +1,331 @@
+<!-- received="Wed Nov 20 11:14:31 1996 " -->
+<!-- sent="Wed, 20 Nov 96 16:57:53 -0500" -->
+<!-- name="Bender, Bernhard" -->
+<!-- email="br@elsa.de" -->
+<!-- subject="Re: problem reading VGA text fonts" -->
+<!-- id="m0vQDpX-0001bSC@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="4D509332019C1400" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: problem reading VGA text fonts</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: problem reading VGA text fonts</h2>
+
+<b>Bender, Bernhard</b> (<a href="mailto:br@elsa.de"><i>br@elsa.de</i></a>)<br>
+<i>Wed, 20 Nov 96 16:57:53 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#864">[ date ]</a><a href="index.html#864">[ thread ]</a><a href="subject.html#864">[ subject ]</a><a href="author.html#864">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0865.html">Stephen Y Oliver: "UDB Manual: Thankyou!"</a>
+<li> <b>Previous message:</b> <a href="0863.html">Kyrbo: "BT-958&amp;PC164?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Harald,<br>
+<p>
+your're a bright guy, really.<br>
+<p>
+I was sure there is no workaround for this. But you have found one. <br>
+Setting CR66 bit 1 while reading the BIOS ROM does prevent DRAM <br>
+corruption.<br>
+<p>
+I wonder what happens if you keep this bit set for too long. Possibly <br>
+DRAM will loose some of its data becase DRAM refresh is also stopped...<br>
+<p>
+<p>
+But still I think, this think should go into the S3 server to protect <br>
+reading the ROM on the Trio and ViRGE chips.<br>
+<p>
+Thanks!<br>
+Bernhard Bender<br>
+<pre>
+---
+Group Manager Core Technology   ELSA Computer Graphics
+<p>
+ELSA GmbH             		Email: <a href="mailto:br@elsa.de">br@elsa.de</a>
+Sonnenweg 11                    Fax  : +49 (2405) 450 100
+D-52 070 Aachen, Germany        WWW  : <a href="http://www.elsa.de">http://www.elsa.de</a>
+<p>
+<p>
+***  Original Message Follows  ***
+&gt; &gt;&gt;&gt;
+&gt; now the interesting question is:  how can we read the BIOS (esp. on 
+AXP)
+&gt; without currupting video memory ?
+&gt; &lt;&lt;&lt;
+&gt; 
+&gt; Basically, you can't :-(
+<p>
+knowing the real reason for the font/memory corruption it's easy to
+write a small test program and play with.  for a Trio64V+ card 
+I see horrible things going on on the screen while this program
+reads the BIOS.  
+but with S3 864 and 968 I don't see any problems with fonts here.
+<p>
+below is the test program.  if you see any font/screen corruption
+when running it (maybe several times; can be cleaned up with "setfont" 
+again)
+you should try to set RESET_S3 to 1 and see if this fixes 
+corruption for your card/machine...
+<p>
+also you can test SPARSE memory bios access if you set TEST_JENSEN_CODE 
+to 1.
+didn't make any difference for me (but with SPARSE access, copying
+was &gt;3 times faster then using DENSE access..)
+<p>
+now I could play with it a bit trying to find a better workaround
+than saving the whole frame buffer before accessing the BIOS.
+<p>
+at least for the Trio64V+ card  there is no problem when I reset 
+the S3 graphics engine using CR66 bit 1 while reading the BIOS.
+haven't tested this for ViRGE yet but at least the GE can be reset
+with the same bit...
+<p>
+&gt; As for what S3 chips may be affected: The ViRGE for sure, maybe the 
+&gt; TrioV+ also. 
+<p>
+Trio64V+ for sure too (at least for my AXP box)
+<p>
+&gt; There is no mention in S3's stepping info about this.
+<p>
+:-(
+<p>
+<p>
+Harald
+--------------------------------------------------------------------------
+-----
+#define TEST_JENSEN_CODE 	0
+#define RESET_S3		0
+#define WRITE_BIOS_TO_STDOUT	0
+#define SIZE (2*32*1024)
+<p>
+<p>
+#ifdef __alpha__
+#include &lt;sys/io.h&gt;
+#else
+#include &lt;asm/io.h&gt;
+#endif
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/mman.h&gt;
+<p>
+#if TEST_JENSEN_CODE /* define to test the Sparse addressing on a 
+non-Jensen */
+#define SPARSE (5)
+#define isJensen (1)
+#else
+#define isJensen (!_bus_base())
+#define SPARSE (7)
+#endif
+<p>
+extern unsigned long _bus_base(void);
+extern unsigned long _bus_base_sparse(void);
+#define BUS_BASE (isJensen ? _bus_base_sparse() : _bus_base())
+#define JENSEN_SHIFT(x) (isJensen ? ((long)x&lt;&lt;SPARSE) : (long)x)
+<p>
+<p>
+<p>
+#ifdef __alpha__
+<p>
+/* The outb() isn't needed on my machine, but who nows ... -- ost */
+void
+SlowBcopy(src, dst, len)
+unsigned char *dst, *src;
+int len;
+{
+    while(len--)
+    {
+	*dst++ = *src++;
+	outb(0x80, 0x00);
+    }
+}
+<p>
+void
+SlowBCopyFromBus(src, dst, count)
+     unsigned char *src, *dst;
+     int count;
+{
+    if (isJensen) /* Jensen */
+    {
+	unsigned long addr;
+	long result;
+<p>
+	addr = (unsigned long) src;
+	while( count ){
+	    result = *(volatile int *) addr;
+	    result &gt;&gt;= ((addr&gt;&gt;SPARSE) &amp; 3) * 8;
+	    *dst++ = (unsigned char) (0xffUL &amp; result);
+	    addr += 1&lt;&lt;SPARSE;
+	    count--;
+	    outb(0x80, 0x00);
+	}
+    }
+    else
+	SlowBcopy(src,dst,count);
+}
+#endif
+  
+int xf86ReadBIOS(Base, Offset, Buf, Len)
+     unsigned long Base;
+     unsigned long Offset;
+     unsigned char *Buf;
+     int Len;
+{
+#ifdef __alpha__
+  /*
+   * The Alpha version uses "mmap" instead of "lseek/read",
+   *  because these (currently) don't work for BUS memory.
+   * We trick "mmap" into mapping BUS memory for us via BUS_BASE,
+   *  which is the KSEG address of the start of the DENSE memory
+   *  area.
+   */
+<p>
+  /*
+   * NOTE: there prolly ought to be more validity checks and all
+   *  re: boundaries and sizes and such...
+   */
+<p>
+/*
+ * The Jensen lacks dense memory, thus we have to address the bus via
+ * the sparse addressing scheme.
+ *
+ * Martin Ostermann (<a href="mailto:ost@comnets.rwth-aachen.de">ost@comnets.rwth-aachen.de</a>) - Apr.-Sep. 1996
+ */
+<p>
+<p>
+	caddr_t base;
+ 	int fd;
+<p>
+	if ((fd = open("/dev/mem", O_RDONLY)) &lt; 0)
+	{
+	  perror("xf86ReadBios: Failed to open /dev/mem");
+	  return(-1);
+	}
+<p>
+	base = mmap((caddr_t)0, JENSEN_SHIFT(SIZE), PROT_READ,
+		    MAP_SHARED, fd, (off_t)(JENSEN_SHIFT(Base) + BUS_BASE));
+<p>
+	if (base == (caddr_t)-1UL)
+	{
+	  perror("xf86ReadBios: Failed to mmap /dev/mem");
+	  return(-1);
+	}
+<p>
+	SlowBCopyFromBus(base+JENSEN_SHIFT(Offset), Buf, Len);
+<p>
+	munmap((caddr_t)JENSEN_SHIFT(base), JENSEN_SHIFT(SIZE));
+	close(fd);
+	return(Len);
+<p>
+#else /* __alpha__ */
+<p>
+ 	int fd;
+<p>
+	if ((fd = open("/dev/mem", O_RDONLY)) &lt; 0)
+	{
+	  perror("xf86ReadBios: Failed to open /dev/mem");
+	  return(-1);
+	}
+<p>
+	if (lseek(fd, (Base+Offset), SEEK_SET) &lt; 0)
+	{
+	  perror("xf86ReadBios: /dev/mem seek failed");
+	  close(fd);
+	  return(-1);
+	}
+	if (read(fd, Buf, Len) != Len)
+	{
+	  perror("xf86ReadBios: /dev/mem read failed");
+	  close(fd);
+	  return(-1);
+	}
+	close(fd);
+	return(Len);
+#endif /* __alpha__ */
+}
+<p>
+void main()
+{
+  char bios[SIZE];
+#if RESET_S3
+  int tmp;
+#endif
+<p>
+  iopl(3);
+<p>
+#if RESET_S3
+  outb(0x38, 0x3d4);
+  outb(0x48, 0x3d5);
+  outb(0x39, 0x3d4);
+  outb(0xa5, 0x3d5);
+<p>
+  /* reset S3 graphics engine */
+  outb(0x66, 0x3d4);
+  tmp = inb(0x3d5);
+  outb(tmp |  0x02, 0x3d5);
+  usleep(10000);  /* wait a little bit... */
+#endif
+<p>
+  xf86ReadBIOS(0xc0000, 0, bios, SIZE);
+<p>
+#if RESET_S3
+  outb(0x66, 0x3d4);
+  outb(tmp &amp; ~0x02, 0x3d5);
+  usleep(10000);  /* wait a little bit... */
+#endif
+<p>
+#if WRITE_BIOS_TO_STDOUT
+  write(1,bios,SIZE);
+#endif
+}
+<p>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ 
+OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+***  End of Original Message  ***
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0865.html">Stephen Y Oliver: "UDB Manual: Thankyou!"</a>
+<li> <b>Previous message:</b> <a href="0863.html">Kyrbo: "BT-958&amp;PC164?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

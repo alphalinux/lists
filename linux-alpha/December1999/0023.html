@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Signal-11 or core dump sending mail with</TITLE>
+<META NAME="Author" CONTENT="Philipp Reisner (kde@ist.org)">
+<META NAME="Subject" CONTENT="Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 08 03:32:35 1999" -->
+<!-- isoreceived="19991208113235" -->
+<!-- sent="Wed, 8 Dec 1999 01:15:46 +0100" -->
+<!-- isosent="19991208001546" -->
+<!-- name="Philipp Reisner" -->
+<!-- email="kde@ist.org" -->
+<!-- subject="Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can" -->
+<!-- id="99120801195200.00935@alf.localdomain" -->
+<!-- inreplyto="000201bf40d3$778d76a0$724114ac@c9sbarto.mincom.oz.au" -->
+<STRONG>Subject: </STRONG>Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can<BR>
+<STRONG>From: </STRONG>Philipp Reisner (<EM>kde@ist.org</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Dec 07 1999 - 16:15:46 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#23">[ date ]</A>
+<A HREF="index.html#23">[ thread ]</A>
+<A HREF="subject.html#23">[ subject ]</A>
+<A HREF="author.html#23">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0021.html">Bart Barton: "Signal-11 or core dump sending mail with any kde app. Please Help if you can"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0021.html">Philipp Reisner: "Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Am Die, 07 Dez 1999 schrieb Bart Barton:
+<BR>
+<EM>&gt;&gt;I'm not sure if this issue is common in the linux-alpha community.  I'm
+</EM><BR>
+<EM>&gt;running RH6.0 with all of the errata patches and a 2.2.13 kernel.  I
+</EM><BR>
+<EM>&gt;upgraded KDE to 1.1.2 with the binaries off www.linuxalpha.org.  Even with
+</EM><BR>
+<EM>&gt;the original KDE I had the same problem I am about to describe.  My box is a
+</EM><BR>
+<EM>&gt;PWS 500a (miata).  I'm booting linux with milo from ARC.  System is very
+</EM><BR>
+<EM>&gt;stable (after the kernel upgrade).  Basically, I'm having the following
+</EM><BR>
+<EM>&gt;problems:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;-  KMail:   I'm getting Signal-11 errors when initiating the &quot;create new
+</EM><BR>
+<EM>&gt;mail&quot; or &quot;reply to message&quot; functions of Kmail.  I tried recompiling KMail
+</EM><BR>
+<EM>&gt;with a fix I found off the KDE mailing list (KDE bug #1705).  But it didn't
+</EM><BR>
+<EM>&gt;work for me. Same behavior after the compile.
+</EM><BR>
+<EM>&gt;-  KRN:  Same problem as above when trying to reply to a post or send an
+</EM><BR>
+<EM>&gt;email reply to a post
+</EM><BR>
+<EM>&gt;-  Kexpress:  Compiled great, but the same problem as KRN, except the app
+</EM><BR>
+<EM>&gt;core dumps instead of Signal-11
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;Pine on the other hand, sends mail fine.  I'd like to find out if this issue
+</EM><BR>
+<EM>&gt;is intermitant for some installs of RH6 or if everyone is having this
+</EM><BR>
+<EM>&gt;problem.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;Any help would be greatly appreciated either on a solution or maybe some
+</EM><BR>
+<EM>&gt;steps I can take to better diagnose the problem (I'm a non-programer).
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;Thanks in advance,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P>I had the same problem, and I think I had found the bug.
+<BR>
+I tried to report the bug to the kde team, but they did not
+<BR>
+take notice.
+<BR>
+<P><P>Release: kde-1.1 (Package: kdesupport, mimelib, datetime.cpp )
+<BR>
+<P>There is a problem causing segfaults on Linux/Alpha/RedHat 6.0.
+<BR>
+Particularily in kmail on writing a new mail.
+<BR>
+<P>void DwDateTime::_FromUnixTime(DwUint32 aTime)
+<BR>
+{
+<BR>
+time_t t = aTime + mZone*60;       !!!!!!!!!!!!!!!!!!!! HERE!!! 
+<BR>
+#if defined(USE_PORTABLE_GMTIME)
+<BR>
+struct tm tt
+<BR>
+my_gmtime_r(&amp;t, &amp;tt); 
+<BR>
+#elif defined(HAVE_GMTIME_R)
+<BR>
+struct tm tt
+<BR>
+gmtime_r(&amp;t, &amp;tt);
+<BR>
+#else
+<BR>
+struct tm tt = *gmtime((time_t*)&amp;t);
+<BR>
+#endif
+<BR>
+mYear   = tt.tm_year + 1900;
+<BR>
+mMonth  = tt.tm_mon + 1;
+<BR>
+mDay    = tt.tm_mday;
+<BR>
+mHour   = tt.tm_hour;
+<BR>
+mMinute = tt.tm_min;
+<BR>
+mSecond = tt.tm_sec;
+<BR>
+}
+<BR>
+<P>I changed DwUint32 to time_t !
+<BR>
+Now it works.
+<BR>
+<P>(Probabely time_t is 64 bits on Alpha, while DwUint32 is only 32...)
+<BR>
+<P>-Philipp
+<BR>
+<PRE>
+-- 
+     Want to try something new?            Are you a Linux hacker?
+		    Volunteer in testing mergemem!
+	      (Get it from <A HREF="http://das.ist.org/mergemem">http://das.ist.org/mergemem</A>)
+-----
+  Philipp Reisner                PGP: <A HREF="http://der.ist.org/~kde/pgp.asc">http://der.ist.org/~kde/pgp.asc</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0024.html">Richard Henderson: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0022.html">Andrea Arcangeli: "Re: [patch] irq rewrite"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0021.html">Bart Barton: "Signal-11 or core dump sending mail with any kde app. Please Help if you can"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0021.html">Philipp Reisner: "Re: Signal-11 or core dump sending mail with any kde app. Please Help if you can"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

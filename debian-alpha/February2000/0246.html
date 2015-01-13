@@ -1,0 +1,901 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Bug#59385: [PATCH] Fixes for BSD disklabel s</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhuggins@linuxcare.com)">
+<META NAME="Subject" CONTENT="Bug#59385: [PATCH] Fixes for BSD disklabel support (for Alpha)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Bug#59385: [PATCH] Fixes for BSD disklabel support (for Alpha)</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 01 21:35:23 2000" -->
+<!-- isoreceived="20000302053523" -->
+<!-- sent="01 Mar 2000 15:03:34 -0500" -->
+<!-- isosent="20000301200334" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhuggins@linuxcare.com" -->
+<!-- subject="Bug#59385: [PATCH] Fixes for BSD disklabel support (for Alpha)" -->
+<!-- id="lt7lfmbgq1.fsf@doppelbock.thepuffingroup.com" -->
+<STRONG>Subject: </STRONG>Bug#59385: [PATCH] Fixes for BSD disklabel support (for Alpha)<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhuggins@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 01 2000 - 12:03:34 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#246">[ date ]</A>
+<A HREF="index.html#246">[ thread ]</A>
+<A HREF="subject.html#246">[ subject ]</A>
+<A HREF="author.html#246">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0247.html">Adam C Powell IV: "Re: compiling c programs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0245.html">Christopher C. Chimelis: "Re: compiling c programs"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Package: util-linux
+<BR>
+Version: 2.10f-2
+<BR>
+Severity: important
+<BR>
+<P>Hi,
+<BR>
+<P>Right now it is very, very difficult to partition disks in the
+<BR>
+installer on Alpha when using BSD disklabels (as you must when booting
+<BR>
+from SRM).  This is a problem because SRM is now the recommended way
+<BR>
+of booting Linux on nearly all Alphas.
+<BR>
+<P>This patch *MUST* go into potato, which is why I've marked it as
+<BR>
+important.  Nothing personal, I just want to get your attention :)
+<BR>
+<P>This patch addresses a few important usability issues:
+<BR>
+<P>&nbsp;1) Digital Unix has a rather different (probably more correct) idea
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;of the actual geometry of disks, and stores this in its
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;disklabels.  fdisk was ignoring the values in the disklabel and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;using the Linux kernel's idea of the number of sectors per
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;cylinder.  This made it nearly impossible to repartition disks
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;that had previously been set up using diskconfig in DEC Unix,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;since the cylinder values shown were incorrect, and also different
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;(!) from the values accepted by the 'new partition' command.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Also, it wasn't very easy to partition by sector, because:
+<BR>
+<P>&nbsp;2) When partitioning by sector rather than by cylinder, only the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;offset and size were shown in sectors.
+<BR>
+<P>&nbsp;3) fdisk started up in DOS partition table mode regardless of whether
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;an OSF/1 disklabel existed on the disk.
+<BR>
+<P>&nbsp;4) There was no way to switch from cylinders to sectors from within
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;disklabel mode, nor was there any way to return to DOS partition
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;mode on an Alpha.
+<BR>
+<P>This patch isn't the most elegant way to handle this, but since on
+<BR>
+i386, disklabels will always be a bag on the side of the DOS partition
+<BR>
+table, we can't make it nice and pretty like the Sun and SGI disklabel
+<BR>
+support...
+<BR>
+<P>Also, writing the disklabel causes unaligned access errors, and it's
+<BR>
+just bad style to declare a static variable ('buffer') with the same
+<BR>
+name as a global variable, so I cleaned that stuff up.  Finally, I
+<BR>
+added some bits to make it recognize Digital Unix AdvFS partitions as
+<BR>
+such.
+<BR>
+<P>If someone could please test this on i386 machines to make sure it
+<BR>
+doesn't break disklabels there, I'd appreciate that.
+<BR>
+<P>There are also some patches from people at Compaq that fix a few other
+<BR>
+bugs, which I'll be submitting in a separate report when I get them.
+<BR>
+<P>Cheers
+<BR>
+<P>diff --exclude=*~ -urN util-linux-2.10f/fdisk/fdisk.c util-linux-2.10f.patched/fdisk/fdisk.c
+<BR>
+--- util-linux-2.10f/fdisk/fdisk.c	Fri Jan 21 19:19:37 2000
+<BR>
++++ util-linux-2.10f.patched/fdisk/fdisk.c	Wed Mar  1 14:36:06 2000
+<BR>
+@@ -72,6 +72,9 @@
+<BR>
+&nbsp;&nbsp;* Sat Mar 20 09:31:05 EST 1999 Arnaldo Carvalho de Melo &lt;acme@conectiva.com.br&gt;
+<BR>
+&nbsp;&nbsp;*	Internationalization
+<BR>
+&nbsp;&nbsp;*
+<BR>
++ * Wed Mar  1 14:34:53 EST 2000 David Huggins-Daines &lt;dhuggins@linuxcare.com&gt;
+<BR>
++ *      Better support for OSF/1 disklabels on Alpha.
+<BR>
++ *
+<BR>
+&nbsp;&nbsp;* Corrected deleting last logical partition -- aeb, 990430.
+<BR>
+&nbsp;&nbsp;* Removed all assumptions on file names -- aeb, 990709
+<BR>
+&nbsp;&nbsp;*   [modprobe gave ugly error messages, and the number of devices to probe
+<BR>
+@@ -108,6 +111,7 @@
+<BR>
+&nbsp;#include &quot;fdisksunlabel.h&quot;
+<BR>
+&nbsp;#include &quot;fdisksgilabel.h&quot;
+<BR>
+&nbsp;#include &quot;fdiskaixlabel.h&quot;
+<BR>
++#include &quot;fdiskbsdlabel.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;../defines.h&quot;
+<BR>
+&nbsp;#ifdef HAVE_blkpg_h
+<BR>
+@@ -222,6 +226,7 @@
+<BR>
+&nbsp;int     sun_label = 0;                  /* looking at sun disklabel */
+<BR>
+&nbsp;int	sgi_label = 0;			/* looking at sgi disklabel */
+<BR>
+&nbsp;int	aix_label = 0;			/* looking at aix disklabel */
+<BR>
++int     osf_label = 0;                  /* looking at osf disklabel */
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct	partition *part_table[MAXIMUM_PARTS]	/* partitions */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= {offset(buffer, 0), offset(buffer, 1),
+<BR>
+@@ -517,7 +522,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;void warn_cylinders(void)
+<BR>
+&nbsp;{
+<BR>
+-	if (!sun_label &amp;&amp; !sgi_label &amp;&amp; cylinders &gt; 1024 &amp;&amp; !nowarn)
+<BR>
++	if (!sun_label &amp;&amp; !sgi_label &amp;&amp; !osf_label &amp;&amp; cylinders &gt; 1024 &amp;&amp; !nowarn)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;\n\
+<BR>
+&nbsp;The number of cylinders for this disk is set to %d.\n\
+<BR>
+&nbsp;There is nothing wrong with that, but this is larger than 1024,\n\
+<BR>
+@@ -686,12 +691,15 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (check_aix_label())
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;
+<BR>
++	if (check_osf_label())
+<BR>
++		return 0;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!valid_part_table_flag(buffer)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch(what) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case fdisk:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_(&quot;Device contains neither a valid DOS partition&quot;
+<BR>
+-			 	  &quot; table, nor Sun or SGI disklabel\n&quot;));
+<BR>
++			 	  &quot; table, nor Sun, SGI, or OSF disklabel\n&quot;));
+<BR>
+&nbsp;#ifdef __sparc__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;create_sunlabel();
+<BR>
+&nbsp;#else
+<BR>
+@@ -1176,6 +1184,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	if (osf_label) {
+<BR>
++	        list_disk_geometry();
+<BR>
++		xbsd_print_disklabel(xtra);
+<BR>
++		return;
+<BR>
++	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;w = strlen(disk_device);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Heuristic: we list partition 3 of /dev/foo as /dev/foo3,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;but if the device name ends in a digit, say /dev/foo1,
+<BR>
+@@ -1967,6 +1980,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal(usage2);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;get_boot(fdisk);
+<BR>
++	/* On alpha, if we detect a disklabel, go directly to
+<BR>
++           disklabel mode (typically you'll be switching from DOS
+<BR>
++           partition tables to disklabels, not the other way around)
+<BR>
++           - dhuggins@linuxcare.com */
+<BR>
++#ifdef __alpha__
+<BR>
++	if (osf_label) {
+<BR>
++		printf(_(&quot;Detected an OSF/1 disklabel on %s, entering disklabel mode.\n&quot;
+<BR>
++			 &quot;To return to DOS partition table mode, use the 'r' command.\n&quot;),
+<BR>
++		       disk_device);
+<BR>
++		bselect();
+<BR>
++	}
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (1) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;putchar('\n');
+<BR>
+diff --exclude=*~ -urN util-linux-2.10f/fdisk/fdiskbsdlabel.c util-linux-2.10f.patched/fdisk/fdiskbsdlabel.c
+<BR>
+--- util-linux-2.10f/fdisk/fdiskbsdlabel.c	Thu Dec  9 09:29:21 1999
+<BR>
++++ util-linux-2.10f.patched/fdisk/fdiskbsdlabel.c	Wed Mar  1 14:37:10 2000
+<BR>
+@@ -36,6 +36,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Changes:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;19990319 - Arnaldo Carvalho de Melo &lt;acme@conectiva.com.br&gt; - i18n/nls
+<BR>
++
+<BR>
++   20000101 - David Huggins-Daines &lt;dhuggins@linuxcare.com&gt; - Better
+<BR>
++   support for OSF/1 disklabels on Alpha.  Also fixed unaligned
+<BR>
++   accesses in alpha_bootblock_checksum()
+<BR>
+&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;unistd.h&gt;
+<BR>
+@@ -61,7 +65,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void xbsd_delete_part (void);
+<BR>
+&nbsp;static void xbsd_new_part (void);
+<BR>
+-static void xbsd_print_disklabel (int show_all);
+<BR>
+&nbsp;static void xbsd_write_disklabel (void);
+<BR>
+&nbsp;static int xbsd_create_disklabel (void);
+<BR>
+&nbsp;static void xbsd_edit_disklabel (void);
+<BR>
+@@ -84,7 +87,17 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;static struct xbsd_disklabel xbsd_dlabel;
+<BR>
+-static char buffer[BSD_BBSIZE];
+<BR>
++
+<BR>
++/* We need our own internal buffer because the disklabel lives
+<BR>
++   elsewhere on platforms that are damaged by DOS -
+<BR>
++   dhuggins@linuxcare.com */
+<BR>
++#if defined (__alpha__)
+<BR>
++/* Also, we access this through a u_int64_t * when checksumming */
+<BR>
++static char dlbuffer[BSD_BBSIZE] __attribute__((aligned(8)));
+<BR>
++#else
+<BR>
++static char dlbuffer[BSD_BBSIZE];
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;static struct partition *xbsd_part;
+<BR>
+&nbsp;static int xbsd_part_index;
+<BR>
+@@ -99,6 +112,25 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++int
+<BR>
++check_osf_label(void)
+<BR>
++{
+<BR>
++  extern void update_units(void);
+<BR>
++
+<BR>
++  if (xbsd_readlabel (NULL, &amp;xbsd_dlabel) == 0)
+<BR>
++    return 0;
+<BR>
++  osf_label = 1;
+<BR>
++  /* Get *correct* geometry info from the disklabel (otherwise disks
+<BR>
++     previously partitioned under Digital Unix won't work) -
+<BR>
++     dhuggins@linuxcare.com */
+<BR>
++  heads     = xbsd_dlabel.d_ntracks;
+<BR>
++  cylinders = xbsd_dlabel.d_ncylinders;
+<BR>
++  sectors   = xbsd_dlabel.d_nsectors;
+<BR>
++  update_units();
+<BR>
++
+<BR>
++  return 1;
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;void
+<BR>
+&nbsp;bmenu (void)
+<BR>
+&nbsp;{
+<BR>
+@@ -111,11 +143,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   n   add a new BSD partition&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   p   print BSD partition table&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   q   quit without saving changes&quot;));
+<BR>
+-#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   r   return to main menu&quot;));
+<BR>
+-#endif
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   s   show complete disklabel&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   t   change a partition's filesystem id&quot;));
+<BR>
++  puts (_(&quot;   u   change units (cylinders/sectors)&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   w   write disklabel to disk&quot;));
+<BR>
+&nbsp;#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;&nbsp;&nbsp;puts (_(&quot;   x   link BSD partition to non-BSD partition&quot;));
+<BR>
+@@ -134,6 +165,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+&nbsp;bselect (void) {
+<BR>
++  extern void change_units(void);
+<BR>
+&nbsp;#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;&nbsp;&nbsp;int t, ss;
+<BR>
+&nbsp;
+<BR>
+@@ -200,12 +232,15 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 't':
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xbsd_change_fstype ();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
++      case 'u':
+<BR>
++	change_units();
+<BR>
++	break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 'w':
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xbsd_write_disklabel ();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+-#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 'r':
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
++#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 'x':
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xbsd_link_part ();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+@@ -262,14 +297,14 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cround (begin), mesg);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;if (display_in_cyl_units)
+<BR>
+-    end = end * units_per_sector - 1;
+<BR>
++    end = (end - 1) * units_per_sector;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;xbsd_dlabel.d_partitions[i].p_size   = end - begin + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;xbsd_dlabel.d_partitions[i].p_offset = begin;
+<BR>
+-  xbsd_dlabel.d_partitions[i].p_fstype = BSD_FS_UNUSED; 
+<BR>
++  xbsd_dlabel.d_partitions[i].p_fstype = BSD_FS_UNUSED;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static void
+<BR>
++void
+<BR>
+&nbsp;xbsd_print_disklabel (int show_all)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;struct xbsd_disklabel *lp = &amp;xbsd_dlabel;
+<BR>
+@@ -321,12 +356,25 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(f, &quot;%ld &quot;, (long) lp-&gt;d_drivedata[j]);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;fprintf (f, _(&quot;\n%d partitions:\n&quot;), lp-&gt;d_npartitions);
+<BR>
+-  fprintf (f, _(&quot;#        size   offset    fstype   [fsize bsize   cpg]\n&quot;));
+<BR>
++  fprintf (f, _(&quot;#       start       end      size     fstype   [fsize bsize   cpg]\n&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;pp = lp-&gt;d_partitions;
+<BR>
+&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; lp-&gt;d_npartitions; i++, pp++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pp-&gt;p_size) {
+<BR>
+-      fprintf(f, &quot;  %c: %8ld %8ld  &quot;, 'a' + i,
+<BR>
+-	      (long) pp-&gt;p_size, (long) pp-&gt;p_offset);
+<BR>
++      if (display_in_cyl_units) {
+<BR>
++	fprintf(f, &quot;  %c: %8d%c %8d%c %8d%c  &quot;, 'a' + i,
+<BR>
++		cround(pp-&gt;p_offset),
+<BR>
++		(pp-&gt;p_offset % lp-&gt;d_secpercyl) ? '*' : ' ',
+<BR>
++		cround(pp-&gt;p_offset + pp-&gt;p_size - 1),
+<BR>
++		((pp-&gt;p_offset + pp-&gt;p_size) % lp-&gt;d_secpercyl) ? '*' : ' ',
+<BR>
++		pp-&gt;p_size / lp-&gt;d_secpercyl,
+<BR>
++		(pp-&gt;p_size % lp-&gt;d_secpercyl) ? '*' : ' ');
+<BR>
++		
+<BR>
++      } else {
+<BR>
++	fprintf(f, &quot;  %c: %8d  %8d  %8d   &quot;, 'a' + i,
+<BR>
++		pp-&gt;p_offset,
+<BR>
++		pp-&gt;p_offset + pp-&gt;p_size - 1,
+<BR>
++		pp-&gt;p_size);
+<BR>
++      }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((unsigned) pp-&gt;p_fstype &lt; BSD_FSMAXTYPES)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(f, &quot;%8.8s&quot;, xbsd_fstypes[pp-&gt;p_fstype].name);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+@@ -348,27 +396,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(f, &quot;%20.20s&quot;, &quot;&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-      fprintf(f, &quot;\t# (Cyl. %4ld&quot;, (long)
+<BR>
+-#if 0
+<BR>
+-	      pp-&gt;p_offset / lp-&gt;d_secpercyl); /* differs from Linux fdisk */
+<BR>
+-#else
+<BR>
+-	      pp-&gt;p_offset / lp-&gt;d_secpercyl + 1);
+<BR>
+-#endif
+<BR>
+-      if (pp-&gt;p_offset % lp-&gt;d_secpercyl)
+<BR>
+-	putc('*', f);
+<BR>
+-      else
+<BR>
+-	putc(' ', f);
+<BR>
+-      fprintf(f, &quot;- %ld&quot;,
+<BR>
+-	      (long) (pp-&gt;p_offset + 
+<BR>
+-	       pp-&gt;p_size + lp-&gt;d_secpercyl - 1) /
+<BR>
+-#if 0
+<BR>
+-	      lp-&gt;d_secpercyl - 1); /* differs from Linux fdisk */
+<BR>
+-#else
+<BR>
+-	      lp-&gt;d_secpercyl);
+<BR>
+-#endif
+<BR>
+-      if (pp-&gt;p_size % lp-&gt;d_secpercyl)
+<BR>
+-	putc('*', f);
+<BR>
+-      fprintf(f, &quot;)\n&quot;);
+<BR>
++      putc('\n', f);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+@@ -507,18 +535,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dkbasename = line_ptr;
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;sprintf (path, &quot;%s/%sboot&quot;, bootdir, dkbasename);
+<BR>
+-  if (!xbsd_get_bootstrap (path, buffer, (int) xbsd_dlabel.d_secsize))
+<BR>
++  if (!xbsd_get_bootstrap (path, dlbuffer, (int) xbsd_dlabel.d_secsize))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* We need a backup of the disklabel (xbsd_dlabel might have changed). */
+<BR>
+-  d = &amp;buffer[BSD_LABELSECTOR * SECTOR_SIZE];
+<BR>
++  d = &amp;dlbuffer[BSD_LABELSECTOR * SECTOR_SIZE];
+<BR>
+&nbsp;&nbsp;&nbsp;bcopy (d, &amp;dl, sizeof (struct xbsd_disklabel));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* The disklabel will be overwritten by 0's from bootxx anyway */
+<BR>
+&nbsp;&nbsp;&nbsp;bzero (d, sizeof (struct xbsd_disklabel));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;sprintf (path, &quot;%s/boot%s&quot;, bootdir, dkbasename);
+<BR>
+-  if (!xbsd_get_bootstrap (path, &amp;buffer[xbsd_dlabel.d_secsize],
+<BR>
++  if (!xbsd_get_bootstrap (path, &amp;dlbuffer[xbsd_dlabel.d_secsize],
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(int) xbsd_dlabel.d_bbsize - xbsd_dlabel.d_secsize))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;
+<BR>
+@@ -538,12 +566,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;sector = 0;
+<BR>
+&nbsp;#elif defined (__alpha__)
+<BR>
+&nbsp;&nbsp;&nbsp;sector = 0;
+<BR>
+-  alpha_bootblock_checksum (buffer);
+<BR>
++  alpha_bootblock_checksum (dlbuffer);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;if (ext2_llseek (fd, sector * SECTOR_SIZE, SEEK_SET) == -1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_seek);
+<BR>
+-  if (BSD_BBSIZE != write (fd, buffer, BSD_BBSIZE))
+<BR>
++  if (BSD_BBSIZE != write (fd, dlbuffer, BSD_BBSIZE))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_write);
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined (i386) || defined (__sparc__) || defined (__arm__)
+<BR>
+@@ -707,10 +735,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;if (ext2_llseek (fd, sector * SECTOR_SIZE, SEEK_SET) == -1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_seek);
+<BR>
+-  if (BSD_BBSIZE != read (fd, buffer, BSD_BBSIZE))
+<BR>
++  if (BSD_BBSIZE != read (fd, dlbuffer, BSD_BBSIZE))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_read);
+<BR>
+&nbsp;
+<BR>
+-  bcopy (&amp;buffer[BSD_LABELSECTOR * SECTOR_SIZE + BSD_LABELOFFSET],
+<BR>
++  bcopy (&amp;dlbuffer[BSD_LABELSECTOR * SECTOR_SIZE + BSD_LABELOFFSET],
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d, sizeof (struct xbsd_disklabel));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;for (t = d -&gt; d_npartitions; t &lt; BSD_MAXPARTITIONS; t++)
+<BR>
+@@ -745,14 +773,14 @@
+<BR>
+&nbsp;&nbsp;&nbsp;/* This is necessary if we want to write the bootstrap later,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;otherwise we'd write the old disklabel with the bootstrap.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+-  bcopy (d, &amp;buffer[BSD_LABELSECTOR * SECTOR_SIZE + BSD_LABELOFFSET],
+<BR>
++  bcopy (d, &amp;dlbuffer[BSD_LABELSECTOR * SECTOR_SIZE + BSD_LABELOFFSET],
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sizeof (struct xbsd_disklabel));
+<BR>
+&nbsp;
+<BR>
+&nbsp;#if defined (__alpha__) &amp;&amp; BSD_LABELSECTOR == 0
+<BR>
+-  alpha_bootblock_checksum (buffer);
+<BR>
++  alpha_bootblock_checksum (dlbuffer);
+<BR>
+&nbsp;&nbsp;&nbsp;if (ext2_llseek (fd, 0, SEEK_SET) == -1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_seek);
+<BR>
+-  if (BSD_BBSIZE != write (fd, buffer, BSD_BBSIZE))
+<BR>
++  if (BSD_BBSIZE != write (fd, dlbuffer, BSD_BBSIZE))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fatal (unable_to_write);
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;if (ext2_llseek (fd, sector * SECTOR_SIZE + BSD_LABELOFFSET, SEEK_SET) == -1)
+<BR>
+diff --exclude=*~ -urN util-linux-2.10f/fdisk/fdiskbsdlabel.h util-linux-2.10f.patched/fdisk/fdiskbsdlabel.h
+<BR>
+--- util-linux-2.10f/fdisk/fdiskbsdlabel.h	Fri Nov  5 11:59:06 1999
+<BR>
++++ util-linux-2.10f.patched/fdisk/fdiskbsdlabel.h	Wed Mar  1 14:00:51 2000
+<BR>
+@@ -182,6 +182,7 @@
+<BR>
+&nbsp;#define	BSD_FS_BOOT	13		/* partition contains bootstrap */
+<BR>
+&nbsp;#define BSD_FS_ADOS	14		/* AmigaDOS fast file system */
+<BR>
+&nbsp;#define BSD_FS_HFS	15		/* Macintosh HFS */
+<BR>
++#define BSD_FS_ADVFS	16		/* Digital Unix AdvFS */
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* this is annoying, but it's also the way it is :-( */
+<BR>
+&nbsp;#ifdef __alpha__
+<BR>
+@@ -212,6 +213,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{BSD_FS_BOOT,   &quot;boot&quot;},
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{BSD_FS_ADOS,   &quot;ADOS&quot;},
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{BSD_FS_HFS,    &quot;HFS&quot;},
+<BR>
++	{BSD_FS_ADVFS,    &quot;AdvFS&quot;},
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ 0, NULL }
+<BR>
+&nbsp;};
+<BR>
+&nbsp;#define BSD_FSMAXTYPES (SIZE(xbsd_fstypes)-1)
+<BR>
+@@ -227,3 +229,8 @@
+<BR>
+&nbsp;#define	BSD_D_RAMDISK	0x08		/* disk emulator */
+<BR>
+&nbsp;#define	BSD_D_CHAIN    	0x10		/* can do back-back transfers */
+<BR>
+&nbsp;#define	BSD_D_DOSPART	0x20		/* within MSDOS partition */
+<BR>
++
+<BR>
++extern uint heads, sectors, cylinders;
+<BR>
++extern int osf_label;
+<BR>
++extern int check_osf_label(void);
+<BR>
++extern void xbsd_print_disklabel(int);
+<BR>
+diff --exclude=*~ -urN util-linux-2.10f/po/cat-id-tbl.c util-linux-2.10f.patched/po/cat-id-tbl.c
+<BR>
+--- util-linux-2.10f/po/cat-id-tbl.c	Wed Mar  1 10:26:44 2000
+<BR>
++++ util-linux-2.10f.patched/po/cat-id-tbl.c	Wed Mar  1 10:30:22 2000
+<BR>
+@@ -841,7 +841,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;{&quot;\
+<BR>
+&nbsp;\n\
+<BR>
+&nbsp;%d partitions:\n&quot;, 627},
+<BR>
+-  {&quot;#        size   offset    fstype   [fsize bsize   cpg]\n&quot;, 628},
+<BR>
++  {&quot;#       start       end      size     fstype   [fsize bsize   cpg]\n&quot;, 628},
+<BR>
+&nbsp;&nbsp;&nbsp;{&quot;Writing disklabel to %s%d.\n&quot;, 629},
+<BR>
+&nbsp;&nbsp;&nbsp;{&quot;Writing disklabel to %s.\n&quot;, 630},
+<BR>
+&nbsp;&nbsp;&nbsp;{&quot;%s%d contains no disklabel.\n&quot;, 631},
+<BR>
+<P><P><PRE>
+-- 
+David Huggins-Daines, Senior Linux Consultant, Linuxcare, Inc.
+613.562.1239 tel
+dhuggins@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0247.html">Adam C Powell IV: "Re: compiling c programs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0245.html">Christopher C. Chimelis: "Re: compiling c programs"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 16:00:06 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

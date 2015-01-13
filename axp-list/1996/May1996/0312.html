@@ -1,0 +1,451 @@
+<!-- received="Mon May 20 00:27:24 1996 " -->
+<!-- sent="Mon, 20 May 1996 00:27:24 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="more strace patches" -->
+<!-- id="199605200727.AAA17614@koala.azstarnet.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>more strace patches</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>more strace patches</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Mon, 20 May 1996 00:27:24 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#312">[ date ]</a><a href="index.html#312">[ thread ]</a><a href="subject.html#312">[ subject ]</a><a href="author.html#312">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0313.html">Richard Henderson: "Re: strip and that kernel patch nonsense"</a>
+<li> <b>Previous message:</b> <a href="0311.html">Harald Koenig: "Re: strip and that kernel patch nonsense"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here are a few more trivial fixes.  I didn't mean to work on strace,<br>
+but I wanted to get it to work with glibc and while working on that,<br>
+fixed some other things as well.  I verified that the current sources<br>
+still build fine with the regular Linux/Alpha libc.<br>
+<p>
+Oh, the patch regarding HAVE_POLL is basically wrong.  The problem is<br>
+that glibc has a poll() call, but it doesn't have any of the STREAMS<br>
+related stuff.  Seems to me it's a bad idea to use the presence of<br>
+poll() to test for the presence of STREAMS.  It would require some<br>
+configure.in hacking to fix this properly, which I didn't want to do<br>
+right now.<br>
+<p>
+	--david<br>
+<pre>
+--
+diff -urN strace-3.0.11/defs.h strace-3.0.11axp/defs.h
+--- strace-3.0.11/defs.h	Fri May 17 18:20:07 1996
++++ strace-3.0.11axp/defs.h	Sun May 19 18:38:57 1996
+@@ -76,7 +76,7 @@
+ #undef ptrace
+ #ifdef __STDC__
+ #ifdef LINUX
+-extern int ptrace(int, int, char *, int);
++extern long ptrace(int, int, char *, long);
+ #else /* !LINUX */
+ extern int ptrace(int, int, char *, int, ...);
+ #endif /* !LINUX */
+diff -urN strace-3.0.11/desc.c strace-3.0.11axp/desc.c
+--- strace-3.0.11/desc.c	Thu May 16 21:39:44 1996
++++ strace-3.0.11axp/desc.c	Sun May 19 20:59:28 1996
+@@ -264,8 +264,8 @@
+ 	struct timeval tv;
+ 	static char outstr[1024];
+ 	char *sep;
+-	int arg;
+-#ifdef LINUX
++	long arg;
++#if defined(LINUX) &amp;&amp; !defined(ALPHA)
+ 	long args[5];
+ 	if (umoven(tcp, tcp-&gt;u_arg[0], sizeof args, (char *) args) &lt; 0) {
+ 		tprintf("[...]");
+@@ -285,7 +285,7 @@
+ 				continue;
+ 			}
+ 			if (!verbose(tcp)) {
+-				tprintf(", %#x", arg);
++				tprintf(", %#lx", arg);
+ 				continue;
+ 			}
+ 			if (umove(tcp, arg, &amp;fds) &lt; 0) {
+diff -urN strace-3.0.11/file.c strace-3.0.11axp/file.c
+--- strace-3.0.11/file.c	Fri May 17 18:20:08 1996
++++ strace-3.0.11axp/file.c	Sun May 19 17:32:53 1996
+@@ -31,7 +31,7 @@
+ 
+ #include "defs.h"
+ 
+-#include &lt;sys/dirent.h&gt;
++#include &lt;dirent.h&gt;
+ #include &lt;sys/stat.h&gt;
+ #include &lt;fcntl.h&gt;
+ 
+diff -urN strace-3.0.11/ioctl.c strace-3.0.11axp/ioctl.c
+--- strace-3.0.11/ioctl.c	Thu May 16 19:38:18 1996
++++ strace-3.0.11axp/ioctl.c	Sun May 19 18:03:55 1996
+@@ -95,6 +95,9 @@
+ 	case 'q':
+ 		return proc_ioctl(tcp, code, arg);
+ #endif /* SVR4 */
++#ifdef LINUX
++# undef HAVE_POLL
++#endif
+ #ifdef HAVE_POLL
+ 	case 'S':
+ 		return stream_ioctl(tcp, code, arg);
+diff -urN strace-3.0.11/signal.c strace-3.0.11axp/signal.c
+--- strace-3.0.11/signal.c	Fri May 17 18:20:08 1996
++++ strace-3.0.11axp/signal.c	Sun May 19 21:09:22 1996
+@@ -40,9 +40,53 @@
+ #endif /* SVR4 */
+ 
+ #ifdef LINUX
+-#ifdef ALPHA
+-#include &lt;asm/sigcontext.h&gt;
+-#endif /* ALPHA */
++# if __GNU_LIBRARY__ &lt; 5
++#  ifdef ALPHA
++#   include &lt;asm/sigcontext.h&gt;
++#  endif /* ALPHA */
++#  ifdef I386
++struct sigcontext {
++	unsigned short gs, __gsh;
++	unsigned short fs, __fsh;
++	unsigned short es, __esh;
++	unsigned short ds, __dsh;
++	unsigned long edi;
++	unsigned long esi;
++	unsigned long ebp;
++	unsigned long esp;
++	unsigned long ebx;
++	unsigned long edx;
++	unsigned long ecx;
++	unsigned long eax;
++	unsigned long trapno;
++	unsigned long err;
++	unsigned long eip;
++	unsigned short cs, __csh;
++	unsigned long eflags;
++	unsigned long esp_at_signal;
++	unsigned short ss, __ssh;
++	unsigned long i387;
++	unsigned long oldmask;
++	unsigned long cr2;
++};
++#  endif /* I386 */
++#  ifdef M68K
++struct sigcontext
++{
++	unsigned long sc_mask;
++	unsigned long sc_usp;
++	unsigned long sc_d0;
++	unsigned long sc_d1;
++	unsigned long sc_a0;
++	unsigned long sc_a1;
++	unsigned short sc_sr;
++	unsigned long sc_pc;
++	unsigned short sc_formatvec;
++};
++#  endif /* M68K */
++# else
++#  include &lt;sigcontext.h&gt;
++# endif
+ #endif /* LINUX */
+ 
+ char *signalent[] = {
+@@ -275,49 +319,6 @@
+ 
+ #endif /* HAVE_SIGACTION */
+ 
+-#ifdef LINUX
+-#ifdef I386
+-struct sigcontext_struct {
+-	unsigned short gs, __gsh;
+-	unsigned short fs, __fsh;
+-	unsigned short es, __esh;
+-	unsigned short ds, __dsh;
+-	unsigned long edi;
+-	unsigned long esi;
+-	unsigned long ebp;
+-	unsigned long esp;
+-	unsigned long ebx;
+-	unsigned long edx;
+-	unsigned long ecx;
+-	unsigned long eax;
+-	unsigned long trapno;
+-	unsigned long err;
+-	unsigned long eip;
+-	unsigned short cs, __csh;
+-	unsigned long eflags;
+-	unsigned long esp_at_signal;
+-	unsigned short ss, __ssh;
+-	unsigned long i387;
+-	unsigned long oldmask;
+-	unsigned long cr2;
+-};
+-#else /* !I386 */
+-#ifdef M68K
+-struct sigcontext
+-{
+-	unsigned long sc_mask;
+-	unsigned long sc_usp;
+-	unsigned long sc_d0;
+-	unsigned long sc_d1;
+-	unsigned long sc_a0;
+-	unsigned long sc_a1;
+-	unsigned short sc_sr;
+-	unsigned long sc_pc;
+-	unsigned short sc_formatvec;
+-};
+-#endif /* M68K */
+-#endif /* !I386 */
+-#endif /* LINUX */
+ 
+ static char *
+ sprintsigmask(s, mask)
+@@ -705,7 +706,7 @@
+ {
+ #ifdef I386
+ 	long esp;
+-	struct sigcontext_struct sc;
++	struct sigcontext sc;
+ 
+ 	if (entering(tcp)) {
+ 		tcp-&gt;u_arg[0] = 0;
+@@ -749,7 +750,11 @@
+ #else /* !M68K */
+ #ifdef ALPHA
+ 	long fp;
+-	struct sigcontext_struct sc;
++#if __GNU_LIBRARY__ &lt; 5
++	struct sigcontext_struct sc;	/* for backwards compatibility */
++#else
++	struct sigcontext sc;
++#endif
+ 
+ 	if (entering(tcp)) {
+ 		tcp-&gt;u_arg[0] = 0;
+@@ -917,6 +922,9 @@
+ 		else
+ #endif /* SVR4 */
+ 		printxval(sigprocmaskcmds, tcp-&gt;u_arg[0], "SIG_???");
++#ifdef ALPHA
++		tprintf(", %#lx, ", tcp-&gt;u_arg[1]);
++#else /* !ALPHA */
+ 		tprintf(", ");
+ 		if (!tcp-&gt;u_arg[1])
+ 			tprintf("NULL, ");
+@@ -926,6 +934,7 @@
+ 			printsigmask(sigset);
+ 			tprintf(", ");
+ 		}
++#endif /* !ALPHA */
+ 	}
+ 	else {
+ 		if (!tcp-&gt;u_arg[2])
+diff -urN strace-3.0.11/stream.c strace-3.0.11axp/stream.c
+--- strace-3.0.11/stream.c	Thu May 16 20:43:46 1996
++++ strace-3.0.11axp/stream.c	Sun May 19 18:03:09 1996
+@@ -29,6 +29,11 @@
+ 
+ #include "defs.h"
+ 
++#ifdef LINUX
++  /* glibc supports poll() but it doesn't mean that streams exist... */
++# undef HAVE_POLL
++#endif
++
+ #ifdef HAVE_POLL
+ 
+ #include &lt;stropts.h&gt;
+diff -urN strace-3.0.11/term.c strace-3.0.11axp/term.c
+--- strace-3.0.11/term.c	Thu May 16 19:38:20 1996
++++ strace-3.0.11axp/term.c	Sun May 19 18:06:27 1996
+@@ -29,12 +29,24 @@
+ 
+ #include "defs.h"
+ 
+-#if !defined(LINUX) || !defined(ALPHA)
+-#include &lt;termio.h&gt;
++#if !(defined(LINUX) &amp;&amp; defined(ALPHA))
++# include &lt;termio.h&gt;
++#endif
++#ifdef LINUX
++# define __KERNEL_NEED_TERMIO
++# include &lt;linux/termios.h&gt;
+ #endif
+ #include &lt;termios.h&gt;
++
+ #ifndef LINUX
+-#include &lt;sys/filio.h&gt;
++# include &lt;sys/filio.h&gt;
++#endif
++
++#ifndef __TERMIO_VMIN
++# define __TERMIO_VMIN	VMIN
++#endif
++#ifndef __TERMIO_VTIME
++# define __TERMIO_VTIME	VTIME
+ #endif
+ 
+ static struct xlat tcxonc_options[] = {
+@@ -198,7 +210,8 @@
+ 		tprintf("c_line=%u, ", tio.c_line);
+ 		if (!(tio.c_lflag &amp; ICANON))
+ 			tprintf("c_cc[VMIN]=%d, c_cc[VTIME]=%d, ",
+-				tio.c_cc[VMIN], tio.c_cc[VTIME]);
++				tio.c_cc[__TERMIO_VMIN],
++				tio.c_cc[__TERMIO_VTIME]);
+ 		tprintf("c_cc=\"");
+ 		for (i = 0; i &lt; NCC; i++)
+ 			tprintf("\\x%02x", tio.c_cc[i]);
+diff -urN strace-3.0.11/util.c strace-3.0.11axp/util.c
+--- strace-3.0.11/util.c	Fri May 17 18:20:09 1996
++++ strace-3.0.11axp/util.c	Sun May 19 21:25:31 1996
+@@ -491,22 +491,32 @@
+ 	int pid = tcp-&gt;pid;
+ 	int n, m;
+ 	union {
+-		int val;
+-		char x[4];
++		long val;
++		char x[sizeof(long)];
+ 	} u;
+ 
+-	if (addr &amp; 3) {
+-		/* addr not a multiple of 4 */
+-		n = addr - (addr &amp; -4); /* residue */
+-		addr &amp;= -4; /* residue */
++	if (addr &amp; (sizeof(long) - 1)) {
++		/* addr not a multiple of sizeof(long) */
++		n = addr - (addr &amp; -sizeof(long)); /* residue */
++		addr &amp;= -sizeof(long); /* residue */
++		errno = 0;
+ 		u.val = ptrace(PTRACE_PEEKDATA, pid, (char *) addr, 0);
+-		memcpy(laddr, &amp;u.x[n], m = MIN(4 - n, len));
+-		addr += 4, laddr += m, len -= m;
++		if (errno) {
++			perror("ptrace: umoven");
++			return -1;
++		}
++		memcpy(laddr, &amp;u.x[n], m = MIN(sizeof(long) - n, len));
++		addr += sizeof(long), laddr += m, len -= m;
+ 	}
+ 	while (len) {
++		errno = 0;
+ 		u.val = ptrace(PTRACE_PEEKDATA, pid, (char *) addr, 0);
+-		memcpy(laddr, u.x, m = MIN(4, len));
+-		addr += 4, laddr += m, len -= m;
++		if (errno) {
++			perror("ptrace: umoven");
++			return -1;
++		}
++		memcpy(laddr, u.x, m = MIN(sizeof(long), len));
++		addr += sizeof(long), laddr += m, len -= m;
+ 	}
+ #endif
+ #endif /* LINUX */
+@@ -516,7 +526,7 @@
+ #if 0
+ 	int n, m;
+ 	union {
+-		int val;
++		long val;
+ 		char x[4];
+ 	} u;
+ 
+@@ -660,8 +670,8 @@
+ 	int peek, poke;
+ 	int n, m;
+ 	union {
+-		int val;
+-		char x[4];
++		long val;
++		char x[sizeof(long)];
+ 	} u;
+ 
+ 	if (cmd == PTRACE_WRITETEXT) {
+@@ -672,27 +682,32 @@
+ 		peek = PTRACE_PEEKDATA;
+ 		poke = PTRACE_POKEDATA;
+ 	}
+-	if (addr &amp; 3) {
+-		/* addr not a multiple of 4 */
+-		n = addr - (addr &amp; -4); /* residue */
+-		addr &amp;= -4;
++	if (addr &amp; (sizeof(long) - 1)) {
++		/* addr not a multiple of sizeof(long) */
++		n = addr - (addr &amp; -sizeof(long)); /* residue */
++		addr &amp;= -sizeof(long);
++		errno = 0;
+ 		u.val = ptrace(peek, pid, (char *) addr, 0);
+-		memcpy(&amp;u.x[n], laddr, m = MIN(4 - n, len));
++		if (errno) {
++			perror("uload: POKE");
++			return -1;
++		}
++		memcpy(&amp;u.x[n], laddr, m = MIN(sizeof(long) - n, len));
+ 		if (ptrace(poke, pid, (char *)addr, u.val) &lt; 0) {
+ 			perror("uload: POKE");
+ 			return -1;
+ 		}
+-		addr += 4, laddr += m, len -= m;
++		addr += sizeof(long), laddr += m, len -= m;
+ 	}
+ 	while (len) {
+-		if (len &lt; 4)
++		if (len &lt; sizeof(long))
+ 			u.val = ptrace(peek, pid, (char *) addr, 0);
+-		memcpy(u.x, laddr, m = MIN(4, len));
++		memcpy(u.x, laddr, m = MIN(sizeof(long), len));
+ 		if (ptrace(poke, pid, (char *) addr, u.val) &lt; 0) {
+ 			perror("uload: POKE");
+ 			return -1;
+ 		}
+-		addr += 4, laddr += m, len -= m;
++		addr += sizeof(long), laddr += m, len -= m;
+ 	}
+ #endif
+ 	return 0;
+@@ -723,7 +738,7 @@
+ long off;
+ long *res;
+ {
+-	int val;
++	long val;
+ 
+ #ifdef SUNOS4_KERNEL_ARCH_KLUDGE
+ 	{
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0313.html">Richard Henderson: "Re: strip and that kernel patch nonsense"</a>
+<li> <b>Previous message:</b> <a href="0311.html">Harald Koenig: "Re: strip and that kernel patch nonsense"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: 2.2.11</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: 2.2.11">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.2.11</H1>
+<HR>
+<P>
+<!-- received="Tue Jun 29 16:42:05 1999" -->
+<!-- isoreceived="19990629234205" -->
+<!-- sent="Tue, 29 Jun 1999 09:40:32 -0600 (MDT)" -->
+<!-- isosent="19990629154032" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: 2.2.11" -->
+<!-- id="199906291540.JAA15875@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="19990629011028.A1023@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: 2.2.11<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jun 29 1999 - 08:40:32 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#658">[ date ]</A>
+<A HREF="index.html#658">[ thread ]</A>
+<A HREF="subject.html#658">[ subject ]</A>
+<A HREF="author.html#658">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0659.html">Nils Faerber: "Re: BladeEnc now has source available! (mpeg encoders and the Alpha)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0657.html">Greg Lindahl: "Re: BladeEnc now has source available! (mpeg encoders and the Alpha)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0644.html">Richard Henderson: "Re: 2.2.11"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0663.html">Richard Henderson: "Re: 2.2.11"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0644.html">Michal Jaegermann: "Re: 2.2.11"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Richard Henderson wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   (2) Give -fno-strict-alias to gcc 2.95.  No matter what we do for
+</EM><BR>
+<EM>&gt;       2.3, we won't be going back to fix what needs fixing in 2.2.
+</EM><BR>
+<P>Is this good enough?  Here is a code distilled from a real program
+<BR>
+(lyx-1.0.3) which was falling flat on this trouble and, curiously enough,
+<BR>
+in the original C++ source things were not really that obvious. :-)
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;string.h&gt;
+<BR>
+<P>unsigned char buffer[sizeof(char *) + 2];
+<BR>
+<P>int
+<BR>
+main ()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;p = (unsigned char *)&amp;p;            /* cheap initialization */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;original = %p\n&quot;, p);
+<BR>
+#if defined(BUG)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;memcpy (&amp;buffer[1], &amp;p, sizeof(p));
+<BR>
+#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char *target, *source;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;target = &amp;buffer[1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;source = (unsigned char *)&amp;p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; sizeof(char *) ; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*target++ = *source++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (i = sizeof(char *) + 2; i &gt; 0 ; ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;%02x &quot;, buffer[--i]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return(0);
+<BR>
+}
+<BR>
+<P>This program compiled on Alpha with egcs egcs-1.1.2 release
+<BR>
+(egcs-2.91.66 19990314) when BUG constant is not defined **or** when
+<BR>
+no optimizations are used prints someting like that:
+<BR>
+<P>original = 0x11ffffb60
+<BR>
+00 00 00 00 01 1f ff fb 60 00
+<BR>
+<P>If you add -DBUG to compilation flags and use **any** level of
+<BR>
+optimization above -O0 then this printout will be
+<BR>
+<P>original = 0x11ffffb60
+<BR>
+00 00 00 00 00 00 00 00 60 00
+<BR>
+<P>Adding compilation flags like -fno-strict-aliasing or other aliasing
+<BR>
+related flags does not change anything at all.  Looking at an assembler
+<BR>
+output it appears that this is the case of an overenthusiastic expansion
+<BR>
+of an inline function - but I am not sure.
+<BR>
+<P>I think that I will file a formal bug report - unless I will be told
+<BR>
+that this bug variant is well known, and taken care of, and I simply
+<BR>
+live under a rock.
+<BR>
+<P>Oh, and after a small workaround in one place in a source file
+<BR>
+math_iter.C, LyX-1.0.3 compiled on Alpha with all optimizations seems
+<BR>
+to be doing just fine.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0659.html">Nils Faerber: "Re: BladeEnc now has source available! (mpeg encoders and the Alpha)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0657.html">Greg Lindahl: "Re: BladeEnc now has source available! (mpeg encoders and the Alpha)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0644.html">Richard Henderson: "Re: 2.2.11"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0663.html">Richard Henderson: "Re: 2.2.11"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0644.html">Michal Jaegermann: "Re: 2.2.11"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

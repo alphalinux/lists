@@ -1,0 +1,102 @@
+<!-- received="Tue Oct  8 11:17:14 1996 " -->
+<!-- sent="Tue, 8 Oct 1996 08:16:45 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.COM" -->
+<!-- subject="Re: Problem with modules." -->
+<!-- id="199610081516.IAA03732@panda.mosberger" -->
+<!-- inreplyto="Problem with modules." -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Problem with modules.</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Problem with modules.</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.COM"><i>davidm@AZStarNet.COM</i></a>)<br>
+<i>Tue, 8 Oct 1996 08:16:45 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#269">[ date ]</a><a href="index.html#269">[ thread ]</a><a href="subject.html#269">[ subject ]</a><a href="author.html#269">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0270.html">David Mosberger-Tang: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<li> <b>Maybe in reply to:</b> <a href="0260.html">Amit Margalit: "Problem with modules."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Tue, 8 Oct 1996 11:54:12 +0200 (IST), Amit Margalit &lt;<a href="mailto:amitm@amitpc.iso.dec.com">amitm@amitpc.iso.dec.com</a>&gt; said:</i><br>
+<p>
+  Amit&gt; multam-root:/usr/src/linux/modules# insmod vfat<br>
+  Amit&gt; insmod: module is 40262 bytes long (expected 34745)<br>
+  Amit&gt; insmod: forgot to specify -dc when linking ./vfat.o?<br>
+<p>
+Ah, just yesterday I noticed this myself.  Below is a patch that<br>
+should fix the problem.  I'll make a new relese of the BFS insmod<br>
+sometime soon.  If somebody had some spare time at hand: how about<br>
+looking into porting the regular insmod to the Alpha?  Now that we<br>
+have ELF, this might be a worthwhile thing to do.<br>
+<p>
+	--david<br>
+<p>
+--- insmod.c~	Sun Sep  1 08:34:45 1996<br>
++++ insmod.c	Thu Oct  3 23:10:12 1996<br>
+@@ -98,8 +100,11 @@<br>
+ accum_size (bfd *abfd, asection *sect, PTR obj)<br>
+ {<br>
+     unsigned long *size = (unsigned long *) obj;<br>
+-    *size += (bfd_section_size (abfd, sect) +<br>
+-	      (1 &lt;&lt; bfd_get_section_alignment(abfd, sect)));<br>
++<br>
++    if (sect-&gt;flags &amp; SEC_ALLOC) {<br>
++	*size += (bfd_section_size (abfd, sect) +<br>
++		  (1 &lt;&lt; bfd_get_section_alignment(abfd, sect)));<br>
++    }<br>
+ }<br>
+ <br>
+ <br>
+@@ -109,10 +114,11 @@<br>
+     unsigned long size = bfd_section_size (bfd, sect);<br>
+     unsigned long *total_size = (unsigned long *) obj;<br>
+ <br>
+-    *total_size += size;<br>
+     if (sect-&gt;flags &amp; SEC_ALLOC) {<br>
+ 	char * addr;<br>
+ <br>
++	*total_size += size;<br>
++<br>
+ 	addr = code + (bfd_get_section_vma(bfd, sect) - mod_addr);<br>
+ 	if (addr + size &gt;= code + code_size) {<br>
+ 	    return;<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0270.html">David Mosberger-Tang: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<li> <b>Maybe in reply to:</b> <a href="0260.html">Amit Margalit: "Problem with modules."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

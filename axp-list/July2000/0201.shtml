@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Alpha's,MySQL and thread problems.</H1> 
+	
+<!-- received="Sun Jul 16 07:54:17 2000" -->
+<!-- isoreceived="20000716145417" -->
+<!-- sent="Sat, 15 Jul 2000 21:05:15 -0400 (EDT)" -->
+<!-- isosent="20000716010515" -->
+<!-- name="Alvin Starr" -->
+<!-- email="alvin@iplink.net" -->
+<!-- subject="Alpha's,MySQL and thread problems." -->
+<!-- id="Pine.OSF.4.05.10007151146480.12603-100000@caesar.iplink.net" -->
+<!-- inreplyto="14693.13187.142141.808976@narttu.mysql.com" -->
+<STRONG>Subject: </STRONG>Alpha's,MySQL and thread problems.<BR>
+<STRONG>From: </STRONG>Alvin Starr (<EM>alvin@iplink.net</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Jul 15 18:05:15 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#201">[ date ]</A>
+<A HREF="index.shtml#201">[ thread ]</A>
+<A HREF="subject.shtml#201">[ subject ]</A>
+<A HREF="author.shtml#201">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0202.shtml">W Bauske: "Software raid (Linear)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0200.shtml">GReg meno: "Re: SRM vs. AlphaBIOS round 3 (THE KO)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0298.shtml">Alvin Starr: "Re: Alpha's,MySQL and thread problems."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Ok I think I found it this time
+<BR>
+<P>The problem I would see is that MySQL would crash in cases where there are
+<BR>
+a large number of connections being created/destroyed. I was able to track
+<BR>
+this problem down to pthread_create. 
+<BR>
+<P><P>1 int __pthread_create_2_1(pthread_t *thread, const pthread_attr_t *attr,
+<BR>
+2                          void * (*start_routine)(void *), void *arg)
+<BR>
+3 {
+<BR>
+4   pthread_descr self = thread_self();
+<BR>
+5   struct pthread_request request;
+<BR>
+6   if (__pthread_manager_request &lt; 0) {
+<BR>
+7     if (__pthread_initialize_manager() &lt; 0) return EAGAIN;
+<BR>
+8   }
+<BR>
+9   THREAD_GETMEM(self, p_retcode)=0xdeadbeef ;
+<BR>
+10  *thread = 0;
+<BR>
+11  request.req_thread = self;
+<BR>
+12  request.req_kind = REQ_CREATE; 
+<BR>
+13  request.req_args.create.attr = attr;
+<BR>
+14  request.req_args.create.fn = start_routine;
+<BR>
+15  request.req_args.create.arg = arg;
+<BR>
+16  sigprocmask(SIG_SETMASK, (const sigset_t *) NULL,
+<BR>
+17              &amp;request.req_args.create.mask);
+<BR>
+18  __libc_write(__pthread_manager_request, (char *) &amp;request,sizeof(request));
+<BR>
+19  suspend(self);
+<BR>
+20  while(THREAD_GETMEM(self, p_retcode) == 0xdeadbeef)sched_yield();
+<BR>
+21
+<BR>
+22    *thread = 0;
+<BR>
+23
+<BR>
+24  if (THREAD_GETMEM(self, p_retcode) == 0)
+<BR>
+25    *thread = (pthread_t) THREAD_GETMEM(self, p_retval);
+<BR>
+26  return THREAD_GETMEM(self, p_retcode);
+<BR>
+27}
+<BR>
+<P>this is pthread from 2.1.3-16. Lines 9,10,20,22 are new. 
+<BR>
+<P>Using GDB I found that mysql would crash on line 25 regularly with a
+<BR>
+segmentation fault. With a little probing I came up with line 22. This
+<BR>
+code would then crash on line 22 but at no time did line 10 ever cause a
+<BR>
+crash.
+<BR>
+<P>I install lines 9 and 20. The problem goes away. 
+<BR>
+<P>To try and make sure It is not a compiler induced bug/fix I change the
+<BR>
+while loop so that it never loops. The problem comes back. I set a
+<BR>
+breakpoint on sched_yield but did not manage to get it to trigger. The
+<BR>
+lack of triggering bothers me a bit.
+<BR>
+<P><P>My conclusions:
+<BR>
+1) I believe that in this code suspend is expected to only return after
+<BR>
+&nbsp;&nbsp;&nbsp;the new thread has started. It appears that in some cases it returns
+<BR>
+&nbsp;&nbsp;&nbsp;before the new thread has been created. If suspend returns early the
+<BR>
+&nbsp;&nbsp;&nbsp;values of retcode and retval are undifined.
+<BR>
+2) At some point in the execution of the program *thread becomes invalid
+<BR>
+&nbsp;&nbsp;&nbsp;memory. This is a difficult thing to have happen since this is the
+<BR>
+&nbsp;&nbsp;&nbsp;memory in the process that is calling thread_create. This rases the
+<BR>
+&nbsp;&nbsp;&nbsp;question of if there is some point in the process of thread creation
+<BR>
+&nbsp;&nbsp;&nbsp;where the of the creating threads memory model becomes invalid? Are
+<BR>
+&nbsp;&nbsp;&nbsp;mmap and clone thread save?
+<BR>
+<P>I have been running my little stress test for several hours now and have
+<BR>
+not seen any problems yet. Before my changes my test program would cause
+<BR>
+the server to crash within 5-10 minutes.
+<BR>
+<P>Alvin Starr                   ||   voice: (416)585-9971
+<BR>
+Interlink Connectivity        ||   fax:   (416)585-9974
+<BR>
+alvin@iplink.net              ||
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0202.shtml">W Bauske: "Software raid (Linear)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0200.shtml">GReg meno: "Re: SRM vs. AlphaBIOS round 3 (THE KO)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0298.shtml">Alvin Starr: "Re: Alpha's,MySQL and thread problems."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Aug  1 04:53:12 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

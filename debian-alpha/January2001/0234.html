@@ -1,0 +1,286 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Need a copy of /sbin/termwrap</TITLE>
+<META NAME="Author" CONTENT="Bob Ogden (bob@contact.omen.com.au)">
+<META NAME="Subject" CONTENT="Re: Need a copy of /sbin/termwrap">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Need a copy of /sbin/termwrap</H1>
+<HR>
+<P>
+<!-- received="Tue Feb 06 23:06:09 2001" -->
+<!-- isoreceived="20010207070609" -->
+<!-- sent="Tue, 06 Feb 2001 12:53:26 +0800" -->
+<!-- isosent="20010206045326" -->
+<!-- name="Bob Ogden" -->
+<!-- email="bob@contact.omen.com.au" -->
+<!-- subject="Re: Need a copy of /sbin/termwrap" -->
+<!-- id="200102061253.4221417.6@contact.omen.com.au" -->
+<!-- inreplyto="20010205130528.C4914@murphy.nl" -->
+<STRONG>Subject: </STRONG>Re: Need a copy of /sbin/termwrap<BR>
+<STRONG>From: </STRONG>Bob Ogden (<EM>bob@contact.omen.com.au</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Feb 05 2001 - 20:53:26 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#234">[ date ]</A>
+<A HREF="index.html#234">[ thread ]</A>
+<A HREF="subject.html#234">[ subject ]</A>
+<A HREF="author.html#234">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0235.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0233.html">Adam C Powell IV: "Re: Need a copy of /sbin/termwrap"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0231.html">Paul Slootman: "Re: Need a copy of /sbin/termwrap"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0231.html">Bob Ogden: "Re: Need a copy of /sbin/termwrap"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+In &lt;20010205130528.C4914@murphy.nl&gt;, on 05/Feb/2001 
+<BR>
+&nbsp;&nbsp;&nbsp;at 01:05 PM,(+0100 GMT)
+<BR>
+Paul Slootman &lt;paul@murphy.nl&gt; said:
+<BR>
+<P><EM>&gt;On Sat 03 Feb 2001, Bob Ogden wrote:
+</EM><BR>
+<P><EM>&gt;&gt; So I thought that just droping a copy of termwrap in should resolve it.
+</EM><BR>
+<EM>&gt;&gt; Anyone willing to send me a copy?
+</EM><BR>
+<P><EM>&gt;$ locate termwrap
+</EM><BR>
+<EM>&gt;$ grep termwrap ../../Contents-alpha.gz 
+</EM><BR>
+<EM>&gt;$
+</EM><BR>
+<P><EM>&gt;I have no idea what you're talking about, unfortunately...
+</EM><BR>
+<P><P><EM>&gt;Paul Slootman
+</EM><BR>
+<P>Henry House very kindly forwarded me a copy of the script. I wouldn't be
+<BR>
+surprised if its only used during the install and is deleted after it's
+<BR>
+used.
+<BR>
+<P>Anyway, for those searching the debian list archives here is a copy of
+<BR>
+termwrap that solved my problems during second stage install due to non
+<BR>
+findable /sbin/termwrap. Just boot to the point where the error starts to
+<BR>
+occur then alt F2 and login as root. Mount a floppy with termwrap on it
+<BR>
+and cp to /sbin/ not forgetting to chmod as executable then reboot and
+<BR>
+away :).
+<BR>
+<P>Here's the script.
+<BR>
+<P><P>#!/bin/sh
+<BR>
+######################################################################
+<BR>
+##	Ignore some signals.
+<BR>
+######################################################################
+<BR>
+trap fail SIGTERM SIGINT
+<BR>
+<P>######################################################################
+<BR>
+##	Set some environment variables.
+<BR>
+###################################################################### #
+<BR>
+reads /etc/environment.
+<BR>
+. /etc/environment
+<BR>
+<P># Set all locale related environment variables.
+<BR>
+LC_ALL=$LANG
+<BR>
+export LANG LC_ALL
+<BR>
+<P>######################################################################
+<BR>
+##	Display usage if no argument.
+<BR>
+###################################################################### if
+<BR>
+[ -z &quot;$1&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;echo &quot;usage: $0 [-nnt] &lt;command&gt; [...]&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;echo &quot;-nnt: don't run another terminal&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit 0
+<BR>
+fi
+<BR>
+<P>######################################################################
+<BR>
+##	Recognize terminal type.
+<BR>
+######################################################################
+<BR>
+case `/usr/bin/tty` in
+<BR>
+/dev/tty|/dev/console|/dev/tty[1-9]*)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TERMINAL=console
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+/dev/tty[p-za-e]*)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TERMINAL=pseudo
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if [ ! -z &quot;$DISPLAY&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TERMINAL=x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case $TERM in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rxvt|xterm*|kterm)	TERMINAL=x;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esac
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fi
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+/dev/tty[A-Z]*|/dev/cu*)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TERMINAL=serial
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+esac
+<BR>
+<P>case $TERM in
+<BR>
+dumb)	TERMINAL=dumb
+<BR>
+esac
+<BR>
+<P>export TERMINAL
+<BR>
+<P># Why don't we use dpkg-architecture? 
+<BR>
+# Because it isn't in the base archive.
+<BR>
+<P>case $HOSTTYPE in 
+<BR>
+i386)	/bin/grep -q 9800 /proc/version &amp;&amp; SUBARCH=pc9800 ;;
+<BR>
+esac
+<BR>
+<P>######################################################################
+<BR>
+##	Select suitable terminal as wrapper.
+<BR>
+######################################################################
+<BR>
+WRAPPER=&quot;&quot;
+<BR>
+<P>case $LANG in
+<BR>
+ja*)	
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case $TERMINAL in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#WRAPPER=&quot;/usr/X11R6/bin/kterm -e&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WRAPPER=&quot;/usr/X11R6/bin/krxvt -e&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;console)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if [ &quot;$SUBARCH&quot; != pc9800 -a &quot;$TERMINAL&quot; = console ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Any plathome except PC9800 require jfbterm
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# to display japanese fonts on console.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WRAPPER=&quot;/usr/bin/jfbterm -e&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fi
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# On pseudo and serial, we couldn't know
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# that terminal can display japanese fonts...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esac
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;;
+<BR>
+esac
+<BR>
+<P>if [ &quot;$1&quot; = &quot;-nnt&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WRAPPER=&quot;&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;shift
+<BR>
+fi
+<BR>
+<P>######################################################################
+<BR>
+##	Execute Wrapper.
+<BR>
+###################################################################### if
+<BR>
+[ ! -z &quot;$WRAPPER&quot; -a -x &quot;$WRAPPER&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$WRAPPER /bin/true &amp;&amp; exec $WRAPPER $@
+<BR>
+fi
+<BR>
+<P>exec $@
+<BR>
+<P><P><PRE>
+-- 
+/-- Bob Ogden  bob@contact.omen.com.au --------------/
+/  -... --- -...   --- --. -.. . -.       Finger  for PGP key -----/
+Only 31553804598 seconds till the _next_ millennium! 
+<P>Only 31553751991 seconds till the _next_ millennium! 
+<P><P><P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0235.html">Paul Slootman: "Re: Why wouldn't gcc release build on Alpha ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0233.html">Adam C Powell IV: "Re: Need a copy of /sbin/termwrap"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0231.html">Paul Slootman: "Re: Need a copy of /sbin/termwrap"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0231.html">Bob Ogden: "Re: Need a copy of /sbin/termwrap"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:00 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

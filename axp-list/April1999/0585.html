@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: PC164SX system building questions</TITLE>
+<META NAME="Author" CONTENT="Phil Carmody (carmody@cpd.ntc.nokia.com)">
+<META NAME="Subject" CONTENT="Re: PC164SX system building questions">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: PC164SX system building questions</H1>
+<HR>
+<P>
+<!-- received="Thu Apr 22 11:33:31 1999 PDT" -->
+<!-- sent="Thu, 22 Apr 1999 12:33:14 +0100" -->
+<!-- name="Phil Carmody" -->
+<!-- email="carmody@cpd.ntc.nokia.com" -->
+<!-- subject="Re: PC164SX system building questions" -->
+<!-- id="199904221133.MAA28360@mvagusta" -->
+<!-- inreplyto="3.0.6.32.19990421173916.00c6c3d0@pop.mcit.com" -->
+<STRONG>Phil Carmody</STRONG> (<A HREF="mailto:carmody@cpd.ntc.nokia.com?subject=Re:%20PC164SX%20system%20building%20questions"><EM>carmody@cpd.ntc.nokia.com</EM></A>)<BR>
+<EM>Thu, 22 Apr 1999 12:33:14 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#585">[ date ]</A>
+<A HREF="index.html#585">[ thread ]</A>
+<A HREF="subject.html#585">[ subject ]</A>
+<A HREF="author.html#585">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0584.html">Aidan Williams: "alphaserver 2100, fresh 5.2 installation"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0575.html">Uncle George: "Re: PC164SX system building questions"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;&gt;&gt;&gt;&gt; &quot;Ralph&quot; == Ralph Green, &lt;<A HREF="mailto:Ralph.Green@wcom.com?subject=Re:%20PC164SX%20system%20building%20questions">Ralph.Green@wcom.com</A>&gt; writes:
+</EM><BR>
+<EM>Ralph&gt; Isamu,
+</EM><BR>
+<EM>Ralph&gt;  You are pretty close.
+</EM><BR>
+<EM>Ralph&gt;    To error correct n bits, you need
+</EM><BR>
+<EM>Ralph&gt;      (log(any base)  n  / log (same base) 2) + 1
+</EM><BR>
+<P><P>log[base x] (a) / log[base x] (b) == log[base b] a
+<BR>
+<P>Typical notation for log[base 2] is log2 or lg 
+<BR>
+('log' being base 10, 'ln' being natural (base 'e') logarithm)
+<BR>
+<P><P><EM>Ralph&gt;   To correct 8 bits needs:   (.903 / .301) + 1  or 4 bits
+</EM><BR>
+<EM>Ralph&gt;   To correct 64 bits needs:   (1.806 / .301) + 1  or 7 bits
+</EM><BR>
+<P><EM>Ralph&gt;   Your simm requirements depend on how the chipset decodes and error correct.  If it were to error correct on a byte basis, a 64 bit SIMM would need 8 times 12 bits or 96 bits to do ECC.  If it corrects on a 64 bit word basis, you need 64 + 7 or 71 bits.  Since parity dimms actually provide enough bits to do real single bit error correction on a word basis, that is currently done.
+</EM><BR>
+<EM>Ralph&gt;  If I assume log means log to the base 2, then your statement is almost true.  Just add 1 more to get the number of needed bits.
+</EM><BR>
+<P><P>Hoorah, someone who's not afraid to put content above presentation!
+<BR>
+(i.e. long lines - let the viewer decide when to wrap)
+<BR>
+<P><P>Anyway, some explanation for the +1 in Ralphs formula may be of interest to
+<BR>
+those who haven't seen it before. Because it's not always +1...
+<BR>
+<P><P>To be able to correct 1 bit error in a word of for example 4 bits, one
+<BR>
+needs to detect the following situations:
+<BR>
+a) no error
+<BR>
+b) error in bit 0, error in bit 1, error in bit 2, error in bit 3,
+<BR>
+c) error in extra error-correcting bit A, error in extra bit B, ....
+<BR>
+(numbering/lettering completely arbitrary)
+<BR>
+But we as yet don't know how many extra bits we need.
+<BR>
+<P>To handle cases (a) and (b) we need enough bits for 1+4 = 5 values, 
+<BR>
+i.e. 3 extra bits. ( = [ log2(1+wordwidth) ] rounded up )
+<BR>
+Therefore (c) will have 3 cases.
+<BR>
+Therefore the total number of cases (1+4+3 = 8) still fits in the 3 bits.
+<BR>
+<P>So in this case, it is +1.
+<BR>
+<P>However, take a 2 bit word:
+<BR>
+(a)+(b) gives 3 case. so 2 extra bits would be our first guess.
+<BR>
+but this would give (c) 2 cases, so the total becomes 5 which will not fit
+<BR>
+in 2 bits.
+<BR>
+So 3 are required
+<BR>
+but log2(2) = 1
+<BR>
+so +1 doesn't work (is too low) in these pathological cases
+<BR>
+<P>The formula is probably more along the lines of
+<BR>
+<P>Extra bits required = log2(bitwidth + 1 + log2(bitwidth+1) ) rounded up
+<BR>
+<P>This works for these pathological cases &lt;4. (it also works for 0 - erk).
+<BR>
+<P>As bitwidth increases, 
+<BR>
+log2(bitwidth+1) &lt;&lt; bitwidth   (is much less than)
+<BR>
+and 
+<BR>
+Extra bits = log2(bitwidth + relatively small number) rounded up 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= log2(bitwidth) + tiny number             rounded up
+<BR>
+<P>And Ralphs formula (as mine) holds true.
+<BR>
+_Unless_ the relatively small number causes the sum to just pop over a
+<BR>
+power of two; thus the log will increase from just less than an integer
+<BR>
+to just over an integer; and the rounded value will jump by one.
+<BR>
+This will only happen at word widths just less than a power of 2.
+<BR>
+(e.g. 7-bit)
+<BR>
+<P>Look at the behaviour using the following Perl script. 
+<BR>
+(Ralph - you weren't explicit about your rounding, normal interpretation
+<BR>
+would indicate that if you need 3.0001 bits, then you actually need 4, but
+<BR>
+your formula is more correct (only 36 fails in 256 cases) when rounding
+<BR>
+down.)
+<BR>
+<P>Anyway it's all academic, as you'll typically only see powers of 2 widths
+<BR>
+most of the time.
+<BR>
+<P>(Any questions feel free to ask me on or off channel)
+<BR>
+<P>Cheerio,
+<BR>
+Phil
+<BR>
+<P><P>#!/usr/bin/perl -w
+<BR>
+<P># Note - log() is the natural logarithm in Perl
+<BR>
+<P>my $i=1;
+<BR>
+while($i&lt;=256)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;# OK, this was the formula quoted 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;# (though you don't say how to round)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;my $ralphup = log($i)/log(2) + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;my $ralphdown = int($ralphup);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if($ralphup &gt; $ralphdown) { $ralphup = $ralphdown+1; }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;# OK, this is my formula
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;my $phil = log(1 + $i + (log($i+1)/log(2)))/log(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if($phil&gt; int($phil)) { $phil = int($phil)+1; }
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;my $a = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;my $b = log($i)/log(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if($b &gt; int($b)) { $b = int($b) + 1; }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;# uncomment the following line for more verbose output
+<BR>
+#    print &quot;$i : Ralph=$ralphdown|$ralphup  Phil=$phil\n&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;my ($oldc,$c) = (0,0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;do
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;{ 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$oldc = $c;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$c = log($a + $i + $oldc)/log(2);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if($c &gt; int($c)) { $c = int($c) + 1; }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# uncomment the following line for more verbose output
+<BR>
+#        print(&quot;    $a+$i+$oldc bits needs $c extra\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;} while($oldc != $c);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;print &quot;$i bits  =&gt; $c&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;($c!=$ralphdown)?&quot; (Ralph Down $ralphdown)&quot;:&quot;&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;($c!=$ralphup)?&quot; (Ralph Up $ralphup)&quot;:&quot;&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;($c!=$phil)?&quot; (Phil $phil)&quot;:&quot;&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;\n&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;++$i;
+<BR>
+}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20PC164SX%20system%20building%20questions">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20PC164SX%20system%20building%20questions">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0584.html">Aidan Williams: "alphaserver 2100, fresh 5.2 installation"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0575.html">Uncle George: "Re: PC164SX system building questions"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Apr 22 1999 - 05:00:22 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

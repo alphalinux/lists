@@ -1,0 +1,392 @@
+<!-- received="Sat Apr 12 04:26:35 1997 " -->
+<!-- sent="Sat, 12 Apr 1997 10:21:58 +0200 (MEST)" -->
+<!-- name="Ferdy Hanssen" -->
+<!-- email="hanssen@Cam031205.student.utwente.nl" -->
+<!-- subject="rwho/rwhod from NetKit-B-0.09 bug + fix" -->
+<!-- id="199704120426.AAA09147@mailhost.intac.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>rwho/rwhod from NetKit-B-0.09 bug + fix</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>rwho/rwhod from NetKit-B-0.09 bug + fix</h2>
+
+<b>Ferdy Hanssen</b> (<a href="mailto:hanssen@Cam031205.student.utwente.nl"><i>hanssen@Cam031205.student.utwente.nl</i></a>)<br>
+<i>Sat, 12 Apr 1997 10:21:58 +0200 (MEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#566">[ date ]</a><a href="index.html#566">[ thread ]</a><a href="subject.html#566">[ subject ]</a><a href="author.html#566">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0567.html">RayzHell: "(no subject)"</a>
+<li> <b>Previous message:</b> <a href="0565.html">Brian E.W. Wood: "Re: For Sale: UDB with the works"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+  The rwho and rwhod commands from the NetKit-B-0.09 for Red Hat Linux 4.1<br>
+don't work properly.<br>
+<p>
+  I fixed it, and include the patch below.  It has to be applied only for<br>
+Alpha (it's untested on any other architecture), and it has to be applied<br>
+after all other patches in the current src rpm.<br>
+<p>
+Ferdy T.Y. Hanssen, Student at Dept. of Computer Science, University of Twente<br>
+E-mail: <a href="mailto:hanssen@cs.utwente.nl">hanssen@cs.utwente.nl</a> or hanssen@Cam031205.student.utwente.nl<br>
+<p>
+------ Included file: NetKit-B-0.09-rwhod.patch ------<br>
+diff -ur NetKit-0.09.old/MCONFIG NetKit-0.09/MCONFIG<br>
+--- NetKit-0.09.old/MCONFIG	Fri Apr 11 14:48:07 1997<br>
++++ NetKit-0.09/MCONFIG	Fri Apr 11 13:12:35 1997<br>
+@@ -69,7 +69,7 @@<br>
+ # On alphas you may want to take out -Wcast-align for now.<br>
+ WARNINGS=-Wall -W -Wpointer-arith -Wbad-function-cast -Wcast-qual \<br>
+ 	 -Wstrict-prototypes -Wmissing-prototypes \<br>
+-	 -Wmissing-declarations -Wnested-externs -Winline -Wcast-align<br>
++	 -Wmissing-declarations -Wnested-externs -Winline # -Wcast-align<br>
+ <br>
+ # Linux libc's /usr/include isn't clean with these.<br>
+ # -Wredundant-decls      (there are a number of such in /usr/include)<br>
+diff -ur NetKit-0.09.old/include/protocols/rwhod.h NetKit-0.09/include/protocols/rwhod.h<br>
+--- NetKit-0.09.old/include/protocols/rwhod.h	Mon Jul 15 23:41:40 1996<br>
++++ NetKit-0.09/include/protocols/rwhod.h	Thu Apr 10 12:05:01 1997<br>
+@@ -43,7 +43,7 @@<br>
+ struct	outmp {<br>
+ 	char	out_line[8];		/* tty name */<br>
+ 	char	out_name[8];		/* user id */<br>
+-	long	out_time;		/* time on */<br>
++	int	out_time;		/* time on */<br>
+ };<br>
+ <br>
+ struct	whod {<br>
+diff -ur NetKit-0.09.old/rwho/rwho.c NetKit-0.09/rwho/rwho.c<br>
+--- NetKit-0.09.old/rwho/rwho.c	Thu Aug 15 05:25:20 1996<br>
++++ NetKit-0.09/rwho/rwho.c	Fri Apr 11 13:45:42 1997<br>
+@@ -39,6 +39,10 @@<br>
+  * From: @(#)rwho.c	5.5 (Berkeley) 6/1/90<br>
+  */<br>
+ char rcsid[] = "$Id: rwho.c,v 1.4 1996/08/15 03:25:17 dholland Exp $";<br>
++/*<br>
++ * Fixed 11 Apr 1997 by Ferdy Hanssen &lt;<a href="mailto:hanssen@esrac.ele.tue.nl">hanssen@esrac.ele.tue.nl</a>&gt;,<br>
++ * to make it work in Linux/Alpha<br>
++ */<br>
+ <br>
+ #include &lt;sys/param.h&gt;<br>
+ #include &lt;sys/dir.h&gt;<br>
+@@ -144,12 +148,14 @@<br>
+ 	mp = myutmp;<br>
+ 	for (i = 0; i &lt; nusers; i++) {<br>
+ 		char buf[BUFSIZ];<br>
++		time_t timetmp;<br>
+ 		(void)sprintf(buf, "%s:%s", mp-&gt;myhost, mp-&gt;myutmp.out_line);<br>
++		timetmp = mp-&gt;myutmp.out_time;<br>
+ 		printf("%-8.8s %-*s %.12s",<br>
+ 		   mp-&gt;myutmp.out_name,<br>
+ 		   width,<br>
+ 		   buf,<br>
+-		   ctime((time_t *)&amp;mp-&gt;myutmp.out_time)+4);<br>
++		   ctime(&amp;timetmp)+4);<br>
+ 		mp-&gt;myidle /= 60;<br>
+ 		if (mp-&gt;myidle) {<br>
+ 			if (aflg) {<br>
+diff -ur NetKit-0.09.old/rwhod/Makefile NetKit-0.09/rwhod/Makefile<br>
+--- NetKit-0.09.old/rwhod/Makefile	Sat Nov 23 19:52:33 1996<br>
++++ NetKit-0.09/rwhod/Makefile	Fri Apr 11 13:10:59 1997<br>
+@@ -3,7 +3,8 @@<br>
+ include ../MCONFIG<br>
+ include ../MRULES<br>
+ <br>
+-CFLAGS += -I ../include<br>
++#CFLAGS += -I ../include -DDEBUG -D_GNU_SOURCE<br>
++CFLAGS += -I ../include -D_GNU_SOURCE<br>
+ OBJS = rwhod.o daemon.o<br>
+ <br>
+ rwhod: $(OBJS)<br>
+diff -ur NetKit-0.09.old/rwhod/rwhod.c NetKit-0.09/rwhod/rwhod.c<br>
+--- NetKit-0.09.old/rwhod/rwhod.c	Fri Apr 11 14:48:07 1997<br>
++++ NetKit-0.09/rwhod/rwhod.c	Fri Apr 11 14:50:28 1997<br>
+@@ -40,7 +40,12 @@<br>
+  */<br>
+ char rcsid[] = <br>
+   "$Id: rwhod.c,v 1.8 1996/08/29 22:45:22 dholland Exp $";<br>
++/*<br>
++ * Fixed 11 Apr 1997 by Ferdy Hanssen &lt;<a href="mailto:hanssen@esrac.ele.tue.nl">hanssen@esrac.ele.tue.nl</a>&gt;,<br>
++ * to make it work in Linux/Alpha<br>
++ */<br>
+ <br>
++#include &lt;sys/types.h&gt;<br>
+ #include &lt;sys/param.h&gt;<br>
+ #include &lt;sys/socket.h&gt;<br>
+ #include &lt;sys/stat.h&gt;<br>
+@@ -115,8 +120,71 @@<br>
+ static void getkmem(int);<br>
+ static void onalrm(int);<br>
+ <br>
+-int<br>
+-main(void)<br>
++#ifdef DEBUG<br>
++char *interval(int time, char *updown);<br>
++<br>
++#define sendto my_sendto<br>
++<br>
++int sendto(int s, __const void *buf, size_t cc, int flags, __const struct sockaddr *to, size_t tolen)<br>
++{<br>
++	register struct whod *w;<br>
++	register struct whoent *we;<br>
++	struct sockaddr_in *sn;<br>
++<br>
++	w = buf;<br>
++	sn = (struct sockaddr_in *)to;<br>
++<br>
++	printf("sendto %lx.%d\n", ntohl(sn-&gt;sin_addr.s_addr), ntohs(sn-&gt;sin_port));<br>
++	printf("hostname %s %s\n", w-&gt;wd_hostname,<br>
++	   interval(ntohl(w-&gt;wd_sendtime) - ntohl(w-&gt;wd_boottime), "  up"));<br>
++	printf("load %4.2f, %4.2f, %4.2f\n",<br>
++	    ntohl(w-&gt;wd_loadav[0]) / 100.0, ntohl(w-&gt;wd_loadav[1]) / 100.0,<br>
++	    ntohl(w-&gt;wd_loadav[2]) / 100.0);<br>
++	cc -= WHDRSIZE;<br>
++	for (we = w-&gt;wd_we, cc /= sizeof (struct whoent); cc &gt; 0; cc--, we++) {<br>
++		time_t t = ntohl(we-&gt;we_utmp.out_time);<br>
++		printf("%-8.8s %s:%s %.12s",<br>
++			we-&gt;we_utmp.out_name,<br>
++			w-&gt;wd_hostname, we-&gt;we_utmp.out_line,<br>
++			ctime(&amp;t)+4);<br>
++		we-&gt;we_idle = ntohl(we-&gt;we_idle) / 60;<br>
++		if (we-&gt;we_idle) {<br>
++			if (we-&gt;we_idle &gt;= 100*60)<br>
++				we-&gt;we_idle = 100*60 - 1;<br>
++			if (we-&gt;we_idle &gt;= 60)<br>
++				printf(" %2d", we-&gt;we_idle / 60);<br>
++			else<br>
++				printf("   ");<br>
++			printf(":%02d", we-&gt;we_idle % 60);<br>
++		}<br>
++		printf("\n");<br>
++	}<br>
++	return 0;<br>
++}<br>
++<br>
++char *interval(int time, char *updown)<br>
++{<br>
++	static char resbuf[32];<br>
++	int days, hours, minutes;<br>
++<br>
++	if (time &lt; 0 || time &gt; 3*30*24*60*60) {<br>
++		(void) sprintf(resbuf, "   %s ??:??", updown);<br>
++		return (resbuf);<br>
++	}<br>
++	minutes = (time + 59) / 60;		/* round to minutes */<br>
++	hours = minutes / 60; minutes %= 60;<br>
++	days = hours / 24; hours %= 24;<br>
++	if (days)<br>
++		(void) sprintf(resbuf, "%s %2d+%02d:%02d",<br>
++		    updown, days, hours, minutes);<br>
++	else<br>
++		(void) sprintf(resbuf, "%s    %2d:%02d",<br>
++		    updown, hours, minutes);<br>
++	return (resbuf);<br>
++}<br>
++#endif<br>
++<br>
++int main(void)<br>
+ {<br>
+ 	struct sockaddr_in from;<br>
+ 	struct stat st;<br>
+@@ -251,8 +319,7 @@<br>
+  * and other funnies before allowing a file<br>
+  * to be created.  Sorry, but blanks aren't allowed.<br>
+  */<br>
+-static int<br>
+-verify(const char *name)<br>
++static int verify(const char *name)<br>
+ {<br>
+ 	register int size = 0;<br>
+ <br>
+@@ -264,9 +331,9 @@<br>
+ 	return size &gt; 0;<br>
+ }<br>
+ <br>
+-int	utmptime;<br>
++unsigned long int	utmptime;<br>
+ int	utmpent;<br>
+-int	utmpsize = 0;<br>
++long int	utmpsize = 0;<br>
+ struct	utmp *utmp;<br>
+ int	alarmcount;<br>
+ <br>
+@@ -342,7 +409,7 @@<br>
+ 	}<br>
+ 	getloadavg(avenrun, sizeof(avenrun)/sizeof(avenrun[0]));<br>
+ 	for (i = 0; i &lt; 3; i++)<br>
+-		mywd.wd_loadav[i] = htonl((u_long)(avenrun[i] * 100));<br>
++		mywd.wd_loadav[i] = (int)htonl((u_long)(avenrun[i] * 100));<br>
+ 	cc = (char *)we - (char *)&amp;mywd;<br>
+ 	mywd.wd_sendtime = htonl(time(0));<br>
+ 	mywd.wd_vers = WHODVERSION;<br>
+@@ -467,8 +534,7 @@<br>
+  * Figure out device configuration and select<br>
+  * networks which deserve status information.<br>
+  */<br>
+-static int<br>
+-configure(int s)<br>
++static int configure(int s)<br>
+ {<br>
+ 	char buf[BUFSIZ], *cp, *cplim;<br>
+ 	struct ifconf ifc;<br>
+@@ -479,7 +545,7 @@<br>
+ 	ifc.ifc_len = sizeof (buf);<br>
+ 	ifc.ifc_buf = buf;<br>
+ 	if (ioctl(s, SIOCGIFCONF, (char *)&amp;ifc) &lt; 0) {<br>
+-		syslog(LOG_ERR, "ioctl (get interface configuration)");<br>
++		syslog(LOG_ERR, "ioctl (get interface configuration): %m");<br>
+ 		return (0);<br>
+ 	}<br>
+ 	ifr = ifc.ifc_req;<br>
+@@ -490,8 +556,7 @@<br>
+ #define size(p) (sizeof (p))<br>
+ #endif<br>
+ 	cplim = buf + ifc.ifc_len; /*skip over if's with big ifr_addr's */<br>
+-	for (cp = buf; cp &lt; cplim;<br>
+-			cp += sizeof (ifr-&gt;ifr_name) + size(ifr-&gt;ifr_addr)) {<br>
++	for (cp = buf; cp &lt; cplim; cp += sizeof(*ifr)) {<br>
+ 		ifr = (struct ifreq *)cp;<br>
+ 		for (np = neighbors; np != NULL; np = np-&gt;n_next)<br>
+ 			if (np-&gt;n_name &amp;&amp;<br>
+@@ -518,7 +583,7 @@<br>
+ 		}<br>
+ 		bcopy((char *)&amp;ifr-&gt;ifr_addr, np-&gt;n_addr, np-&gt;n_addrlen);<br>
+ 		if (ioctl(s, SIOCGIFFLAGS, (char *)&amp;ifreq) &lt; 0) {<br>
+-			syslog(LOG_ERR, "ioctl (get interface flags)");<br>
++			syslog(LOG_ERR, "ioctl (get interface flags): %m");<br>
+ 			free((char *)np);<br>
+ 			continue;<br>
+ 		}<br>
+@@ -530,7 +595,7 @@<br>
+ 		np-&gt;n_flags = ifreq.ifr_flags;<br>
+ 		if (np-&gt;n_flags &amp; IFF_POINTOPOINT) {<br>
+ 			if (ioctl(s, SIOCGIFDSTADDR, (char *)&amp;ifreq) &lt; 0) {<br>
+-				syslog(LOG_ERR, "ioctl (get dstaddr)");<br>
++				syslog(LOG_ERR, "ioctl (get dstaddr): %m");<br>
+ 				free((char *)np);<br>
+ 				continue;<br>
+ 			}<br>
+@@ -540,7 +605,7 @@<br>
+ 		}<br>
+ 		if (np-&gt;n_flags &amp; IFF_BROADCAST) {<br>
+ 			if (ioctl(s, SIOCGIFBRDADDR, (char *)&amp;ifreq) &lt; 0) {<br>
+-				syslog(LOG_ERR, "ioctl (get broadaddr)");<br>
++				syslog(LOG_ERR, "ioctl (get broadaddr): %m");<br>
+ 				free((char *)np);<br>
+ 				continue;<br>
+ 			}<br>
+@@ -556,76 +621,3 @@<br>
+ 	}<br>
+ 	return (1);<br>
+ }<br>
+-<br>
+-#ifdef DEBUG<br>
+-sendto(s, buf, cc, flags, to, tolen)<br>
+-	int s;<br>
+-#ifdef	__linux__<br>
+-	__const void *buf;<br>
+-	int cc;<br>
+-	unsigned int flags;<br>
+-	__const struct sockaddr *to;<br>
+-	int tolen;<br>
+-#else<br>
+-	char *buf;<br>
+-	int cc, flags;<br>
+-	char *to;<br>
+-	int tolen;<br>
+-#endif<br>
+-{<br>
+-	register struct whod *w = (struct whod *)buf;<br>
+-	register struct whoent *we;<br>
+-	struct sockaddr_in *sn = (struct sockaddr_in *)to;<br>
+-	char *interval();<br>
+-<br>
+-	printf("sendto %x.%d\n", ntohl(sn-&gt;sin_addr.s_addr), ntohs(sn-&gt;sin_port));<br>
+-	printf("hostname %s %s\n", w-&gt;wd_hostname,<br>
+-	   interval(ntohl(w-&gt;wd_sendtime) - ntohl(w-&gt;wd_boottime), "  up"));<br>
+-	printf("load %4.2f, %4.2f, %4.2f\n",<br>
+-	    ntohl(w-&gt;wd_loadav[0]) / 100.0, ntohl(w-&gt;wd_loadav[1]) / 100.0,<br>
+-	    ntohl(w-&gt;wd_loadav[2]) / 100.0);<br>
+-	cc -= WHDRSIZE;<br>
+-	for (we = w-&gt;wd_we, cc /= sizeof (struct whoent); cc &gt; 0; cc--, we++) {<br>
+-		time_t t = ntohl(we-&gt;we_utmp.out_time);<br>
+-		printf("%-8.8s %s:%s %.12s",<br>
+-			we-&gt;we_utmp.out_name,<br>
+-			w-&gt;wd_hostname, we-&gt;we_utmp.out_line,<br>
+-			ctime(&amp;t)+4);<br>
+-		we-&gt;we_idle = ntohl(we-&gt;we_idle) / 60;<br>
+-		if (we-&gt;we_idle) {<br>
+-			if (we-&gt;we_idle &gt;= 100*60)<br>
+-				we-&gt;we_idle = 100*60 - 1;<br>
+-			if (we-&gt;we_idle &gt;= 60)<br>
+-				printf(" %2d", we-&gt;we_idle / 60);<br>
+-			else<br>
+-				printf("   ");<br>
+-			printf(":%02d", we-&gt;we_idle % 60);<br>
+-		}<br>
+-		printf("\n");<br>
+-	}<br>
+-}<br>
+-<br>
+-char *<br>
+-interval(time, updown)<br>
+-	int time;<br>
+-	char *updown;<br>
+-{<br>
+-	static char resbuf[32];<br>
+-	int days, hours, minutes;<br>
+-<br>
+-	if (time &lt; 0 || time &gt; 3*30*24*60*60) {<br>
+-		(void) sprintf(resbuf, "   %s ??:??", updown);<br>
+-		return (resbuf);<br>
+-	}<br>
+-	minutes = (time + 59) / 60;		/* round to minutes */<br>
+-	hours = minutes / 60; minutes %= 60;<br>
+-	days = hours / 24; hours %= 24;<br>
+-	if (days)<br>
+-		(void) sprintf(resbuf, "%s %2d+%02d:%02d",<br>
+-		    updown, days, hours, minutes);<br>
+-	else<br>
+-		(void) sprintf(resbuf, "%s    %2d:%02d",<br>
+-		    updown, hours, minutes);<br>
+-	return (resbuf);<br>
+-}<br>
+-#endif<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0567.html">RayzHell: "(no subject)"</a>
+<li> <b>Previous message:</b> <a href="0565.html">Brian E.W. Wood: "Re: For Sale: UDB with the works"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

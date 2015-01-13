@@ -1,0 +1,230 @@
+<!-- received="Sun Dec 29 20:14:44 1996 " -->
+<!-- sent="Sun, 29 Dec 1996 20:02:24 -0500 (EST)" -->
+<!-- name="Vik Bajaj" -->
+<!-- email="vbajaj@nic-21-3.resnet.upenn.edu" -->
+<!-- subject="Re: compiling OPIE on AXP" -->
+<!-- id="199612300102.UAA30957@nic-21-3.resnet.upenn.edu" -->
+<!-- inreplyto="9612291828.ZM748@davros.bwh.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiling OPIE on AXP</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiling OPIE on AXP</h2>
+
+<b>Vik Bajaj</b> (<a href="mailto:vbajaj@nic-21-3.resnet.upenn.edu"><i>vbajaj@nic-21-3.resnet.upenn.edu</i></a>)<br>
+<i>Sun, 29 Dec 1996 20:02:24 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#907">[ date ]</a><a href="index.html#907">[ thread ]</a><a href="subject.html#907">[ subject ]</a><a href="author.html#907">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0908.html">Branden R. Williams: "'passwd' and Shadowed password files."</a>
+<li> <b>Previous message:</b> <a href="0906.html">Ultimate Nullifier: "CGI's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>| No, but what have you done to feed it a definition of time_t, as it asks?</i><br>
+<i>| Definition sits in &lt;time.h&gt;...</i><br>
+<p>
+I did this earlier, and it resolved that problem.  THen, I started to<br>
+comment out redefinitions of various system functions.<br>
+<p>
+Okay, now I'm stuck on logwtmp.c.  If I compile as-is, it reports a <br>
+redefinition of utmp on line 97.  If I comment out the definition and<br>
+following structure, it reports a parse error on line 117 and<br>
+121.  Any suggestions?<br>
+<p>
+Thanks in advance;  I must be missing something foolish in the nested<br>
+#if's.<br>
+<p>
+--Vik<br>
+	<br>
+<p>
+<p>
+/* logwtmp.c: Put an entry in the wtmp file.<br>
+<p>
+%%% portions-copyright-cmetz<br>
+Portions of this software are Copyright 1996 by Craig Metz, All Rights<br>
+Reserved. The Inner Net License Version 2 applies to these portions of<br>
+the software.<br>
+You should have received a copy of the license with this software. If<br>
+you didn't get a copy, you may request one from &lt;<a href="mailto:license@inner.net">license@inner.net</a>&gt;.<br>
+<p>
+Portions of this software are Copyright 1995 by Randall Atkinson and Dan<br>
+McDonald, All Rights Reserved. All Rights under this copyright are assigned<br>
+to the U.S. Naval Research Laboratory (NRL). The NRL Copyright Notice and<br>
+License Agreement applies to this software.<br>
+<p>
+	History:<br>
+<p>
+	Modified by cmetz for OPIE 2.22. Call gettimeofday() properly.<br>
+	Modified by cmetz for OPIE 2.2. Use FUNCTION declaration et al.<br>
+             Ifdef around some headers. Added file close hook.<br>
+	Modified at NRL for OPIE 2.1. Set process type for HPUX.<br>
+	Modified at NRL for OPIE 2.0.<br>
+	Originally from BSD.<br>
+*/<br>
+/*<br>
+ * Copyright (c) 1988 The Regents of the University of California.<br>
+ * All rights reserved.<br>
+ *<br>
+ * Redistribution and use in source and binary forms, with or without<br>
+ * modification, are permitted provided that the following conditions<br>
+ * are met:<br>
+ * 1. Redistributions of source code must retain the above copyright<br>
+ *    notice, this list of conditions and the following disclaimer.<br>
+ * 2. Redistributions in binary form must reproduce the above copyright<br>
+ *    notice, this list of conditions and the following disclaimer in the<br>
+ *    documentation and/or other materials provided with the distribution.<br>
+ * 3. All advertising materials mentioning features or use of this software<br>
+ *    must display the following acknowledgement:<br>
+ *      This product includes software developed by the University of<br>
+ *      California, Berkeley and its contributors.<br>
+ * 4. Neither the name of the University nor the names of its contributors<br>
+ *    may be used to endorse or promote products derived from this software<br>
+ *    without specific prior written permission.<br>
+ *<br>
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND<br>
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE<br>
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE<br>
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE<br>
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL<br>
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS<br>
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)<br>
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT<br>
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY<br>
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF<br>
+ * SUCH DAMAGE.<br>
+ *<br>
+ */<br>
+<p>
+#include "opie_cfg.h"<br>
+<p>
+#include &lt;sys/types.h&gt;<br>
+#if HAVE_SYS_TIME_H<br>
+#include &lt;sys/time.h&gt;<br>
+#endif /* HAVE_SYS_TIME_H */<br>
+#include &lt;sys/stat.h&gt;<br>
+#include &lt;fcntl.h&gt;<br>
+#include &lt;utmp.h&gt;<br>
+#if HAVE_UNISTD_H<br>
+#include &lt;unistd.h&gt;<br>
+#endif /* HAVE_UNISTD_H */<br>
+#if HAVE_STRING_H<br>
+#include &lt;string.h&gt;<br>
+#endif /* HAVE_STRING_H */<br>
+<p>
+#include "opie.h"<br>
+<p>
+static int fd = -1;<br>
+<p>
+#if DOUTMPX<br>
+static int fdx = -1;<br>
+#include &lt;utmpx.h&gt;<br>
+#endif	/* DOUTMPX */<br>
+<p>
+#ifndef _PATH_WTMP<br>
+#define _PATH_WTMP       "/usr/adm/wtmp"<br>
+#endif<br>
+<p>
+#ifndef _PATH_WTMPX<br>
+#define _PATH_WTMPX     "/usr/adm/wtmpx"<br>
+#endif	/* _PATH_UTMPX */<br>
+<p>
+/*<br>
+ * Modified version of logwtmp that holds wtmp file open<br>
+ * after first call, for use with ftp (which may chroot<br>
+ * after login, but before logout).<br>
+ */<br>
+VOIDRET logwtmp FUNCTION((line, name, host), char *line AND char *name AND char *host)<br>
+{<br>
+  struct utmp ut;<br>
+<p>
+#if DOUTMPX<br>
+  struct utmpx utx;<br>
+#endif	/* DOUTMPX */<br>
+  struct stat buf;<br>
+<p>
+  memset(&amp;ut, 0, sizeof(struct utmp));<br>
+<p>
+  if (!line) {<br>
+    close(fd);<br>
+#if DOUTMPX<br>
+    close(fdx);<br>
+#endif /* DOUTMPX */<br>
+  }<br>
+<p>
+  if (fd &lt; 0 &amp;&amp; (fd = open(_PATH_WTMP, O_WRONLY | O_APPEND, 0)) &lt; 0)<br>
+    return;<br>
+  if (fstat(fd, &amp;buf) == 0) {<br>
+#if HAVE_UT_TYPE &amp;&amp; defined(USER_PROCESS)<br>
+    ut.ut_type = USER_PROCESS;<br>
+#endif /* HAVE_UT_TYPE &amp;&amp; defined(USER_PROCESS) */<br>
+#if HAVE_UT_PID<br>
+    ut.ut_pid = getpid();<br>
+#endif /* HAVE_UT_PID */<br>
+    strncpy(ut.ut_line, line, sizeof(ut.ut_line));<br>
+    strncpy(ut.ut_name, name, sizeof(ut.ut_name));<br>
+#if !DOUTMPX<br>
+    strncpy(ut.ut_host, host, sizeof(ut.ut_host));<br>
+#endif	/* !DOUTMPX */<br>
+    time(&amp;ut.ut_time);<br>
+    if (write(fd, (char *) &amp;ut, sizeof(struct utmp)) !=<br>
+	sizeof(struct utmp))<br>
+    ftruncate(fd, buf.st_size);<br>
+  }<br>
+#if DOUTMPX<br>
+  memset(&amp;utx, 0, sizeof(struct utmpx));<br>
+<p>
+  if (fdx &lt; 0 &amp;&amp; (fdx = open(WTMPX_FILE, O_WRONLY | O_APPEND, 0)) &lt; 0)<br>
+    return;<br>
+  if (fstat(fdx, &amp;buf) == 0) {<br>
+    strncpy(utx.ut_line, line, sizeof(utx.ut_line));<br>
+    strncpy(utx.ut_name, name, sizeof(utx.ut_name));<br>
+    strncpy(utx.ut_host, host, sizeof(utx.ut_host));<br>
+#if HAVE_GETTIMEOFDAY<br>
+#if HAVE_ONE_ARG_GETTIMEOFDAY<br>
+    gettimeofday(&amp;utx.ut_tv);<br>
+#else /* HAVE_ONE_ARG_GETTIMEOFDAY */<br>
+    gettimeofday(&amp;utx.ut_tv, NULL);<br>
+#endif /* HAVE_ONE_ARG_GETTIMEOFDAY */<br>
+#endif /* HAVE_GETTIMEOFDAY */<br>
+    if (write(fdx, (char *) &amp;utx, sizeof(struct utmpx)) !=<br>
+	sizeof(struct utmpx))<br>
+    ftruncate(fdx, buf.st_size);<br>
+  }<br>
+#endif	/* DOUTMPX */<br>
+}<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0908.html">Branden R. Williams: "'passwd' and Shadowed password files."</a>
+<li> <b>Previous message:</b> <a href="0906.html">Ultimate Nullifier: "CGI's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

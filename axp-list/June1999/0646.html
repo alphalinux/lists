@@ -1,0 +1,233 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: RE: problem with unaligned access on Alpha</TITLE>
+<META NAME="Author" CONTENT="Wessels, Hans (H.Wessels@energie-delfland.nl)">
+<META NAME="Subject" CONTENT="RE: problem with unaligned access on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: problem with unaligned access on Alpha</H1>
+<HR>
+<P>
+<!-- received="Tue Jun 29 11:38:58 1999" -->
+<!-- isoreceived="19990629183858" -->
+<!-- sent="Tue, 29 Jun 1999 11:12:48 +0200" -->
+<!-- isosent="19990629091248" -->
+<!-- name="Wessels, Hans" -->
+<!-- email="H.Wessels@energie-delfland.nl" -->
+<!-- subject="RE: problem with unaligned access on Alpha" -->
+<!-- id="c=US%a=_%p=delfland%l=MSMAIL-990629091248Z-340@msmail.energie-delfland.nl" -->
+<!-- inreplyto="problem with unaligned access on Alpha" -->
+<STRONG>Subject: </STRONG>RE: problem with unaligned access on Alpha<BR>
+<STRONG>From: </STRONG>Wessels, Hans (<EM>H.Wessels@energie-delfland.nl</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jun 29 1999 - 02:12:48 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#646">[ date ]</A>
+<A HREF="index.html#646">[ thread ]</A>
+<A HREF="subject.html#646">[ subject ]</A>
+<A HREF="author.html#646">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0647.html">Alvin Starr: "Re: (off-topic) Traffic grapher"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0645.html">Richard Henderson: "Re: DMA window location"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0454.html">Christian Groessler: "problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0656.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0454.html">Wessels, Hans: "RE: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On 25 juni 1999 Maciej W. Rozycki wrote:
+<BR>
+<P>&lt;snip&gt;
+<BR>
+<EM>&gt;It may even be completely ignored for archs that support unaligned
+</EM><BR>
+<EM>&gt;accesses in hardware, which is a true win -- no arch dependent
+</EM><BR>
+<EM>&gt;conditionals are needed (I do not even know how to fetch information about
+</EM><BR>
+<EM>&gt;alignment needed for a particular target -- &quot;alignof&quot; is useless here and
+</EM><BR>
+<EM>&gt;it's not portable, anyway). 
+</EM><BR>
+&lt;snip&gt;
+<BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Using unions is good when you are sure all data is aligned.  If that's
+</EM><BR>
+<EM>&gt;not the case, the problem remains.  The &quot;packed&quot; approach is reasonable
+</EM><BR>
+<EM>&gt;but not necessarily the best.  As C is relatively low-level language (some
+</EM><BR>
+<EM>&gt;people call it &quot;a portable assembler&quot;) I wouldn't mind if some way of
+</EM><BR>
+<EM>&gt;alignment hinting became standard one day.
+</EM><BR>
+<P>I am using the following macro to get alignment of elements in an
+<BR>
+malloced memory block:
+<BR>
+<P>/*
+<BR>
+&nbsp;* ALIGN is a macro to align elements of a certain size in a malloced
+<BR>
+&nbsp;* block. The start of the block is guaranteed aligned with every
+<BR>
+possible 
+<BR>
+&nbsp;* object. So an object is aligned when it's position relative to the
+<BR>
+start
+<BR>
+&nbsp;* of the array is a multiple of it's size. Instead of the modulo
+<BR>
+operator 
+<BR>
+&nbsp;* the &amp; operator is used. This assumes that the alignment of an object 
+<BR>
+&nbsp;* is the smalest power of two of its size; ie: sizeof(object)==3 -&gt;
+<BR>
+alignment
+<BR>
+&nbsp;* is 1. sizeof(object)==6 -&gt;alignment is 2.
+<BR>
+&nbsp;*/
+<BR>
+#define ALIGN(start,ptr,size) ptr+=((size)-((ptr)-(start)))&amp;((size)-1)
+<BR>
+<P>some code....
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8 *base = malloc(memneed);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (base == NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return GUP_OUT_OF_MEM;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uint8 *cp = base;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;dictionary = (void *)(cp + 4);  /* vier extra om terug te
+<BR>
+kunnen kijken */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += (DIC_SIZE + MAX_MATCH*4 + 6UL + 4UL) * sizeof (uint8); /*
+<BR>
+sliding dictionary + 4 voor terugkijken */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(node_type)); /* allign buffer on
+<BR>
+node_type allignment */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;root.big = (void *)cp;               /* 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += sizeof (node_type) * HASH_SIZE; /* normal root */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(unsigned long)); /* align on unsigned
+<BR>
+long for output buffer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;buffer_start=(void*)cp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += com-&gt;buffer_size;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(node_struct));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;tree.big = (void *)cp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += sizeof (node_struct) * TREE_SIZE;  /* sld tree          */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(uint8));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;charlen = (void *)cp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += sizeof (uint8) * (NC + NC);  /* karakter lengte */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(uint16));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;ptr2huffman = (void *)cp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += sizeof (uint16) * (MAX_NPT); /* huffman codes van de
+<BR>
+pointers */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ALIGN(base, cp, sizeof(pointer_type));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;com-&gt;pointers = (void *)(cp);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp += buf * sizeof (pointer_type);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+}
+<BR>
+<P>This code works fine from MC68K and a compiler using 68bit int's, going
+<BR>
+through GCC on MC68K and i386 to GCC on the Alpha. I know it isn't
+<BR>
+perfect but it works fine for me.
+<BR>
+<P>Bye, Hans
+<BR>
+----------------------------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;/|   /\/\/\   |\      ir. Hans Wessels
+<BR>
+&nbsp;&nbsp;/ |  / /\/\ \  | \     H.Wessels@Energie-Delfland.nl
+<BR>
+&nbsp;/  | / / /\ \ \ |  \    tel.: 015 251 4397
+<BR>
+/   |/ / /  \ \ \|   \   
+<BR>
+\   |\ \ \  / / /|   /   prive:
+<BR>
+&nbsp;\  | \ \ \/ / / |  /    mr_ni@mbh.org
+<BR>
+&nbsp;&nbsp;\ |  \ \/\/ /  | /     Fidelus Bittus et Fuckus Clockcyclus!
+<BR>
+&nbsp;&nbsp;&nbsp;\|   \/\/\/   |/      
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0647.html">Alvin Starr: "Re: (off-topic) Traffic grapher"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0645.html">Richard Henderson: "Re: DMA window location"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0454.html">Christian Groessler: "problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0656.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0454.html">Wessels, Hans: "RE: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

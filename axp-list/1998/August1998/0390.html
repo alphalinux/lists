@@ -1,0 +1,104 @@
+<!-- received="Sat Aug  8 09:26:18 1998 " -->
+<!-- sent="Sat, 8 Aug 1998 14:16:50 +0200" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="problem with vgacon on Alphas" -->
+<!-- id="" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>problem with vgacon on Alphas</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>problem with vgacon on Alphas</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Sat, 8 Aug 1998 14:16:50 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#390">[ date ]</a><a href="index.html#390">[ thread ]</a><a href="subject.html#390">[ subject ]</a><a href="author.html#390">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0391.html">Mike Wangsmo: "Re: Mixing SCSI II and SCSI II Fast on a UDB..."</a>
+<li> <b>Previous message:</b> <a href="0389.html">Christoph Zens: "Re: SUID scripts?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+after some reports about freezing Alpha machines with 2.1.113 as soon<br>
+as someone switches from X to a normal console. I've tried it myself and<br>
+my machine also stopped after I pressed CTRL-ALT-F1 under X.<br>
+<p>
+I've tracked the problem down (serial console is your friend) to<br>
+a memcpy_from(), where the source is a kernel address, which is<br>
+a no no on Alphas. Below is a patch, which fixes this problem.<br>
+<p>
+I hope the patch will make into one of the next kernels.<br>
+<p>
+Thomas.<br>
+<p>
+Index: vgacon.c<br>
+===================================================================<br>
+RCS file: /usr/src/cvs/linux/drivers/video/vgacon.c,v<br>
+retrieving revision 1.1.1.8<br>
+diff -u -r1.1.1.8 vgacon.c<br>
+--- vgacon.c	1998/08/02 09:55:38	1.1.1.8<br>
++++ vgacon.c	1998/08/08 11:59:09<br>
+@@ -454,6 +454,8 @@<br>
+ 	 */<br>
+ 	vga_video_num_columns = c-&gt;vc_cols;<br>
+ 	vga_video_num_lines = c-&gt;vc_rows;<br>
++	if (vga_is_gfx)<br>
++		return 1;<br>
+ 	scr_memcpyw_to((u16 *) c-&gt;vc_origin, (u16 *) c-&gt;vc_screenbuf, c-&gt;vc_screenbuf_size);<br>
+ 	return 0;	/* Redrawing not needed */<br>
+ }<br>
+@@ -934,6 +936,8 @@<br>
+ 		c-&gt;vc_x = ORIG_X;<br>
+ 		c-&gt;vc_y = ORIG_Y;<br>
+ 	}<br>
++	if (vga_is_gfx)<br>
++		return;<br>
+ 	scr_memcpyw_from((u16 *) c-&gt;vc_screenbuf, (u16 *) c-&gt;vc_origin, c-&gt;vc_screenbuf_size);<br>
+ }<br>
+ <br>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0391.html">Mike Wangsmo: "Re: Mixing SCSI II and SCSI II Fast on a UDB..."</a>
+<li> <b>Previous message:</b> <a href="0389.html">Christoph Zens: "Re: SUID scripts?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

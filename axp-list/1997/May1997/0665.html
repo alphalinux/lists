@@ -1,0 +1,185 @@
+<!-- received="Thu May 22 10:31:35 1997 " -->
+<!-- sent="21 May 1997 18:45:53 -0400" -->
+<!-- name="Derek Atkins" -->
+<!-- email="warlord@mit.edu" -->
+<!-- subject="LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)" -->
+<!-- id="sjm67wcwiji.fsf@incommunicado.ihtfp.org" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</h2>
+
+<b>Derek Atkins</b> (<a href="mailto:warlord@mit.edu"><i>warlord@mit.edu</i></a>)<br>
+<i>21 May 1997 18:45:53 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#665">[ date ]</a><a href="index.html#665">[ thread ]</a><a href="subject.html#665">[ subject ]</a><a href="author.html#665">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0666.html">Thunderhawk Alpha: "Re: RH4.2/axp YAFI (Yet Another Failed Install)"</a>
+<li> <b>Previous message:</b> <a href="0664.html">Rick Windham: "Re: RH4.2/axp YAFI (Yet Another Failed Install)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<li> <b>Reply:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I'm not on this list, so please send any replies directly to me.<br>
+<p>
+Hi.  I'm still trying to port Linux-AFS to Linux/alpha.  My most<br>
+recent problem is that the kernel segfaults my process when I try to<br>
+execute an installed syscall.  I have some example code below which<br>
+shows the problem.  Does anyone have any ideas about how to fix this?<br>
+Is there some magic alpha voodoo which I'm missing?  FWIW, this code<br>
+works on Linux/x86 and Linux/sparc.<br>
+<p>
+Basically, what happens is that the LKM installs a new syscall<br>
+(afs_syscall) in the sys_call_table.  Then afsd calls that syscall.<br>
+Currently, there is an oops when returning from the afs_syscall, and<br>
+afsd seg faults.  If you run afsd without the afs module installed,<br>
+it just returns -1 and errno is set to EPERM.<br>
+<p>
+I'm running RedHat 4.1 with the stock redhat 2.0.27 kernel, glibc<br>
+0.961212, gcc 2.7.2.1, and insmod-bfd 0.2 with the debug patches.  I<br>
+can't find the System.map for this kernel, so tracking this crash is a<br>
+little difficult for me.  It _looks_ like the crash is happening in<br>
+entSys() or ret_from_syscall() in arch/alpha/kernel/entry.S, but I'm<br>
+not sure.  The crash I get is:<br>
+<p>
+AFS module unloaded (fffffc0000313230)<br>
+AFS test module loaded (fffffc0000313230-&gt;fffffe000008a008)<br>
+In afs_syscall<br>
+set args<br>
+Unable to handle kernel paging request at virtual address 0000000000000000<br>
+food(547): Oops 0<br>
+pc = [&lt;fffffc0000311958&gt;] ps = 0000<br>
+rp = [&lt;fffffc0000311944&gt;] sp = fffffc000133df30<br>
+r0=0 r1=0 r2=0 r3=fffffc0003a53bf0<br>
+r8=1f0<br>
+r16=fffffc000046a7d8 r17=0 r18=50 r19=0<br>
+r20=0 r21=0 r22=0 r23=fffffc000047cfe8<br>
+r24=0 r25=200 r26=fffffc0000311944 r27=fffffc000031b148<br>
+r28=7 r29=fffffe00000921c0 r30=fffffc000133df30<br>
+Code: b7fe0048  474014d3  a41d8350 &lt;a4200000&gt; f4200007  a45d83b8  a4620000  a45d83c0  a4820000 <br>
+<p>
+I include the code that causes this crash below.  Again, this code<br>
+works fine on Linux/x86 and Linux/sparc.  I compiled the two files<br>
+using the following commands:<br>
+<p>
+afs.c		cc -g -c -DMODULE -DKERNEL -D__KERNEL__ afs.c<br>
+afsd.c		cc -g -o afsd afsd.c<br>
+<p>
+The following is a "shell archive" which should (hopefully) extract<br>
+the files afs.c and afsd.c.  Compile the files, load afs.o into the<br>
+kernel, and then run afsd to cause the oops.  You should just be able<br>
+to execute the rest of this file -- or you can cut-and-paste by hand.<br>
+<p>
+I'd appreciate it if someone could explain why this code fails on<br>
+Linux/alpha.<br>
+<p>
+Thanks in advance!<br>
+<p>
+-derek<br>
+<p>
+#!/bin/sh<br>
+#<br>
+# This should self-extract into afs.c and afsd.c, I hope.<br>
+#<br>
+<p>
+cat &gt; afs.c &lt;&lt;EOF<br>
+#include &lt;sys/syscall.h&gt;<br>
+#include &lt;linux/module.h&gt;<br>
+#include &lt;linux/kernel.h&gt;<br>
+<p>
+extern void *sys_call_table[];<br>
+static void (*saved_afs_syscall)();<br>
+<p>
+static int afs_syscall()<br>
+{<br>
+	printk("In afs_syscall\n");<br>
+	return 0;<br>
+}<br>
+int<br>
+init_module(void)<br>
+{<br>
+        saved_afs_syscall = sys_call_table[SYS_afs_syscall];<br>
+        sys_call_table[SYS_afs_syscall] = afs_syscall; <br>
+	printk ("AFS test module loaded (%p-&gt;%p)\n", saved_afs_syscall,<br>
+		sys_call_table[SYS_afs_syscall]);<br>
+        return 0;<br>
+}<br>
+void<br>
+cleanup_module(void)<br>
+{<br>
+        sys_call_table[SYS_afs_syscall] = saved_afs_syscall;<br>
+	printk ("AFS module unloaded (%p)\n", sys_call_table[SYS_afs_syscall]);<br>
+}<br>
+EOF<br>
+<p>
+cat &gt; afsd.c &lt;&lt;EOF<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;syscall.h&gt;<br>
+#include &lt;errno.h&gt;<br>
+<p>
+int<br>
+main (void)<br>
+{<br>
+  long retval;<br>
+<p>
+  printf ("Running test AFS daemon\n");<br>
+  retval = syscall(SYS_afs_syscall);<br>
+  printf ("Syscall returned %d (errno=%d)\n", retval, errno);<br>
+<p>
+  return 0;<br>
+}<br>
+EOF<br>
+<p>
+exit 0<br>
+<p>
+#<br>
+# End of shell archive<br>
+#<br>
+<p>
+<pre>
+-- 
+       Derek Atkins, SB '93 MIT EE, SM '95 MIT Media Laboratory
+       Member, MIT Student Information Processing Board  (SIPB)
+       URL: <a href="http://web.mit.edu/warlord/">http://web.mit.edu/warlord/</a>      PP-ASEL      N1NWH
+       <a href="mailto:warlord@MIT.EDU">warlord@MIT.EDU</a>                        PGP key available
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0666.html">Thunderhawk Alpha: "Re: RH4.2/axp YAFI (Yet Another Failed Install)"</a>
+<li> <b>Previous message:</b> <a href="0664.html">Rick Windham: "Re: RH4.2/axp YAFI (Yet Another Failed Install)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<li> <b>Reply:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

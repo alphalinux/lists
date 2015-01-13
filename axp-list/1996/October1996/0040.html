@@ -1,0 +1,218 @@
+<!-- received="Tue Oct  1 14:28:08 1996 " -->
+<!-- sent="Tue, 1 Oct 1996 14:26:35 -0400 (EDT)" -->
+<!-- name="Janice McCarthy" -->
+<!-- email="janice@acpub.duke.edu" -->
+<!-- subject="Gateway BUG on Alpha/Linux? Or just misconfigured?" -->
+<!-- id="199610011812.OAA15162@mailserver2.tiac.net" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list-request@redhat.com &lt; /d" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Gateway BUG on Alpha/Linux? Or just misconfigured?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Gateway BUG on Alpha/Linux? Or just misconfigured?</h2>
+
+<b>Janice McCarthy</b> (<a href="mailto:janice@acpub.duke.edu"><i>janice@acpub.duke.edu</i></a>)<br>
+<i>Tue, 1 Oct 1996 14:26:35 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#40">[ date ]</a><a href="index.html#40">[ thread ]</a><a href="subject.html#40">[ subject ]</a><a href="author.html#40">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0041.html">Lee Burnside: "Re: digital unix libs"</a>
+<li> <b>Previous message:</b> <a href="0039.html">Stephen J. Gaudet: "Re: digital unix libs"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here is the situation:  I have 24 UDB's all running Linux 2.0.20 with the <br>
+axp-diffs applied.  I have 8 machines on a 'fast' backbone (they have <br>
+100Mb ethernet adapters(pci) installed).  The UDB's also have an on-board <br>
+10Mb ethernet.  This device is disabled on a few of the machines.  It is <br>
+enabled on machines 1,3, and 4.  machine 1 is a firewall between my <br>
+private network and internet.  machines 3 and 4 are gateways to two <br>
+subnets of 8 computers each (all running 10Mb ethernet).  There are <br>
+therefore 3 Hubs (2 10Mb, one 1000Mb).<br>
+<p>
+<p>
+Here is a diagram:<br>
+<p>
+<p>
+       OutsideNet<br>
+<p>
+<i>          |</i><br>
+<i>          |              gw1     gw2               </i><br>
+FastNet  (1) --- (2) --- (3) --- (4) --- (5) --- (6) --- (7) --- (8)<br>
+         fw               |       |<br>
+<i>                          |       |</i><br>
+<i>                          |       |        HubB</i><br>
+            HubA          |       +---(18) --- (19) --- (20)... --- (24)<br>
+     (9) --- (10)...(17)--+    <br>
+<p>
+<p>
+Now, I *want* these routes defined *explicitly* (not defaults) and I want <br>
+them to be *static*.  This system is to run PVM to act as a parallel <br>
+processor for some monte carlo simulations.  I do not want to run gated <br>
+or routed.<br>
+<p>
+I am able to add the routes as I have defined.  For testing purposes I <br>
+have configured only one gateway (from FastNet to HubA).<br>
+<p>
+A machine on FastNet(100Mb subnet):<br>
+<p>
+  Kernel IP routing table<br>
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>
+172.16.1.0      0.0.0.0         255.255.255.0   U     0      0        3 eth1<br>
+172.16.2.0      172.16.1.3      255.255.255.0   UG    1      0        0 eth1<br>
+127.0.0.0       0.0.0.0         255.0.0.0       U     0      0        1 lo<br>
+<p>
+<p>
+lo        Link encap:Local Loopback  <br>
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.0.0.0<br>
+          UP BROADCAST LOOPBACK RUNNING  MTU:7168  Metric:1<br>
+          RX packets:12 errors:0 dropped:0 overruns:0<br>
+          TX packets:12 errors:0 dropped:0 overruns:0<br>
+<p>
+eth1      Link encap:10Mbps Ethernet  HWaddr 00:00:C0:34:39:DC<br>
+          inet addr:172.16.1.5  Bcast:172.16.1.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:3925 errors:0 dropped:0 overruns:0<br>
+          TX packets:675 errors:1 dropped:0 overruns:0<br>
+          Interrupt:15 Base address:0xb000<br>
+<p>
+<p>
+<p>
+<p>
+A machine on HubA (10Mb subnet):<br>
+<p>
+Kernel IP routing table<br>
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>
+172.16.2.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0<br>
+172.16.1.0      172.16.2.3      255.255.255.0   UG    1      0        0 eth0<br>
+127.0.0.0       0.0.0.0         255.0.0.0       U     0      0        1 lo<br>
+<p>
+<p>
+lo        Link encap:Local Loopback  <br>
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.0.0.0<br>
+          UP BROADCAST LOOPBACK RUNNING  MTU:7168  Metric:1<br>
+          RX packets:12 errors:0 dropped:0 overruns:0<br>
+          TX packets:12 errors:0 dropped:0 overruns:0<br>
+<p>
+eth0      Link encap:10Mbps Ethernet  HWaddr 08:00:2B:E2:C9:96<br>
+          inet addr:172.16.2.11  Bcast:172.16.2.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:31 errors:0 dropped:0 overruns:0<br>
+          TX packets:0 errors:0 dropped:0 overruns:0<br>
+          Interrupt:10 Base address:0xb000 <br>
+<p>
+<p>
+<p>
+The Gateway:<br>
+<p>
+Kernel IP routing table<br>
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>
+172.16.2.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0<br>
+172.16.1.0      0.0.0.0         255.255.255.0   U     0      0        3 eth1<br>
+127.0.0.0       0.0.0.0         255.0.0.0       U     0      0        0 lo<br>
+<p>
+<p>
+lo        Link encap:Local Loopback  <br>
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.0.0.0<br>
+          UP BROADCAST LOOPBACK RUNNING  MTU:7168  Metric:1<br>
+          RX packets:30 errors:0 dropped:0 overruns:0<br>
+          TX packets:30 errors:0 dropped:0 overruns:0<br>
+<p>
+eth0      Link encap:10Mbps Ethernet  HWaddr 08:00:2B:E4:03:B3<br>
+          inet addr:172.16.2.3  Bcast:172.16.2.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:13 errors:0 dropped:0 overruns:0<br>
+          TX packets:13 errors:0 dropped:0 overruns:0<br>
+          Interrupt:10 Base address:0xb400 <br>
+<p>
+eth1      Link encap:10Mbps Ethernet  HWaddr 00:00:C0:37:39:DC<br>
+          inet addr:172.16.1.3  Bcast:172.16.1.255  Mask:255.255.255.0<br>
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br>
+          RX packets:2236 errors:0 dropped:0 overruns:0<br>
+          TX packets:2189 errors:1 dropped:0 overruns:0<br>
+          Interrupt:15 Base address:0xb000 <br>
+<p>
+<p>
+<p>
+<p>
+<p>
+Now, I can ping through the gateway (i.e. from a machine on HubA, to a <br>
+machine on FastNet) with no problem.  But if I ping between any two <br>
+machines on the same physical network, I get DUP! messages... in fact, <br>
+each packet is duplicated 3 times.<br>
+<p>
+<p>
+PING drylab2.FastNet (172.16.1.2): 56 data bytes<br>
+64 bytes from 172.16.1.2: icmp_seq=0 ttl=64 time=9.7 ms<br>
+64 bytes from 172.16.1.2: icmp_seq=0 ttl=63 time=9.7 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=0 ttl=64 time=19.5 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=0 ttl=63 time=19.5 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=1 ttl=64 time=0.0 ms<br>
+64 bytes from 172.16.1.2: icmp_seq=1 ttl=63 time=0.0 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=1 ttl=64 time=0.0 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=1 ttl=63 time=9.7 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=2 ttl=64 time=0.0 ms<br>
+64 bytes from 172.16.1.2: icmp_seq=2 ttl=63 time=0.0 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=2 ttl=64 time=0.0 ms (DUP!)<br>
+64 bytes from 172.16.1.2: icmp_seq=2 ttl=63 time=9.7 ms (DUP!)<br>
+<p>
+--- drylab2.FastNet ping statistics ---<br>
+3 packets transmitted, 3 packets received, +9 duplicates, 0% packet loss<br>
+round-trip min/avg/max = 0.0/6.4/19.5 ms<br>
+<p>
+<p>
+<p>
+Here is what 'traceroute' tells me:<br>
+<p>
+traceroute drylab2<br>
+ 1  drylab3.FastNet (172.16.1.3)  0 ms (ttl=64!)  0 ms (ttl=64!)  10 ms (ttl=64!)<br>
+ 2  drylab2.FastNet (172.16.1.2)  10 ms (ttl=64!)  0 ms (ttl=64!)  0 ms (ttl=64!)<br>
+<p>
+<p>
+<p>
+Any clues would be greatly appreciated!!!<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+Janice McCarthy <br>
+<p>
+<a href="mailto:janice@acpub.duke.edu">janice@acpub.duke.edu</a><br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0041.html">Lee Burnside: "Re: digital unix libs"</a>
+<li> <b>Previous message:</b> <a href="0039.html">Stephen J. Gaudet: "Re: digital unix libs"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

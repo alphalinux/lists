@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Linux Install on AlphaServer 4X00 5/400 21164 400</TITLE>
+<META NAME="Author" CONTENT="Peter Rival (frival@zk3.dec.com)">
+<META NAME="Subject" CONTENT="Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 23 17:10:12 1999" -->
+<!-- isoreceived="19990724001012" -->
+<!-- sent="Fri, 23 Jul 1999 12:57:01 -0400" -->
+<!-- isosent="19990723165701" -->
+<!-- name="Peter Rival" -->
+<!-- email="frival@zk3.dec.com" -->
+<!-- subject="Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz" -->
+<!-- id="37989EDD.DBFBAB4C@zk3.dec.com" -->
+<!-- inreplyto="37987036.FEFC2FFF@zk3.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz<BR>
+<STRONG>From: </STRONG>Peter Rival (<EM>frival@zk3.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jul 23 1999 - 09:57:01 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#465">[ date ]</A>
+<A HREF="index.html#465">[ thread ]</A>
+<A HREF="subject.html#465">[ subject ]</A>
+<A HREF="author.html#465">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0466.html">Xiaozhou Qiu: "smp kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0464.html">Xiaozhou Qiu: "Re: disk partitioning"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0457.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0467.html">Greg Lindahl: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0457.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Peter Rival wrote:
+<BR>
+<P>&lt;snip&gt;
+<BR>
+<P><EM>&gt;
+</EM><BR>
+<EM>&gt;         if (open(&quot;/dev/console&quot;, O_RDWR, 0) &lt; 0)
+</EM><BR>
+<EM>&gt;                 printk(&quot;Warning: unable to open an initial
+</EM><BR>
+<EM>&gt; console.\n&quot;);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;         (void) dup(0);
+</EM><BR>
+<EM>&gt;         (void) dup(0);
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; ....
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; My guess is that yes, the install kernel never intended to support
+</EM><BR>
+<EM>&gt; serial console.  I'd call that an oversight if that's the case, but
+</EM><BR>
+<EM>&gt; one that probably wouldn't happen again.  We'll see what happens -
+</EM><BR>
+<EM>&gt; this shouldn't take too long...
+</EM><BR>
+<P>Well, that part was correct - it didn't take too long at all.  The above
+<BR>
+code is what's breaking.  The interesting thing is what appears to be
+<BR>
+the cause - the devices used on the RH 6.0 CD.  It _appears_ that to
+<BR>
+save space, /dev/console used the device number pairing (4,0) meant for
+<BR>
+tty0, instead of that which is normally used (5,1).
+<BR>
+<P>Does anyone who understands this code path a bit better than I know why
+<BR>
+I can get through this section of booting if all I do is change
+<BR>
+&quot;/dev/console&quot; to &quot;/dev/ttyS0&quot;?  Yeah, it chokes shortly thereafter, but
+<BR>
+this says something (I think).  Anyway, here's the error that I'm up to
+<BR>
+now (I'm using 2.3.10, as it's the latest stable kernel I have that
+<BR>
+actually builds)...
+<BR>
+<P>VFS: Mounted root (iso9660 filesystem) readonly.
+<BR>
+Freeing unused kernel memory: 112k freed
+<BR>
+hello
+<BR>
+Red Hat install init version 1.1 starting
+<BR>
+mounting /proc filesystem... done
+<BR>
+opening /proc/cmdline... done
+<BR>
+checking command line arguments...
+<BR>
+&nbsp;unknown option 'console=ttyS0'!done
+<BR>
+checking for NFS root filesystem...no
+<BR>
+trying to remount root filesystem read write... done
+<BR>
+checking for writeable /tmp... no (probably a CD rooted install)
+<BR>
+mke2fs 1.14, 9-Jkmod: failed to exec /sbin/modprobe -s -k char-major-4,
+<BR>
+errno =
+<BR>
+an-1999 for EXT2 FS 0.5b, 95/08/09
+<BR>
+Linux ext2 filesystem format
+<BR>
+Filesystem label=
+<BR>
+80 inodes, 300 blocks
+<BR>
+15 blocks (5.00%) reserved for the super user
+<BR>
+First data block=1
+<BR>
+Block size=1024 (log=0)
+<BR>
+Fragment size=1024 (log=0)
+<BR>
+1 block group
+<BR>
+8192 blocks per group, 8192 fragments per group
+<BR>
+80 inodes per group
+<BR>
+<P>Writing inode tables: done
+<BR>
+Writing superblocks and filesystem accounting information: done
+<BR>
+creating 300k of ramdisk space... done
+<BR>
+mounting /tmp from ramdisk... done
+<BR>
+couldn't open /dev/tty4 for syslog -- still using /tmp/syslog
+<BR>
+running install...
+<BR>
+failed to open /dev/tty1failed.
+<BR>
+<P>I can't recover from this.
+<BR>
+<P>I've attached an extracted .config - maybe someone can smack me around
+<BR>
+and show me what I'm missing.  I'm hoping that someone just says &quot;Oh,
+<BR>
+just make /dev/console have the correct major/minor, create a /dev/tty0,
+<BR>
+and walk away&quot; or something like that.  Even if I have to burn a CD
+<BR>
+again to get this to work, I'll be happy...
+<BR>
+<P>&nbsp;- Pete
+<BR>
+<P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+Peter Rival wrote:
+<p>&lt;snip>
+<blockquote TYPE=CITE>&nbsp;
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (open("/dev/console",
+O_RDWR, 0) &lt; 0)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+printk("Warning: unable to open an initial console.\n");</tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (void) dup(0);</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (void) dup(0);</tt>
+<p><tt>....</tt>
+<p>My guess is that yes, the install kernel never intended to support serial
+console.&nbsp; I'd call that an oversight if that's the case, but one that
+probably wouldn't happen again.&nbsp; We'll see what happens - this shouldn't
+take too long...</blockquote>
+
+<p><br>Well, that part was correct - it didn't take too long at all.&nbsp;
+The above code is what's breaking.&nbsp; The interesting thing is what
+appears to be the cause - the devices used on the RH 6.0 CD.&nbsp; It _appears_
+that to save space, /dev/console used the device number pairing (4,0) meant
+for tty0, instead of that which is normally used (5,1).
+<p>Does anyone who understands this code path a bit better than I know
+why I can get through this section of booting if all I do is change "/dev/console"
+to "/dev/ttyS0"?&nbsp; Yeah, it chokes shortly thereafter, but this says
+something (I think).&nbsp; Anyway, here's the error that I'm up to now
+(I'm using 2.3.10, as it's the latest stable kernel I have that actually
+builds)...
+<p><tt>VFS: Mounted root (iso9660 filesystem) readonly.</tt>
+<br><tt>Freeing unused kernel memory: 112k freed</tt>
+<br><tt>hello</tt>
+<br><tt>Red Hat install init version 1.1 starting</tt>
+<br><tt>mounting /proc filesystem... done</tt>
+<br><tt>opening /proc/cmdline... done</tt>
+<br><tt>checking command line arguments...</tt>
+<br><tt>&nbsp;unknown option 'console=ttyS0'!done</tt>
+<br><tt>checking for NFS root filesystem...no</tt>
+<br><tt>trying to remount root filesystem read write... done</tt>
+<br><tt>checking for writeable /tmp... no (probably a CD rooted install)</tt>
+<br><tt>mke2fs 1.14, 9-Jkmod: failed to exec /sbin/modprobe -s -k char-major-4,
+errno =</tt>
+<br><tt>an-1999 for EXT2 FS 0.5b, 95/08/09</tt>
+<br><tt>Linux ext2 filesystem format</tt>
+<br><tt>Filesystem label=</tt>
+<br><tt>80 inodes, 300 blocks</tt>
+<br><tt>15 blocks (5.00%) reserved for the super user</tt>
+<br><tt>First data block=1</tt>
+<br><tt>Block size=1024 (log=0)</tt>
+<br><tt>Fragment size=1024 (log=0)</tt>
+<br><tt>1 block group</tt>
+<br><tt>8192 blocks per group, 8192 fragments per group</tt>
+<br><tt>80 inodes per group</tt><tt></tt>
+<p><tt>Writing inode tables: done</tt>
+<br><tt>Writing superblocks and filesystem accounting information: done</tt>
+<br><tt>creating 300k of ramdisk space... done</tt>
+<br><tt>mounting /tmp from ramdisk... done</tt>
+<br><tt>couldn't open /dev/tty4 for syslog -- still using /tmp/syslog</tt>
+<br><tt>running install...</tt>
+<br><tt>failed to open /dev/tty1failed.</tt><tt></tt>
+<p><tt>I can't recover from this.</tt><tt></tt>
+<p>I've attached an extracted .config - maybe someone can smack me around
+and show me what I'm missing.&nbsp; I'm hoping that someone just says "Oh,
+just make /dev/console have the correct major/minor, create a /dev/tty0,
+and walk away" or something like that.&nbsp; Even if I have to burn a CD
+again to get this to work, I'll be happy...
+<p>&nbsp;- Pete
+
+
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0466.html">Xiaozhou Qiu: "smp kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0464.html">Xiaozhou Qiu: "Re: disk partitioning"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0457.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0467.html">Greg Lindahl: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0457.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:36 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

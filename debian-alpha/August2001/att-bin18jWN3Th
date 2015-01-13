@@ -1,0 +1,34 @@
+#include <iostream>
+#include <signal.h>
+#include <cstring>
+
+void sigSegvHandler(int, siginfo_t *sigInfo, void *) {
+    static int n = 0;
+    if (n++ > 1) exit(0); // prevent endless loop
+    std::cout << "Withing segfault" << std::endl;
+    if (sigInfo->si_code == SEGV_MAPERR
+	|| sigInfo->si_code == SEGV_ACCERR) {
+	std::cout << "MAPERR or ACCERR: Adress = 0x" << sigInfo->si_addr << std::endl;
+    } else {
+	std::cout << "Unknown reason(" << sigInfo->si_code << ")\n";
+    }
+    return;
+}
+
+int main() {
+    struct sigaction sigSegvAction;
+    
+    bzero(&sigSegvAction, sizeof(sigSegvAction));
+    sigSegvAction.sa_sigaction = &sigSegvHandler;
+    sigSegvAction.sa_flags = SA_SIGINFO | SA_NOMASK;
+    
+    if (sigaction(SIGSEGV, &sigSegvAction, NULL) == -1) {
+	perror("MOOSE: sigSegvAction");
+	exit(1);
+    }
+
+    std::cout << "Segfaulting" << std::endl; 
+    raise(SIGSEGV);
+    volatile int a = *(int *)16L;
+}
+

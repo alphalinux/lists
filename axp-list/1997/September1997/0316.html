@@ -1,0 +1,206 @@
+<!-- received="Wed Sep 17 05:18:40 1997 " -->
+<!-- sent="Wed, 17 Sep 1997 15:09:41 +0200 (MET DST)" -->
+<!-- name="Ronny Ranerup" -->
+<!-- email="ronny.ranerup@axis.com" -->
+<!-- subject="Re: Problems with slow EIDE disk / slow system time" -->
+<!-- id="199709171309.PAA03916@zebara.axis.se" -->
+<!-- inreplyto="Problems with slow EIDE disk / slow system time" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Problems with slow EIDE disk / slow system time</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Problems with slow EIDE disk / slow system time</h2>
+
+<b>Ronny Ranerup</b> (<a href="mailto:ronny.ranerup@axis.com"><i>ronny.ranerup@axis.com</i></a>)<br>
+<i>Wed, 17 Sep 1997 15:09:41 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#316">[ date ]</a><a href="index.html#316">[ thread ]</a><a href="subject.html#316">[ subject ]</a><a href="author.html#316">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0317.html">Stefan Schroepfer: "Re: Problems with slow EIDE disk / slow system time"</a>
+<li> <b>Previous message:</b> <a href="0315.html">John Jemiolo: "NFS mounted root served by Digital  UNIX"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Stefan Schroepfer&gt;<br>
+<i>&gt;Yes: hdparm does report a higher read rate (using option '-t')</i><br>
+<i>&gt;after setting some flags.</i><br>
+<i>&gt;*BUT* simply counting seconds during a</i><br>
+<i>&gt;  $ hdparm -T /dev/hda       # to avoid caching artifacts</i><br>
+<i>&gt;  $ hdparm -t /dev/hda       # perform timings of device reads</i><br>
+<i>&gt;on an otherwise idle system will show you that disk throughput</i><br>
+<i>&gt;is not as fast as hdparm wants to tell you.</i><br>
+<i>&gt;In fact, only the OS's clock runs slower during disk I/O, as you</i><br>
+<i>&gt;can see if you do a</i><br>
+<i>&gt;  $ clock -u -A -r; date     # '-A' if ARC console</i><br>
+<i>&gt;before and after the two hdparm calls.</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt; Is there a possibility to get both, a fast disk throughput and a</i><br>
+<i>&gt;&gt; accurate system time?</i><br>
+<i>&gt;</i><br>
+<i>&gt;In my opinion: no. I think it is only possible to slow down system</i><br>
+<i>&gt;time, but not to get fast EIDE disk throughput.</i><br>
+<p>
+Try this, reads directly from the device. Change MEGS to how many megs ram you have, <br>
+used for flushing the cache...<br>
+<p>
+<a href="mailto:/ronny@axis.com/Ronny">/ronny@axis.com/Ronny</a> Ranerup/Axis Communications AB/<a href="http://www.axis.com">http://www.axis.com</a><br>
+<p>
+<pre>
+---
+<p>
+#include &lt;stdio.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/time.h&gt;
+<p>
+/* Set to how many megs ram you have */
+#define MEGS 128
+<p>
+#define BYTES (1024*5000)
+<p>
+int
+main (int argc, char *argv[])
+{
+  int fd;
+  char *buf;
+  int i;
+  struct timeval start;
+  struct timeval end;
+  struct timeval diff;
+  long int usec = 0;
+  char *foo;
+  int times;
+  int BUFSIZE = 1024*1000;
+  int db = 0;
+  float min = 100000000;
+  float max = 0;
+  float average = 0;
+  float mbps;
+  int reads = 0;
+<p>
+  if (argc != 2) {
+    printf("Needs file/device as argument\n");
+    exit(1);
+  }
+<p>
+  if ((fd = open(argv[1], O_RDONLY)) == -1) {
+    perror("open failed");
+    exit(1);
+  }
+<p>
+  foo = (char*) malloc(1024*1000*MEGS);
+  printf("Flushing ram...\n");
+  for (i = 0; i &lt; 1024*1000*64; i+=1024) {
+    foo[i] = 4;
+  }
+  free(foo);
+  printf("...done\n");
+  
+  for (BUFSIZE = 1024; BUFSIZE &lt;= BYTES; BUFSIZE*=2) {
+    
+    if (db) printf("Getting buffer into memory...\n"); 
+    buf = (char*) malloc(BUFSIZE);
+    for (i = 0; i != BUFSIZE-1; i++) {
+      buf[i] = 0;
+    }
+    if (db) printf("...done\n");
+    
+    gettimeofday(&amp;start, NULL);
+    gettimeofday(&amp;end, NULL);
+    
+    times = BYTES/BUFSIZE;
+    printf("%d bytes per read, %d times = %d bytes.\n", BUFSIZE, times, times*BUFSIZE);
+    
+    if (db) printf("start\n");
+    gettimeofday(&amp;start, NULL);
+    
+    for (i = 0; i != times; i++) {
+      if (read(fd, buf, BUFSIZE) != BUFSIZE) {
+	perror("read failed");
+	exit(1);
+      }
+    }
+    
+    gettimeofday(&amp;end, NULL);
+    if (db) printf("end\n");
+    
+    timeval_subtract(&amp;diff, &amp;end, &amp;start);
+    if (db) printf ("%ldsecs %ldusecs\n", diff.tv_sec, diff.tv_usec);
+    usec = diff.tv_sec * 1000000 + diff.tv_usec;
+    
+    mbps = (float)(times*BUFSIZE)/usec;
+    printf("%d bytes in %ld usecs. %fMB/s\n\n", times*BUFSIZE, usec, mbps);
+    if (mbps &gt; max)
+      max = mbps;
+    
+    if (mbps &lt; min)
+      min = mbps;
+    
+    average += mbps;
+    reads++;
+  }
+<p>
+  free(buf);
+  printf("MB/s min:%f, max:%f, average:%f\n", min, max, average/reads);
+}
+<p>
+int
+timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
+{
+       /* Perform the carry for the later subtraction by updating Y. */
+  if (x-&gt;tv_usec &lt; y-&gt;tv_usec) {
+    int nsec = (y-&gt;tv_usec - x-&gt;tv_usec) / 1000000 + 1;
+    y-&gt;tv_usec -= 1000000 * nsec;
+         y-&gt;tv_sec += nsec;
+  }
+  if (x-&gt;tv_usec - y-&gt;tv_usec &gt; 1000000) {
+    int nsec = (y-&gt;tv_usec - x-&gt;tv_usec) / 1000000;
+    y-&gt;tv_usec += 1000000 * nsec;
+         y-&gt;tv_sec -= nsec;
+  }
+  
+  /* Compute the time remaining to wait.
+     `tv_usec' is certainly positive. */
+       result-&gt;tv_sec = x-&gt;tv_sec - y-&gt;tv_sec;
+       result-&gt;tv_usec = x-&gt;tv_usec - y-&gt;tv_usec;
+     
+       /* Return 1 if result is negative. */
+       return x-&gt;tv_sec &lt; y-&gt;tv_sec;
+}
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0317.html">Stefan Schroepfer: "Re: Problems with slow EIDE disk / slow system time"</a>
+<li> <b>Previous message:</b> <a href="0315.html">John Jemiolo: "NFS mounted root served by Digital  UNIX"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

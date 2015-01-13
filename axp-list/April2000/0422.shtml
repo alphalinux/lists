@@ -1,0 +1,351 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Bug#63183: [PATCH] 'struct dynamic' is actually ELF32 specific, breaks ldconfig</H1> 
+	
+<!-- received="Fri Apr 28 03:15:14 2000" -->
+<!-- isoreceived="20000428101514" -->
+<!-- sent="27 Apr 2000 22:37:25 -0400" -->
+<!-- isosent="20000428023725" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Bug#63183: [PATCH] 'struct dynamic' is actually ELF32 specific, breaks ldconfig" -->
+<!-- id="87vh13eysa.fsf@tarwebok.thepuffingroup.com" -->
+<STRONG>Subject: </STRONG>Bug#63183: [PATCH] 'struct dynamic' is actually ELF32 specific, breaks ldconfig<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 27 19:37:25 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#422">[ date ]</A>
+<A HREF="index.shtml#422">[ thread ]</A>
+<A HREF="subject.shtml#422">[ subject ]</A>
+<A HREF="author.shtml#422">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0423.shtml">David Huggins-Daines: "Re: Awful peformance of DEC500 (Tulip) cards with switches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0421.shtml">Paul Bunn: "RE: Annoying problem with SCSI"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Package: ld.so
+<BR>
+Version: 1.9.11-7
+<BR>
+Severity: important
+<BR>
+<P>Hi,
+<BR>
+<P>&lt;linux/elf.h&gt; (still, as of 2.3.99pre) contains:
+<BR>
+<P>typedef struct dynamic{
+<BR>
+&nbsp;&nbsp;Elf32_Sword d_tag;
+<BR>
+&nbsp;&nbsp;union{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Elf32_Sword	d_val;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Elf32_Addr	d_ptr;
+<BR>
+&nbsp;&nbsp;} d_un;
+<BR>
+} Elf32_Dyn;
+<BR>
+<P>typedef struct {
+<BR>
+&nbsp;&nbsp;Elf64_Word d_tag;		/* entry tag value */
+<BR>
+&nbsp;&nbsp;union {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Elf64_Word d_val;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Elf64_Word d_ptr;
+<BR>
+&nbsp;&nbsp;} d_un;
+<BR>
+} Elf64_Dyn;
+<BR>
+<P>Notice that, unlike the way in which struct elfhdr and struct elf_phdr
+<BR>
+are handled (i.e. #defined to either the ELF32 or ELF64 structs based
+<BR>
+on ELF_CLASS), struct dynamic is declared to be the ELF32 version.  Is
+<BR>
+there any good reason for this that I'm obviously overlooking?
+<BR>
+<P>Anyway, ldconfig uses 'struct dynamic' generically, and thus it
+<BR>
+doesn't find the soname on Alpha.  (and other ELF64 targets,
+<BR>
+presumably).  The Sparc patches from Red Hat that were submitted in
+<BR>
+#49279 supposedly handle ELF64, but I don't actually see any evidence
+<BR>
+that they really work, due to the abovementioned problem.
+<BR>
+<P>I've forwarded this to axp-list so that RH can either integrate it
+<BR>
+into their packages, or show us where they have already patched/worked
+<BR>
+around the problem.
+<BR>
+<P>(to other distributions, sorry ... I don't know where you people hang
+<BR>
+out...)
+<BR>
+<P>This patch to ld.so fixes this and a few other alpha and 64-bit
+<BR>
+uncleanlinesses in ldconfig:
+<BR>
+<P>It works on my Alphas running Debian with glibc 2.1 (built with Linux
+<BR>
+2.2.14 headers), as well as my Intel laptop running Debian with glibc
+<BR>
+2.1.  Not sure how it holds up elsewhere.
+<BR>
+<P>diff -urN ld.so-1.9.11/util/readelf.c ld.so-1.9.11-fixed/util/readelf.c
+<BR>
+--- ld.so-1.9.11/util/readelf.c	Mon Oct 25 12:13:00 1999
+<BR>
++++ ld.so-1.9.11-fixed/util/readelf.c	Thu Apr 27 17:17:56 2000
+<BR>
+@@ -2,16 +2,14 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;stdio.h&gt;
+<BR>
+&nbsp;#include &lt;string.h&gt;
+<BR>
++#include &lt;unistd.h&gt;
+<BR>
++#include &lt;linux/elf.h&gt;
+<BR>
+&nbsp;#include &lt;sys/stat.h&gt;
+<BR>
+&nbsp;#include &lt;sys/mman.h&gt;
+<BR>
+-#include &lt;linux/elf.h&gt;
+<BR>
+&nbsp;#include &quot;../config.h&quot;
+<BR>
+&nbsp;#include &quot;readelf.h&quot;
+<BR>
+&nbsp;#include &lt;sys/types.h&gt;
+<BR>
+&nbsp;
+<BR>
+-#define ELF32_R_SYM(x) ((x) &gt;&gt; 8)
+<BR>
+-#define ELF32_R_TYPE(x) ((x) &amp; 0xff)
+<BR>
+-
+<BR>
+&nbsp;void warn(char *fmt, ...);
+<BR>
+&nbsp;char *xstrdup(char *);
+<BR>
+&nbsp;
+<BR>
+@@ -31,18 +29,25 @@
+<BR>
+&nbsp;&nbsp;&nbsp;{ NULL,           LIB_ELF }
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
++#if ELF_CLASS == ELFCLASS32
+<BR>
++typedef Elf32_Dyn Elf_Dyn;
+<BR>
++#else
+<BR>
++typedef Elf64_Dyn Elf_Dyn;
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;char *readsoname(char *name, FILE *infile, int expected_type, int *type)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;struct elfhdr *epnt;
+<BR>
+&nbsp;&nbsp;&nbsp;struct elf_phdr *ppnt;
+<BR>
+&nbsp;&nbsp;&nbsp;int i, j;
+<BR>
+&nbsp;&nbsp;&nbsp;char *header;
+<BR>
+-  unsigned int dynamic_addr = 0;
+<BR>
+-  unsigned int dynamic_size = 0;
+<BR>
++  unsigned long dynamic_addr = 0;
+<BR>
++  unsigned long dynamic_size = 0;
+<BR>
++  unsigned long pagesize = getpagesize();
+<BR>
+&nbsp;&nbsp;&nbsp;int strtab_val = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;int needed_val;
+<BR>
+-  int loadaddr = -1;
+<BR>
+-  struct dynamic *dpnt;
+<BR>
++  long loadaddr = -1;
+<BR>
++  Elf_Dyn *dpnt;
+<BR>
+&nbsp;&nbsp;&nbsp;struct stat st;
+<BR>
+&nbsp;&nbsp;&nbsp;char *needed;
+<BR>
+&nbsp;&nbsp;&nbsp;char *soname = NULL;
+<BR>
+@@ -63,20 +73,20 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return NULL;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;epnt = (struct elfhdr *)header;
+<BR>
+-  if ((int)(epnt+1) &gt; (int)(header + st.st_size))
+<BR>
++  if ((unsigned long)(epnt+1) &gt; (unsigned long)(header + st.st_size))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto skip;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;ppnt = (struct elf_phdr *)&amp;header[epnt-&gt;e_phoff];
+<BR>
+-  if ((int)ppnt &lt; (int)header ||
+<BR>
+-      (int)(ppnt+epnt-&gt;e_phnum) &gt; (int)(header + st.st_size))
+<BR>
++  if ((unsigned long)ppnt &lt; (unsigned long)header ||
+<BR>
++      (unsigned long)(ppnt+epnt-&gt;e_phnum) &gt; (unsigned long)(header + st.st_size))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto skip;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;for(i = 0; i &lt; epnt-&gt;e_phnum; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (loadaddr == -1 &amp;&amp; ppnt-&gt;p_type == PT_LOAD) 
+<BR>
+-      loadaddr = (ppnt-&gt;p_vaddr &amp; 0xfffff000) -
+<BR>
+-	(ppnt-&gt;p_offset &amp; 0xfffff000);
+<BR>
+-    if(ppnt-&gt;p_type == 2)
+<BR>
++      loadaddr = (ppnt-&gt;p_vaddr &amp; ~(pagesize-1)) -
+<BR>
++	(ppnt-&gt;p_offset &amp; ~(pagesize-1));
+<BR>
++    if(ppnt-&gt;p_type == PT_DYNAMIC)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dynamic_addr = ppnt-&gt;p_offset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dynamic_size = ppnt-&gt;p_filesz;
+<BR>
+@@ -84,10 +94,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ppnt++;
+<BR>
+&nbsp;&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+-  dpnt = (struct dynamic *) &amp;header[dynamic_addr];
+<BR>
+-  dynamic_size = dynamic_size / sizeof(struct dynamic);
+<BR>
+-  if ((int)dpnt &lt; (int)header ||
+<BR>
+-      (int)(dpnt+dynamic_size) &gt; (int)(header + st.st_size))
+<BR>
++  dpnt = (Elf_Dyn *) &amp;header[dynamic_addr];
+<BR>
++  dynamic_size = dynamic_size / sizeof(Elf_Dyn);
+<BR>
++  if ((unsigned long)dpnt &lt; (unsigned long)header ||
+<BR>
++      (unsigned long)(dpnt+dynamic_size) &gt; (unsigned long)(header + st.st_size))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto skip;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;while (dpnt-&gt;d_tag != DT_NULL)
+<BR>
+@@ -100,7 +110,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;if (!strtab_val)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto skip;
+<BR>
+&nbsp;
+<BR>
+-  dpnt = (struct dynamic *) &amp;header[dynamic_addr];
+<BR>
++  dpnt = (Elf_Dyn *) &amp;header[dynamic_addr];
+<BR>
+&nbsp;&nbsp;&nbsp;while (dpnt-&gt;d_tag != DT_NULL)
+<BR>
+&nbsp;&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dpnt-&gt;d_tag == DT_SONAME || dpnt-&gt;d_tag == DT_NEEDED)
+<BR>
+<P><PRE>
+-- 
+David Huggins-Daines, GNU/Linux Consultant, Linuxcare, Inc.
+613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0423.shtml">David Huggins-Daines: "Re: Awful peformance of DEC500 (Tulip) cards with switches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0421.shtml">Paul Bunn: "RE: Annoying problem with SCSI"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Mon May  1 18:42:03 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

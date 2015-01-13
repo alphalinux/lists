@@ -1,0 +1,358 @@
+<!-- received="Thu Aug  6 21:30:52 1998 " -->
+<!-- sent="Thu,  6 Aug 98 17:23:38 -0700" -->
+<!-- name="Mike \" -->
+<!-- email="ford@omnicron.com" -->
+<!-- subject="Re: SUID scripts?" -->
+<!-- id="" -->
+<!-- inreplyto="SUID scripts?" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SUID scripts?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SUID scripts?</h2>
+
+<b>Mike \</b> (<a href="mailto:ford@omnicron.com"><i>ford@omnicron.com</i></a>)<br>
+<i>Thu,  6 Aug 98 17:23:38 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#331">[ date ]</a><a href="index.html#331">[ thread ]</a><a href="subject.html#331">[ subject ]</a><a href="author.html#331">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0332.html">Keith Baker: "Re: Multia Controller"</a>
+<li> <b>Previous message:</b> <a href="0330.html">jasonph@sidehack.sat.gweep.net: "Re: WYSE terminals on Alpha"</a>
+<li> <b>Maybe in reply to:</b> <a href="0305.html">Christopher Curtis: "SUID scripts?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; From: Christopher Curtis &lt;<a href="mailto:ccurtis@ee.fit.edu">ccurtis@ee.fit.edu</a>&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt; I'm trying to write a SUID shellscript, but am having problems.</i><br>
+<p>
+<i>&gt; From: Jeff Sturm &lt;<a href="mailto:jsturm@gatecom.com">jsturm@gatecom.com</a>&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt; Setuid shell scripts are considered dangerous.  I don't think they work</i><br>
+<i>&gt; on any Linux platform.  Alternatively, you can use perl or a C wrapper</i><br>
+<i>&gt; binary (but beware of environment variables, if security is an issue).</i><br>
+<p>
+<p>
+Here is an implementation of "secure" set-ID #! files (A.K.A. set-uid<br>
+shell scripts) for Linux 2.0.x.  I have been running it for over a year<br>
+but as you can see, it still has a printk or two which reveal that I<br>
+don't actually run very many set-ID shell scripts (the printk's would<br>
+get annoying).  You can remove the printk's or leave them in if you're<br>
+paranoid or want to know when someone is probing for a security hole in<br>
+your system.<br>
+<p>
+This patch implements set-ID #! shell scripts and makes them as secure<br>
+as they are under Solaris, Unix SVR4, etc.  The major hole that would<br>
+otherwise make set-ID scripts insecure (replacement of the file<br>
+inbetween the exec and the shell calling open()) is eliminated by<br>
+changing the shell's argv[1] to the name of a file descriptor to the<br>
+script file opened by the kernel during exec().  There can, of course,<br>
+be other security holes due to the contents of your script.  Be careful.<br>
+<p>
+Also included in this patch is a fix for a bug in /proc which<br>
+prevented a process from examining itself under some conditions.<br>
+<p>
+I'm running 2.0.33 with this patch.  I haven't yet looked to see how much<br>
+would have to change for 2.1.x.<br>
+					-=] Ford [=-<br>
+<p>
+"I can stand the sight of worms		(In Real Life:  Mike Ditto)<br>
+ or look at microscopic germs 		<a href="mailto:ford@omnicron.com">ford@omnicron.com</a><br>
+ but technicolor pachyderms		<a href="http://www.omnicron.com/~ford/ford.html">http://www.omnicron.com/~ford/ford.html</a><br>
+ are really too much for me."<br>
+<p>
+--- include/linux/proc_fs.h.orig	Wed Apr  8 15:38:22 1998<br>
++++ include/linux/proc_fs.h	Thu Aug  6 16:58:52 1998<br>
+@@ -256,6 +256,7 @@<br>
+ extern int init_proc_fs(void);<br>
+ extern struct inode * proc_get_inode(struct super_block *, int, struct proc_dir_entry *);<br>
+ extern void proc_statfs(struct super_block *, struct statfs *, int);<br>
++extern int proc_permission(struct inode *, int);<br>
+ extern void proc_read_inode(struct inode *);<br>
+ extern void proc_write_inode(struct inode *);<br>
+ extern int proc_match(int, const char *, struct proc_dir_entry *);<br>
+--- fs/proc/link.c.orig	Sat Nov  1 12:31:42 1997<br>
++++ fs/proc/link.c	Thu Aug  6 16:45:25 1998<br>
+@@ -58,7 +58,7 @@<br>
+ 	NULL,			/* writepage */<br>
+ 	NULL,			/* bmap */<br>
+ 	NULL,			/* truncate */<br>
+-	NULL			/* permission */<br>
++	proc_permission		/* permission */<br>
+ };<br>
+ <br>
+ <br>
+--- fs/proc/fd.c.orig	Wed Nov 12 20:36:41 1997<br>
++++ fs/proc/fd.c	Thu Aug  6 16:45:25 1998<br>
+@@ -49,7 +49,7 @@<br>
+ 	NULL,			/* writepage */<br>
+ 	NULL,			/* bmap */<br>
+ 	NULL,			/* truncate */<br>
+-	NULL			/* permission */<br>
++	proc_permission		/* permission */<br>
+ };<br>
+ <br>
+ static int proc_lookupfd(struct inode * dir, const char * name, int len,<br>
+--- fs/proc/inode.c.orig	Sat Nov  1 12:31:17 1997<br>
++++ fs/proc/inode.c	Thu Aug  6 16:52:26 1998<br>
+@@ -129,6 +129,44 @@<br>
+ 	memcpy_tofs(buf, &amp;tmp, bufsiz);<br>
+ }<br>
+ <br>
++int proc_permission(struct inode * inode, int mask)<br>
++{<br>
++	unsigned long ino, pid;<br>
++	struct task_struct * p;<br>
++	int i, mode;<br>
++<br>
++	ino = inode-&gt;i_ino;<br>
++	pid = ino &gt;&gt; 16;<br>
++	p = task[0];<br>
++	for (i = 0; i &lt; NR_TASKS ; i++)<br>
++		if ((p = task[i]) &amp;&amp; (p-&gt;pid == pid))<br>
++			break;<br>
++	if (!p || i &gt;= NR_TASKS)<br>
++		return -ENOENT;<br>
++<br>
++	/* If the process is trying to examine itself, allow any access. */<br>
++	if (current == p ||<br>
++	    (current-&gt;euid == p-&gt;euid &amp;&amp; current-&gt;uid == p-&gt;uid &amp;&amp;<br>
++	     current-&gt;egid == p-&gt;egid &amp;&amp; current-&gt;gid == p-&gt;gid))<br>
++		return 0;<br>
++<br>
++	/* Otherwise just duplicate what permission() in namei.c would do. */<br>
++	mode = inode-&gt;i_mode;<br>
++	if ((mask &amp; S_IWOTH) &amp;&amp; IS_RDONLY(inode) &amp;&amp;<br>
++		 (S_ISREG(mode) || S_ISDIR(mode) || S_ISLNK(mode)))<br>
++		return -EROFS; /* Nobody gets write access to a read-only fs */<br>
++	else if ((mask &amp; S_IWOTH) &amp;&amp; IS_IMMUTABLE(inode))<br>
++		return -EACCES; /* Nobody gets write access to an immutable file */<br>
++	else if (current-&gt;fsuid == inode-&gt;i_uid)<br>
++		mode &gt;&gt;= 6;<br>
++	else if (in_group_p(inode-&gt;i_gid))<br>
++		mode &gt;&gt;= 3;<br>
++	if (((mode &amp; mask &amp; 0007) == mask) || fsuser())<br>
++		return 0;<br>
++	return -EACCES;<br>
++}<br>
++<br>
++<br>
+ void proc_read_inode(struct inode * inode)<br>
+ {<br>
+ 	unsigned long ino, pid;<br>
+--- fs/exec.c.orig	Wed Dec 10 18:09:44 1997<br>
++++ fs/exec.c	Thu Aug  6 13:33:30 1998<br>
+@@ -522,8 +522,6 @@<br>
+ 	if (bprm-&gt;inode-&gt;i_writecount &gt; 0)<br>
+ 		return -ETXTBSY;<br>
+ <br>
+-	bprm-&gt;e_uid = current-&gt;euid;<br>
+-	bprm-&gt;e_gid = current-&gt;egid;<br>
+ 	id_change = 0;<br>
+ <br>
+ 	/* Set-uid? */<br>
+@@ -676,6 +674,8 @@<br>
+ 	if ((bprm.envc = count(envp)) &lt; 0)<br>
+ 		return bprm.envc;<br>
+ <br>
++	bprm.e_uid = current-&gt;euid;<br>
++	bprm.e_gid = current-&gt;egid;<br>
+ 	retval = prepare_binprm(&amp;bprm);<br>
+ 	<br>
+ 	if(retval&gt;=0) {<br>
+--- fs/binfmt_script.c.orig	Sat Mar 23 04:46:40 1996<br>
++++ fs/binfmt_script.c	Thu Aug  6 16:21:08 1998<br>
+@@ -14,7 +14,8 @@<br>
+ static int do_load_script(struct linux_binprm *bprm,struct pt_regs *regs)<br>
+ {<br>
+ 	char *cp, *interp, *i_name, *i_arg;<br>
+-	int retval;<br>
++	int retval, script_fd;<br>
++	char buf[20];<br>
+ 	if ((bprm-&gt;buf[0] != '#') || (bprm-&gt;buf[1] != '!') || (bprm-&gt;sh_bang)) <br>
+ 		return -ENOEXEC;<br>
+ 	/*<br>
+@@ -23,7 +24,9 @@<br>
+ 	 */<br>
+ <br>
+ 	bprm-&gt;sh_bang++;<br>
+-	iput(bprm-&gt;inode);<br>
++	/* dont_iput prevents other binfmt types from examining buf after we<br>
++	   modify it here, but we have to make sure to do iput in any early<br>
++	   error return cases. */<br>
+ 	bprm-&gt;dont_iput=1;<br>
+ <br>
+ 	bprm-&gt;buf[127] = '\0';<br>
+@@ -38,8 +41,10 @@<br>
+ 			break;<br>
+ 	}<br>
+ 	for (cp = bprm-&gt;buf+2; (*cp == ' ') || (*cp == '\t'); cp++);<br>
+-	if (!cp || *cp == '\0') <br>
++	if (!cp || *cp == '\0') {<br>
++		iput(bprm-&gt;inode);<br>
+ 		return -ENOEXEC; /* No interpreter name found */<br>
++	}<br>
+ 	interp = i_name = cp;<br>
+ 	i_arg = 0;<br>
+ 	for ( ; *cp &amp;&amp; (*cp != ' ') &amp;&amp; (*cp != '\t'); cp++) {<br>
+@@ -51,11 +56,60 @@<br>
+ 	if (*cp)<br>
+ 		i_arg = cp;<br>
+ 	/*<br>
+-	 * OK, we've parsed out the interpreter name and<br>
+-	 * (optional) argument.<br>
++	 * OK, we've parsed out the interpreter name and (optional) argument.<br>
++	 * Now open a file descriptor to the script file if necessary for<br>
++	 * secure set-id purposes.<br>
++	 */<br>
++	if (bprm-&gt;e_uid != current-&gt;euid ||<br>
++	    bprm-&gt;e_gid != current-&gt;egid) {<br>
++	    struct file *f;<br>
++	    int error;<br>
++	    f = get_empty_filp();<br>
++	    if (!f) {<br>
++		iput(bprm-&gt;inode);<br>
++		return -ENFILE;<br>
++	    }<br>
++<br>
++	    f-&gt;f_flags = 0;<br>
++	    f-&gt;f_mode = FMODE_READ;<br>
++	    f-&gt;f_inode = bprm-&gt;inode;<br>
++	    f-&gt;f_pos = 0;<br>
++	    f-&gt;f_reada = 0;<br>
++	    f-&gt;f_op = NULL;<br>
++	    if (f-&gt;f_inode-&gt;i_op)<br>
++		f-&gt;f_op = f-&gt;f_inode-&gt;i_op-&gt;default_file_ops;<br>
++	    if (f-&gt;f_op &amp;&amp; f-&gt;f_op-&gt;open) {<br>
++		error = f-&gt;f_op-&gt;open(f-&gt;f_inode, f);<br>
++		if (error) {<br>
++		    f-&gt;f_count--;<br>
++		    iput(bprm-&gt;inode);<br>
++		    return error;<br>
++		}<br>
++	    }<br>
++<br>
++	    script_fd = get_unused_fd();<br>
++	    if (script_fd &lt; 0) {<br>
++		close_fp(f);<br>
++		return script_fd;<br>
++	    }<br>
++	    current-&gt;files-&gt;fd[script_fd] = f;<br>
++	    sprintf(buf, "/dev/fd/%d", script_fd);<br>
++	    bprm-&gt;filename = buf;<br>
++<br>
++printk("set-ID interpreter exec: ");<br>
++if (i_arg)<br>
++printk("intp=%s, arg1=%s, arg2=%s\n", i_name, i_arg, bprm-&gt;filename);<br>
++else<br>
++printk("intp=%s, arg1=%s\n", i_name, bprm-&gt;filename);<br>
++	} else {<br>
++	    iput(bprm-&gt;inode);<br>
++	    script_fd = -1;<br>
++	}<br>
++<br>
++	/*<br>
+ 	 * Splice in (1) the interpreter's name for argv[0]<br>
+ 	 *           (2) (optional) argument to interpreter<br>
+-	 *           (3) filename of shell script (replace argv[0])<br>
++	 *           (3) filename of script or /dev/fd/N (replace argv[0])<br>
+ 	 *<br>
+ 	 * This is done in reverse order, because of how the<br>
+ 	 * user environment and arguments are stored.<br>
+@@ -69,21 +123,51 @@<br>
+ 	}<br>
+ 	bprm-&gt;p = copy_strings(1, &amp;i_name, bprm-&gt;page, bprm-&gt;p, 2);<br>
+ 	bprm-&gt;argc++;<br>
+-	if (!bprm-&gt;p) <br>
+-		return -E2BIG;<br>
++	if (!bprm-&gt;p) {<br>
++	    if (script_fd&gt;=0) {<br>
++		struct file *f = current-&gt;files-&gt;fd[script_fd];<br>
++		current-&gt;files-&gt;fd[script_fd] = 0;<br>
++		put_unused_fd(script_fd);<br>
++		close_fp(f);<br>
++	    }<br>
++	    return -E2BIG;<br>
++	}<br>
++<br>
+ 	/*<br>
+ 	 * OK, now restart the process with the interpreter's inode.<br>
+ 	 * Note that we use open_namei() as the name is now in kernel<br>
+ 	 * space, and we don't need to copy it.<br>
+ 	 */<br>
+ 	retval = open_namei(interp, 0, 0, &amp;bprm-&gt;inode, NULL);<br>
+-	if (retval)<br>
+-		return retval;<br>
+-	bprm-&gt;dont_iput=0;<br>
+-	retval=prepare_binprm(bprm);<br>
+-	if(retval&lt;0)<br>
+-		return retval;<br>
+-	return search_binary_handler(bprm,regs);<br>
++	if (retval) {<br>
++	    if (script_fd&gt;=0) {<br>
++		struct file *f = current-&gt;files-&gt;fd[script_fd];<br>
++		current-&gt;files-&gt;fd[script_fd] = 0;<br>
++		put_unused_fd(script_fd);<br>
++		close_fp(f);<br>
++	    }<br>
++	    return retval;<br>
++	}<br>
++	bprm-&gt;dont_iput = 0;<br>
++	retval = prepare_binprm(bprm);<br>
++	if (retval&lt;0) {<br>
++	    if (script_fd&gt;=0) {<br>
++		struct file *f = current-&gt;files-&gt;fd[script_fd];<br>
++		current-&gt;files-&gt;fd[script_fd] = 0;<br>
++		put_unused_fd(script_fd);<br>
++		close_fp(f);<br>
++	    }<br>
++	    return retval;<br>
++	}<br>
++<br>
++	retval = search_binary_handler(bprm, regs);<br>
++	if (retval&lt;0 &amp;&amp; script_fd&gt;=0) {<br>
++	    struct file *f = current-&gt;files-&gt;fd[script_fd];<br>
++	    current-&gt;files-&gt;fd[script_fd] = 0;<br>
++	    put_unused_fd(script_fd);<br>
++	    close_fp(f);<br>
++	}<br>
++	return retval;<br>
+ }<br>
+ <br>
+ static int load_script(struct linux_binprm *bprm,struct pt_regs *regs)<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0332.html">Keith Baker: "Re: Multia Controller"</a>
+<li> <b>Previous message:</b> <a href="0330.html">jasonph@sidehack.sat.gweep.net: "Re: WYSE terminals on Alpha"</a>
+<li> <b>Maybe in reply to:</b> <a href="0305.html">Christopher Curtis: "SUID scripts?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

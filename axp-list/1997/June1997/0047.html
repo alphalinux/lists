@@ -1,0 +1,128 @@
+<!-- received="Mon Jun  2 11:56:43 1997 " -->
+<!-- sent="Mon, 2 Jun 1997 11:41:03 -0400 (EDT)" -->
+<!-- name="sperati" -->
+<!-- email="Sperati@cris.com" -->
+<!-- subject="UNSOLICITED JUNK E-MAIL. RETRUN TO SENDER." -->
+<!-- id="199706021536.LAA02184@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="Pine.LNX.3.95.970601210529.5006A-100000@naphta.mb.jhu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>UNSOLICITED JUNK E-MAIL. RETRUN TO SENDER.</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>UNSOLICITED JUNK E-MAIL. RETRUN TO SENDER.</h2>
+
+<b>sperati</b> (<a href="mailto:Sperati@cris.com"><i>Sperati@cris.com</i></a>)<br>
+<i>Mon, 2 Jun 1997 11:41:03 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#47">[ date ]</a><a href="index.html#47">[ thread ]</a><a href="subject.html#47">[ subject ]</a><a href="author.html#47">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0048.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>Previous message:</b> <a href="0046.html">jestabro@amt.tay1.dec.com: "Re: Getting out of aboot in SRM?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sun, 1 Jun 1997, Jeff Odom wrote:<br>
+<p>
+<i>&gt; Date: Sun, 1 Jun 1997 21:15:18 -0400 (EDT)</i><br>
+<i>&gt; From: Jeff Odom &lt;<a href="mailto:zeus@jhu.edu">zeus@jhu.edu</a>&gt;</i><br>
+<i>&gt; Reply-To: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; To: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Subject: fix for gdb</i><br>
+<i>&gt; Resent-Date: 2 Jun 1997 01:15:23 -0000</i><br>
+<i>&gt; Resent-From: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Resent-cc: recipient list not shown: ;</i><br>
+<i>&gt; </i><br>
+<i>&gt; It seems that gdb still has a problem stepping over calls to malloc().</i><br>
+<i>&gt; This is not isolated to only dynamic binaries, but includes static ones as</i><br>
+<i>&gt; well.  After spending a while tracing through the code, I found the</i><br>
+<i>&gt; offending code. This segment, taken from the gdb-4.16axp.patch.gz, seems</i><br>
+<i>&gt; to break calls to malloc():</i><br>
+<i>&gt; </i><br>
+<i>&gt; diff -urN gdb-4.16/gdb/mdebugread.c gdb-4.16axp/gdb/mdebugread.c</i><br>
+<i>&gt; --- gdb-4.16/gdb/mdebugread.c   Sat Apr  6 02:09:55 1996</i><br>
+<i>&gt; +++ gdb-4.16axp/gdb/mdebugread.c        Wed May 22 19:17:06 1996</i><br>
+<i>&gt; @@ -835,7 +835,23 @@</i><br>
+<i>&gt;        if (sh-&gt;sc == scUndefined || sh-&gt;sc == scNil)</i><br>
+<i>&gt;         t = mdebug_type_int;</i><br>
+<i>&gt;        else</i><br>
+<i>&gt; -       t = parse_type (cur_fd, ax, sh-&gt;index + 1, 0, bigend, name);</i><br>
+<i>&gt; +       {</i><br>
+<i>&gt; +         t = parse_type (cur_fd, ax, sh-&gt;index + 1, 0, bigend, name);</i><br>
+<i>&gt; +         if (STREQ(name, "malloc") &amp;&amp; t-&gt;code == TYPE_CODE_VOID)</i><br>
+<i>&gt; +           {</i><br>
+<i>&gt; +             /* I don't know why, but, at least under Linux/Alpha,</i><br>
+<i>&gt; +                when linking against a malloc without debugging</i><br>
+<i>&gt; +                symbols, its read as a function returning void---this</i><br>
+<i>&gt; +                is bad because it means we cannot call functions with</i><br>
+<i>&gt; +                string arguments interactively; i.e., "call</i><br>
+<i>&gt; +                printf("howdy\n")" would fail with the error message</i><br>
+<i>&gt; +                "program has no memory available".  To avoid this, we</i><br>
+<i>&gt; +                patch up the type and make it void*</i><br>
+<i>&gt; +                instead. (<a href="mailto:davidm@azstarnet.com">davidm@azstarnet.com</a>)</i><br>
+<i>&gt; +                */</i><br>
+<i>&gt; +             t = t-&gt;pointer_type;</i><br>
+<i>&gt; +           }</i><br>
+<i>&gt; +       }</i><br>
+<i>&gt;        b = top_stack-&gt;cur_block;</i><br>
+<i>&gt;        if (sh-&gt;st == stProc)</i><br>
+<i>&gt;         {</i><br>
+<i>&gt; </i><br>
+<i>&gt; The problem that this code looks like it is trying to address is that gdb,</i><br>
+<i>&gt; on Linux/Alpha, sees malloc() as returning a type void, instead of </i><br>
+<i>&gt; (void *).  In this code, t is a block with information about a type, and</i><br>
+<i>&gt; t-&gt;pointer_type is a block with information about a pointer to that type.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I'm guessing that, in the case of t describing (void), t-&gt;pointer_type</i><br>
+<i>&gt; should describe (void *). However, in the case of a void type,</i><br>
+<i>&gt; t-&gt;pointer_type is always NULL.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I've removed this patch from the source build, and the resulting gdb seems</i><br>
+<i>&gt; to work fine.  However, I can't help but wonder if the problem that this</i><br>
+<i>&gt; patch addressed has been resolved elsewhere, or if I'm just breaking some</i><br>
+<i>&gt; other functionality.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Jeff Odom</i><br>
+<i>&gt; System Administrator</i><br>
+<i>&gt; The Johns Hopkins Kreiger Mind/Brain Institute</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; --</i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0048.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>Previous message:</b> <a href="0046.html">jestabro@amt.tay1.dec.com: "Re: Getting out of aboot in SRM?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

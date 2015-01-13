@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> SSLeay libraries on Alpha</H1> 
+	
+<!-- received="Sun Dec 19 22:49:10 1999" -->
+<!-- isoreceived="19991220064910" -->
+<!-- sent="Sun, 19 Dec 1999 15:46:51 -0700" -->
+<!-- isosent="19991219224651" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="SSLeay libraries on Alpha" -->
+<!-- id="19991219154651.A12147@ellpspace.math.ualberta.ca" -->
+<STRONG>Subject: </STRONG>SSLeay libraries on Alpha<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Dec 19 14:46:51 1999
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#622">[ date ]</A>
+<A HREF="index.shtml#622">[ thread ]</A>
+<A HREF="subject.shtml#622">[ subject ]</A>
+<A HREF="author.shtml#622">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0623.shtml">Bill Nottingham: "Re: 6.1 ISOs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0621.shtml">Michael Cummings: "Fast! site for alpha iso's"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+For all of you who may have troubles with these libraries on
+<BR>
+Alpha I attach below, for your perusal in a spare moment,
+<BR>
+a log from a test run for SSLeay-0.9.0a compiled on Linux/Alpha.
+<BR>
+<P>There are these small points to note:
+<BR>
+&nbsp;- 'Configure' and other perl scripts assume that you
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;have '/usr/local/bin/perl'; edit or supply the later as a link.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;I do not recommend the later as in some situations
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;'rpm --rebuild...' may pick it up instead of /usr/bin/perl
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;and you will have problems with dependencies
+<BR>
+&nbsp;- 'linux-elf' target assumes blindly x86, as expected.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Use 'alpha-gcc' instead (even if you are using Compaq C).
+<BR>
+&nbsp;- You will get 'CFLAG= -O3' in a generated Makefile.  This should
+<BR>
+&nbsp;&nbsp;&nbsp;be OK but for this test run I edited it to 'CFLAG= -O2 -Wall -g'.
+<BR>
+&nbsp;&nbsp;&nbsp;Whatever.
+<BR>
+&nbsp;- 'Makefile' tries to use 'BN_MULW= asm/alpha.o' define.  This
+<BR>
+&nbsp;&nbsp;&nbsp;would be nice if not for that small trouble that one end up with
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+as   -o asm/alpha.o asm/alpha.s
+<BR>
+asm/alpha.s: Assembler messages:
+<BR>
+asm/alpha.s:198: Error: inappropriate arguments for opcode `stq'
+<BR>
+make[2]: *** [asm/alpha.o] Error 1
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;on the following code fragment from 'crypto/bn/asm/alpha.s'
+<BR>
+<P>bn_add_words:
+<BR>
+bn_add_words..ng:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.frame $30,0,$26,0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis     $31,$31,$8      # carry = 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ble     $19,$900
+<BR>
+$901:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq     $0,0($17)       # a[0]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq     $1,0($18)       # a[1]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq    $0,$1,$3        # c=a+b;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq    $17,8,$17       # a++
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpult  $3,$1,$7        # did we overflow?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq   $18,8,$18       # b++
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq    $8,$3,$3        # c+=carry
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmpult  $3,$8,$8        # did we overflow?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq    $3,($16)        # r[0]=c  &lt;---- ERROR on this line!!!
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq    $7,$8,$8        # add into overflow
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subq   $19,1,$19       # loop--
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq    $16,8,$16       # r++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bgt    $19,$901
+<BR>
+$900:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis     $8,$8,$0        # return carry
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret $31,($26),1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end bn_add_words
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Somebody with an assembler expertise willing to explain why this
+<BR>
+&nbsp;&nbsp;&nbsp;is unhappy?  Even better - is the whole code from alpha.s is correct? :-)
+<BR>
+&nbsp;&nbsp;&nbsp;Changing this define in Makefile to 'BN_MULW= bn_mulw.o' solves
+<BR>
+&nbsp;&nbsp;&nbsp;that problem but maybe adds extra cycles.
+<BR>
+<P>Once past that everything compiles fine as you can see for yourself
+<BR>
+in an attached log.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><P><HR>
+<UL>
+<LI>application/x-gunzip attachment: <A HREF="att-bin2vYI8bT">stored</A>
+</UL>
+<!-- attachment="att-bin2vYI8bT" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0623.shtml">Bill Nottingham: "Re: 6.1 ISOs"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0621.shtml">Michael Cummings: "Fast! site for alpha iso's"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Mon Jan  3 11:15:11 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

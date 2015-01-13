@@ -1,0 +1,295 @@
+<!-- received="Wed Oct 30 03:30:27 1996 " -->
+<!-- sent="Wed, 30 Oct 1996 00:43:26 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="streamlined exceptions for 2.1.6" -->
+<!-- id="199610300643.AAA02509@atheist.tamu.edu" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list-request!" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>streamlined exceptions for 2.1.6</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>streamlined exceptions for 2.1.6</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Wed, 30 Oct 1996 00:43:26 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1291">[ date ]</a><a href="index.html#1291">[ thread ]</a><a href="subject.html#1291">[ subject ]</a><a href="author.html#1291">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1292.html">Richard Henderson: "Re: Problems compiling X-apps"</a>
+<li> <b>Previous message:</b> <a href="1290.html">Dreyer: "Re: hELP nEEDED. eRROR MESSAGE ON  UBD"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+The following patch implements get_user/put_user along the lines I<br>
+proposed about a week ago.  Namely, full-word moves are accomplished<br>
+in two instructions and all of the fixup work is done in the exception<br>
+handlers.<br>
+<p>
+FWIW, the kernel passes three sample test exceptions, has recompiled<br>
+itself, and generally just been up for an hour or so now.  Perhaps<br>
+later I'll get around to downloading lmbench and see it I can measure<br>
+a difference.<br>
+<p>
+<p>
+r~<br>
+<p>
+----------------------------------------------------------------------<br>
+A note I should have put somewhere but forgot about how the so-called<br>
+inline exception table is arranged:<br>
+<p>
+It consists of the addresses of all instructions that are allowed to<br>
+fault.  The low two bits of the address are reserved for flags, though<br>
+only the low bit is currently used.<br>
+<p>
+The low bit is used to indicate that the instruction is part of a <br>
+complex move operation and further that it is not the first instruction<br>
+of the sequence.<br>
+<p>
+Any instruction that begins a sequence must be preceeded directly by<br>
+a an instruction of the form "bis $31, $31, R" (or "clr R") which<br>
+indicates that R is the register to receive the error code.<br>
+<p>
+Thus if, e.g., a vma is read-only such that the stq_u of a byte store<br>
+faults; we find the address of the stq_u in the exception table, <br>
+search backwards (one entry) to find the beginning of the sequence,<br>
+subtract 4, and extract the error register.<br>
+<p>
+There were two additional issues that came up when it came time to<br>
+fix up and return from the exception: what to do with the register<br>
+that was the target of the load, and where to restart the task.<br>
+<p>
+It was my feeling that leaving the target register untouched could<br>
+potentially lead to security holes -- not of the sort in which the<br>
+kernel forgets to check the validity of the data, but of the sort<br>
+in which an evil doer notices that a particular register happens to<br>
+still contain private data and arranges for it to be returned somehow.<br>
+Thus the targets registers of loads are always zeroed.<br>
+<p>
+I always restart the task on the next instruction.  This does have<br>
+the effect of generating 3 exceptions for a byte store, but it is<br>
+easier to simply let the sequence continue that attempt to find the<br>
+rest of the loads in the sequence and zero their target registers.<br>
+<p>
+----------------------------------------------------------------------<br>
+begin 664 axp-tiny-exceptions.diff.gz<br>
+M'XL(",CB=C("`V%X&lt;"UT:6YY+65X8V5P=&amp;EO;G,N9&amp;<a href="mailto:EF9@#L._M?VT;R/XN_">EF9@#L._M?VT;R/XN_</a><br>
+M8NMS4AM+1I(?@"EI:&gt;*TN1+(!TA[O:8?G2RML8I&gt;D60&gt;;?._W\SLZFD;*)&lt;?<br>
+M[OL@P5C[F)WWS.Z.7&amp;\^9UJR/(F9=LNV^U'B73+?"Y&gt;W6II%SI5F]HT=.W$6<br>
+M.[8?+^R=*YZ$W-_A89;&lt;]&lt;_ER'O';&amp;F:]GB(RL5BR4Z=C!F[\']B#B?Z/C/V<br>
+M]\=;O5[O,&lt;LI%TM.`,Q]9IH3&lt;W]B[`D`WWS#-&amp;.H[K(&gt;?7[SS1;[F\OG7LA9<br>
+ME,ZMZWF47+'T+K7PRQ;;8CO;6QK;9A&lt;+GL*0^3SE6&lt;J"99JQP,Z&lt;!;OQL@5K<br>
+MI5FRA.46-F\Q+V1&gt;U%],E*W&gt;TR9N,;:]4^+U_='4&gt;GGT\ONIHM&lt;;SZ;?*&lt;J&gt;<br>
+M),E4]Y$F4P62H048\2;,`%0?OBGP^_;M%J,_T*:&lt;'_TXM8Z.C[&lt;TQ7=MI6WN<br>
+MJFYDQ?8EM^;VTL^*]K&amp;:\,R:)U%@(5,&lt;V_&gt;A[[&lt;T4=H#0^W`Q&amp;YC9F]GFZ7V<br>
+M-6?M?::QMC%B:&lt;2R!0?J?$2&lt;WSH\SKPH9$[D&lt;N;8(?`C].*E;V&lt;&lt;!P9](K^G<br>
+MI,O91UA&amp;5T=C%?Y@2P8-^ZK&gt;@&lt;=N_FSHZEZ]P5"-&lt;;T%N#*LMPS4@5EO&amp;:K#<br>
+M!N"1.BP@VZY;(F/L$YD+.W1]PID1[0)M8@XP;I4M"?&lt;CVZ7Q";_TTHPG*;/G<br>
+M\(?:&amp;IR)??N.NSDS?+=..CU721&lt;-5=)%2Y5TT5(E7;1421&lt;M&amp;TE'.0`IH(-&gt;<br>
+MNF#+F#`'U4#-8';*PB@);#_'&gt;I8HJ_J#*NDRJ9+P9/O&gt;9&lt;@&amp;0H_W=;1-T]#)<br>
+M.)DP:\OQHY#7%)&gt;A@C)47(*+_=`&amp;O&amp;?(&gt;Z&amp;898^&amp;$F5M7?)/$2(N&amp;V#J#&amp;:"<br>
+M2F]`5ZDB`E@CKD.3_,AP*!P)4O0^M-^G/)E(QP%&lt;8$&gt;,7(J7"D[9`4&lt;V$9S.<br>
+M^9OO7GY__$IE&gt;O=@2T..D&gt;$7'&amp;']2S^:^4KIC\B:BT?$8J3O(18C&lt;T]@L4+`<br>
+MA'@%$APBL2;2*B0*N@*JC(]`7WN@PH"V":R:A1P46!7:;&lt;VB+`-H"]N?(]LV<br>
+M=FZ5*^&gt;=BV)I73U_9YV^?ITSFU8$Y57;NB#"W$?W-1KBGRH1"4^=!7&gt;7/DH?<br>
+M'K(HX98DZFQZ?G%ZEJM#DGF`._T'_7QW&lt;7;T&lt;EHHIL`H`&gt;X"#?COOB%5`8![<br>
+MMAW2/'1K/$.-3Z'/]J'+=JY41I,E$(M&amp;(P@B:H\D,]:E9`0LBR=)E$RD`N./<br>
+M5.(2@%1DT5=1YMJ(F9&gt;B0\#_X(XT\0QF0[^F3K*J-^$D]$V&amp;N@S!.:40@)R%<br>
+M162@OHKA8`+T:XZ1XHP#&lt;:T5E6J!+ML9NQ'N&amp;\5B)^3]W*&lt;E$D!3G/:=&gt;R.[<br>
+M'//(1$*.;N8!X\G(&gt;%PBL0%`(Y'8W5/'`PB[\-&lt;8Y$+&amp;&gt;+X,286XB_S-V!_`<br>
+MWF684@L#T[\$%[\,,Y5=VRJ+G8,M]JF&lt;\HOY*S1(+7UK.TF$+J02'N;&gt;+:@A<br>
+M!8DL8K;C\#2%\)KQ2]#?(K)('YPG#``&gt;K.FRDW09Z\"7M(\?O^#SBT-FC-GS<br>
+MYPP?OH*'/?8U?N\9^VR"7W[MDM6`XPJ`9U&lt;0U=AUY+D,M$@XO0X];A,Y=3JC<br>
+M&amp;/%LML+2Z@I+[$%SF#U&lt;:1GA/,EDT$2D`:&amp;EX%7^H!X[\QQD!G/@]Y#I!V4K<br>
+M0?#M-+,R#]PP=?8:2/!;:^XE:88]H@'-5659$!OT:=+G@#Z'J_-C!^`2&gt;^&amp;;<br>
+MQH8'9%K&gt;G'40'^#T"!G]&amp;]B)QU,84*+S@HVVO_]GE\A0*LA_DO-[/6S\BHWD<br>
+MD#@!*J\Z+:&amp;PDU)_&amp;.HN`ZU[IAMC_W;"GL7LF7\+O^Z'L*6"KU"8^*G@*50Q<br>
+MEQ9T=)&amp;V?&amp;#LK.L7N%49*NE"HC6EURM56O^U3QH/84ZIM5[;,*U3XV$7EA*L<br>
+M:XRM\A8ZH1L,I&amp;V,M39HK)UP]N[H6,/&lt;TU49&gt;'-J$HDWF]V!U6*$3I#M8!&lt;:<br>
+M\12`E=J/#Z3]7601/O7@:5^L]`&gt;VP7+G(@:`VROM,0\=$%83-,7?,,F'9-ZQ<br>
+M(?,')PEX2*;32`_U.*S(2]@S[@=@TB4XVR7D$)TN&amp;/!)!'J;3\Y]KANQ[3#*<br>
+MMID#X"[Y2NX(;&amp;8S[MA+6EU.CD+_CMW8T`4N8P9C($[%49IZ,[\R.X5Q`"^)<br>
+MEI&lt;+X3^0=L6R?'L&amp;V8\E2;7X[8'D$?D:X0VVP7:NN0,AFED6N`K+ZK3:YEZK<br>
+M&gt;R!@4!-T74&gt;0ZGL`Q6*=5@L\3.LP:76*R5ULT5N=Y\^+Q;I=(01%Q"S6$7J(<br>
+MA@"-Q&amp;;]UMR;0,[%?-&lt;7\E64;91OK_!U7=`&gt;XF[.^$X'_&lt;1V]]H6*&amp;*NNDS"<br>
+<a href="mailto:M@RK0?0GTX^.!DA^X'ZI#4-.L0#5">M@RK0?0GTX^.!DA^X'ZI#4-.L0#5</a>&gt;5D$TUU#9(S!U)&lt;R/CX:Y$5&amp;IZS_Q+R'\<br>
+MD^9&lt;H@U!HL`6'(P*3$&gt;H=46AI9Y=PWINJ5!2B12ED.6$ENH\)R2T%V33VQUS<br>
+MKX+:"HF?R,TV?4FO=]!LW^!-5L;1JNA$(*P)2L&amp;JPB^SPD+0=M"N+GG($P@=<br>
+M0/\.\+-BM`$&amp;9MB^I0`!Z`9^Y'/)_98F!2PX119*ICG9$N*6X*@=BLFE]=YX<br>
+MP'&amp;T&lt;&gt;YX$-YO%ARP2+`E741+WP6&amp;7V/6!?8)+B:3,1ZW,RN6T5MO&amp;+W"%#LM<br>
+MQT\@2'P(/V0M;%=:Q@15W5JR9P9L%IX-NI4^L^@SU4&amp;CC]]F@#=,&gt;C90GQF-<br>
+<a href="mailto:MC@7.P`X3P@\VM_HI6#J2:X%">MC@7.P`X3P@\VM_HI6#J2:X%</a>"6)D-/DC]T+(_M"HS^Q^7L%&lt;V9BHS9SVCF)D!<br>
+M1#$"_&lt;9S=!P8H$&amp;=Q1/&amp;Z&gt;J#V&lt;T'PS-H&gt;OX4\"!*[EHBRF$H$&amp;"H^S("*&lt;*'<br>
+M5&lt;B%1A49%`0_5#,PR2ZM]R&gt;M0V-RI&gt;U5V%]S(9^%_;NK[/^XB?T?_Y&gt;ROV#\<br>
+M1K[7G.PC^4ZJ/5K/=Y))K&lt;\+4]3NL?ILI#X;-CK\O&amp;-0Z0C2*VD/(Q)(K4.(<br>
+M&lt;%07(413'#ZL#\?657$/)NC_U],Q+/H*.IZJ#2H;T.?P/],,E4:SLFE0[1\V<br>
+M-$&gt;E+U4E^$^4:9V^U`+HH_5E]Z_IR\=-^O)QD[Y\W*0O'S^KONS^O[X\0E_$<br>
+MEB??&gt;GT+1)89@=B(Y?OQ&gt;_=?&lt;A.S8=.UJ0.WV[=&gt;AL&gt;&amp;Y]/O?J2VBB+7L)X4<br>
+MB0WE;R$'!&amp;&gt;0.420^"&gt;(+5T_Q#;L`#![HU2P&gt;4*?'HCT!!.A:)EID4;]=/"0<br>
+M&lt;(=[U]QM[#Y&lt;#SHR_RX_`$;N=O(]-7CME.-12XFFT)].['2[[`O8\(K$1:$=<br>
+MD27P*0?GTE2+73H&gt;GDB&gt;29&amp;\CI(;.W&amp;1J%(R)7XH%?\6Q5#,!"Y!.NB!Q/R$<br>
+MV^X=;..N;&gt;"2*]U`P6%*0V'TS]X53[_`S1GPEHY@YF+1!B^R*.="CMRS%+?I<br>
+M(A5V-^$7.X&gt;H+8F-?UI"`OC38IT9Z%N^R3P$M&gt;J2/O6JN_1&lt;X&lt;UQ%Y6(=NFK<br>
+M&gt;L-`B__R89WOS78&lt;'P1(^]--]W[-40\=V#7'*^?+4)RXZ&lt;S0\&gt;[/&amp;#UP9+&lt;"<br>
+MXMY#N_%`-&lt;&gt;LAW^&amp;&gt;&amp;+7]J,HGFRQ=F9[=*XLC[B9,5&gt;4OS%N(&amp;LG\@`?MCPV<br>
+MPX$H=C?ZF@XZZ+9HH#*]T][MXA1=3($D/N$!AUU!8WN&gt;WS`-C-5)1$AE@E"_<br>
+M7.QXT,TS,;,#FVL0L@&amp;3^WW$DZX=C(E"\4=ICPCXN%L2`;,IH%!?6X??4;DR<br>
+MG9.M3"SZ(`@J;5VI+/9?1KAEE3HPH0O,]&lt;C1'5SSO`0/6+U08HVGZ9QN+5C[<br>
+M=YY$/@\OP5E65A,7&amp;&amp;.5[&lt;*0807XW`M=(!\O&gt;;V4S%L"%%&lt;N"'$(OT9%L68&gt;<br>
+MW@&lt;A%CPI!@+&gt;1D,\FEC4$(N:)?$L7`8SV"1&amp;&lt;S:[RS@&gt;!9.*HH`2GV8,\C4E<br>
+MK-X#!$HQF7NK[).7(!OEU%M#:HYHC=3&gt;"CWY$IOHP0/C*%90!\5/H8.C53P+<br>
+M::[3P0UL88(MB#8ZA;I^K3.KJDJY(/2;"*-`Q`([O1+G)5XH;@KT`=4&lt;Z(:X<br>
+M"VI#Y,#!N&amp;:4"'L&lt;Y@(W_D?8XU95=R8/V.&gt;38DT4WST&lt;:LI!CXHTY?`G%)FL<br>
+M0+CW&lt;HAN_XP]667"MA7T"UYHBT`OPSCH=GM,O6FT3!Q&gt;Z]BECE($&lt;82W/`GU<br>
+M[6%9BE(7"G68&gt;Y#0E@&gt;Z_#:&amp;C(QYF0A?7;QC7C\-%Z,KZ]-E%B^SE.I0%&amp;&amp;"<br>
+M/I_3V1923\/%O&gt;W`5`V#]08F7=N"#H@+:_3%.9NP$36OUE1YD*X:5!^OI^GL<br>
+M'8P0HU-[,!*&gt;%CBD[L*C](XXE&amp;ZNY:V^(2?VJA/E!3]X,-')1.&lt;`.L=H6&lt;L9<br>
+M/&gt;TA6,!07/B.A.`,DR27UR"TQR-IC`!/)4L4MZ6LN"W5P1B&amp;QB3':%1@1(^#<br>
+M'$/X.I*6PF3]#!B*(5CDUECT%(-)LR1T``#=U3YD.&amp;L&amp;/\:`UDQ[8L:V#M+]<br>
+MB1O=IA?F1*JJ35\?O3^^D/$`=ANUBYG(&lt;99)"OL&gt;"._B/!&gt;L)T`3Q'"/H2CV<br>
+MN-LG2"&gt;<a href="mailto:L^@.0">L^@.0</a>&lt;/AL.9^#O&lt;T]W\=Q6`B&amp;]B.L!.WIQI,'Q3*$1F(&gt;T(8[$"^5<br>
+M7E,N(@I"7-=#[/`46!7%0V#Y,-=.+I?DI.51+VS7_O4&lt;"$B@37N1I6F?WW[9<br>
+M)U:8NRHPNP=_@$'08%DKW$0]Z\\3K#?!VAV&amp;\=A$U&gt;_'X+2C2^"T3MDKY4FF<br>
+<a href="mailto:M3@'`V._F01`">M3@'`V._F01`</a>&lt;%]N?4V&amp;,2`1$.OQ0^!&gt;!TJ;X+X4C%![7@MQ4)`&gt;X'.8W)AIQ<br>
+M$%W#&lt;F/,2&amp;D%/.&amp;N,)&amp;*"_+@9AHYGC#RGA`/*ST*;#W1D&gt;13`1&gt;$4&gt;3J+7(5<br>
+MIKNBB.T&amp;:WFDD-%8B=[?[3B,,LHHVJ8IH_@-I#IX-4HY#+M)O"SC(:0VOO]U<br>
+M08Q&gt;(&gt;:Q,5J,?C!9=H!\W,&gt;,9"))B%+"A1CJMW-=9JXS,(?D3F[,*0]&amp;VO+(<br>
+M($C]R]XH"';&gt;VE&lt;&lt;[(:O=P"5`0]YG&lt;I0\@]'RTL&amp;#D;?G&gt;!_$_W#:+.G:&lt;[&gt;<br>
+MZ%UVT;OLYB6A\!\O7SDSO\`*3O;R]?'1=^&gt;,:BG(&gt;M&amp;VP^B&amp;&lt;E/H#VP/ZQC%<br>
+M0OU^'[7]]-N_GRN'#"?T(U$AV(^V&gt;FN;091T$@(#0%!!T(\FK-W!H:B1[&lt;[Q<br>
+MJR[PGVD1]15=3Y!+OI"SD5_%B$=(IABK_,1=]HH[;&amp;`P8V^BZ_`?F#O&gt;OU&lt;T<br>
+MY?1[9:.KX.P,=4C"Z&gt;UL4V$MP=R(&gt;D]&gt;C$$+3]"2PC1KU)*@&gt;8,/L,ISS%]^<br>
+M/7AP1A0W)VSUBJH3&gt;3ZV.A-0%A;66=M+B*AL0U\4JT"/^*EW7MO^$E.Z/XI^<br>
+M=K-`H^N(DJRO#AE.EZ=J:\$'GDO'8/2$^B0.Q15HQTLNG,XTX2V[;(&gt;9K"&lt;&gt;<br>
+M:!+I'XQ"*.PYTX;OCT%/!5H')4Z5J-H14_"H;[6?%74IY,T$:LU.[J&gt;\A/35<br>
+MO8`$%PX14L_8`.N^V4`[3=:JDS^57R6BZX7:Q?*B3ZOZ41N6ZX4%&amp;T)Y&amp;/I4<br>
+M#5&amp;49K$4.'&amp;A'.M%3\7R*$?Z4IS.=N1:"%:#X$%@#N1A+@V5^K2SS5[C&gt;0?E<br>
+M,'3`6]E04*CE'Y&lt;&lt;*TWD4:K43;$PZ(L!RJ(56.2[DA*O3\4!-RMXN9Y[S0/E<br>
+MC8Q`G-_\X^T4%L[KMX,(ZTM34=H`4?L&amp;BQX)8;GVBH16/8&gt;ZZAM*QGUZBI\6<br>
+M@6&amp;SEY;]C_#1&lt;N03:B$W3Z[[YQ%L`X=8@RR/5*4+%36"'K&gt;\N24N1SK.`M*6<br>
+M;546\-$&amp;4S,81D/11.6-/',6U*5##YZMT`,.H_I?RL`Q`IP51?3M_;QJB=XX<br>
+MP,H4J@-#1;39S`?&amp;B*JL./$PPXG8O_`*YDLL$R-0Y0S&lt;;\I"8ZP@@PQ,*#C5<br>
+M^6*YI&gt;]#V&amp;_4ZF&lt;100%-\N9WXB4&amp;\1*'MJ9DLGPK8(V:@O4T:QZ#P$D359:-<br>
+M8E672H5Q3RF=U/+2R3BS*J63G[G4U(WG&gt;:GI!["B3J?3](RT["^RW%16FXI2<br>
+M4ZK`&amp;XD6S1A#XP&gt;ZEU-6BE/WQ`3-T$5YZF?CM+QFQ)\*SUF#&lt;]NUJE/JN@XL<br>
+MT"/;DH_;T&amp;`?E-V9G5X5?5EZ!?HL=W&gt;504%0#`D"+'-(K[070;!::)H%L:@M<br>
+M=:.;L/,\"'"8'5LI#^C2!]:&amp;Z7@&gt;;&lt;'73A"H.=70C4:[3YO'GJ'OXGT(M%Q&amp;<br>
+MD4L$Y"\@S&gt;SB65G&amp;*VOT1%7\*^#U#1&gt;%26O+(M&amp;V;=Q`?UT67C:VM:*@"],"<br>
+M0Q;UY5=F%_:51V6Y]1L\UH$/NOYBQ5VJ*"`S]T3]V(85,)"(ZC;IW+.HMN$!<br>
+MAP$@9-%:O4HMAY^'0KQU+F58+$1&gt;OWJ9N6Y`7GS\%^E$3*CR.*\V$DVB'`:E<br>
+M7KNH%JS&amp;<a href="mailto:PP`%22/!.7U`BL@`">PP`+/!.7U`BL@`</a>&amp;G"6U2LP7&gt;?88KM[]?5VYP!:4;8FV.1?T*MT'8<br>
+MRMM?E9O8`L#!/7&gt;_TJD0]&lt;TI!1]ZAVQXL')I*ZDH&amp;5'PH5)&amp;C7&gt;SHC"`77M4<br>
+MH5I&gt;Q^I[&gt;"$;RR_-:UAL[.8W^PH9K!.AO34U&lt;UPU00VSYVIH;$51G`(W2$JJ<br>
+M\#J"O"9,H07B6P-J;<a href="mailto:Q/4.E">Q/4.E</a>"@&amp;_R\PRWP*/FUL(J^IKNB1.)$=*RBJQ@,53IN<br>
+MJC@&amp;/`B#%?JT2Y85$%AD[5;B11H%'.&lt;P],=]659*_@+B)D+(3^7P@`:4)17%<br>
+M"9!%X(D(Q&amp;S^V]+U')['U%QF/TS/3JRCX^G9!2LOV&lt;M&amp;0#^_.G\?HJ8B2C+G<br>
+MDY@"0AZ]C@!Y*J:OX,.]!`LT"_F*&amp;@Y2TZKL&amp;DP^W2"Z]&lt;.:LJC&lt;S__PYOA8<br>
+MW,\_*F5T$^\:XN].R+.=EZ&lt;GK]]\5TGD5CO7)HNKP^AFY*U]AW7QACF!_Z/Q<br>
+MNDQQW&lt;Q:FCC8G&gt;C#,DW&lt;-]0QZ]$G/'[_SCI]=W&amp;N*(=;[-WQ&amp;_D$#Z^F[UX&gt;<br>
+MR2&lt;(&lt;-.?SGX8%(_:J^GP'Z/\47LE'H_&gt;7YR&gt;3T_.IX?X;:OWP"#+T-_.`/)Q<br>
+MN&gt;C%^PH*C^+]/-WQ(B?S:SEZV;B6UV5W,Z$&amp;3JW-QC?/J*?@YD@U\&lt;7)D3P1<br>
+MKKP(@T=2%@'IR-2"SN6VX3/&amp;MVF*6FNF3;\]&gt;O6:7`":#7E-'*6]F(-#!L^I<br>
+MO?`LV!2^F$$6@-'ZY#VH:P/$FY,?CXY%"3?558&amp;+!"V!O)A&lt;1N?'Z=F;US];<br>
+M/YV]N9BJ\KVA+IY]JT-9^-VHR!(E1!)2\78$Y?1%73S.S\-/#1V:)\#&gt;-Y5(<br>
+M5L0^`9.F#237F:'2&gt;(DT%=N7T.O`RW)V&amp;?7SI\:L59RH-A$,:WKQ[?D_)X3E<br>
+M6J&amp;DLTWB$!+]+-+0UC.V(&amp;(-5MJ+U"+:4N]WWJ3O8;8\"%'L#91-?#L].9L&gt;<br>
+MO9H\@7R$'LVIQOMS,`*@,:U0K#A*/P&lt;O5H%N8$?^"ED^-(KQ?:?R":"A&gt;^B6<br>
+ML7^ULZ'[-`""6(#O6M$R=!!`=W3#W?R%U\?ZH,K&gt;#4?C&gt;Z9B&lt;+'G(2!N9&lt;-&amp;<br>
+MK_@%[LHN%W"!39E2[JC$0H0OLAGGB:).\4W-)9B_IS=W\96PDS,(!M,3]N&gt;?<br>
+M[`LBO9KI(TC(O&gt;;N+W/WUVZ5;;F]T8V"3I?C8T,D38^ED&gt;RW5`564^=OWYP*<br>
+M;8;D=*TJH[ZKK`YSNXL:+;16ZG6UOU3P3A1VE9IV1V'#&gt;2+#FM"E`FQVUC2I<br>
+MP*1PU+U5,\H='"`B_%BN=7/?AKSPST-V:IT`&amp;XY/7_X@1M,1+K)[;T#LWOW+<br>
+M[*XR^.C\YY.75`=^:N%7&lt;&lt;V3L3N&gt;,2^(?;JAXZX,FXS-EEA:\:4\/,2S$TC3<br>
+M85C&amp;0T@5^_FK6/^'I85&lt;K$CJ4:F5%SK^TN4[($/MW^U=ZT\;1Q#_?/P56T=-<br>
+M?7`D=X&lt;Q+FZ"4((:I%!5)&gt;VG2"&lt;;VV!ASJX?P1&amp;E?WMW9O9]#Y\)J&gt;(D?$E\<br>
+M-[./V9E]S,[\CCR1D^D8CA+CZ;,K8W-42I&gt;[`2OER$8$17MY&gt;[(5A91NTZ(@<br>
+MB@'?(N!%F^`S9WS+VUW,DF0X2SH))I&gt;!%H)&amp;P1X;0WF&amp;*;N&gt;?;R!3'EPSYC8<br>
+M-.RO,^-LC7?=H&amp;=PV*+8;W[TP:&lt;8#0Y7NL#HW#0'!-72F3N!S"K)#[+]K]/Q<br>
+M+3++W#0!`#+OWX"QB/@`?=(R$N&amp;&gt;24"&lt;PM:RUXN^],@,9W`*[_=T]&gt;.!45J`<br>
+MA:484G4IS51FM/*23@=X8)-O8&amp;L40!24`.*0SBE2:/(!T_D.\O54:$='!6LP<br>
+M,&lt;8JKN/OQ7!*@NWUZ0`+UU)8$E738:/^)&gt;&gt;^@8.MSH@4SC6Q.FEGBGAPEW'N<br>
+MBL1IUP$(S863(BX1TL5X!2'LNJ@'6MN"#NXK;$U15;0T19]S]JEH9T5%-%JJ<br>
+M"/17!/MP7XPQ:;M/AH.4&amp;QE+CL_/DO.37\].?GN7O.'/A&gt;4YSW&lt;4?7+\]O&lt;W<br>
+MQ\F?QZ]&gt;G9R?XRO)DGT%?-1&lt;]@O=3/,Y,AT_NWJ9?8.0)OC&amp;P(D!LQC,Z.I4<br>
+M:]1,F9F*#L(,V^'\(^.E7*!O3&lt;4+"5`*7`=C6@&gt;A!MELF.$'LSH`0%@^29JM<br>
+MG[)P&amp;?F:&gt;D;42S^7^D5!&amp;?]"(&gt;P?OJYP1BK2UX*#%O2H!&gt;"G.7F;O(8`AZW=<br>
+MDAM2R02[&lt;[[U!OO0NZ/=&gt;T.$IV!STG&amp;#8CKB8N66V!OWX14`L`POKV2VQD5G<br>
+M=+$0CKYI!X1,&gt;UB,!-EO.7O850VS1[*6),OELJ;G[MX8IR'^CVS@;`)8,7(0<br>
+M`T@Y'BQ&amp;,-XISJ^],8SMS6(T'_(-A?"E\7Z(Z9&amp;0A+BYLSK\A)6;3VHSRDO`<br>
+M&amp;7YG[4+X%'&lt;Y[=S&lt;9(J";F%+9X"D`'.G@"^C`I/Q==VO^0YN69*HL\LRF,RG<br>
+MOO$D2&lt;=8'JA)4(&gt;7\L2UC;^XTJ#':`]@@7X6;D?S6C%)Y'XE6:2P)J4T#FU3<br>
+MX0TB61^V!.OR8&lt;/R?HO5[SSQ]QZBX2C.XW(!.#U&lt;RT4,6T#/N%*AYQZ)=VQB<br>
+M3=(6)8M;]R29?YSPKB6)[!S;1E)Q$8#/VIGJEXF\LLB]RFA3%3+O&amp;WO$[F1'<br>
+M&amp;.UHHT-3!JTVZ_*QOFY;-+%%$S5M(BL@-B;/7&lt;5Q6$&gt;6Z\N*#FM)HC40\0Q\<br>
+M18V#'$`DOH^"`?&amp;N)5^H(U&gt;^[]6)H5B^FJ9$OD*\\7[0@@"GN!'L1^L(6,JV<br>
+MK8;]'F?3'/UO-H22,\9`$BJYE6\R3VERLZBY)6,^I^;P:@"1%K&gt;":"#&gt;:$@L<br>
+MXUI'S&amp;[;SRV^F/,0AR+]`6@T471(M7EFC1`^K5-BJ4:XF8?0SY_ZV32&gt;[&gt;&gt;"<br>
+M$2+*(&gt;$UUHR$O,!ZG7F'$C:LZK&amp;FAE63B`+(J42SR=1@XDC'FOB0R8-5:''$<br>
+MO)^&lt;]"3M901&gt;,_LN8%'D$&amp;.JJ_S-3&lt;&gt;W26]J=6TG0,L?Y*JU'V@^ABFREC6(<br>
+MM%GKV4[D,(5VLR*[56:S$/X%\$1R-'(O7D&lt;C]^*-U\C11FDD"OS;TLBHN8Y&amp;<br>
+M1LTO2".;$D]@O3F2TONE3E93R7VKJG544O)444J^!-Z:D"8UD@N@'Y)[@A]Z<br>
+M$'/06Z7(.$Z/J&lt;B2E'Y[EB(6*WF&gt;9I?I_0ZB'Y0I=D6M;JVCU"U#I[\K]6=0<br>
+MZFZI4F.N2`6=;GTK*KU3O)6%`Y@-T8(2%6]JE`?/AXB`C]3S$OB2FJ3Q)'Z)<br>
+MQ8B()9ZJVY(YM%Z"D:C&gt;*3);WABM6+PAJM*OT2;U2RRKE&lt;8+;-?MF2?6@A#-<br>
+M)C3Z\[A]?OJ03KO&amp;4R2$UJ?+H+LY,F!;SAE6^7W*G#49YU!%9\W$&lt;3"T/=L_<br>
+M,W$.R5Z^EV&amp;2\3(`L?S+X4$6&lt;F/4EX+&gt;:M2CN7"49$I&lt;.(HFSX431^A)BUI[<br>
+M&gt;:ZTPM$QQ&lt;U6B'LML&gt;ZN*5:9&lt;&gt;-5I"_V#DU6&gt;X&lt;FC^D=RATZQSN4/W1BY.*#<br>
+MX`"&amp;[N=FL'^PQMAY6&lt;5WO4.*MY)WR*#&gt;\+,X,L82"RUS%J="OH##N"WQ_`W?<br>
+M1&amp;_X:%86"NYL^22MF-?7.8Q/&lt;@[CDU6'&lt;=$L&gt;\3R3RJJEY4\0@;UQFOA:+.T<br>
+ML,0E]!5I824OD$']F%H(GX2`/=<a href="mailto:Z!YC-T48Z5!%22W@FI157TLW/\O9.E0JRSEA">Z!YC-T48Z5!+W@FI157TLW/\O9.E0JRSEA</a><br>
+M!&gt;4\11H[3&amp;&gt;W(P.`5C9'$=S,KJV]?88`D"MA-YS/KN`KE15YCW&gt;T_U1[*?$\<br>
+M%=I+8%"X1V+Y_"$&gt;U0KFPVK#6EWH%O^E^&amp;.S.&gt;M84FL=0WI&lt;S]/7:$C=58;4<br>
+M_5H-J?6MV-%.\=X\ZSH('=&gt;!L:O]7&amp;ZAIRL6&gt;TEH2M[QB+B[O2K]&amp;FU2O[2[<br>
+MZ\[3U&gt;BC)7U)1OXW;E&gt;2@8*;MJ7@B?6U(8&amp;C==_%PJJ0H_4;@1"]Y[B8XD//<br>
+MF@0&gt;*&amp;L%&amp;/\I`@^(DIF4%B"T$E_^V`2.D?MP7B?\B,)UZG\;L&amp;[A@'6_#Y@S<br>
+M8"SK2M0HK]+5@4B$&gt;P&lt;46=UJ!$T3A$(!]SCX:`**(DGR?$72630;+)###^C_<br>
+MHWX:*$+E/"+7%/ITB`SP_5[D5DKOY^-`EQV8_/"GJV(N_)O?1CB$&gt;T]O102G<br>
+MJKCMOD*G#R$\T+=(<a href="mailto:I^/%'$-%22`?1B`@`Y`M`LDZ.M(J_YGHMON2Q$">I^/%'$-+`?1B`@`Y`M`LDZ.M(J_YGHMON2Q$</a>)3L4L@H,<br>
+M"T(&amp;*/LK2/,&amp;&gt;`%,\];XWJ(SO..],5,.2?E,1T4GR0#2;=-9VK8IA@@_"2]Y<br>
+MR6V'W2W.!+51WS="Y,MTWA&amp;X-K1W050,L4EC-"/(!N`W;53#MOUZ';L#V$@-<br>
+M]%`:M;U#R6OXDZL.A/+.H=ING]5,G,D_:HBT8?0,$CB,:B'@=H!__=!'E*5E<br>
+MXV`P"!MA2.Y)U6LE#U14JX!HT+8$)(:DKEA\Q_&lt;K*&gt;\)F^G.E;`)ET^B$P&amp;\<br>
+M7*:#X&gt;5B2C&amp;XA,$,^E#3O`K\O!@C'9*SS&gt;H$"X#*!TPV/F[ZOMTM+GH^/'P+<br>
+M&gt;\2-(!U&gt;''$EOOQPA/(U^N2MUI?3`43\`Y8"W2\'#(!Q,QHTF?8_0`"W^NP6<br>
+MGZ474XCD?D\8[E?C47\F1MBJHT2Q``+!HI4N:8/GY4O&amp;NR_&amp;1=*)KUZ$7?EU<br>
+M&amp;KZ0R(H=&amp;NL+-OD4YB&gt;&amp;&lt;BG""T%Q6UA-V!$DW2R)I:].WZ*F;^AMN=J&amp;MK`\<br>
+M?4^2TYZ!_"!(B6C,CX;D4YB?H&lt;FO1Y9Q6TC1%Q3=K&amp;!R&gt;\#G6$"].2RS1`%V<br>
+M82$O*0NTS:V6,4?+`-EX\N)':8:K[3!@&amp;=ULVW:98X\K.NR:Z;W$P0O%IRO%<br>
+MJB5Z!RN"F8X'O^%&gt;20*LB&lt;]9XD61N]+!5&lt;\6,](0]+X!BU"W2_Y1&gt;"BG20TF<br>
+K5DC-COA9^%!-K/2-AMTG_;3'9WDN%#M/A0"7]$LW(P7&gt;_P?X4OR_UWT```TF<br>
+`<br>
+end<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1292.html">Richard Henderson: "Re: Problems compiling X-apps"</a>
+<li> <b>Previous message:</b> <a href="1290.html">Dreyer: "Re: hELP nEEDED. eRROR MESSAGE ON  UBD"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

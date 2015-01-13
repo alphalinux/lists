@@ -1,0 +1,146 @@
+<!-- received="Sat Jul  4 18:54:31 1998 " -->
+<!-- sent="Wed, 20 May 1998 15:03:35 -0400 (EDT)" -->
+<!-- name="Craig Burley" -->
+<!-- email="burley@gnu.org" -->
+<!-- subject="Re: gprof on mixed gcc/g77 code" -->
+<!-- id="199805201903.PAA19569@melange.gnu.org" -->
+<!-- inreplyto="gprof on mixed gcc/g77 code" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gprof on mixed gcc/g77 code</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gprof on mixed gcc/g77 code</h2>
+
+<b>Craig Burley</b> (<a href="mailto:burley@gnu.org"><i>burley@gnu.org</i></a>)<br>
+<i>Wed, 20 May 1998 15:03:35 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#332">[ date ]</a><a href="index.html#332">[ thread ]</a><a href="subject.html#332">[ subject ]</a><a href="author.html#332">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0333.html">Stefan van der Eijk: "PWS 433a/au / ISP1040 install problems"</a>
+<li> <b>Previous message:</b> <a href="0331.html">Adam Fritzler: "Re: AlphaStation for sale at onsale"</a>
+<li> <b>Maybe in reply to:</b> <a href="0223.html">Wes Bauske: "gprof on mixed gcc/g77 code"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0337.html">Craig Burley: "Re: gprof on mixed gcc/g77 code"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;Craig Burley wrote:</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt; &gt;I've got binaries where I mix C/FORTRAN and am trying</i><br>
+<i>&gt;&gt; &gt;to gprof them on a RH5.0 system. Strictly C programs</i><br>
+<i>&gt;&gt; &gt;appear to profile fine after adding the '-pg' flag to the</i><br>
+<i>&gt;&gt; &gt;compile/link. However, when I add this flag to g77,</i><br>
+<i>&gt;&gt; &gt;it seems to convert it to '-p'.  Not what I want to</i><br>
+<i>&gt;&gt; &gt;have happen. Is this what it does?? If so, why??</i><br>
+<i>&gt;&gt;</i><br>
+<i>&gt;&gt; 1) What does "appear to profile fine" have to do with "seems to convert</i><br>
+<i>&gt;&gt;    it to `-p'"?</i><br>
+<i>&gt;</i><br>
+<i>&gt;The C program shows maybe 50 routines, with reasonable</i><br>
+<i>&gt;looking cpu times.</i><br>
+<p>
+That seems completely unrelated.  `-p' clearly has nothing to<br>
+do with the problem, since both cc1 and f771 -- *internal*<br>
+programs for gcc and g77 -- get passed `-p' to enable profiling<br>
+(even when *you* specify `-pg').  And they both share the bulk<br>
+of their code, including much of their options processing and<br>
+code generation (where profiling is mostly, if not entirely, handled).<br>
+<p>
+<i>&gt;&gt; 2) Why isn't converting it to `-p' what you want to have happen?</i><br>
+<i>&gt;</i><br>
+<i>&gt;&gt;From what I've used in the past, '-p' is for prof, '-pg' is for</i><br>
+<i>&gt;gprof, and only gprof exists on my system.</i><br>
+<p>
+You're talking about the gcc and g77 commands there.  What gcc and<br>
+g77 accept for options is not always directly related to what<br>
+the internal programs cc1 and f771 accept.  There are some similarities,<br>
+but it's incorrect to assume that any option you pass to gcc or g77<br>
+must necessarily be passed "unmolested" through to cc1 or f771<br>
+(or cc1plus or cc1obj, etc.).<br>
+<p>
+<i>&gt;&gt; 3) Are you sure gcc isn't doing the same thing -- converting `-pg'</i><br>
+<i>&gt;&gt;    to `-p'?  (It does on my box.)</i><br>
+<i>&gt;</i><br>
+<i>&gt;It may, but whatever gcc does, it seems to work.</i><br>
+<p>
+Yet, that's not what you said earlier.  You said the bug was that<br>
+f771 was passed `-p', yet that's the same thing cc1 is passed,<br>
+as you now verify.  I just don't think that's the bug, and<br>
+your original reasoning as to why it was seemed clearly flawed<br>
+to me, and, being unaccompanied by complete information on the<br>
+problems you were encountering, made it difficult to guess as<br>
+to what might be wrong.<br>
+<p>
+<i>&gt;What g77</i><br>
+<i>&gt;does doesn't. Only clues I have are the '-p' and the resulting</i><br>
+<i>&gt;gprof output contains NO FORTRAN routine information.</i><br>
+<p>
+Perhaps you should submit a bug report?  Both g77 and gcc come<br>
+with extensive documentation, including on how and where to<br>
+file bug reports.<br>
+<p>
+<i>&gt;Maybe FORTRAN</i><br>
+<i>&gt;requires a MAIN routine to trigger the counting??</i><br>
+<p>
+That might be.  I don't know how profiling works in the gcc/g77<br>
+environment (yet).  You might try making your own C version of<br>
+the f/runtime/libF77/main.c file, compiling it with -pg, and<br>
+linking it ahead of libf2c.a on the command line, and see if<br>
+that helps.<br>
+<p>
+So this could just become Yet Another Reason Not To Put main()<br>
+In A Library.  g77 already has a longish such list for libf2c<br>
+improvements.<br>
+<p>
+<i>&gt;I do see that the C runtime</i><br>
+<i>&gt;routine seems to be switched for profiling according to</i><br>
+<i>&gt;the gcc specs file, gcrt1.o vs crt1.o.  By looking at the</i><br>
+<i>&gt;specs, it appears '-p' and '-pg' do the same thing. So,</i><br>
+<i>&gt;that leads back to how does FORTRAN hook up</i><br>
+<i>&gt;profiling.</i><br>
+<p>
+See if `g77 -v -pg ...' reports the same kind of switching to<br>
+gcrt1.o and such as does `gcc -v -pg ...' on your system.  If<br>
+so, then I'd guess it's the main-not-compiled-with--pg problem<br>
+suggested above.<br>
+<pre>
+-- 
+<p>
+"Practice random senselessness and act kind of beautiful."
+James Craig Burley, Software Craftsperson    <a href="mailto:burley@gnu.org">burley@gnu.org</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0333.html">Stefan van der Eijk: "PWS 433a/au / ISP1040 install problems"</a>
+<li> <b>Previous message:</b> <a href="0331.html">Adam Fritzler: "Re: AlphaStation for sale at onsale"</a>
+<li> <b>Maybe in reply to:</b> <a href="0223.html">Wes Bauske: "gprof on mixed gcc/g77 code"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0337.html">Craig Burley: "Re: gprof on mixed gcc/g77 code"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

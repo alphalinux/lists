@@ -1,0 +1,293 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Alpha's,MySQL and thread problems.</H1> 
+	
+<!-- received="Tue Jul 25 17:23:57 2000" -->
+<!-- isoreceived="20000726002357" -->
+<!-- sent="Tue, 25 Jul 2000 13:22:22 -0400 (EDT)" -->
+<!-- isosent="20000725172222" -->
+<!-- name="Alvin Starr" -->
+<!-- email="alvin@iplink.net" -->
+<!-- subject="Re: Alpha's,MySQL and thread problems." -->
+<!-- id="Pine.OSF.4.05.10007251253110.18920-100000@caesar.iplink.net" -->
+<!-- inreplyto="14716.56609.351817.847998@tik.mysql.com" -->
+<STRONG>Subject: </STRONG>Re: Alpha's,MySQL and thread problems.<BR>
+<STRONG>From: </STRONG>Alvin Starr (<EM>alvin@iplink.net</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jul 25 10:22:22 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#298">[ date ]</A>
+<A HREF="index.shtml#298">[ thread ]</A>
+<A HREF="subject.shtml#298">[ subject ]</A>
+<A HREF="author.shtml#298">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0299.shtml">Kurt Ludwig: "RE: Booting DU on a 3300"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0297.shtml">Michal Jaegermann: "Re: Compaw's other 64 bit chip"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0300.shtml">Brian Pomerantz: "Re: Alpha's,MySQL and thread problems."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0201.shtml">Alvin Starr: "Re: Alpha's,MySQL and thread problems."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 25 Jul 2000, Michael Widenius wrote:
+<BR>
+<P><EM>&gt; Hi!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;&gt;&gt;&gt;&gt; &quot;Alvin&quot; == Alvin Starr &lt;alvin@iplink.net&gt; writes:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; Ok I think I found it this time
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; GREAT!
+</EM><BR>
+<P>Of course I am sure that someone will say that it is a &quot;heisenberg effect&quot;
+<BR>
+:)
+<BR>
+<P><EM>&gt; Alvin&gt; The problem I would see is that MySQL would crash in cases where there are
+</EM><BR>
+<EM>&gt; Alvin&gt; a large number of connections being created/destroyed. I was able to track
+</EM><BR>
+<EM>&gt; Alvin&gt; this problem down to pthread_create. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; 1 int __pthread_create_2_1(pthread_t *thread, const pthread_attr_t *attr,
+</EM><BR>
+<EM>&gt; Alvin&gt; 2                          void * (*start_routine)(void *), void *arg)
+</EM><BR>
+<EM>&gt; Alvin&gt; 3 {
+</EM><BR>
+<EM>&gt; Alvin&gt; 4   pthread_descr self = thread_self();
+</EM><BR>
+<EM>&gt; Alvin&gt; 5   struct pthread_request request;
+</EM><BR>
+<EM>&gt; Alvin&gt; 6   if (__pthread_manager_request &lt; 0) {
+</EM><BR>
+<EM>&gt; Alvin&gt; 7     if (__pthread_initialize_manager() &lt; 0) return EAGAIN;
+</EM><BR>
+<EM>&gt; Alvin&gt; 8   }
+</EM><BR>
+<EM>&gt; Alvin&gt; 9   THREAD_GETMEM(self, p_retcode)=0xdeadbeef ;
+</EM><BR>
+<EM>&gt; Alvin&gt; 10  *thread = 0;
+</EM><BR>
+<EM>&gt; Alvin&gt; 11  request.req_thread = self;
+</EM><BR>
+<EM>&gt; Alvin&gt; 12  request.req_kind = REQ_CREATE; 
+</EM><BR>
+<EM>&gt; Alvin&gt; 13  request.req_args.create.attr = attr;
+</EM><BR>
+<EM>&gt; Alvin&gt; 14  request.req_args.create.fn = start_routine;
+</EM><BR>
+<EM>&gt; Alvin&gt; 15  request.req_args.create.arg = arg;
+</EM><BR>
+<EM>&gt; Alvin&gt; 16  sigprocmask(SIG_SETMASK, (const sigset_t *) NULL,
+</EM><BR>
+<EM>&gt; Alvin&gt; 17              &amp;request.req_args.create.mask);
+</EM><BR>
+<EM>&gt; Alvin&gt; 18  __libc_write(__pthread_manager_request, (char *) &amp;request,sizeof(request));
+</EM><BR>
+<EM>&gt; Alvin&gt; 19  suspend(self);
+</EM><BR>
+<EM>&gt; Alvin&gt; 20  while(THREAD_GETMEM(self, p_retcode) == 0xdeadbeef)sched_yield();
+</EM><BR>
+<EM>&gt; Alvin&gt; 21
+</EM><BR>
+<EM>&gt; Alvin&gt; 22    *thread = 0;
+</EM><BR>
+<EM>&gt; Alvin&gt; 23
+</EM><BR>
+<EM>&gt; Alvin&gt; 24  if (THREAD_GETMEM(self, p_retcode) == 0)
+</EM><BR>
+<EM>&gt; Alvin&gt; 25    *thread = (pthread_t) THREAD_GETMEM(self, p_retval);
+</EM><BR>
+<EM>&gt; Alvin&gt; 26  return THREAD_GETMEM(self, p_retcode);
+</EM><BR>
+<EM>&gt; Alvin&gt; 27}
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; this is pthread from 2.1.3-16. Lines 9,10,20,22 are new. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; Using GDB I found that mysql would crash on line 25 regularly with a
+</EM><BR>
+<EM>&gt; Alvin&gt; segmentation fault. With a little probing I came up with line 22. This
+</EM><BR>
+<EM>&gt; Alvin&gt; code would then crash on line 22 but at no time did line 10 ever cause a
+</EM><BR>
+<EM>&gt; Alvin&gt; crash.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; I install lines 9 and 20. The problem goes away. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Alvin&gt; To try and make sure It is not a compiler induced bug/fix I change the
+</EM><BR>
+<EM>&gt; Alvin&gt; while loop so that it never loops. The problem comes back. I set a
+</EM><BR>
+<EM>&gt; Alvin&gt; breakpoint on sched_yield but did not manage to get it to trigger. The
+</EM><BR>
+<EM>&gt; Alvin&gt; lack of triggering bothers me a bit.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I think the reason is that when you set a breakpoint with gdb, you
+</EM><BR>
+<EM>&gt; will affect the scheduling of threads a bit or the other thread will
+</EM><BR>
+<EM>&gt; continue to run for a while after the first thread hits a breakpoint ;
+</EM><BR>
+<EM>&gt; The result is that the new thread has time to finish the creation
+</EM><BR>
+<EM>&gt; process before it gets stopped..
+</EM><BR>
+<P>I had a feeling that that may be what is happening but I am not positive.
+<BR>
+<P><EM>&gt; Alvin&gt; My conclusions:
+</EM><BR>
+<EM>&gt; Alvin&gt; 1) I believe that in this code suspend is expected to only return after
+</EM><BR>
+<EM>&gt; Alvin&gt;    the new thread has started. It appears that in some cases it returns
+</EM><BR>
+<EM>&gt; Alvin&gt;    before the new thread has been created. If suspend returns early the
+</EM><BR>
+<EM>&gt; Alvin&gt;    values of retcode and retval are undifined.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Sounds as a likle cause of this problem.
+</EM><BR>
+<P>Rembmbering back to my days working with real-time systems and BSD4.1 you
+<BR>
+would allways test to insure that the condition you wrere wating on was
+<BR>
+complete and not just take off running.
+<BR>
+<P><EM>&gt; Alvin&gt; 2) At some point in the execution of the program *thread becomes invalid
+</EM><BR>
+<EM>&gt; Alvin&gt;    memory. This is a difficult thing to have happen since this is the
+</EM><BR>
+<EM>&gt; Alvin&gt;    memory in the process that is calling thread_create. This rases the
+</EM><BR>
+<EM>&gt; Alvin&gt;    question of if there is some point in the process of thread creation
+</EM><BR>
+<EM>&gt; Alvin&gt;    where the of the creating threads memory model becomes invalid? Are
+</EM><BR>
+<EM>&gt; Alvin&gt;    mmap and clone thread save?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I can't see any reason why 'thread' would ever point at something
+</EM><BR>
+<EM>&gt; 'undefined';  Did you try to compile the above code without
+</EM><BR>
+<EM>&gt; optimization to ensure that gcc has not rearranged the instructions so
+</EM><BR>
+<EM>&gt; that you are actually hitting line 24 even if you think you are
+</EM><BR>
+<EM>&gt; getting an segfault at 22 ?
+</EM><BR>
+<P>I did look through the assembler and it looked like things were happening
+<BR>
+in a reasonable order. The interesting thing was that by the time the
+<BR>
+debugger got control the memory was valid. I rearranged the code and added
+<BR>
+some other variables to verify that the memory was valid before the call
+<BR>
+to write(). 
+<BR>
+<P>Remember way back we talked about the idea that mmap may not be thread
+<BR>
+safe or atomic across several processes. I think that this points to the
+<BR>
+same type of problem.
+<BR>
+<P><EM>&gt; Alvin&gt; I have been running my little stress test for several hours now and have
+</EM><BR>
+<EM>&gt; Alvin&gt; not seen any problems yet. Before my changes my test program would cause
+</EM><BR>
+<EM>&gt; Alvin&gt; the server to crash within 5-10 minutes.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Sounds good!
+</EM><BR>
+<P>Things have been running quite reliable for over a week now so I think
+<BR>
+that this may be the problem.
+<BR>
+<P>I think I will raise this one in the kernel and Alpha groups. I have to
+<BR>
+admit that I was supprised that I did not get any feedback at all.
+<BR>
+<P><EM>&gt; Regards,
+</EM><BR>
+<EM>&gt; Monty
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; PS: Sorry for the delayed; I am answering mails on my laptop
+</EM><BR>
+<EM>&gt;     while being away on a conference trip in the USA;  Until I am back
+</EM><BR>
+<EM>&gt;     home my mails may be a bit delayed...
+</EM><BR>
+<P>Do you ever get up to Canada? Hope you are having a plesent time in the
+<BR>
+USA.
+<BR>
+<P>Alvin Starr                   ||   voice: (416)585-9971
+<BR>
+Interlink Connectivity        ||   fax:   (416)585-9974
+<BR>
+alvin@iplink.net              ||
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0299.shtml">Kurt Ludwig: "RE: Booting DU on a 3300"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0297.shtml">Michal Jaegermann: "Re: Compaw's other 64 bit chip"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0300.shtml">Brian Pomerantz: "Re: Alpha's,MySQL and thread problems."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0201.shtml">Alvin Starr: "Re: Alpha's,MySQL and thread problems."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Aug  1 04:53:12 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

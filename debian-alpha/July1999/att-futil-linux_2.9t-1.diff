@@ -1,0 +1,119 @@
+--- util-linux-2.9t/fdisk/fdisk.c	Sat Jul 17 18:00:39 1999
++++ util-linux-2.9t-alpha/fdisk/fdisk.c	Sat Jul 17 17:36:24 1999
+@@ -170,22 +170,38 @@
+ 
+ void
+ set_start_sect(struct partition *p, unsigned int start_sect) {
++#if defined(__alpha) // uses different struction names for same element
++	store4_little_endian((char *) &p->start_sect, start_sect);
++#else
+ 	store4_little_endian(p->start4, start_sect);
++#endif
+ }
+ 
+ unsigned int
+ get_start_sect(struct partition *p) {
++#if defined(__alpha) // uses different struction names for same element
++	return read4_little_endian((char *) &p->start_sect);
++#else
+ 	return read4_little_endian(p->start4);
++#endif
+ }
+ 
+ void
+ set_nr_sects(struct partition *p, unsigned int nr_sects) {
++#if defined(__alpha) // uses different struction names for same element
++	store4_little_endian((char *) &p->nr_sects, nr_sects);
++#else
+ 	store4_little_endian(p->size4, nr_sects);
++#endif
+ }
+ 
+ unsigned int
+ get_nr_sects(struct partition *p) {
++#if defined(__alpha) // uses different struction names for same element
++	return read4_little_endian((char *) &p->nr_sects);
++#else
+ 	return read4_little_endian(p->size4);
++#endif
+ }
+ 
+ /* normally O_RDWR, -l option gives O_RDONLY */
+--- util-linux-2.9t/fdisk/fdisksgilabel.c	Sat May  1 13:33:33 1999
++++ util-linux-2.9t-alpha/fdisk/fdisksgilabel.c	Sat Jul 17 17:43:35 1999
+@@ -23,6 +23,9 @@
+ #include <linux/hdreg.h>        /* HDIO_GETGEO */
+ 
+ #include "common.h"
++#if defined(__alpha)
++#  include "partition.h"
++#endif
+ #include "fdisk.h"
+ #include "fdisksgilabel.h"
+ 
+--- util-linux-2.9t/fdisk/cfdisk.c	Sat Jul 17 18:00:39 1999
++++ util-linux-2.9t-alpha/fdisk/cfdisk.c	Sat Jul 17 17:49:09 1999
+@@ -193,6 +193,7 @@
+    || (x) == 7 || (x) == 0xb || (x) == 0xc || (x) == 0xe \
+    || (x) == 0x11 || (x) == 0x14 || (x) == 0x16 || (x) == 0x17)
+ 
++#if !(defined(__alpha) || defined(partition))
+ struct partition {
+         unsigned char boot_ind;         /* 0x80 - active */
+         unsigned char head;             /* starting head */
+@@ -205,6 +206,7 @@
+         unsigned char start4[4];        /* starting sector counting from 0 */
+         unsigned char size4[4];         /* nr of sectors in partition */
+ };
++#endif
+ 
+ /* start_sect and nr_sects are stored little endian on all machines */
+ /* moreover, they are not aligned correctly */
+@@ -224,22 +226,38 @@
+ 
+ void
+ set_start_sect(struct partition *p, unsigned int start_sect) {
++#if defined(__alpha) // uses different struction names for same element
++	store4_little_endian((char *) &p->start_sect, start_sect);
++#else
+ 	store4_little_endian(p->start4, start_sect);
++#endif
+ }
+ 
+ unsigned int
+ get_start_sect(struct partition *p) {
++#if defined(__alpha) // uses different struction names for same element
++	return read4_little_endian((char *) &p->start_sect);
++#else
+ 	return read4_little_endian(p->start4);
++#endif
+ }
+ 
+ void
+ set_nr_sects(struct partition *p, unsigned int nr_sects) {
++#if defined(__alpha) // uses different struction names for same element
++	store4_little_endian((char *) &p->nr_sects, nr_sects);
++#else
+ 	store4_little_endian(p->size4, nr_sects);
++#endif
+ }
+ 
+ unsigned int
+ get_nr_sects(struct partition *p) {
++#if defined(__alpha) // uses different struction names for same element
++	return read4_little_endian((char *) &p->nr_sects);
++#else
+ 	return read4_little_endian(p->size4);
++#endif
+ }
+ 
+ #define ALIGNMENT 2
+
+--G4iJoqBmSsgzjUCe--
+
+
+--  
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+
+

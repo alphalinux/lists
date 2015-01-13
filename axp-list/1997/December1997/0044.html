@@ -1,0 +1,147 @@
+<!-- received="Mon Dec  1 17:33:53 1997 " -->
+<!-- sent="Mon, 01 Dec 1997 13:03:09 -0600" -->
+<!-- name="Rob Zook" -->
+<!-- email="rzook@informix.com" -->
+<!-- subject="Strange errors from strtok()" -->
+<!-- id="3.0.5.32.19971201130309.00913100@atlas" -->
+<!-- inreplyto="01bcfe7f$60288060$323ccbd0@zeke.bainet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Strange errors from strtok()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Strange errors from strtok()</h2>
+
+<b>Rob Zook</b> (<a href="mailto:rzook@informix.com"><i>rzook@informix.com</i></a>)<br>
+<i>Mon, 01 Dec 1997 13:03:09 -0600</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#44">[ date ]</a><a href="index.html#44">[ thread ]</a><a href="subject.html#44">[ subject ]</a><a href="author.html#44">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0045.html">Jay.Estabrook@digital.com: "Machine Checks Explained (was: CIA Machine Check - crashes)"</a>
+<li> <b>Previous message:</b> <a href="0043.html">Joakim Roubert: "Re: Linux Alpha Patches and Bug Fixes - Kernels, GCC, and Profiling."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0036.html">Przemek Klosowski: "Re: Strange errors from strtok()"</a>
+<li> <b>Maybe reply:</b> <a href="0036.html">Przemek Klosowski: "Re: Strange errors from strtok()"</a>
+<li> <b>Reply:</b> <a href="0039.html">Michal Jaegermann: "Re: Strange errors from strtok()"</a>
+<li> <b>Reply:</b> <a href="0040.html">Richard Henderson: "Re: Strange errors from strtok()"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi all,<br>
+<p>
+Hopefully, someone here has done some c programming on these Alphas.<br>
+I have a UDB and I'm running RedHat 4.1 w/ some of the RedHat 4.2<br>
+upgrades.<br>
+<p>
+I'm trying to use the strtok function from stdlib in a program and<br>
+I get these strange errors:<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+<p>
+main()<br>
+{<br>
+   char postline[80];<br>
+   char tokenName[10][80];<br>
+   char tokenValue[10][80];<br>
+   char Name[30];<br>
+   char Extension[9];<br>
+   char Friend[5];<br>
+   char *tokenPtr;   <br>
+<p>
+   printf("Content-type: text/html\n\n");<br>
+   printf("&lt;HTML&gt;\n&lt;BODY&gt;\n");<br>
+   printf("&lt;B&gt;CONTENT LENGTH&lt;/B&gt; = %d&lt;BR&gt;\n",<br>
+atoi(getenv("CONTENT_LENGTH"))); <br>
+   while(gets(postline)!= NULL)<br>
+   {<br>
+      printf("%s&lt;BR&gt;\n", postline);<br>
+      tokenPtr = strtok(postline,"&amp;");&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>
+      do<br>
+      {<br>
+          printf("&lt;B&gt;TokenPtr&lt;/B&gt; = %s&lt;BR&gt;\n", tokenPtr);<br>
+      } <br>
+      while((tokenPtr = strtok(NULL,'&amp;'))==NULL); &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>
+   }<br>
+<p>
+   printf("&lt;/BODY&gt;\n&lt;/HTML&gt;\n");<br>
+}<br>
+<p>
+When I try to compile this program I get the following warnings:<br>
+<p>
+[rzook@babylon5 cgi-bin]$ cc -o rsvp rsvp.c<br>
+rsvp.c: In function `main':<br>
+rsvp.c:20: warning: assignment makes pointer from integer without a cast<br>
+rsvp.c:25: warning: assignment makes pointer from integer without a cast<br>
+/tmp/cca197261.o: In function `main':<br>
+rsvp.c(.text+0x8c): the `gets' function is dangerous and should not be used.<br>
+<p>
+In the above program lines 20 and 25 are marked with the "&lt;&lt;&lt;&lt;&lt;&lt;&lt;".<br>
+<p>
+I'm not sure why I'd get these warnings. cc produces an executable, but<br>
+When I run this cgi program from my web form, it produces a server error.<br>
+If I add a fflush(stdout), just before the do loop, the server error goes<br>
+away and I get some output. However, the execution only goes thru the<br>
+do loop once, and then next call to strtok evidently returns a NULL.<br>
+<p>
+The results of the program with the fflush(stdout) look like this:<br>
+<p>
+CONTENT LENGTH = 52<br>
+name=Rob+Zook&amp;extension=1111&amp;guest=yes&amp;beverage=beer<br>
+TokenPtr = name=Rob+Zook<br>
+<p>
+As you can see the returned postline has 52 characters in it, and<br>
+with a call to strtok like:  tokenPtr = strtok(NULL,'&amp;') I should<br>
+get 4 tokens back. But I only get one.<br>
+<p>
+To summarize:<br>
+1. Why do the warnings occur?<br>
+2. Why does my loop fail on the second call to strtok?<br>
+<p>
+Thanks,<br>
+<p>
+Rob Z.<br>
+--------------------------------------------------------<br>
+Not reaching a goal on a given day does not preclude <br>
+reaching it tomorrow, or next year. One failure does not <br>
+mean all is lost. Let it be motivation to improve, to <br>
+deliver optimum performance in the next undertaking, <br>
+whatever it may be - not to give up and quit trying.<br>
+-- Capt. Spock<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0045.html">Jay.Estabrook@digital.com: "Machine Checks Explained (was: CIA Machine Check - crashes)"</a>
+<li> <b>Previous message:</b> <a href="0043.html">Joakim Roubert: "Re: Linux Alpha Patches and Bug Fixes - Kernels, GCC, and Profiling."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0036.html">Przemek Klosowski: "Re: Strange errors from strtok()"</a>
+<li> <b>Maybe reply:</b> <a href="0036.html">Przemek Klosowski: "Re: Strange errors from strtok()"</a>
+<li> <b>Reply:</b> <a href="0039.html">Michal Jaegermann: "Re: Strange errors from strtok()"</a>
+<li> <b>Reply:</b> <a href="0040.html">Richard Henderson: "Re: Strange errors from strtok()"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

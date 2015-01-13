@@ -1,0 +1,120 @@
+<!-- received="Thu Oct 17 06:25:58 1996 " -->
+<!-- sent="Thu, 17 Oct 1996 13:18:44 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="199610171100.LAA00900@linux.reo.dec.com" -->
+<!-- inreplyto="Pine.LNX.3.93.961017104701.8482A-100000@pc5829.hil.siemens.at" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Thu, 17 Oct 1996 13:18:44 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#619">[ date ]</a><a href="index.html#619">[ thread ]</a><a href="subject.html#619">[ subject ]</a><a href="author.html#619">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0620.html">Ingo Molnar: "Re: Linux-2.1.4"</a>
+<li> <b>Previous message:</b> <a href="0618.html">David A Rusling: "Re: RH 4.0 Install Buggy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Thu, 17 Oct 1996, Ingo Molnar wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; could it be optimized even one step further? We could do the following:</i><br>
+<i>&gt; </i><br>
+<i>&gt;         movl xxxx,%eax          /* get the value */</i><br>
+<i>&gt; </i><br>
+<i>&gt; the exception handler could maintain a cross-table that identifies EIPs</i><br>
+<i>&gt; and abort points. It would do something like this:</i><br>
+<i>&gt; </i><br>
+<i>&gt;  jmp UGLY_AS_HELL_BUT_FAST_AS_LIGHTNING_CROSSJUMP_TABLE[exception_eip]</i><br>
+<p>
+Yes, we could actually do something like this. It needs compiler support, but<br>
+that is possible, and g++ exceptions are actually kind of moving in this<br>
+direction. <br>
+<p>
+However, in real life this is probably not an option. We'll see if g++<br>
+exceptions ever get that good, but right now I doubt this will be a realistic<br>
+option within at least a year. <br>
+<p>
+<i>&gt; [ actually, we possibly dont even need such a table, the exception code</i><br>
+<i>&gt;   could just do a very simple (and fast) deassembly of the exception EIP,</i><br>
+<i>&gt;   and could decide where to jump ]</i><br>
+<p>
+Note that we can indeed do disassemblies: it doesn't even need to be fast. It<br>
+can be slow as molasses, and nobody would care, because the exceptions never<br>
+happen for good code. So we can have an _extremely_ stupid disassembly<br>
+function that takes ages to do it. <br>
+<p>
+<i>&gt; &gt; It's the RISC philosophy: make the basic operations simple, and do them</i><br>
+<i>&gt; &gt; extremely quickly. Complex operations might be slower, but complex operations</i><br>
+<i>&gt; &gt; are relatively rare. </i><br>
+<i>&gt; </i><br>
+<i>&gt; lets push it to the extreme ...</i><br>
+<p>
+We actually discussed this already with David Miller, especially as the <br>
+disassembly phase is totally unnecessary in many cases (most RISC chips <br>
+have equal-length instructions, so the only thing the exception handler <br>
+would need to do is<br>
+<p>
+	regs-&gt;flag_reg = -EFAULT;<br>
+	regs-&gt;ip += 4;<br>
+	return;<br>
+<p>
+However, there are some problems with that approach too, and while it's <br>
+good for "get_user()" and "put_user()", it has some real problems for <br>
+some other code. In particular, think of the case where we do a<br>
+<p>
+	copy_from_user(buffer_cache, user_ptr, nr);<br>
+<p>
+Now, if we just skip the instructions that fault and set a return register<br>
+value, the above will return an error, but it may have written incorrect data<br>
+to the buffer cache (because the instructions following the faulting<br>
+instruction were still executed). Now, we can handle that by having a<br>
+copy_from_user() that tests the register value every now and then, and this<br>
+is actually an option in the long run, but right now I'm nervous about the<br>
+disassembly phase on x86 (on RISC it's simple, but the x86 disassembly is<br>
+horrible and while I do not care about speed I _do_ care about correctness ;)<br>
+<p>
+So yes, we can potentially actually get the overhead down even further. <br>
+That's one advantage with the new interface in 2.1.4 - the generic kernel<br>
+code doesn't even need to know exactly _how_ we handle the exceptions. <br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0620.html">Ingo Molnar: "Re: Linux-2.1.4"</a>
+<li> <b>Previous message:</b> <a href="0618.html">David A Rusling: "Re: RH 4.0 Install Buggy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

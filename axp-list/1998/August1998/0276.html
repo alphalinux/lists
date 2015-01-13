@@ -1,0 +1,246 @@
+<!-- received="Thu Aug  6 07:59:52 1998 " -->
+<!-- sent="Thu, 6 Aug 1998 12:53:13 +0200" -->
+<!-- name="Arnaud Installe" -->
+<!-- email="gmeb@ace.ulyssis.student.kuleuven.ac.be" -->
+<!-- subject="Oops with isofs on Alpha" -->
+<!-- id="" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Oops with isofs on Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Oops with isofs on Alpha</h2>
+
+<b>Arnaud Installe</b> (<a href="mailto:gmeb@ace.ulyssis.student.kuleuven.ac.be"><i>gmeb@ace.ulyssis.student.kuleuven.ac.be</i></a>)<br>
+<i>Thu, 6 Aug 1998 12:53:13 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#276">[ date ]</a><a href="index.html#276">[ thread ]</a><a href="subject.html#276">[ subject ]</a><a href="author.html#276">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0277.html">Charl Botha: "Re: Mozilla 19980728 on RH5.1 Alpha"</a>
+<li> <b>Previous message:</b> <a href="0275.html">Hirsim{ki Mika: "IBM 10/100 EtherJet PCI"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Whenever I try to mount an ISO9660 filesystem I get an oops.  If I<br>
+remember correctly I've also tried to compile a non-modular 2.1 kernel,<br>
+with the same problem.<br>
+The output below is from Linux 2.1.112, running on an Alpha XLT-366.<br>
+Ksymoops doesn't seem to work for Alpha, so I had to find the addresses by<br>
+hand.  I hope I didn't make any mistakes.<br>
+<p>
+Vfat doesn't seem to work on the 2.1 kernels/Alpha either, but that<br>
+doesn't give an oops.  It just seems to go to sleep forever.  (The<br>
+mount-process, not the kernel.)<br>
+<p>
+Screen output:<br>
+--------------<br>
+<p>
+root@bach:~# modprobe isofs<br>
+root@bach:~# mount /mnt/cdrom/<br>
+Detected scsi CD-ROM sr0 at scsi1, channel 0, id 3, lun 0<br>
+Unable to handle kernel paging request at virtual address fffffe000001bb08<br>
+mount(1205): Oops 0<br>
+pc = [&lt;fffffe000000ea9c&gt;]  ra = [&lt;fffffe000000f29c&gt;]  ps = 0000<br>
+r0 = fffffc000046d6d8  r1 = 000000000000016d  r2 = 0000000000010061<br>
+r3 = ffffffffffff006e  r4 = 0000000000007961  r5 = 0000000000797961<br>
+r6 = 000000006e797961  r7 = ffffffffffff736e  r8 = fffffc000315c000<br>
+r9 = fffffc000213e000  r10= fffffc000046d6d8  r11= fffffc000315fd38<br>
+r12= 0000000000000000  r13= 0000000000000000  r14= 0000000000000000<br>
+r15= 0000000000000000<br>
+r16= fffffc000213e000  r17= fffffc000315fd38  r18= 0000000000000000<br>
+r19= 0000000000000000  r20= ffffffffd505a673  r21= 0000000000000001<br>
+r22= 0000000000016900  r23= 0000000000204080  r24= c200000000000000<br>
+r25= 000001df471b6800  r27= fffffe000000f1e8  r28= fffffc0000439f20<br>
+gp = fffffe000001bb08  sp = fffffc000315fcc8<br>
+Code: 46dff116  b2cb0020  e6000196 &lt;a63d0000&gt; c3e0018e  47ff041f  47ff041f  47ff041f  47ff041f<br>
+Trace: [&lt;fffffc0000343df0&gt;] [&lt;fffffc0000343db4&gt;] [&lt;fffffc0000344644&gt;] [&lt;fffffc0000344cf4&gt;] [&lt;fffffc0000310ba8&gt;]<br>
+Segmentation fault<br>
+<p>
+<p>
+Trace output:<br>
+-------------<br>
+<p>
+Mapping the addresses from the trace output to functions gives:<br>
+<p>
+	read_super+0xf0<br>
+	read_super+0xb4<br>
+	do_mount+0x11c<br>
+	sys_mount+0x294<br>
+	entSys+0xa8<br>
+<p>
+if I calculated those correctly...<br>
+<p>
+<p>
+Parts of System.map used for mapping addresses to functions:<br>
+------------------------------------------------------------<br>
+<p>
+...<br>
+<p>
+fffffc0000310ae8 T alpha_switch_to<br>
+fffffc0000310b00 T entSys<br>
+fffffc0000310bc0 T ret_from_sys_call<br>
+<p>
+...<br>
+<p>
+fffffc0000343c50 t get_empty_super<br>
+fffffc0000343d00 t read_super<br>
+fffffc0000343e78 T get_unnamed_dev<br>
+fffffc0000343ef8 T put_unnamed_dev<br>
+fffffc0000343f88 t d_umount<br>
+fffffc0000344020 t d_mount<br>
+fffffc0000344078 t do_umount<br>
+fffffc0000344268 t umount_dev<br>
+fffffc00003443b8 T sys_umount<br>
+fffffc00003444d8 T fs_may_mount<br>
+fffffc0000344528 T do_mount<br>
+fffffc0000344708 t do_remount_sb<br>
+fffffc0000344820 t do_remount<br>
+fffffc0000344908 t copy_mount_options<br>
+fffffc0000344a60 T sys_mount<br>
+fffffc0000344da0 T block_write<br>
+<p>
+...<br>
+<p>
+fffffc000047dc7c A _end<br>
+<p>
+<p>
+Assembly listing of read_super:<br>
+-------------------------------<br>
+<p>
+0000000000001040 &lt;read_super&gt; 	27bb0000  ldah       gp,0(t12)<br>
+0000000000001044 &lt;read_super+4&gt; 	23bd0000  lda        gp,0(gp)<br>
+0000000000001048 &lt;read_super+8&gt; 	23deffc0  lda        sp,-64(sp)<br>
+000000000000104c &lt;read_super+c&gt; 	b75e0000  stq        ra,0(sp)<br>
+0000000000001050 &lt;read_super+10&gt; 	b53e0008  stq        s0,8(sp)<br>
+0000000000001054 &lt;read_super+14&gt; 	b55e0010  stq        s1,16(sp)<br>
+0000000000001058 &lt;read_super+18&gt; 	b57e0018  stq        s2,24(sp)<br>
+000000000000105c &lt;read_super+1c&gt; 	b59e0020  stq        s3,32(sp)<br>
+0000000000001060 &lt;read_super+20&gt; 	b5be0028  stq        s4,40(sp)<br>
+0000000000001064 &lt;read_super+24&gt; 	b5de0030  stq        s5,48(sp)<br>
+0000000000001068 &lt;read_super+28&gt; 	b5fe0038  stq        fp,56(sp)<br>
+000000000000106c &lt;read_super+2c&gt; 	4610040a  mov        a0,s1<br>
+0000000000001070 &lt;read_super+30&gt; 	4631040c  mov        a1,s3<br>
+0000000000001074 &lt;read_super+34&gt; 	4652040d  mov        a2,s4<br>
+0000000000001078 &lt;read_super+38&gt; 	4673040e  mov        a3,s5<br>
+000000000000107c &lt;read_super+3c&gt; 	4694040f  mov        a4,fp<br>
+0000000000001080 &lt;read_super+40&gt; 	e540003e  beq        s1,000000000000117c &lt;read_super+13c&gt;<br>
+0000000000001084 &lt;read_super+44&gt; 	a77d0000  ldq        t12,0(gp)<br>
+0000000000001088 &lt;read_super+48&gt; 	6b5b4000  jsr        ra,(t12),000000000000108c &lt;read_super+4c&gt;<br>
+000000000000108c &lt;read_super+4c&gt; 	27ba0000  ldah       gp,0(ra)<br>
+0000000000001090 &lt;read_super+50&gt; 	23bd0000  lda        gp,0(gp)<br>
+0000000000001094 &lt;read_super+54&gt; 	454a0410  mov        s1,a0<br>
+0000000000001098 &lt;read_super+58&gt; 	d35fff59  bsr        ra,0000000000000e00 &lt;get_super+8&gt;<br>
+000000000000109c &lt;read_super+5c&gt; 	44000409  mov        v0,s0<br>
+00000000000010a0 &lt;read_super+60&gt; 	f520002e  bne        s0,000000000000115c &lt;read_super+11c&gt;<br>
+00000000000010a4 &lt;read_super+64&gt; 	458c0410  mov        s3,a0<br>
+00000000000010a8 &lt;read_super+68&gt; 	d35ffe99  bsr        ra,0000000000000b10 &lt;get_fs_type+8&gt;<br>
+00000000000010ac &lt;read_super+6c&gt; 	4400040b  mov        v0,s2<br>
+00000000000010b0 &lt;read_super+70&gt; 	f560000f  bne        s2,00000000000010f0 &lt;read_super+b0&gt;<br>
+00000000000010b4 &lt;read_super+74&gt; 	454a0410  mov        s1,a0<br>
+00000000000010b8 &lt;read_super+78&gt; 	a77d0000  ldq        t12,0(gp)<br>
+00000000000010bc &lt;read_super+7c&gt; 	6b5b4000  jsr        ra,(t12),00000000000010c0 &lt;read_super+80&gt;<br>
+00000000000010c0 &lt;read_super+80&gt; 	27ba0000  ldah       gp,0(ra)<br>
+00000000000010c4 &lt;read_super+84&gt; 	23bd0000  lda        gp,0(gp)<br>
+00000000000010c8 &lt;read_super+88&gt; 	a61d0000  ldq        a0,0(gp)<br>
+00000000000010cc &lt;read_super+8c&gt; 	44000411  mov        v0,a1<br>
+00000000000010d0 &lt;read_super+90&gt; 	458c0412  mov        s3,a2<br>
+00000000000010d4 &lt;read_super+94&gt; 	a77d0000  ldq        t12,0(gp)<br>
+00000000000010d8 &lt;read_super+98&gt; 	6b5b4000  jsr        ra,(t12),00000000000010dc &lt;read_super+9c&gt;<br>
+00000000000010dc &lt;read_super+9c&gt; 	27ba0000  ldah       gp,0(ra)<br>
+00000000000010e0 &lt;read_super+a0&gt; 	23bd0000  lda        gp,0(gp)<br>
+00000000000010e4 &lt;read_super+a4&gt; 	c3e0001d  br         000000000000115c &lt;read_super+11c&gt;<br>
+00000000000010e8 &lt;read_super+a8&gt; 	47ff041f  nop        <br>
+00000000000010ec &lt;read_super+ac&gt; 	47ff041f  nop        <br>
+00000000000010f0 &lt;read_super+b0&gt; 	d35fffa9  bsr        ra,0000000000000f98 &lt;get_empty_super+8&gt;<br>
+00000000000010f4 &lt;read_super+b4&gt; 	44000409  mov        v0,s0<br>
+00000000000010f8 &lt;read_super+b8&gt; 	e5200018  beq        s0,000000000000115c &lt;read_super+11c&gt;<br>
+00000000000010fc &lt;read_super+bc&gt; 	a0290000  ldl        t0,0(s0)<br>
+0000000000001100 &lt;read_super+c0&gt; 	a0490010  ldl        t1,16(s0)<br>
+0000000000001104 &lt;read_super+c4&gt; 	b5a90030  stq        s4,48(s0)<br>
+0000000000001108 &lt;read_super+c8&gt; 	45290410  mov        s0,a0<br>
+000000000000110c &lt;read_super+cc&gt; 	45ce0411  mov        s5,a1<br>
+0000000000001110 &lt;read_super+d0&gt; 	483f9621  zapnot     t0,0xfc,t0<br>
+0000000000001114 &lt;read_super+d4&gt; 	45410401  or         s1,t0,t0<br>
+0000000000001118 &lt;read_super+d8&gt; 	b0290000  stl        t0,0(s0)<br>
+000000000000111c &lt;read_super+dc&gt; 	485ef622  zapnot     t1,0xf7,t1<br>
+0000000000001120 &lt;read_super+e0&gt; 	b0490010  stl        t1,16(s0)<br>
+0000000000001124 &lt;read_super+e4&gt; 	a76b0010  ldq        t12,16(s2)<br>
+0000000000001128 &lt;read_super+e8&gt; 	45ef0412  mov        fp,a2<br>
+000000000000112c &lt;read_super+ec&gt; 	6b5b4000  jsr        ra,(t12),0000000000001130 &lt;read_super+f0&gt;<br>
+0000000000001130 &lt;read_super+f0&gt; 	27ba0000  ldah       gp,0(ra)<br>
+0000000000001134 &lt;read_super+f4&gt; 	23bd0000  lda        gp,0(gp)<br>
+0000000000001138 &lt;read_super+f8&gt; 	e400000d  beq        v0,0000000000001170 &lt;read_super+130&gt;<br>
+000000000000113c &lt;read_super+fc&gt; 	a0290000  ldl        t0,0(s0)<br>
+0000000000001140 &lt;read_super+100&gt; 	a0490010  ldl        t1,16(s0)<br>
+0000000000001144 &lt;read_super+104&gt; 	b5690018  stq        s2,24(s0)<br>
+0000000000001148 &lt;read_super+108&gt; 	483f9621  zapnot     t0,0xfc,t0<br>
+000000000000114c &lt;read_super+10c&gt; 	45410401  or         s1,t0,t0<br>
+0000000000001150 &lt;read_super+110&gt; 	b0290000  stl        t0,0(s0)<br>
+0000000000001154 &lt;read_super+114&gt; 	485f7622  zapnot     t1,0xfb,t1<br>
+0000000000001158 &lt;read_super+118&gt; 	b0490010  stl        t1,16(s0)<br>
+000000000000115c &lt;read_super+11c&gt; 	45290400  mov        s0,v0<br>
+0000000000001160 &lt;read_super+120&gt; 	c3e0000b  br         0000000000001190 &lt;read_super+150&gt;<br>
+0000000000001164 &lt;read_super+124&gt; 	47ff041f  nop        <br>
+0000000000001168 &lt;read_super+128&gt; 	47ff041f  nop        <br>
+000000000000116c &lt;read_super+12c&gt; 	47ff041f  nop        <br>
+0000000000001170 &lt;read_super+130&gt; 	a0290000  ldl        t0,0(s0)<br>
+0000000000001174 &lt;read_super+134&gt; 	483f9621  zapnot     t0,0xfc,t0<br>
+0000000000001178 &lt;read_super+138&gt; 	b0290000  stl        t0,0(s0)<br>
+000000000000117c &lt;read_super+13c&gt; 	47ff0409  clr        s0<br>
+0000000000001180 &lt;read_super+140&gt; 	c3fffff6  br         000000000000115c &lt;read_super+11c&gt;<br>
+0000000000001184 &lt;read_super+144&gt; 	47ff041f  nop        <br>
+0000000000001188 &lt;read_super+148&gt; 	47ff041f  nop        <br>
+000000000000118c &lt;read_super+14c&gt; 	47ff041f  nop        <br>
+0000000000001190 &lt;read_super+150&gt; 	a75e0000  ldq        ra,0(sp)<br>
+0000000000001194 &lt;read_super+154&gt; 	a53e0008  ldq        s0,8(sp)<br>
+0000000000001198 &lt;read_super+158&gt; 	a55e0010  ldq        s1,16(sp)<br>
+000000000000119c &lt;read_super+15c&gt; 	a57e0018  ldq        s2,24(sp)<br>
+00000000000011a0 &lt;read_super+160&gt; 	a59e0020  ldq        s3,32(sp)<br>
+00000000000011a4 &lt;read_super+164&gt; 	a5be0028  ldq        s4,40(sp)<br>
+00000000000011a8 &lt;read_super+168&gt; 	a5de0030  ldq        s5,48(sp)<br>
+00000000000011ac &lt;read_super+16c&gt; 	a5fe0038  ldq        fp,56(sp)<br>
+00000000000011b0 &lt;read_super+170&gt; 	43c8141e  addq       sp,0x40,sp<br>
+00000000000011b4 &lt;read_super+174&gt; 	6bfa8001  ret        zero,(ra),0x1<br>
+<p>
+<pre>
+-- 
+Arnaud Installe                                 <a href="mailto:arnaud.installe@advalvas.be">arnaud.installe@advalvas.be</a> 
+<p>
+Since we have to speak well of the dead, let's knock them while they're alive.
+		-- John Sloan
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0277.html">Charl Botha: "Re: Mozilla 19980728 on RH5.1 Alpha"</a>
+<li> <b>Previous message:</b> <a href="0275.html">Hirsim{ki Mika: "IBM 10/100 EtherJet PCI"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

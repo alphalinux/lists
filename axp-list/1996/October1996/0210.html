@@ -1,0 +1,171 @@
+<!-- received="Mon Oct  7 14:18:50 1996 " -->
+<!-- sent="07 Oct 1996 12:10:05 +0200" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="isomarkboot for 32 bit machines" -->
+<!-- id="199610060122.VAA15146@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list-request!" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>isomarkboot for 32 bit machines</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>isomarkboot for 32 bit machines</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>07 Oct 1996 12:10:05 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#210">[ date ]</a><a href="index.html#210">[ thread ]</a><a href="subject.html#210">[ subject ]</a><a href="author.html#210">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0211.html">Christopher M. Huffine: "Re: Precompiled UDB Noname Kernel Help"</a>
+<li> <b>Previous message:</b> <a href="0209.html">jestabro@amt.tay1.dec.com: "Re: UDB Install Problems..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0207.html">Roel Lascano: "Re: UDB Install Problems..."</a>
+<li> <b>Reply:</b> <a href="0207.html">Roel Lascano: "Re: UDB Install Problems..."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+isomarkboot.c assumed, that 'long's are 64 bit. I discovered this<br>
+after burning the new RedHat CD on a FreeBSD[1] machine, but since I<br>
+just had to upgrade, that wasn't a big problem.<br>
+<p>
+Anyway, I patched 'isomarkboot.c' to work on 32 bit architectures as<br>
+well. Now the basic assumption is, that a 'char' is 1 byte, and <br>
+sizeof(int) &gt; sizeof(char). And the size of the ISO-fs is limitated by<br>
+sizeof(long), that's 4GB on 32 bit machines.<br>
+<p>
+I havn't really tested this[2], I just compared the results on one image<br>
+-- they were identical with the Linux/axp version. Also I havn't<br>
+tested this on the Alpha jet, but there should be no problem.<br>
+<p>
+Martin<br>
+<p>
+[1] Using linux kernel headerfiles, isomarkboot compiled well.<br>
+[2] The FreeBSD machine is at work, the Alpha at home.<br>
+<p>
+diff -ubr aboot-0.5/tools/isomarkboot.c aboot-0.5.new/tools/isomarkboot.c<br>
+--- aboot-0.5/tools/isomarkboot.c	Wed Jul  3 01:55:50 1996<br>
++++ aboot-0.5.new/tools/isomarkboot.c	Mon Oct  7 10:47:38 1996<br>
+@@ -54,15 +54,47 @@<br>
+ 	return read(disk, buf, size);<br>
+ }<br>
+ <br>
++void<br>
++write_8bytes(unsigned char *dst, long value)<br>
++{ <br>
++	int i;<br>
++	for(i=0;i&lt;8;i++){<br>
++		*dst++ = (unsigned char)(value &amp; 0xff);<br>
++		value&gt;&gt;=8;<br>
++		}<br>
++}<br>
++<br>
++void<br>
++add_8bytes(unsigned char *sum, unsigned char* new)<br>
++{<br>
++	int i,r,v;<br>
++	v=0;<br>
++	for(i=0;i&lt;8;i++){<br>
++		r = (int)(sum[i]) + (int)(new[i]) + v;<br>
++		v = r&gt;&gt;8;<br>
++		if(v&gt;1) printf("Error! v&gt;1\n");<br>
++		sum[i] = (unsigned char) (r &amp; 0xff);<br>
++		}<br>
++}<br>
++<br>
++void<br>
++calc_checksum(unsigned char *sector)<br>
++{<br>
++	int i;<br>
+ <br>
++	for(i=0;i&lt;8;i++)<br>
++		sector[8*63+i] = 0;<br>
++	for(i=0;i&lt;63;i++)<br>
++		add_8bytes(sector+8*63, sector+8*i);<br>
++}<br>
+ <br>
+ int<br>
+ main (int argc, char ** argv)<br>
+ {<br>
+-	unsigned long sector[512 / sizeof(unsigned long)], sum;<br>
++	unsigned char sector[512];<br>
+ 	size_t nbytes, aboot_size;<br>
+ 	off_t aboot_pos;<br>
+-	int i, aboot_fd;<br>
++	int  aboot_fd;<br>
+ <br>
+ 	prog_name = argv[0];<br>
+ <br>
+@@ -91,7 +123,7 @@<br>
+ 	aboot_pos = iso_map (aboot_fd, 0);<br>
+ <br>
+ 	printf("%s: %s is at offset %ld and is %lu bytes long\n",<br>
+-	       prog_name, argv[2], aboot_pos, aboot_size);<br>
++	       prog_name, argv[2], (long)aboot_pos, (long)aboot_size);<br>
+ <br>
+ 	if (lseek(disk, 0, SEEK_SET) != 0) {<br>
+ 		perror("lseek");<br>
+@@ -109,15 +141,12 @@<br>
+ 	}<br>
+ <br>
+ 	strcpy((char *) sector, "Linux/Alpha aboot for ISO filesystem.");<br>
+-	sector[60] = aboot_size / 512;		/* sector count */<br>
+-	sector[61] = aboot_pos / 512;		/* starting LBM */<br>
+-	sector[62] = 0;				/* flags */<br>
++	write_8bytes(sector+8*60, aboot_size/512 );	/* sector count */<br>
++	write_8bytes(sector+8*61, aboot_pos / 512 );		/* starting LBM */<br>
++	write_8bytes(sector+8*62, 0 );				/* flags */<br>
+ <br>
+ 	/* update checksum: */<br>
+-	sum = 0;<br>
+-	for (i = 0; i &lt; 63; ++i)<br>
+-		sum += sector[i];<br>
+-	sector[63] = sum;<br>
++	calc_checksum(sector);<br>
+ <br>
+ 	if (lseek(disk, 0, SEEK_SET) != 0) {<br>
+ 		perror("lseek");<br>
+<p>
+<p>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0211.html">Christopher M. Huffine: "Re: Precompiled UDB Noname Kernel Help"</a>
+<li> <b>Previous message:</b> <a href="0209.html">jestabro@amt.tay1.dec.com: "Re: UDB Install Problems..."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0207.html">Roel Lascano: "Re: UDB Install Problems..."</a>
+<li> <b>Reply:</b> <a href="0207.html">Roel Lascano: "Re: UDB Install Problems..."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

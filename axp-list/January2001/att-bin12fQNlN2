@@ -1,0 +1,456 @@
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/ChangeLog ab/ChangeLog
+--- /usr/src/redhat/BUILD/aboot-0.7a/ChangeLog	Tue Jun 27 12:06:06 2000
++++ ab/ChangeLog	Wed Dec 27 21:15:46 2000
+@@ -1,3 +1,12 @@
++2000-12-27  Soohoon Lee  <soohoon.lee@api-networks.com>
++	* network boot with initrd support.
++	To make things easy(no recompile etc.) there's netabootwrap.
++	It'll merge net_aboot, kernel and initrd images and build
++	network bootable image. net_aboot.nh will not be usable
++	but netabootwrap has all the functions.
++	Without options, It'll look for vmlinux.gz and build
++	netboot.img, it's net_aboot + vmlinux.gz.
++
+ 2000-06-27  David Huggins-Daines  <dhd@linuxcare.com>
+ 
+ 	* README: Removed the doc/ subdirectory, since it was out of sync
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/Makefile ab/Makefile
+--- /usr/src/redhat/BUILD/aboot-0.7a/Makefile	Tue Jun 27 11:54:57 2000
++++ ab/Makefile	Wed Dec 27 19:19:00 2000
+@@ -76,6 +76,13 @@
+ 
+ netboot: vmlinux.bootp
+ 
++bootloader.h: net_aboot.nh b2c
++	./b2c net_aboot.nh bootloader.h bootloader
++
++netabootwrap: netabootwrap.c bootloader.h
++	$(CC) $@.c $(CFLAGS) -o $@ 
++	
++
+ bootlx:	aboot tools/objstrip
+ 	tools/objstrip -vb aboot bootlx
+ 
+@@ -103,6 +110,7 @@
+ 	cat net_aboot.nh $(VMLINUXGZ) net_pad > $@
+ 
+ net_aboot.nh: net_aboot tools/objstrip
++	strip net_aboot
+ 	tools/objstrip -vb net_aboot $@
+ 
+ net_aboot: $(ABOOT_OBJS) $(ABOOT_OBJS) $(NET_OBJS) $(LIBS)
+@@ -114,7 +122,7 @@
+ clean:	sdisklabel/clean tools/clean lib/clean
+ 	rm -f aboot abootconf net_aboot net_aboot.nh net_pad vmlinux.bootp \
+ 		$(ABOOT_OBJS) $(DISK_OBJS) $(NET_OBJS) bootlx \
+-		include/ksize.h vmlinux.nh
++		include/ksize.h vmlinux.nh b2c bootloader.h netabootwrap
+ 
+ distclean: clean
+ 	find . -name \*~ | xargs rm -f
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/b2c.c ab/b2c.c
+--- /usr/src/redhat/BUILD/aboot-0.7a/b2c.c	Wed Dec 31 19:00:00 1969
++++ ab/b2c.c	Wed Dec 27 19:09:50 2000
+@@ -0,0 +1,70 @@
++
++
++#include <stdio.h>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++void print_usage(void )
++{
++	printf("Usage: b2c bin_img tar_file.h symname\n");
++	exit(1);
++}
++
++void open_file(char *fn, int *fd, int *sz)
++{
++	struct stat buf;
++
++	*fd = open(fn, O_RDONLY);
++	if (fd < 0) {
++		printf("cannot open %s\n", fn);
++		exit(1);
++	}
++
++	fstat(*fd, &buf);
++
++	if (buf.st_size <= 10*1024) {
++		printf("Is this a right file %s, size = %ld\n", fn, buf.st_size);
++		exit(1);
++	}
++
++	*sz = (int)buf.st_size;
++}
++
++int main(int argc, char **argv)
++{
++	int sfd, ssz, red, i;
++	int buf[1024];
++	char *sfn, *tfn, *symname;
++	FILE *tfd;
++
++	if (argc != 4) {
++		print_usage();
++	}
++
++	sfn = argv[1];
++	tfn = argv[2];
++	symname = argv[3];
++
++	open_file(sfn, &sfd, &ssz);
++
++	tfd = fopen(tfn, "w");
++
++	fprintf(tfd, "int %s[] = {\n", symname);
++
++	while((red=read(sfd, buf, 1024*sizeof(int)))) {
++		for (i=0; i<red/sizeof(int); i++) 
++			fprintf(tfd, "0x%x, \n", buf[i]);
++	}
++
++	fprintf(tfd, "};");
++
++	fclose(tfd);
++	
++	return 0;
++
++}
++
++
++
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/net.c ab/net.c
+--- /usr/src/redhat/BUILD/aboot-0.7a/net.c	Wed Dec 27 19:03:52 2000
++++ ab/net.c	Wed Dec 27 19:09:36 2000
+@@ -28,6 +28,7 @@
+ #include <aboot.h>
+ #include <bootfs.h>
+ #include <utils.h>
++#include "netwrap.h"
+ 
+ extern char boot_file[256];
+ 
+@@ -37,17 +38,16 @@
+ 	printf("aboot: oops, unimplemented net-bfs function called!\n");
+ }
+ 
++extern char _end;
++static char *src = 0;
++static char *kern_src=0, *ird_src=0;
++static int  header_size=0, kern_size=0, ird_size=0;
+ 
+ int
+ net_bread (int fd, long blkno, long nblks, char * buf)
+ {
+-        static char * src = 0;
+-	extern char _end;
+ 	int nbytes;
+ 
+-	if (!src)
+-		src = (char *) (((unsigned long) &_end + 511) & ~511);
+-
+ #ifdef DEBUG
+ 	printf("net_bread: %p -> %p (%ld blocks at %ld)\n", src, buf,
+ 	       nblks, blkno);
+@@ -60,7 +60,6 @@
+         return nbytes;
+ }
+ 
+-
+ struct bootfs netfs = {
+ 	-1, 512,
+ 	(int (*)(long, long, long))	dang,	/* mount */
+@@ -71,19 +70,71 @@
+ 	(int (*)(int, struct stat*))	dang,	/* fstat */
+ };
+ 
++long
++read_initrd()
++{
++	int nblocks, nread;
++
++	/* put it as high up in memory as possible */
++	initrd_start = free_mem_ptr - align_pagesize(ird_size);
++	initrd_size = ird_size;
++	/* update free_mem_ptr so malloc() still works */
++	free_mem_ptr = initrd_start;
++#ifdef DEBUG
++	printf("memory_end %x %x\n", free_mem_ptr, initrd_start);
++#endif
++
++	nblocks = align_512(ird_size)/ 512;
++	printf("aboot: loading initrd (%d bytes/%d blocks) at %#lx\n",
++		ird_size, nblocks, initrd_start);
++	nread = (*bfs->bread)(-1, 0, nblocks, (char*) initrd_start);
++	return 0;
++}
++
+ 
+ long
+ load_kernel (void)
+ {
+-	long nbytes;
+-
++	struct header *header;
+ 	bfs = &netfs;
+ 
++	header =  (struct header *)align_512( (unsigned long)&_end );
++	header_size = header->header_size;
++	kern_src = (char *)align_512((unsigned long)header + header_size);
++	kern_size = header->kern_size;
++	ird_src = (char *)align_512((unsigned long)kern_src + kern_size);
++	ird_size = header->ird_size;
++
++	if (!free_mem_ptr)
++		free_mem_ptr = memory_end();
++	free_mem_ptr = free_mem_ptr & ~(PAGE_SIZE-1);
++
++#ifdef DEBUG
++	printf("head %x %x kernel %x %x, initrd %x %x \n", header, header_size, kern_src, kern_size, ird_src, ird_size);
++#endif
++
++	if (ird_size) {
++		src = ird_src;
++		if (read_initrd() < 0) {
++			return -1;
++		}
++	}
++
+ 	strcpy(boot_file, "network");
++
++	//Move kernel to safe place before uncompression
++	src = (char*)free_mem_ptr - align_pagesize(kern_size);
++	(char*)free_mem_ptr = src;
++	memcpy(src, kern_src, kern_size);
++
+ 	uncompress_kernel(-1);
+ 
+ 	memset((char*)bss_start, 0, bss_size);	        /* clear bss */
+ 
++	if (!kernel_args[0] && header->boot_arg[0]) { //have argument?
++		strncpy(kernel_args, header->boot_arg, header_size - sizeof(int)*3);
++	}
++
+ 	while (kernel_args[0] == 'i' && !kernel_args[1]) {
+ 	    printf("Enter kernel arguments:\n");
+ 	    printf("aboot> ");
+@@ -92,3 +143,4 @@
+ 	}
+ 	return 0;
+ }
++
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/netabootwrap.c ab/netabootwrap.c
+--- /usr/src/redhat/BUILD/aboot-0.7a/netabootwrap.c	Wed Dec 31 19:00:00 1969
++++ ab/netabootwrap.c	Wed Dec 27 19:09:54 2000
+@@ -0,0 +1,186 @@
++
++#include <asm/console.h>
++#include <asm/system.h>
++#include <stdio.h>
++#include <fcntl.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include "netwrap.h"
++#include "bootloader.h"
++
++
++char *tfn="netboot.img", *kfn="vmlinux.gz", *ifn=NULL, *barg=NULL;
++char *progname;
++
++void print_usage(void )
++{
++	printf("Following shows options and default values or example value\n");
++	printf("%s -t netboot.img -k vmlinux.gz -i initrd.gz -a \"root=/dev/hda1 single\"\n", progname);
++	exit(1);
++}
++
++void open_file(char *fn, int *fd, int *sz)
++{
++	struct stat buf;
++
++	*fd = open(fn, O_RDONLY);
++	if (fd < 0) {
++		fprintf(stderr, "%s: Cannot open %s\n", progname, fn);
++		print_usage();
++		exit(1);
++	}
++
++	fstat(*fd, &buf);
++
++	if (buf.st_size <= 10*1024) {
++		fprintf(stderr, "%s:Is this a right file %s, size = %d\n", progname, fn, (int)buf.st_size);
++		print_usage();
++		exit(1);
++	}
++
++	*sz = buf.st_size;
++}
++
++void append_file(int tfd, int sfd)
++{
++	char buf[4096];
++	int  red;
++
++	while ((red=read(sfd, buf, 4096)))
++		write(tfd, buf, red);
++}
++
++int main(int argc, char **argv)
++{
++	int tfd=0, kfd=0, ifd=0, ksz=0, isz=0;
++	struct header hdr;
++	char *stmp;
++
++	progname=argv[0];
++
++	/*
++	 * Read switches.
++	 */
++	for (argc--, argv++; argc > 0; argc--, argv++) {
++		if (argv[0][0] != '-')
++			break;
++		switch (argv[0][1]) {
++
++		case 't':				/* override hostname */
++			if (argv[0][2]) {
++				stmp = &(argv[0][2]);
++			} else {
++				argc--;
++				argv++;
++				stmp = argv[0];
++			}
++			if (!stmp) {
++				fprintf(stderr,
++						"bootpd: missing hostname\n");
++				break;
++			}
++			tfn = stmp;
++			break;
++		case 'k':				/* override hostname */
++			if (argv[0][2]) {
++				stmp = &(argv[0][2]);
++			} else {
++				argc--;
++				argv++;
++				stmp = argv[0];
++			}
++			if (!stmp) {
++				fprintf(stderr,
++						"bootpd: missing hostname\n");
++				break;
++			}
++			kfn = stmp;
++			break;
++		case 'i':				/* override hostname */
++			if (argv[0][2]) {
++				stmp = &(argv[0][2]);
++			} else {
++				argc--;
++				argv++;
++				stmp = argv[0];
++			}
++			if (!stmp) {
++				fprintf(stderr,
++						"bootpd: missing hostname\n");
++				break;
++			}
++			ifn = stmp;
++			break;
++		case 'a':				/* override hostname */
++			if (argv[0][2]) {
++				stmp = &(argv[0][2]);
++			} else {
++				argc--;
++				argv++;
++				stmp = argv[0];
++			}
++			if (!stmp) {
++				fprintf(stderr,
++						"bootpd: missing hostname\n");
++				break;
++			}
++			barg = stmp;
++			break;
++		default:
++			fprintf(stderr, "%s: unknown switch: -%c\n",
++					progname, argv[0][1]);
++			print_usage();
++			break;
++
++		} /* switch */
++	} /* for args */
++
++	open_file(kfn, &kfd, &ksz);
++
++	if (ifn)
++		open_file(ifn, &ifd, &isz);
++
++	printf("Target file name is %s\n", tfn);
++	unlink(tfn);
++	tfd = open(tfn, O_RDWR|O_CREAT, 0644);
++
++	write(tfd, bootloader, sizeof(bootloader));
++
++	hdr.header_size = sizeof(int)*3;
++	hdr.kern_size = ksz;
++	hdr.ird_size = isz;
++
++	if (barg) printf("With arguments : %s \n", barg);
++	else printf("Without kernel argument\n");
++
++	if (barg) {
++		if (strlen(barg) >= 200) {
++			printf("Argument is too long\n");
++			exit(1);
++		}
++		strncpy(hdr.boot_arg, barg, strlen(barg)+1);
++		hdr.header_size += strlen(barg)+1;
++	}
++
++	lseek(tfd, align_512(sizeof(bootloader)), SEEK_SET);
++	write(tfd, &hdr, hdr.header_size);
++
++	printf("Binding kernel %s\n", kfn);
++	lseek(tfd, align_512((unsigned long)lseek(tfd, 0, SEEK_CUR)), SEEK_SET);
++	append_file(tfd, kfd);
++
++	if (ifn) {
++		printf("Binding initrd %s\n", ifn);
++		lseek(tfd, align_512((unsigned long)lseek(tfd, 0, SEEK_CUR)), SEEK_SET);
++		append_file(tfd, ifd);
++	}
++
++	close(tfd);
++	printf("Done.\n");
++	return 0;
++}
++
++
++
+diff -Naur /usr/src/redhat/BUILD/aboot-0.7a/netwrap.h ab/netwrap.h
+--- /usr/src/redhat/BUILD/aboot-0.7a/netwrap.h	Wed Dec 31 19:00:00 1969
++++ ab/netwrap.h	Wed Dec 27 19:10:09 2000
+@@ -0,0 +1,17 @@
++struct header {
++	int header_size;
++	int kern_size;
++	int ird_size; 
++	char boot_arg[200]; 
++} ;
++
++unsigned long align_pagesize(unsigned long v)
++{
++        return ((v + (PAGE_SIZE-1)) & ~(PAGE_SIZE-1));
++}
++
++unsigned long align_512(unsigned long v)
++{
++        return ((v + 511) & ~511);
++}
++
+

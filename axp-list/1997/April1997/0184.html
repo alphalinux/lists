@@ -1,0 +1,194 @@
+<!-- received="Fri Apr  4 11:34:11 1997 " -->
+<!-- sent="04 Apr 1997 18:27:47 +0200" -->
+<!-- name="Markus Dickebohm" -->
+<!-- email="m.dickebohm@uni-koeln.de" -->
+<!-- subject="Re: XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)" -->
+<!-- id="199704041623.JAA08767@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Fri, 4 Apr 1997 08:57:12 -0700" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: XEmacs 19.15 success (was: XEmacs 19.15 on Linux Alpha)</h2>
+
+<b>Markus Dickebohm</b> (<a href="mailto:m.dickebohm@uni-koeln.de"><i>m.dickebohm@uni-koeln.de</i></a>)<br>
+<i>04 Apr 1997 18:27:47 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#184">[ date ]</a><a href="index.html#184">[ thread ]</a><a href="subject.html#184">[ subject ]</a><a href="author.html#184">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0185.html">Aaron: "X terms and X windows"</a>
+<li> <b>Previous message:</b> <a href="0183.html">Michal Jaegermann: "Re: ncr53c8xx support in 2.0.29"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt; Brady Montz schrieb am Fri, 4 Apr 1997 08:57:12 -0700:</i><br>
+<p>
+<i>&gt; I'm not on the axp-list, so I've only been following this from the</i><br>
+<i>&gt; xemacs newsgroups, so I've probably missed some stuff.</i><br>
+<p>
+I don't think, that you really missed something. It's just that I<br>
+wrote the message to the axp-list also.<br>
+<p>
+<i>&gt; If you could tell me what stuff you did besides the patch, I'll try</i><br>
+<i>&gt; to put a patch together and send it in again. I'll also stick it on</i><br>
+<i>&gt; my website.  As far as I can remember, it's only adding some stuff</i><br>
+<i>&gt; to make some files dynamically linked and getting the unexec code</i><br>
+<i>&gt; from emacs.</i><br>
+<p>
+Yes, I think this is it primarily: in my posting to comp.emacs.xemacs<br>
+I already wrote which additional patches were necessary. I add the<br>
+diff's against XEmacs-19.15 at the end of this message.<br>
+<p>
+Just to be sure that I don't forget anything I will enumerate the<br>
+additional requirements here:<br>
+	o steal unexelf1.c from FSF Emacs<br>
+        o make shared libraries from liblw.a and libcompface.a (this<br>
+          is why I thought that patches are a bit useless...)<br>
+        o add "-rpath=/usr/libexec/xemacs-19.15/alpha-linux" to<br>
+          ldflags in src/Makefile<br>
+        o place the two shared libaries in the directory mentioned<br>
+          above  <br>
+<p>
+Many thanks again for your help in getting XEmacs-19.15 to run on<br>
+Linux Alpha again. I'm really happy about this.<br>
+<p>
+Have a nice weekend,<br>
+Markus<br>
+<p>
+= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =<br>
+<p>
+diff -u -r xemacs-19.15/src/gmalloc.c xemacs-19.15-new/src/gmalloc.c<br>
+--- xemacs-19.15/src/gmalloc.c	Sun Mar  2 04:44:23 1997<br>
++++ xemacs-19.15-new/src/gmalloc.c	Fri Apr  4 15:38:48 1997<br>
+@@ -1299,8 +1299,8 @@<br>
+ #ifdef __GNU_LIBRARY__<br>
+ /* It is best not to declare this and cast its result on foreign operating<br>
+    systems with potentially hostile include files.  */<br>
+-#if !(defined(linux) &amp;&amp; defined(sparc))<br>
+-extern __ptr_t __sbrk __P ((int increment));<br>
++#ifndef linux<br>
++ extern __ptr_t __sbrk __P ((int increment)); <br>
+ #endif<br>
+ #endif<br>
+ #endif<br>
+diff -u -r xemacs-19.15/src/m/alpha.h xemacs-19.15-new/src/m/alpha.h<br>
+--- xemacs-19.15/src/m/alpha.h	Wed Dec 18 04:39:06 1996<br>
++++ xemacs-19.15-new/src/m/alpha.h	Fri Apr  4 15:07:06 1997<br>
+@@ -25,7 +25,7 @@<br>
+    USUAL-OPSYS="note"<br>
+ <br>
+ NOTE-START<br>
+-Use -opsystem=osf1<br>
++Use -opsystem=linux<br>
+ NOTE-END<br>
+ <br>
+ */<br>
+@@ -106,7 +106,14 @@<br>
+    Define neither one if an assembler-language alloca<br>
+    in the file alloca.s should be used.  */<br>
+ <br>
++/* If compiling with GCC, let GCC implement alloca.  */<br>
++#if defined(__GNUC__) &amp;&amp; !defined(alloca)<br>
++#define alloca(n) __builtin_alloca(n)<br>
+ #define HAVE_ALLOCA<br>
++#else<br>
++#define HAVE_ALLOCA<br>
++#endif<br>
++<br>
+ <br>
+ /* GNU malloc and the relocating allocator do not work together<br>
+    with X.   [Who wrote that?]  */<br>
+@@ -149,8 +156,10 @@<br>
+ <br>
+ /* Describe layout of the address space in an executing process.  */<br>
+ <br>
++#ifndef __ELF__<br>
+ #define TEXT_START    0x120000000<br>
+ #define DATA_START    0x140000000<br>
++#endif<br>
+ <br>
+ #if 0 /* #### XEmacs: see below */<br>
+ /* This is necessary for mem-limits.h, so that start_of_data gives<br>
+@@ -181,17 +190,17 @@<br>
+ #ifdef OSF1<br>
+ #define LIBS_DEBUG<br>
+ #define START_FILES pre-crt0.o <br>
++#define UNEXEC unexalpha.o<br>
+ #endif /* OSF1 */<br>
+ <br>
+ #ifdef LINUX<br>
+ /* This controls a conditional in main.  */<br>
+-#define LINUX_SBRK_BUG<br>
++#define UNEXEC unexelf1.o<br>
++#undef LINUX_SBRK_BUG<br>
+ #endif /* LINUX */<br>
+ <br>
+ /* The program to be used for unexec. */<br>
+ <br>
+-#define UNEXEC unexalpha.o<br>
+-<br>
+ #define PNTR_COMPARISON_TYPE unsigned long<br>
+ <br>
+ #if 0<br>
+@@ -226,10 +235,10 @@<br>
+   while (0)<br>
+ #endif /* OSF1 */<br>
+ <br>
+-#ifdef linux<br>
++#ifndef linux<br>
+ #define COFF<br>
+ #define TEXT_END ({ extern int _etext; &amp;_etext; })<br>
+-#define DATA_END ({ extern int _EDATA; &amp;_EDATA; })<br>
++#define DATA_END ({ extern int _EDATA; &amp;_EDATA; }) */<br>
+ #endif /* linux */<br>
+ <br>
+ /* XEmacs: The Dec CC compiler (but apparently not GCC, which uses different<br>
+diff -u -r xemacs-19.15/src/s/linux.h xemacs-19.15-new/src/s/linux.h<br>
+--- xemacs-19.15/src/s/linux.h	Wed Mar 26 05:34:49 1997<br>
++++ xemacs-19.15-new/src/s/linux.h	Thu Apr  3 12:51:03 1997<br>
+@@ -190,8 +190,8 @@<br>
+ #define HAVE_RINT 1<br>
+ <br>
+ #ifdef __ELF__<br>
+-#define UNEXEC unexelf.o<br>
+-#define UNEXEC_USE_MAP_PRIVATE<br>
++/* #define UNEXEC unexelf.o<br>
++#define UNEXEC_USE_MAP_PRIVATE */<br>
+ #endif<br>
+ <br>
+ #ifdef LINUX_QMAGIC<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0185.html">Aaron: "X terms and X windows"</a>
+<li> <b>Previous message:</b> <a href="0183.html">Michal Jaegermann: "Re: ncr53c8xx support in 2.0.29"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

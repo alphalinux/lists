@@ -1,0 +1,117 @@
+<!-- received="Sun Dec  8 21:29:24 1996 " -->
+<!-- sent="Sun, 8 Dec 1996 19:25:28 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@azstarnet.com" -->
+<!-- subject="memchr() bug" -->
+<!-- id="199612090225.TAA06520@panda.mosberger" -->
+<!-- inreplyto="¨Ö	@¨Ö	@requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>memchr() bug</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>memchr() bug</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@azstarnet.com"><i>davidm@azstarnet.com</i></a>)<br>
+<i>Sun, 8 Dec 1996 19:25:28 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#339">[ date ]</a><a href="index.html#339">[ thread ]</a><a href="subject.html#339">[ subject ]</a><a href="author.html#339">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0340.html">David Mosberger-Tang: "is Kenetics alive?"</a>
+<li> <b>Previous message:</b> <a href="0338.html">Erik Troan: "Re: Ftp install problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Recently, I started to notice segfaults by various programs (like<br>
+sendmail or amd) on the Linux/Alpha machine that I use in the<br>
+department.  I'm not sure what triggers the problem (I haven't seen<br>
+these faults on the machines at home), but it looks like there is a<br>
+bug in memchr (my fault): the Linux man-page isn't very explicit about<br>
+whether _all_ of the memory area specified by a memchr() call needs to<br>
+be accessible or not.  The DEC Unix man page is very explicit,<br>
+however:<br>
+<p>
+<p>
+  The memchr() function sequentially searches the string at the location<br>
+			^^^^^^^^^^^^<br>
+  pointed to by the s parameter until one of the following occurs:<br>
+<p>
+    +  The character specified by the c parameter, which is converted to an<br>
+       unsigned char, is encountered.<br>
+<p>
+    +  The number of characters specified by the n parameter have been copied<br>
+       to the string at location s.<br>
+<p>
+In other words, if memchr() is called with arguments that guarantee<br>
+that the searched character is present in the string, then the count<br>
+parameter (third parameter) can be arbitrarily large and the function<br>
+must still work properly.  For example, the following program must<br>
+execute without a segfault:<br>
+<p>
+int<br>
+main (int argc, char ** argv)<br>
+{<br>
+    const char * str = "";<br>
+<p>
+    return memchr(str, '\0', 1000000);<br>
+}<br>
+<p>
+Unfortunately, with libc-1.93 as it comes with RH4.0, this is not the<br>
+case (i.e., the program will segfault).  I appended a patch that<br>
+should fix this problem.<br>
+<p>
+	--david<br>
+<pre>
+--
+--- memchr.S-orig	Sun Dec  8 19:13:30 1996
++++ memchr.S	Sun Dec  8 19:13:41 1996
+@@ -46,7 +46,6 @@
+         ldq_u   t0, 0(a0)       # load first quadword (a0 may be misaligned)
+ 	addq	a0, a2, t4
+ 	and	a1, 0xff, a1	# a1 = 00000000000000ch
+-	ldq_u	t5, -1(t4)
+ 	sll	a1,  8, t1	# t1 = 000000000000ch00
+ 	cmpult	a2, 9, t3
+ 	or	t1, a1, a1	# a1 = 000000000000chch
+@@ -59,6 +58,7 @@
+ 
+ 	beq	t3, $first_quad
+ 
++	ldq_u	t5, -1(t4)
+ 	extqh	t5, a0, t5
+ 	mov	a0, v0
+ 	or	t6, t5, t0	# t0 = quadword starting at a0
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0340.html">David Mosberger-Tang: "is Kenetics alive?"</a>
+<li> <b>Previous message:</b> <a href="0338.html">Erik Troan: "Re: Ftp install problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

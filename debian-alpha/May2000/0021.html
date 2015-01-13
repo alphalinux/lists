@@ -1,0 +1,206 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: More issues with the lsparc 64 bit stuff</TITLE>
+<META NAME="Author" CONTENT="Ben Collins (bcollins@debian.org)">
+<META NAME="Subject" CONTENT="Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so</H1>
+<HR>
+<P>
+<!-- received="Thu May 04 01:33:08 2000" -->
+<!-- isoreceived="20000504083308" -->
+<!-- sent="Wed, 3 May 2000 16:45:24 -0400" -->
+<!-- isosent="20000503204524" -->
+<!-- name="Ben Collins" -->
+<!-- email="bcollins@debian.org" -->
+<!-- subject="Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so" -->
+<!-- id="20000503164524.V512@visi.net" -->
+<!-- inreplyto="87og6nebg6.fsf@linuxcare.com" -->
+<STRONG>Subject: </STRONG>Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so<BR>
+<STRONG>From: </STRONG>Ben Collins (<EM>bcollins@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 03 2000 - 13:45:24 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#21">[ date ]</A>
+<A HREF="index.html#21">[ thread ]</A>
+<A HREF="subject.html#21">[ subject ]</A>
+<A HREF="author.html#21">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Christopher W. Curtis: "Re: Alpha (Multia) - NFS server"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0019.html">David Huggins-Daines: "More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0019.html">Ben Collins: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, May 03, 2000 at 02:27:21PM -0400, David Huggins-Daines wrote:
+<BR>
+<EM>&gt; Well, I didn't even get to file a bug report and patch to ld.so before
+</EM><BR>
+<EM>&gt; the new package was uploaded, and I spent several hours today tracking
+</EM><BR>
+<EM>&gt; the problem, too.  I guess I should get into the habit of tracking
+</EM><BR>
+<EM>&gt; incoming for this sort of thing.  It sure would be nice if (a) the BTS
+</EM><BR>
+<EM>&gt; were faster, and (b) people would copy bug reports to the appropriate
+</EM><BR>
+<EM>&gt; mailing lists so as to avoid duplication of effort.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Anyway, regarding the LIB_ELF64 flag:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  a) It's only relevant to architectures that have a single dynamic
+</EM><BR>
+<EM>&gt;     loader that handles both 32 and 64 bit libraries (currently Sparc,
+</EM><BR>
+<EM>&gt;     maybe also PowerPC in the future, but definitely not Alpha or
+</EM><BR>
+<EM>&gt;     IA-64, ever)
+</EM><BR>
+<P>sparc has seperate dynamic loaders for 32 and 64 bit code. AFAIK, you
+<BR>
+can't load 64bit from a 32bit program, atleast not on sparc. Which is why
+<BR>
+we have gotten Wichert to use objdump (and hopefully soon I can convert
+<BR>
+him to readelf) in order to get library deps for dpkg-shlibdeps.
+<BR>
+<P><EM>&gt;  b) It's not handled at all by the current ld-linux.so code.  In fact,
+</EM><BR>
+<EM>&gt;     ld-linux.so has LIB_ELF and LIB_ELF_LIBC6 as magic numbers in its
+</EM><BR>
+<EM>&gt;     cache searching code (line 203,
+</EM><BR>
+<EM>&gt;     glibc-2.1.3/sysdeps/generic/dl-cache.c in the glibc source tree):
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; 	  if ((flags == 1 || flags == 3)
+</EM><BR>
+<EM>&gt; 	      &amp;&amp; cache-&gt;libs[middle].value &lt; cachesize - sizeof *cache)
+</EM><BR>
+<P>This is completely different from glibc 2.2 CVS. Debian/SPARC wont be
+<BR>
+using 64bit until 2.2 is released, so I suggest checking into that. From
+<BR>
+elf/elf.h in glibc CVS:
+<BR>
+<P>#define ELFCLASS32      1               /* 32-bit objects */
+<BR>
+#define ELFCLASS64      2               /* 64-bit objects */
+<BR>
+<P>This appears to be pretty generic (and further down there are SPARC
+<BR>
+specific things). I'm not too familiar with this, so I'm not sure I'm on
+<BR>
+the same track as you are.
+<BR>
+<P><EM>&gt;  c) We have a patch for our libc on Sparc that has its own version of
+</EM><BR>
+<EM>&gt;     ldconfig, and this version of ldconfig uses a *different* flag to
+</EM><BR>
+<EM>&gt;     indicate ELF64 libraries (debian/patches/ldconfig.dpatch in the
+</EM><BR>
+<EM>&gt;     glibc source tree):
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; +#define FLAG_ANY		-1
+</EM><BR>
+<EM>&gt; +#define FLAG_TYPE_MASK		0x00ff
+</EM><BR>
+<EM>&gt; +#define FLAG_LIBC4		0x0000
+</EM><BR>
+<EM>&gt; +#define FLAG_ELF		0x0001
+</EM><BR>
+<EM>&gt; +#define FLAG_ELF_LIBC5		0x0002
+</EM><BR>
+<EM>&gt; +#define FLAG_ELF_LIBC6		0x0003
+</EM><BR>
+<EM>&gt; +#define FLAG_REQUIRED_MASK	0xff00
+</EM><BR>
+<EM>&gt; +#define FLAG_SPARC_LIB64	0x0100
+</EM><BR>
+<EM>&gt;                                 ^^^^^^
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It would be nice to have some consistency between the various things
+</EM><BR>
+<EM>&gt; that read and write the ld.so.cache (and no more magic numbers).  The
+</EM><BR>
+<EM>&gt; way that ldconfig.dpatch does things looks to be more correct to me,
+</EM><BR>
+<EM>&gt; but it also constitutes a backwards-incompatible change to the cache
+</EM><BR>
+<EM>&gt; format and so not only do we have to coordinate a fix to glibc but
+</EM><BR>
+<EM>&gt; also the upgrade needs to be handled carefully.
+</EM><BR>
+<P>Is this even used? Did you check that Joel was actually applying the patch
+<BR>
+in the rules file? I know he has some stubs for 64bit sparc, but none of
+<BR>
+it is being used yet, AFAIK. Also note that Debian/SPARC currently has 0
+<BR>
+64bit support in userspace, so the cache wont be non-compatible, because
+<BR>
+there should be 0 entries anyway. Plus, the ldconfig on Debian systems
+<BR>
+still comes from ldso package, so glibc's patches shouldn't matter.
+<BR>
+<P><EM>&gt; The Sparc people should probably sit down and figure out a good way to
+</EM><BR>
+<EM>&gt; do all this that won't break other archs.
+</EM><BR>
+<P>I haven't looked at what is done for alpha, powerpc, or ia64, but I don't
+<BR>
+see anything that is specific to sparc in the way it handles 32/64 bit
+<BR>
+hybrid caches in glibc 2.2 CVS.
+<BR>
+<P><PRE>
+-- 
+ -----------=======-=-======-=========-----------=====------------=-=------
+/  Ben Collins  --  ...on that fantastic voyage...  --  Debian GNU/Linux   \
+`  bcollins@debian.org  --  bcollins@openldap.org  --  bcollins@linux.com  '
+ `---=========------=======-------------=-=-----=-===-======-------=--=---'
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0020.html">Christopher W. Curtis: "Re: Alpha (Multia) - NFS server"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0019.html">David Huggins-Daines: "More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0022.html">David Huggins-Daines: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0019.html">Ben Collins: "Re: More issues with the lsparc 64 bit stuff vs. other 64 bit archs in ldconfig/ld.so"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:26 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

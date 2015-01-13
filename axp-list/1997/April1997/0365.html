@@ -1,0 +1,135 @@
+<!-- received="Wed Apr  9 02:33:32 1997 " -->
+<!-- sent="Wed, 9 Apr 1997 02:28:56 -0400 (EDT)" -->
+<!-- name="Jeff Odom" -->
+<!-- email="zeus@jhu.edu" -->
+<!-- subject="Re: Kernel 2.1.32" -->
+<!-- id="3.0.1.32.19970408232101.006d375c@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Kernel 2.1.32" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Kernel 2.1.32</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Kernel 2.1.32</h2>
+
+<b>Jeff Odom</b> (<a href="mailto:zeus@jhu.edu"><i>zeus@jhu.edu</i></a>)<br>
+<i>Wed, 9 Apr 1997 02:28:56 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#365">[ date ]</a><a href="index.html#365">[ thread ]</a><a href="subject.html#365">[ subject ]</a><a href="author.html#365">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0366.html">joe: "Re: AlphaServer 400 4/233"</a>
+<li> <b>Previous message:</b> <a href="0364.html">Javier Henderson: "AlphaServer 400 4/233"</a>
+<li> <b>Maybe in reply to:</b> <a href="0239.html">Matthew Geier: "Kernel 2.1.32"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sun, 6 Apr 1997, Tim Waugh wrote:<br>
+<p>
+On Sun, 6 Apr 1997, Matthew Geier wrote:                       <br>
+<p>
+<i>&gt;</i><br>
+<i>&gt; Ok, what did I do...</i><br>
+<i>&gt; sleeper:/usr/src/linux&gt; make</i><br>
+<i>&gt; gcc -D__KERNEL__ -I/u1/src/linux/include -Wall -Wstrict-prototypes -O2</i><br>
+-fomit<br>
+-frame-pointer -pipe -mno-fp-regs -ffixed-8  -c -o init/main.o init/main.c<br>
+<i>&gt; In file included from init/main.c:40:</i><br>
+<i>&gt; /u1/src/linux/include/asm/io.h:41: macro `swpipl' used with just one arg  </i><br>
+<i>&gt; /u1/src/linux/include/asm/io.h: In function `set_hae':</i><br>
+<i>&gt; In file included from init/main.c:40:</i><br>
+<i>&gt; /u1/src/linux/include/asm/io.h:41: parse error before `__asm__'</i><br>
+<i>&gt; make: *** [init/main.o] Error 1               </i><br>
+<i>&gt; sleeper:/usr/src/linux&gt;                                             </i><br>
+<i>&gt;</i><br>
+<i>&gt;  Kernel 2.1.31 failed at the same point, and it was a clean unpack</i><br>
+<i>&gt; of the 2.1.31 tree. Patching to .32 didnt seem to help.   </i><br>
+<p>
+The fix for this is something like:                                   <br>
+<p>
+--- include/asm-alpha/io.h~     Sun Apr  6 15:37:16 1997       <br>
++++ include/asm-alpha/io.h      Sun Apr  6 15:37:18 1997<br>
+@@ -38,7 +38,8 @@<br>
+  */                  <br>
+<p>
+ extern inline void set_hae(unsigned long new_hae)<br>
+ {                                                                             <br>
+-       unsigned long ipl = swpipl(7);                                    <br>
++       unsigned long ipl;             <br>
++       swpipl(ipl,7);                                                      <br>
+        hae.cache = new_hae;                            <br>
+        *hae.reg = new_hae;            <br>
+        mb();                                                    <br>
+<p>
+This gets it over the compile problem, but the final link fails for me<br>
+(local_intr_count and synchronise_irq).<br>
+<p>
+Tim.   <br>
+*/<br>
+<p>
+Looking at the asm-i386/hardirq.h file, I see synchronize_irq defined as:<br>
+<p>
+#define synchronize_irq()       do { } while (0)<br>
+<p>
+Considering that the call to synchronize_irq() is the only new line<br>
+since 2.0.29 in the function de4x5_interrupt() in drivers/net/de4x5.c<br>
+(aside from removing another line later on in that function), and it<br>
+doesn't even do anything on the intel model, I think this is a pretty<br>
+resonable patch.<br>
+<p>
+Doing something similar for local_irq_count, it seems to expect an integer<br>
+array. Looks like this this array comes out of the code shared by both<br>
+SMP and non-SMP systems.  In arch/i386/kernel/irq.c, there is a line<br>
+<p>
+unsigned int local_irq_count[NR_CPUS];<br>
+<p>
+In the file include/linux/tasks.h, NR_CPUS is defined to be 1 for non-SMP<br>
+systems.<br>
+<p>
+So it seems that while support was being added for i386 non-SMP stuff,<br>
+non-i386 archs weren't being taken care of.  I just tacked that line onto<br>
+arch/alpha/kernel/irq.c, and now it compiles.<br>
+<p>
+Unfortunately, now, I get stuck at the network initialization stage. :(<br>
+<p>
+Jeff Odom<br>
+System Administrator<br>
+The Johns Hopkins Krieger Mind/Brain Institute<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0366.html">joe: "Re: AlphaServer 400 4/233"</a>
+<li> <b>Previous message:</b> <a href="0364.html">Javier Henderson: "AlphaServer 400 4/233"</a>
+<li> <b>Maybe in reply to:</b> <a href="0239.html">Matthew Geier: "Kernel 2.1.32"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

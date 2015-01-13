@@ -1,0 +1,115 @@
+<!-- received="Mon Aug  5 23:26:51 1996 " -->
+<!-- sent="Mon, 5 Aug 1996 20:26:37 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl" -->
+<!-- id="199608060326.UAA27007@panda.azstarnet.com" -->
+<!-- inreplyto="Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Mon, 5 Aug 1996 20:26:37 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#124">[ date ]</a><a href="index.html#124">[ thread ]</a><a href="subject.html#124">[ subject ]</a><a href="author.html#124">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0125.html">Bill Broadley: "Re: RedHat mirrors"</a>
+<li> <b>Previous message:</b> <a href="0123.html">Brian Walters: "ftp? Why so tight?"</a>
+<li> <b>Maybe in reply to:</b> <a href="0122.html">Wim van Dorst: "Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Tue, 6 Aug 1996 00:19:59 +0200 (CEST), <a href="mailto:baron@clifton.hobby.nl">baron@clifton.hobby.nl</a> (Wim van Dorst) said:</i><br>
+<p>
+  Wim&gt; On the one hand, Alphas don't have segmentation (says<br>
+  Wim&gt; ~linux/asm-alpha/segment.h), but on the other hand, the<br>
+  Wim&gt; verify_area() in ~linux/mm/memory.c checks for it, and thus<br>
+  Wim&gt; cannot find a vma to verify (thus EFAULT).<br>
+<p>
+  Wim&gt; While debugging this latter function, it appears that it is not<br>
+  Wim&gt; so much used as I thought. Where do I misunderstand the use of<br>
+  Wim&gt; verify_area, or is the use so little that it hasn't been noted<br>
+  Wim&gt; yet?<br>
+<p>
+  Wim&gt; When someone knowledgeable would be so kind as to explain the<br>
+  Wim&gt; vma-stuff to me, I would be most obliged.<br>
+<p>
+This is a known problem---it occurred with the (initial) ELF patches<br>
+and with knfsd as well.  We discussed this briefly and Linus suggested<br>
+that we emulate the get_fs()/set_fs() calls to keep track whether what<br>
+the current "fs" value is---if get_fs()==KERNEL_DS, argument checking<br>
+is bypassed (interpreted liberally) and otherwise, argument checking<br>
+occurs.  I appended the relevant part of a mail by Linus that gives<br>
+some more detail.<br>
+<p>
+Needless to say, neither of us ever got around to do this.  On the<br>
+other hand, I'm quite certain Linus would be happy to receive these<br>
+patches.  Or, if he doesn't want them for 2.0.x, I'll gladly<br>
+incorporate them into my patches.<br>
+<p>
+	--david<br>
+<p>
+<pre>
+--
+A more correct fix is to make a "shadow" fs in the "struct tss_struct", 
+and then modify the set_fs()/get_fs() stuff like this:
+<p>
+	#define set_fs(x)	(current-&gt;tss.segment = x)
+	#define get_fs()	(current-&gt;tss.segment)
+<p>
+instead of the current hard-coding of "get_fs()" to USER_DS (and then 
+fork() and friends would have to initialize tss.segment to USER_DS).
+<p>
+Does that fix it for you?
+<p>
+(I should also rename some functions:
+<p>
+	get_fs() -&gt; get_user_segment()
+	set_fs() -&gt; set_user_segment()
+	memcpy_fromfs() -&gt; memcpy_fromuser()
+	memcpy_tofs() -&gt; memcpy_touser()
+<p>
+etc, but I'm too lazy)
+<p>
+Feel free to send me patches..
+<p>
+		Linus
+<p>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0125.html">Bill Broadley: "Re: RedHat mirrors"</a>
+<li> <b>Previous message:</b> <a href="0123.html">Brian Walters: "ftp? Why so tight?"</a>
+<li> <b>Maybe in reply to:</b> <a href="0122.html">Wim van Dorst: "Linux/Alpha: VMA not found in verify_area() in SCSI-ioctl"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

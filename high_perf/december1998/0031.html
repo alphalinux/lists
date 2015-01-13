@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: Re: little unrolling trick</TITLE>
+<META NAME="Author" CONTENT="Adam C. Powell (hazelsct@MIT.EDU)">
+<META NAME="Subject" CONTENT="Re: little unrolling trick">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: little unrolling trick</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:35 1999 EST" -->
+<!-- sent="Sun, 20 Dec 1998 14:44:55 +0000" -->
+<!-- name="Adam C. Powell" -->
+<!-- email="hazelsct@MIT.EDU" -->
+<!-- subject="Re: little unrolling trick" -->
+<!-- id="367D0D60.C111AB59@mit.edu" -->
+<!-- inreplyto="36777c8c1153002@u8455.bs.ptb.de" -->
+<STRONG>Adam C. Powell</STRONG> (<A HREF="mailto:hazelsct@MIT.EDU?subject=Re:%20little%20unrolling%20trick"><EM>hazelsct@MIT.EDU</EM></A>)<BR>
+<EM>Sun, 20 Dec 1998 14:44:55 +0000</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#31">[ date ]</A>
+<A HREF="index.html#31">[ thread ]</A>
+<A HREF="subject.html#31">[ subject ]</A>
+<A HREF="author.html#31">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0030.html">Kazushige Goto: "how to optimize dgemm? No.4"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0028.html">Kazushige Goto: "how to optimize dgemm? No.3"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thomas Bruns wrote:
+<BR>
+<P><EM>&gt; Hi Adam,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt; From:          &quot;Adam C. Powell, IV&quot; &lt;<A HREF="mailto:hazelsct@MIT.EDU?subject=Re:%20little%20unrolling%20trick">hazelsct@MIT.EDU</A>&gt;
+</EM><BR>
+<EM>&gt; &gt; of a way to speed this up?  By the way, Thomas (Bruns), did you notice
+</EM><BR>
+<EM>&gt; &gt; any performance improvement using my little &quot;loop unrolling&quot; trick?
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Sorry, I did some other work on my app the last days so it took some
+</EM><BR>
+<EM>&gt; time to post results
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; your suggestion was:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt;for (row=0; row&lt;MaxRow; row++) {
+</EM><BR>
+<EM>&gt; &gt;  for(ptr=matrix_ptr[row];  ptr&lt;matrix_ptr[row+1]-5; ptr+=6) {
+</EM><BR>
+<EM>&gt; &gt;    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+</EM><BR>
+<EM>&gt; &gt;    vector[matrix_idx[ptr+1]] +=
+</EM><BR>
+<EM>&gt; &gt;    matrix[ptr+1]*vector[matrix_idx[ptr+1]]; vector[matrix_idx[ptr+2]]
+</EM><BR>
+<EM>&gt; &gt;    += matrix[ptr+2]*vector[matrix_idx[ptr+2]];
+</EM><BR>
+<EM>&gt; &gt;    vector[matrix_idx[ptr+3]] +=
+</EM><BR>
+<EM>&gt; &gt;    matrix[ptr+3]*vector[matrix_idx[ptr+3]]; vector[matrix_idx[ptr+4]]
+</EM><BR>
+<EM>&gt; &gt;    += matrix[ptr+4]*vector[matrix_idx[ptr+4]];
+</EM><BR>
+<EM>&gt; &gt;    vector[matrix_idx[ptr+5]] +=
+</EM><BR>
+<EM>&gt; &gt;    matrix[ptr+5]*vector[matrix_idx[ptr+5]]; }
+</EM><BR>
+<EM>&gt; &gt;  while(ptr&lt;matrix_ptr[row+1]) {
+</EM><BR>
+<EM>&gt; &gt;    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+</EM><BR>
+<EM>&gt; &gt;    ptr++; }}
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; But, I think this can´t be right, since you modify the vector you
+</EM><BR>
+<EM>&gt; need to multiply with ???
+</EM><BR>
+<P>Oops!  You're absolutely right.  My mistake. :-)
+<BR>
+<P><EM>&gt; Anyway your `little unrolling trick´ gave me the direction to some
+</EM><BR>
+<EM>&gt; faster code:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; my suggestion:
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; for (row=0; row&lt;MaxRow; row ++)
+</EM><BR>
+<EM>&gt;         {
+</EM><BR>
+<EM>&gt;         result[row] = 0;
+</EM><BR>
+<EM>&gt;         for (ptr=matrix_ptr[row]; ptr&lt;matrix_ptr[row+1]-5;  ptr += 6)
+</EM><BR>
+<EM>&gt;                 result[row] += matrix[ptr]*vector[matrix_idx[ptr]]
+</EM><BR>
+<EM>&gt;                                 +matrix[ptr+1]*vector[matrix_idx[ptr+1]]
+</EM><BR>
+<EM>&gt;                                 +matrix[ptr+2]*vector[matrix_idx[ptr+2]]
+</EM><BR>
+<EM>&gt;                                 +matrix[ptr+3]*vector[matrix_idx[ptr+3]]
+</EM><BR>
+<EM>&gt;                                 +matrix[ptr+4]*vector[matrix_idx[ptr+4]]
+</EM><BR>
+<EM>&gt;                                 +matrix[ptr+5]*vector[matrix_idx[ptr+5]];
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;         while (ptr &lt; matrix_ptr[row+1])
+</EM><BR>
+<EM>&gt;                 {
+</EM><BR>
+<EM>&gt;                 result[row] +=  matrix[ptr]*vector[matrix_idx[ptr]];
+</EM><BR>
+<EM>&gt;                 ptr ++;
+</EM><BR>
+<EM>&gt;                 }
+</EM><BR>
+<EM>&gt;         }
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; which gave me a speedup of about 30% in that routine, which is quite
+</EM><BR>
+<EM>&gt; good (I think) for now, because the matrices are quite small (~50x50
+</EM><BR>
+<EM>&gt; .... 100x100) with 8 to 30 non zeros in a row.
+</EM><BR>
+<P>That's great to hear!  Perhaps there is some hope for faster sparse matrix
+<BR>
+routines after all.  It's hard to know how big to make the &quot;blocks&quot;- six
+<BR>
+works here because your rows have at least 6 nonzeroes each.  For some
+<BR>
+applications, e.g. on structured grids, it might be more efficient to treat
+<BR>
+the &quot;matrix&quot; as a set of vectors and use level 1 BLAS to multiply them by
+<BR>
+vectors (again hoping &quot;vector&quot; and &quot;result&quot; stay in cache while the vectors
+<BR>
+that make up the matrix get swapped out).
+<BR>
+<P><EM>&gt; I did the timing with the times(....) routine of gnu-C, I don`t know
+</EM><BR>
+<EM>&gt; how accurate that is.
+</EM><BR>
+<P>That's what I use too. :-)
+<BR>
+<P><EM>&gt; So thank you very much for the inspiration !
+</EM><BR>
+<P>You're welcome.
+<BR>
+<P>Zeen,
+<BR>
+<P>-Adam      &quot;...the firmament sheweth His handywork&quot; (Ps 19:1)    ///
+<BR>
+............................................................__  ///|
+<BR>
+Adam &quot;Cold Fusion&quot; Powell IV Firmament Science &amp; Engineering\\\///_|
+<BR>
+<A HREF="http://lyre.mit.edu/~powell/">http://lyre.mit.edu/~powell/</A> Standing on the Solid State Rock\XX/  |MIGA
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0030.html">Kazushige Goto: "how to optimize dgemm? No.4"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0028.html">Kazushige Goto: "how to optimize dgemm? No.3"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:40 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,414 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Weird Compaq CCC / GCC interaction ?</H1> 
+	
+<!-- received="Tue Sep 26 09:40:04 2000" -->
+<!-- isoreceived="20000926164004" -->
+<!-- sent="Tue, 26 Sep 2000 09:55:12 +0100" -->
+<!-- isosent="20000926085512" -->
+<!-- name="David Addison" -->
+<!-- email="addy@quadrics.com" -->
+<!-- subject="Weird Compaq CCC / GCC interaction ?" -->
+<!-- id="010C86D15E4D1247B9A5DD312B7F5AA70BEC27@stegosaurus.bristol.quadrics.com" -->
+<STRONG>Subject: </STRONG>Weird Compaq CCC / GCC interaction ?<BR>
+<STRONG>From: </STRONG>David Addison (<EM>addy@quadrics.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Sep 26 01:55:12 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#519">[ date ]</A>
+<A HREF="index.shtml#519">[ thread ]</A>
+<A HREF="subject.shtml#519">[ subject ]</A>
+<A HREF="author.shtml#519">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0518.shtml">AWM@inel.gov: "Can't RSH/RLOGIN from RH5.2 node to RH6.2 node"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Help! Am I going mad or is there something obviously wrong with my C
+<BR>
+programming skills?
+<BR>
+&nbsp;
+<BR>
+Here are two very simple files to compile. What I have found is that if I
+<BR>
+compile the fn.c code using gcc and ccc for the main code, it gets the wrong
+<BR>
+answer. Whereas it works if I use either ccc or gcc for both. It also works
+<BR>
+if I compile the fn.c code with ccc and main with gcc.
+<BR>
+&nbsp;
+<BR>
+Anyone know what's wrong ... is this a bug with ccc or gcc ?
+<BR>
+&nbsp;
+<BR>
+cat fn.c
+<BR>
+&nbsp;
+<BR>
+unsigned int fn()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return (0xc00fc00f);
+<BR>
+}
+<BR>
+&nbsp;
+<BR>
+cat madness.c
+<BR>
+&nbsp;
+<BR>
+extern unsigned int fn();
+<BR>
+&nbsp;
+<BR>
+#define MAGIC 0xc00fc00f
+<BR>
+&nbsp;
+<BR>
+int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned int baseAddr;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;baseAddr = fn();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (baseAddr == MAGIC)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;GOOD baseAddr %x == %x\n&quot;, baseAddr, MAGIC);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;BADNESS baseAddr %x != %x\n&quot;, baseAddr, MAGIC);
+<BR>
+}
+<BR>
+<P>Then compile as follows;
+<BR>
+&nbsp;
+<BR>
+cc -O3 -c fn.c -o fn_gcc.o
+<BR>
+&nbsp;
+<BR>
+ccc -O3 -c fn.c -o fn_ccc.o
+<BR>
+&nbsp;
+<BR>
+ccc -O3 madness.c -o madness_gcc fn_gcc.o
+<BR>
+&nbsp;
+<BR>
+ccc -O3 madness.c -o madness_ccc fn_ccc.o
+<BR>
+&nbsp;
+<BR>
+Then run;
+<BR>
+&nbsp;
+<BR>
+./madness_ccc 
+<BR>
+GOOD baseAddr c00fc00f == c00fc00f
+<BR>
+<P>./madness_gcc 
+<BR>
+BADNESS baseAddr c00fc00f != c00fc00f
+<BR>
+<P>&nbsp;
+<BR>
+It starts working if I change the MAGIC constant to 0x400fc00f so that
+<BR>
+suggests sign problems ?
+<BR>
+&nbsp;
+<BR>
+Disassembling the fn code we see the only differences ...
+<BR>
+&nbsp;
+<BR>
+objdump -d fn_gcc.o 
+<BR>
+&nbsp;
+<BR>
+fn_gcc.o:     file format elf64-alpha
+<BR>
+&nbsp;
+<BR>
+Disassembly of section .text:
+<BR>
+&nbsp;
+<BR>
+0000000000000000 &lt;fn&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;0:   0f c0 1f 20     lda     v0,-16369(zero)
+<BR>
+&nbsp;&nbsp;&nbsp;4:   10 c0 00 24     ldah    v0,-16368(v0)
+<BR>
+&nbsp;&nbsp;&nbsp;8:   20 f6 01 48     zapnot  v0,0xf,v0
+<BR>
+&nbsp;&nbsp;&nbsp;c:   01 80 fa 6b     ret     zero,(ra),0x1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+<P>objdump -d fn_ccc.o 
+<BR>
+&nbsp;
+<BR>
+fn_ccc.o:     file format elf64-alpha
+<BR>
+&nbsp;
+<BR>
+Disassembly of section .text:
+<BR>
+&nbsp;
+<BR>
+0000000000000000 &lt;fn&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;0:   10 c0 1f 24     ldah    v0,-16368(zero)
+<BR>
+&nbsp;&nbsp;&nbsp;4:   1f 04 ff 47     nop
+<BR>
+&nbsp;&nbsp;&nbsp;8:   0f c0 00 20     lda     v0,-16369(v0)
+<BR>
+&nbsp;&nbsp;&nbsp;c:   01 80 fa 6b     ret     zero,(ra),0x1
+<BR>
+<P>&nbsp;
+<BR>
+GCC is inserting a ZAPNOT instruction to zero the top 4-bytes - is this
+<BR>
+correct ?
+<BR>
+Or is the main code compilation that is broken, I notice that ccc uses 'xor'
+<BR>
+to do the compare whereas gcc uses 'cmpeq' ?
+<BR>
+&nbsp;
+<BR>
+For the record, I am using Alpha RH6.1 with ccc (ccc-6.2.9.504-2) and gcc
+<BR>
+(egcs-2.91.66)
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+Cheers,
+<BR>
+Addy.
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+<P>&nbsp;
+<BR>
+<P><!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+
+
+<META content="MSHTML 5.00.2920.0" name=GENERATOR></HEAD>
+<BODY>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Help! Am I going mad 
+or is there something obviously wrong with my C programming 
+skills?</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Here are two very 
+simple files to compile. What I have found is that if I compile the fn.c code 
+using gcc and ccc for the main code, it gets the wrong answer. Whereas it works 
+if I use either ccc or gcc for both. It also works if I compile the fn.c code 
+with ccc and main with gcc.</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Anyone know what's 
+wrong ... is this a bug with ccc or gcc ?</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>cat 
+fn.c</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>&nbsp;<BR>unsigned 
+int fn()<BR>{<BR>&nbsp;&nbsp;&nbsp; return 
+(0xc00fc00f);<BR>}</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>cat 
+madness.c</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>&nbsp;</DIV></SPAN></FONT>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>extern unsigned int 
+fn();</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>#define MAGIC 
+0xc00fc00f</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>int 
+main()<BR>{<BR>&nbsp;&nbsp;&nbsp; unsigned int baseAddr;</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>&nbsp;&nbsp;&nbsp; 
+baseAddr = fn();</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>&nbsp;&nbsp;&nbsp; 
+if (baseAddr == MAGIC)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+printf("GOOD baseAddr %x == %x\n", baseAddr, MAGIC);<BR>&nbsp;&nbsp;&nbsp; 
+else<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; printf("BADNESS baseAddr %x 
+!= %x\n", baseAddr, MAGIC);</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>}<BR></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Then compile as 
+follows;</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>cc -O3 -c fn.c -o 
+fn_gcc.o</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>ccc -O3 -c fn.c -o 
+fn_ccc.o</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>ccc -O3 madness.c -o 
+madness_gcc fn_gcc.o</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>ccc -O3 madness.c -o 
+madness_ccc fn_ccc.o</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Then 
+run;</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>./madness_ccc 
+<BR>GOOD baseAddr c00fc00f == c00fc00f<BR></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>./madness_gcc 
+<BR>BADNESS baseAddr c00fc00f != c00fc00f<BR></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>It starts working if 
+I change the MAGIC constant to 0x400fc00f so that suggests sign problems 
+?</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Disassembling the fn 
+code we see the only differences ...</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>objdump -d fn_gcc.o 
+</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>fn_gcc.o:&nbsp;&nbsp;&nbsp;&nbsp; file format 
+elf64-alpha</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Disassembly of 
+section .text:</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>0000000000000000 
+&lt;fn&gt;:<BR>&nbsp;&nbsp; 0:&nbsp;&nbsp; 0f c0 1f 20&nbsp;&nbsp;&nbsp;&nbsp; 
+lda&nbsp;&nbsp;&nbsp;&nbsp; v0,-16369(zero)<BR>&nbsp;&nbsp; 4:&nbsp;&nbsp; 10 c0 
+00 24&nbsp;&nbsp;&nbsp;&nbsp; ldah&nbsp;&nbsp;&nbsp; 
+v0,-16368(v0)<BR>&nbsp;&nbsp; 8:&nbsp;&nbsp; 20 f6 01 48&nbsp;&nbsp;&nbsp;&nbsp; 
+zapnot&nbsp; v0,0xf,v0<BR>&nbsp;&nbsp; c:&nbsp;&nbsp; 01 80 fa 
+6b&nbsp;&nbsp;&nbsp;&nbsp; ret&nbsp;&nbsp;&nbsp;&nbsp; 
+zero,(ra),0x1<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+...<BR></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>objdump -d fn_ccc.o 
+</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>fn_ccc.o:&nbsp;&nbsp;&nbsp;&nbsp; file format 
+elf64-alpha</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Disassembly of 
+section .text:</SPAN></FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>0000000000000000 
+&lt;fn&gt;:<BR>&nbsp;&nbsp; 0:&nbsp;&nbsp; 10 c0 1f 24&nbsp;&nbsp;&nbsp;&nbsp; 
+ldah&nbsp;&nbsp;&nbsp; v0,-16368(zero)<BR>&nbsp;&nbsp; 4:&nbsp;&nbsp; 1f 04 ff 
+47&nbsp;&nbsp;&nbsp;&nbsp; nop<BR>&nbsp;&nbsp; 8:&nbsp;&nbsp; 0f c0 00 
+20&nbsp;&nbsp;&nbsp;&nbsp; lda&nbsp;&nbsp;&nbsp;&nbsp; 
+v0,-16369(v0)<BR>&nbsp;&nbsp; c:&nbsp;&nbsp; 01 80 fa 6b&nbsp;&nbsp;&nbsp;&nbsp; 
+ret&nbsp;&nbsp;&nbsp;&nbsp; zero,(ra),0x1<BR></SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>GCC is inserting a 
+ZAPNOT instruction to zero the top 4-bytes - is this correct 
+?</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>Or is the main code 
+compilation that is broken, I notice that ccc uses 'xor' to do the compare 
+whereas gcc uses 'cmpeq' ?</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN class=114212508-26092000>For the record, I am 
+using Alpha RH6.1 with ccc (ccc-6.2.9.504-2) and gcc 
+(egcs-2.91.66)</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>Cheers,</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000>Addy.</SPAN></FONT></DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=Arial size=2><SPAN 
+class=114212508-26092000><BR>&nbsp;</DIV></SPAN></FONT></BODY>
+
+
+
+
+
+_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0518.shtml">AWM@inel.gov: "Can't RSH/RLOGIN from RH5.2 node to RH6.2 node"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sun Oct  1 07:47:34 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

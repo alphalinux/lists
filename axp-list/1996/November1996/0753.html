@@ -1,0 +1,114 @@
+<!-- received="Sun Nov 17 05:55:43 1996 " -->
+<!-- sent="17 Nov 1996 11:49:50 -0000" -->
+<!-- name="Eric Smith" -->
+<!-- email="eric@brouhaha.com" -->
+<!-- subject="Milo reboot change" -->
+<!-- id="199611171034.DAA03776@panda.mosberger" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Milo reboot change</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Milo reboot change</h2>
+
+<b>Eric Smith</b> (<a href="mailto:eric@brouhaha.com"><i>eric@brouhaha.com</i></a>)<br>
+<i>17 Nov 1996 11:49:50 -0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#753">[ date ]</a><a href="index.html#753">[ thread ]</a><a href="subject.html#753">[ subject ]</a><a href="author.html#753">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0754.html">Robert Allen Barker: "Re: FMU.GZ crashing (on PC164 too)"</a>
+<li> <b>Previous message:</b> <a href="0752.html">David Mosberger-Tang: "Re: FMU.GZ crashing"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here's a trivial patch to Milo that changes something that has been annoying<br>
+the heck out of me.  When I do a reboot, it seems rather counter-intuitive<br>
+to me that pressing most keys will abort the reboot, but that ESCAPE will<br>
+reboot immediately.  I prefer to have RETURN reboot immediately, ESCAPE<br>
+abort the reboot, and other keys ignored.  Unfortunately "ignored" isn't<br>
+quite right, as pressing other keys advances the timeout, but I didn't want<br>
+to do a major rewrite of the keyboard input code.<br>
+<p>
+Another trivial change keeps the immediate reboot from showing the time as<br>
+"0 27" (for example).<br>
+<p>
+*** milo.c.orig	Fri Oct 18 10:36:47 1996<br>
+--- milo.c	Sat Nov 16 19:41:04 1996<br>
+***************<br>
+*** 1109,1127 ****<br>
+  <br>
+  static int do_autoboot_timeout (unsigned timeout)<br>
+  {<br>
+! #   define ASCII_ESCAPE	0x1b	/* ASCII code of ESC key */<br>
+      int key;<br>
+  <br>
+!     printk("Hit any key to enter command mode, ESC to boot immediately\n");<br>
+      printk("Seconds remaining: ");<br>
+      while (timeout--) {<br>
+  	printk("%4d    \b\b\b\b\b\b\b\b", timeout);<br>
+  	key = kbd_getc_with_timeout(1);<br>
+  	if (key &gt;= 0) {<br>
+! 	    if (key == ASCII_ESCAPE) {<br>
+! 		printk("0\n");<br>
+  		break;<br>
+! 	    } else {<br>
+  		printk("stopped.\nEntering command mode.\n");<br>
+  		return -1;	/* argh, user whimped out on us... */<br>
+  	    }<br>
+--- 1109,1129 ----<br>
+  <br>
+  static int do_autoboot_timeout (unsigned timeout)<br>
+  {<br>
+! #   define ASCII_ESCAPE 0x1b    /* ASCII code of ESCAPE key */<br>
+! #   define ASCII_RETURN 0x0d    /* ASCII code of RETURN key */<br>
+! <br>
+      int key;<br>
+  <br>
+!     printk("Press RETURN to boot immediately, ESCAPE to abort.\n");<br>
+      printk("Seconds remaining: ");<br>
+      while (timeout--) {<br>
+  	printk("%4d    \b\b\b\b\b\b\b\b", timeout);<br>
+  	key = kbd_getc_with_timeout(1);<br>
+  	if (key &gt;= 0) {<br>
+! 	    if (key == ASCII_RETURN) {<br>
+! 		printk("0   \n");<br>
+  		break;<br>
+! 	    } else if (key == ASCII_ESCAPE) {<br>
+  		printk("stopped.\nEntering command mode.\n");<br>
+  		return -1;	/* argh, user whimped out on us... */<br>
+  	    }<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0754.html">Robert Allen Barker: "Re: FMU.GZ crashing (on PC164 too)"</a>
+<li> <b>Previous message:</b> <a href="0752.html">David Mosberger-Tang: "Re: FMU.GZ crashing"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

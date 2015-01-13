@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Problem after using BSD labeling for install of R</TITLE>
+<META NAME="Author" CONTENT="Suyudi Koeswanto (zlash@csd.uwm.edu)">
+<META NAME="Subject" CONTENT="Re: Problem after using BSD labeling for install of RH 5.2 - Help!">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Problem after using BSD labeling for install of RH 5.2 - Help!</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 05 19:09:24 1999" -->
+<!-- isoreceived="19990806020924" -->
+<!-- sent="Thu, 5 Aug 1999 13:55:24 -0500" -->
+<!-- isosent="19990805185524" -->
+<!-- name="Suyudi Koeswanto" -->
+<!-- email="zlash@csd.uwm.edu" -->
+<!-- subject="Re: Problem after using BSD labeling for install of RH 5.2 - Help!" -->
+<!-- id="19990805135524.B7127@alpha2.csd.uwm.edu" -->
+<!-- inreplyto="s7a954e2.058@hlthsrc.com" -->
+<STRONG>Subject: </STRONG>Re: Problem after using BSD labeling for install of RH 5.2 - Help!<BR>
+<STRONG>From: </STRONG>Suyudi Koeswanto (<EM>zlash@csd.uwm.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 05 1999 - 11:55:24 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#83">[ date ]</A>
+<A HREF="index.html#83">[ thread ]</A>
+<A HREF="subject.html#83">[ subject ]</A>
+<A HREF="author.html#83">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.html">Matti Aarnio: "Re: Tru64 executeables"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.html">Larry Sendlosky: "Re: slow nfs in one direction"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0087.html">Matt Tilley: "Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0094.html">Larry Sendlosky: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0087.html">Suyudi Koeswanto: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, Aug 05, 1999 at 09:09:09AM -0400, Matt Tilley wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; My first question is what is the &quot;*&quot; for after the cylinder number?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+The &quot;*&quot; means that it doesn't end in the cyl 114 as, exactly cyl 114. It
+<BR>
+means that like a fraction of cyl 114. This happens because the cyl that is
+<BR>
+shown there in fdisk are not the actual cyl. So fdisk has to convert
+<BR>
+between the actualy cyl and that (might be called) logical cyl.
+<BR>
+<P><EM>&gt; Next, &quot;n&quot; and made partition &quot;b&quot; (going to be swap).  First Cylinder I put 114 (thinking that it should start where the last left off (from what I remember from Solaris SunOS days).  Select &quot;+64M&quot; for the size, resulting in this output from &quot;p&quot;:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+This is wrong, it will overlap with the first partition and that's why
+<BR>
+you're getting this bogus size on the b label. You should start with the
+<BR>
+next cyl. And yes, you will loose some sectors if you start the b label on
+<BR>
+cyl 115 since the label a might not use the whole 114 cyl (remember we're
+<BR>
+talking about the logical cyl here).
+<BR>
+<P><EM>&gt; why is this?  What are the correct number of cylinders that I have to select from?  Can I divide up the 1018 by 4 GB to achieve a decent measure of how I can divide up the disk?  
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+because it's not the actuall cyl.
+<BR>
+<P><EM>&gt; What should I have done to be able to utilize BSD style formating successfully?  What do I need to do to get swriteboot to work correctly (am guessing that the answer here is that I need to install on my BSD style of labeling).  Here are the things that I tried with swriteboot.  I do see the syntax for swriteboot (shown by not entering any arguments), but couldn't see anything obvious.  
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+I suggest you use sector as the base unit instead of that logical cyl, you
+<BR>
+can do that before pressing b to go to the BSD disklabel menu, press u to
+<BR>
+change the unit to sectors. 
+<BR>
+<P><EM>&gt; Swriteboot *fl /dev/sda /boot/bootlx
+</EM><BR>
+<EM>&gt; #message received:  swriteboot: partition number must be in range 1-8#
+</EM><BR>
+<EM>&gt; #
+</EM><BR>
+i'm not sure about that &quot;*&quot; there. Also, since you're not making any
+<BR>
+partition on the first cyl, you do not need to supply -f1 nor -f3 (since
+<BR>
+you don't make any whole disk label).
+<BR>
+<P>Just create something like this:
+<BR>
+&nbsp;a:	Do not start at cyl 0/1, starts at &gt;=2
+<BR>
+&nbsp;b:	start's at the NEXT sector (if a ends at sec 1000, starts at 1001)
+<BR>
+&nbsp;c:	same thing (and note this is not whole disk label! just use this as
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/usr)
+<BR>
+<P>and set a = swap, b and c = ext2 ( / and /usr respectively)
+<BR>
+<P><EM>&gt; #swriteboot /dev/sda /boot/bootlx *f3
+</EM><BR>
+<EM>&gt; open disk device: No such file or directory
+</EM><BR>
+<EM>&gt; swriteboot *fl /dev/sda /boot/bootlx *f3
+</EM><BR>
+<EM>&gt; # partition number range error message again (see above)
+</EM><BR>
+<EM>&gt; #
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+with that setup above (a, b, c) you don't even need to specify -f1 or -f3
+<BR>
+those are if you create a partition a (unused) starts at cyl 0/1 and start
+<BR>
+with partition b as swap etc, that you need -f1 to overwrite the first
+<BR>
+partition with bootlx. And -f3 also not needed unless you have whole disk
+<BR>
+partition.
+<BR>
+<P><EM>&gt; I believe that swriteboot is writing boot information to the disk (/dev/sda) in the space that was provided (by starting the install on cylinder 2).  What is the signifance of /boot/bootlx?  This is not the kernel, so it must be the bootfile - is the bootfile being copied to the first cylinder - and if it is, can I see the bootfile (not to examine it, but just to be able to identify the location on the CD) on my 5.2 Install CD?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+swriteboot writes on the first cyl on the /dev/sda. Not in your first
+<BR>
+partition. Bootlx is just the bootloader (correct me if I'm wront) i think
+<BR>
+it contains aboot.
+<BR>
+<P>u!d
+<BR>
+------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.html">Matti Aarnio: "Re: Tru64 executeables"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.html">Larry Sendlosky: "Re: slow nfs in one direction"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0087.html">Matt Tilley: "Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0094.html">Larry Sendlosky: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0087.html">Suyudi Koeswanto: "Re: Problem after using BSD labeling for install of RH 5.2 - Help!"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:14:58 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

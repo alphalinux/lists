@@ -1,0 +1,188 @@
+<!-- received="Mon Jan 27 20:37:33 1997 " -->
+<!-- sent="Mon, 27 Jan 1997 20:35:07 -0500 (EST)" -->
+<!-- name="Jeff Odom" -->
+<!-- email="zeus@jhu.edu" -->
+<!-- subject="Re: remote printing problems" -->
+<!-- id="199701280128.JAA00402@tapa.admu.edu.ph" -->
+<!-- inreplyto="199701260508.AAA05960@tikva" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: remote printing problems</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: remote printing problems</h2>
+
+<b>Jeff Odom</b> (<a href="mailto:zeus@jhu.edu"><i>zeus@jhu.edu</i></a>)<br>
+<i>Mon, 27 Jan 1997 20:35:07 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#879">[ date ]</a><a href="index.html#879">[ thread ]</a><a href="subject.html#879">[ subject ]</a><a href="author.html#879">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0880.html">Dale E. Reagan: "Re: UDB SRM...  *** MULTIA Service Manual ***"</a>
+<li> <b>Previous message:</b> <a href="0878.html">Pablo Manalastas: "Compiling linux-2.1.23"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0881.html">Lev D Gelb: "NIS ??"</a>
+<li> <b>Reply:</b> <a href="0881.html">Lev D Gelb: "NIS ??"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sun, 26 Jan 1997, Daniel Gruner wrote:<br>
+<p>
+<i>&gt; Hi</i><br>
+<i>&gt; </i><br>
+<i>&gt; I have problems with lpd, when a remote machine tries to print on</i><br>
+<i>&gt; my alpha box.  I am running lpr-0.13-1.axp.rpm (and its equivalent</i><br>
+<i>&gt; on the remote intel box).  Local printing is fine, as is printing</i><br>
+<i>&gt; from windows boxes using samba.  When trying to access the lpd</i><br>
+<i>&gt; from the remote machine, the following messages appear in the </i><br>
+<i>&gt; /var/log/messages file:</i><br>
+<i>&gt; </i><br>
+<i>&gt; Jan 26 00:00:02 lior kernel: lpd: memory violation at pc=12000d110 rp=1555570353</i><br>
+<i>&gt; 4 (bad address = 00000000)</i><br>
+<i>&gt; </i><br>
+<i>&gt; ad infinitum...</i><br>
+<i>&gt; </i><br>
+<i>&gt; I am running RedHat 4.0, kernel 2.0.27, and I do have proper /etc/hosts.lpd</i><br>
+<i>&gt; and /etc/hosts.equiv files.</i><br>
+<p>
+I posted a patch to the 0.13 distribution that fixes the remote printing<br>
+problem a little while back.  I've included it again, below.  Basically,<br>
+the problem lies with a bad call to an undocumented pam routine and a<br>
+k&amp;r varargs problem (I'm not sure if the problem is with gcc or glibc, so<br>
+I just converted it to ansi-c).<br>
+<p>
+It's a bit ugly with the pam routine.  Hopefully I'll get off my lazy butt<br>
+and clean it up, and post an rpm, but for now, this patch is what I've<br>
+got... :)<br>
+<p>
+Jeff Odom<br>
+System Administrator<br>
+The Johns Hopkins Krieger Mind/Brain Institute<br>
+<p>
+<p>
+--- lpd.old/lpd.c	Wed Sep  4 16:31:49 1996<br>
++++ lpd/lpd.c	Tue Jan  7 22:28:25 1997<br>
+@@ -450,8 +450,11 @@<br>
+ 	hostf = fopen(_PATH_HOSTSEQUIV, "r");<br>
+ again:<br>
+ 	if (hostf) {<br>
+-#ifdef __alpha__<br>
++#ifdef __alpha__ <br>
++                if (!checkuser(hostf,fromb,baselen)) {<br>
++/*<br>
+ 		if (!__ivaliduser(hostf, fromb, DUMMY, DUMMY, baselen)) {<br>
++*/<br>
+ 			(void) fclose(hostf);<br>
+ 			return;<br>
+ 		}<br>
+@@ -470,3 +473,17 @@<br>
+ 	}<br>
+ 	fatal("Your host does not have line printer access");<br>
+ }<br>
++<br>
++int checkuser(FILE *fd, char *name, int baselen) {<br>
++        char basename[100],buf[100];<br>
++        strcpy(basename,name);<br>
++        basename[baselen]='\0';<br>
++<br>
++        while (fgets(buf,100,fd)!=NULL) {<br>
++                buf[strlen(buf)-1]='\0';<br>
++                if (!strcmp(buf,name) || !strcmp(buf,basename))<br>
++                        return 0;<br>
++                }<br>
++        return 1;<br>
++}<br>
++<br>
+--- lpd.old/printjob.c	Thu Dec  1 20:59:43 2016<br>
++++ lpd/printjob.c	Tue Jan  7 22:37:25 1997<br>
+@@ -45,7 +45,7 @@<br>
+ <br>
+ #include "lp.h"<br>
+ #include "pathnames.h"<br>
+-<br>
++#include &lt;stdarg.h&gt;<br>
+ #define DORETURN	0	/* absorb fork error */<br>
+ #define DOABORT		1	/* abort if dofork fails */<br>
+ <br>
+@@ -1289,9 +1289,37 @@<br>
+ }<br>
+ <br>
+ /*VARARGS1*/<br>
++/*<br>
+ status(msg, a1, a2, a3)<br>
+ 	char *msg;<br>
+ 	void *a1, *a2, *a3;<br>
++*/<br>
++void status(char *msg, ...)<br>
++{<br>
++        register int fd;<br>
++        char buf[BUFSIZ];<br>
++        char *s1=NULL, *s2=NULL;<br>
++<br>
++        va_list vlist;<br>
++        va_start(vlist, msg);<br>
++        s1=va_arg(vlist,char *);<br>
++        if (s1!=NULL)<br>
++                s2=va_arg(vlist,char *);<br>
++<br>
++        umask(0);<br>
++        fd = open(ST, O_WRONLY|O_CREAT, 0664);<br>
++        if (fd &lt; 0 || flock(fd, LOCK_EX) &lt; 0) {<br>
++                syslog(LOG_ERR, "%s: %s: %m", printer, ST);<br>
++                exit(1);<br>
++        }<br>
++        ftruncate(fd, 0);<br>
++        sprintf(buf, msg, s1, s2);<br>
++        strcat(buf, "\n");<br>
++        (void) write(fd, buf, strlen(buf));<br>
++        (void) close(fd);<br>
++        va_end(dummy);<br>
++}<br>
++/*<br>
+ {<br>
+ 	register int fd;<br>
+ 	char buf[BUFSIZ];<br>
+@@ -1308,3 +1336,4 @@<br>
+ 	(void) write(fd, buf, strlen(buf));<br>
+ 	(void) close(fd);<br>
+ }<br>
++*/<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0880.html">Dale E. Reagan: "Re: UDB SRM...  *** MULTIA Service Manual ***"</a>
+<li> <b>Previous message:</b> <a href="0878.html">Pablo Manalastas: "Compiling linux-2.1.23"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0881.html">Lev D Gelb: "NIS ??"</a>
+<li> <b>Reply:</b> <a href="0881.html">Lev D Gelb: "NIS ??"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

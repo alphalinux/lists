@@ -1,0 +1,172 @@
+<!-- received="Tue Mar 24 13:51:23 1998 " -->
+<!-- sent="Tue, 24 Mar 1998 09:40:12 -0800 (PST)" -->
+<!-- name="Bill Broadley" -->
+<!-- email="bill@math.UCDavis.edu" -->
+<!-- subject="DCG 533 Review, Howto configure, etc." -->
+<!-- id="199803241740.JAA01781@proto.math.ucdavis.edu" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>DCG 533 Review, Howto configure, etc.</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>DCG 533 Review, Howto configure, etc.</h2>
+
+<b>Bill Broadley</b> (<a href="mailto:bill@math.UCDavis.edu"><i>bill@math.UCDavis.edu</i></a>)<br>
+<i>Tue, 24 Mar 1998 09:40:12 -0800 (PST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#528">[ date ]</a><a href="index.html#528">[ thread ]</a><a href="subject.html#528">[ subject ]</a><a href="author.html#528">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0529.html">Brian E.W. Wood: "Re: glibc 2.0.7"</a>
+<li> <b>Previous message:</b> <a href="0527.html">Stephen Williams: "glibc 2.0.7"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Purchasing finally got a PO to DCGINC on 3/13/98, I got the system today<br>
+not bad.  (A week and a day).<br>
+<p>
+The PO had everything I wanted on it, so I go to plug it in.... NOTHING.<br>
+<p>
+Go to take the case apart, theres no manual for it.  It SEEMED like the<br>
+front cover would come off, but it didn't.  Turns out you start with the<br>
+rear screws and both sides come off easily.  Nice case design, very well<br>
+made, no "fiddling" needed to reassemble.  Kinda loud though, only a single<br>
+4.5 gb 5400 rpm scsi inside.<br>
+<p>
+Turns out the bracket for the speaker/fan had detached and bounced around<br>
+inside the case.  The speaker was punctured, the wires ripped off (they<br>
+were soldered), the fan came out of the housing.  I reattached the fan <br>
+inside the housing and the housing to the case.  Not sure if I got<br>
+it upside down or not (it fits both ways).  The power cables were <br>
+disconnected from the motherboard as well.  BTW if you accidently plug <br>
+in a keyboard to the mouse part it won't boot at all.<br>
+<p>
+Hooked up everything and it booted, got the the alphabios prompt, which<br>
+had a milo entry.  Unfortunately it was set to boot a: (the floppy).  DCG <br>
+included the full redhat-5.0 distribution (a nice touch) complete with <br>
+boot floppies (milo/linload, boot disk, and ramdisk).<br>
+<p>
+I booted the milo floppy and found that actually redhat-5.0 had been installed<br>
+just didn't have milo configured.  I say at the MILO&gt; prompt:<br>
+	 boot sda2:vmlinux.gz root=/dev/sda2 <br>
+<p>
+The partitions were kinda strange, but I guess everyone has a preference:<br>
+   Device Boot   Begin    Start      End   Blocks   Id  System<br>
+/dev/sda1            1        1        1     4340    4  DOS 16-bit &lt;32M<br>
+/dev/sda2            2        2       48   205437   83  Linux native<br>
+/dev/sda3           49       49      168   524520   82  Linux swap<br>
+/dev/sda4          169      169     1018  3715350    5  Extended<br>
+/dev/sda5          169      169      520  1538561   83  Linux native<br>
+/dev/sda6          521      521     1018  2176727   83  Linux native<br>
+<p>
+Filesystem         1024-blocks  Used Available Capacity Mounted on<br>
+/dev/sda2             198910   69786   118853     37%   /<br>
+/dev/sda6            2105438    7600  1989002      0%   /home<br>
+/dev/sda5            1488740  620064   791748     44%   /usr<br>
+<p>
+Looks like DCG or Redhat upgraded /usr/src/linux which causes alot of things <br>
+to break, i.e. compiling egcs/ssh etc.  I replaced /usr/src/linux and things<br>
+compiled fine I.e. egcs-1.0.2 and ssh-1.2.22.<br>
+<p>
+I downloaded all the redhat patches, and it turns out most of them<br>
+had already been installed (a nice touch).<br>
+<p>
+Some benchmarks:<br>
+Function      Rate (MB/s)   RMS time     Min time     Max time<br>
+Copy:         219.0377       0.1837       0.1826       0.1875<br>
+Scale:        212.2274       0.1895       0.1885       0.1914<br>
+Add:          230.1126       0.2613       0.2607       0.2637<br>
+Triad:        214.8251       0.2804       0.2793       0.2832<br>
+<p>
+Building the entire egcs-1.0.2 tree:<br>
+553.21user 46.28system 10:10.70elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k<br>
+0inputs+0outputs (537031major+430748minor)pagefaults 0swaps<br>
+<p>
+              -------Sequential Output-------- ---Sequential Input-- --Random--<br>
+              -Per Char- --Block--- -Rewrite-- -Per Char- --Block--- --Seeks---<br>
+Machine    MB K/sec %CPU K/sec %CPU K/sec %CPU K/sec %CPU K/sec %CPU  /sec %CPU<br>
+         1024  5098 41.2  5497 26.2  2378 15.0  4950 35.9  5492  7.2  88.0  1.3<br>
+<p>
+/dev/sda:<br>
+ Timing buffered disk reads:  16 MB in  2.38 seconds = 6.72 MB/sec<br>
+<p>
+[root@freesurface /root]# cat /proc/cpuinfo | grep Bogo 	;-)<br>
+BogoMIPS                : 530.57	<br>
+<p>
+Kinda dissapointing disk bandwidth (about 1/2 of a IBM EIDE+dell), and high<br>
+cpu usage (about double of IBM+Dell).  But this was purchased as a cpu<br>
+server not a file server, disk should not be a bottle neck.  I suspect the <br>
+blame is the largely the low end quantum Viking disk.  <br>
+<p>
+Oh if your recompiling the kernel make sure to pick the bsd version of the<br>
+NCR driver, I couldn't get the linux ncr driver to see the controller I.e. <br>
+panic on mounting 08:02.  <br>
+<p>
+Once I reformated /dev/sda1 in a msdos format (mkfs.msdos), copied over milo<br>
+and linload.exe from the DCG provided boot floppy, and tweaked milo I got<br>
+it to boot standalone.  In milo I set:<br>
+<p>
+name:	linux<br>
+boot file:disk 0, partition 1	liload.exe<br>
+os path:  disk 0, partition 1	milo<br>
+os options: boot sda2:vmlinux.gz root=/dev/sda2<br>
+<p>
+Theres also a alpha-bios setup option to auto-start and I set it at 30 seconds.<br>
+<p>
+Oh btw do NOT assume /sbin/shutdown -r now syncs the disk.  I did a:<br>
+cp /usr/src/linux/alpha/boot/vmlinux.gz /;shutdown -r now<br>
+<p>
+When it rebooted the files were different.  I'll add a sync in there from<br>
+now on.<br>
+<p>
+My only remaining problem is amd isn't happy even after (from redhat errata):<br>
+rpm --force -Uvh --noscripts portmap-4.0-8.alpha.rpm glibc-2.0.7-4.alpha.rpm amd-920824upl102-11.alpha.rpm <br>
+<p>
+Anyone else have a suggestion on fixing amd/nfs?<br>
+<p>
+After leaving it up overnight I get the following via dmesg:<br>
+ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;&lt;sc 94(11ffffc90,1,ea60)&gt;<br>
+<p>
+Any ideas?<br>
+<p>
+So in summary the machines up, reasonably happy, fast.  Still have some <br>
+tweaking to do.<br>
+<p>
+<pre>
+-- 
+Bill Broadley           <a href="mailto:Bill@math.ucdavis.edu">Bill@math.ucdavis.edu</a>               UCD Math Sys-Admin
+Linux is great.         <a href="http://math.ucdavis.edu/~bill">http://math.ucdavis.edu/~bill</a>			PGP-ok
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0529.html">Brian E.W. Wood: "Re: glibc 2.0.7"</a>
+<li> <b>Previous message:</b> <a href="0527.html">Stephen Williams: "glibc 2.0.7"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: FIX #2: XF-4.0 doesn't like my Permedia 2</H1> 
+	
+<!-- received="Fri Mar 17 20:23:51 2000" -->
+<!-- isoreceived="20000318042351" -->
+<!-- sent="Fri, 17 Mar 2000 10:43:09 -0800" -->
+<!-- isosent="20000317184309" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: FIX #2: XF-4.0 doesn't like my Permedia 2" -->
+<!-- id="20000317104309.A3816@twiddle.net" -->
+<!-- inreplyto="38D24738.A2D3D586@civ.hw.ac.uk" -->
+<STRONG>Subject: </STRONG>Re: FIX #2: XF-4.0 doesn't like my Permedia 2<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Mar 17 10:43:09 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#425">[ date ]</A>
+<A HREF="index.shtml#425">[ thread ]</A>
+<A HREF="subject.shtml#425">[ subject ]</A>
+<A HREF="author.shtml#425">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0426.shtml">Jay Estabrook: "Re: FIX: Permedia 2 driver XFree-4.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0424.shtml">B. James Phillippe: "Anyone try XF86-4.0 yet?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0419.shtml">Hannes Reinecke: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0440.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0419.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, Mar 17, 2000 at 02:54:48PM +0000, Hannes Reinecke wrote:
+<BR>
+<EM>&gt; It does work for 164SX-machines, should for 164LX. Miata is possible,
+</EM><BR>
+<EM>&gt; but someone should send me an output of /proc/cpuinfo to incorporate it.
+</EM><BR>
+<P>What if I go ahead and add the syscalls Jay and I talked about,
+<BR>
+and you use those directly if they're available?  New kernels
+<BR>
+distribute faster than new libc's...
+<BR>
+<P>The new syscall would look like
+<BR>
+<P>enum pciconfig_iobase_which {
+<BR>
+&nbsp;&nbsp;IOBASE_SPARSE_MEM = 1,
+<BR>
+&nbsp;&nbsp;IOBASE_DENSE_MEM = 2,
+<BR>
+&nbsp;&nbsp;IOBASE_SPARSE_IO = 3,
+<BR>
+&nbsp;&nbsp;IOBASE_DENSE_IO = 4,
+<BR>
+};
+<BR>
+<P>long pciconfig_iobase(enum pciconfig_iobase_which which,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long int __bus, unsigned long int __dfn);
+<BR>
+<P>I.e. you'd need pci information for the card you're interested in.
+<BR>
+Which means we'll finally be able to support X on something other
+<BR>
+than bus 0.
+<BR>
+<P>But supposing you get ENOSYS, you'll have to fall back on this:
+<BR>
+<P><EM>&gt; +	    if (sscanf(buf,&quot;cpu model : %s &quot;,cpu_model) == 1) {
+</EM><BR>
+<EM>&gt; +		if (!strcmp(cpu_model,&quot;EV3&quot;) ||
+</EM><BR>
+<EM>&gt; +		    !strcmp(cpu_model,&quot;EV4&quot;) ||
+</EM><BR>
+<EM>&gt; +		    !strcmp(cpu_model,&quot;Simulate&quot;) ||
+</EM><BR>
+<EM>&gt; +		    !strcmp(cpu_model,&quot;LCA4&quot;) ||
+</EM><BR>
+<EM>&gt; +		    !strcmp(cpu_model,&quot;EV5&quot;) ||
+</EM><BR>
+<EM>&gt; +		    !strcmp(cpu_model,&quot;EV45&quot;) ) {
+</EM><BR>
+<EM>&gt; +		    has_bwx = 0;
+</EM><BR>
+<EM>&gt; +		}
+</EM><BR>
+<EM>&gt; +	    }
+</EM><BR>
+<EM>&gt; +	    if (sscanf(buf,&quot;system type : %s &quot;,sys_type) == 1) {
+</EM><BR>
+<EM>&gt; +		if (strcmp(sys_type, &quot;EB164&quot;)) {
+</EM><BR>
+<EM>&gt; +		    can_bwa = 0;
+</EM><BR>
+<EM>&gt; +		} else {
+</EM><BR>
+<EM>&gt; +		    can_bwa = 1;
+</EM><BR>
+<EM>&gt; +		}
+</EM><BR>
+<EM>&gt; +	    }
+</EM><BR>
+<EM>&gt; +	    if (sscanf(buf,&quot;system variation : %s &quot;,sys_var) == 1) {
+</EM><BR>
+<EM>&gt; +		if (!strcmp(sys_var,&quot;EB164&quot;) || 
+</EM><BR>
+<EM>&gt; +		    !strcmp(sys_var,&quot;PC164&quot;) ) {
+</EM><BR>
+<EM>&gt; +		    can_bwa = 0;
+</EM><BR>
+<EM>&gt; +		}
+</EM><BR>
+<EM>&gt; +	    }
+</EM><BR>
+<EM>&gt; +	}
+</EM><BR>
+<P>Rather than try and figure out whether or not bwx is or is not
+<BR>
+supported, I think you should try to exactly identify PYXIS.
+<BR>
+That'd be LX, SX, Miata, and Ruffian.  The later two are listed
+<BR>
+in the &quot;system type&quot; field.
+<BR>
+<P><EM>&gt; +	xf86_axp_IOBase = _bus_base() + 0x200000000;
+</EM><BR>
+<P>Moreover, once you've identified PYXIS, don't rely on glibc
+<BR>
+continuing to return the CIA_DENSE_MEM region.  Go ahead and
+<BR>
+hard-code CIA_BW_MEM = 0x8800000000UL.
+<BR>
+<P><P>r~
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0426.shtml">Jay Estabrook: "Re: FIX: Permedia 2 driver XFree-4.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0424.shtml">B. James Phillippe: "Anyone try XF86-4.0 yet?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0419.shtml">Hannes Reinecke: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0440.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0419.shtml">Richard Henderson: "Re: FIX #2: XF-4.0 doesn't like my Permedia 2"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:01 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

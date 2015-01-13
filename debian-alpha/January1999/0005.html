@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: the [de]register_frame_info definitions issu</TITLE>
+<META NAME="Author" CONTENT="Loic Prylli (Loic.Prylli@ens-lyon.fr)">
+<META NAME="Subject" CONTENT="the [de]register_frame_info definitions issues on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>the [de]register_frame_info definitions issues on Alpha</H1>
+<HR>
+<P>
+<!-- received="Sun Jan 24 12:04:01 1999 PST" -->
+<!-- sent="Sun, 24 Jan 1999 13:02:52 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="the [de]register_frame_info definitions issues on Alpha" -->
+<!-- id="13995.2134.32798.423893@porto" -->
+<!-- inreplyto="13994.62631.883639.933255@bolero" -->
+<STRONG>Loic Prylli</STRONG> (<A HREF="mailto:Loic.Prylli@ens-lyon.fr?subject=Re:%20the%20[de]register_frame_info%20definitions%20issues%20on%20Alpha"><EM>Loic.Prylli@ens-lyon.fr</EM></A>)<BR>
+<EM>Sun, 24 Jan 1999 13:02:52 +0100 (MET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#5">[ date ]</A>
+<A HREF="index.html#5">[ thread ]</A>
+<A HREF="subject.html#5">[ subject ]</A>
+<A HREF="author.html#5">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">H.J. Lu: "Re: the [de]register_frame_info definitions issues on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Loic Prylli: "Problem loading Milo"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0002.html">Anupam SAHAY: "Problem loading Milo"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0006.html">H.J. Lu: "Re: the [de]register_frame_info definitions issues on Alpha"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Matthias Klose writes:
+<BR>
+<EM> &gt; [CC to HLU]
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt; Loic Prylli writes:
+</EM><BR>
+<EM> &gt;  &gt; I have tried the gdb from (Mikolaj J. Habryn) and got the following
+</EM><BR>
+<EM> &gt;  &gt; error:
+</EM><BR>
+<EM> &gt;  &gt; 
+</EM><BR>
+<EM> &gt;  &gt; ./gdb: error in loading shared libraries
+</EM><BR>
+<EM> &gt;  &gt; : undefined symbol: __deregister_frame_info
+</EM><BR>
+<EM> &gt;  &gt; 
+</EM><BR>
+<EM> &gt;  &gt; [skip description of register_frame_info issue]
+</EM><BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt; Just the question which Debian version of egcs do you use? The current 
+</EM><BR>
+<EM> &gt; one is egcs-1.1.1-4.
+</EM><BR>
+<P>Yes I have tried the latest source from debian/slink
+<BR>
+<P><P><EM> &gt; In 2.91.60-4 there is another HLU patch to bring it to his egcs Linux
+</EM><BR>
+<EM> &gt; release. Please tell me if I should leave out the hjl-12 patch.
+</EM><BR>
+<P>I have seen the 0hjl-19990115-linux patch that add the weak
+<BR>
+declarations.
+<BR>
+That was exactly what I was referring to when I said:
+<BR>
+<EM> &gt;  &gt; I think the  right solution is to patch the crtbegin file in egcs, to
+</EM><BR>
+<EM> &gt;  &gt; include a weak  prototype of [de]register_frame_info, setting it to
+</EM><BR>
+<EM> &gt;  &gt; a dummy function. Looking at the code I think this was the intention
+</EM><BR>
+<EM> &gt;  &gt; of the author to do something similar because he included weak prototypes
+</EM><BR>
+<EM> &gt;  &gt; of the symbol, and do not call the function int them if they point to
+</EM><BR>
+<EM> &gt;  &gt; &quot;zero&quot;. But he forgot to actually put a default definition, so the weak
+</EM><BR>
+<EM> &gt;  &gt; protype is ingored in this cases.
+</EM><BR>
+<P>My point is that the last HLU patch looks buggy because it creates a weak
+<BR>
+undefined symbol, which does not solve anything (it is considered by
+<BR>
+the ld-linux.so as an undefined one). We need a real weak
+<BR>
+symbol with a real default definition. I just propose to complete it
+<BR>
+by adding the default definition. No need to remove the hlu-12 patch
+<BR>
+which I suppose was created to fill some needs (I trust HLU for that).
+<BR>
+<P><EM> &gt; HLU told me, that it would be sufficient to recompile glibc with the
+</EM><BR>
+<EM> &gt; egcs-1.1.1 Linux release.
+</EM><BR>
+<P>Unless I missed something (maybe there is some ugly hack to transform a
+<BR>
+weak undefined symbol into a weak symbol defined as zero in some
+<BR>
+binutils  or ldso release),it does not work. Moreover the problem
+<BR>
+is not really the libc per se which is fine, but the executables that
+<BR>
+depends on the  symbol (and that creates a unwanted dependency on the
+<BR>
+latest Debian libc).
+<BR>
+<EM> &gt; 
+</EM><BR>
+<EM> &gt; In gcc/config/t-linux all symbols are defined which should not be
+</EM><BR>
+<EM> &gt; exported to shared libs.
+</EM><BR>
+<P>Do you mean exported _by_ shared libs? I am not sure I understand this 
+<BR>
+mechanism, but I do not feel it could solve our problem, we certainly
+<BR>
+want register_frame_info to be a normal &quot;overloadable&quot; symbol.
+<BR>
+<P>Regards,
+<BR>
+<P>Loic
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20the%20[de]register_frame_info%20definitions%20issues%20on%20Alpha">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20the%20[de]register_frame_info%20definitions%20issues%20on%20Alpha">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">H.J. Lu: "Re: the [de]register_frame_info definitions issues on Alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Loic Prylli: "Problem loading Milo"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0002.html">Anupam SAHAY: "Problem loading Milo"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0006.html">H.J. Lu: "Re: the [de]register_frame_info definitions issues on Alpha"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:54 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,199 @@
+<!-- received="Fri Jun 27 05:16:02 1997 " -->
+<!-- sent="Fri, 27 Jun 1997 11:09:22 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: XF86_S3 on AlphaStation 255 problem" -->
+<!-- id="33B37706.41C67EA6@iis.fhg.de" -->
+<!-- inreplyto="19970627013722.01267@snowball.ucd.ie" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: XF86_S3 on AlphaStation 255 problem</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: XF86_S3 on AlphaStation 255 problem</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 27 Jun 1997 11:09:22 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#799">[ date ]</a><a href="index.html#799">[ thread ]</a><a href="subject.html#799">[ subject ]</a><a href="author.html#799">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0800.html">Harald Koenig: "Re: XF86_S3 on AlphaStation 255 problem"</a>
+<li> <b>Previous message:</b> <a href="0798.html">Harald Koenig: "Re: Where is XFree86-VGA16 for the Alpha..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Jun 27, Nikita Schmidt wrote:<br>
+<p>
+<i>&gt; I wish to say that I've finally found a configuration that does not</i><br>
+<i>&gt; cause S3 server to lock up the system.  The configuration is simple:</i><br>
+<i>&gt; -bpp 8.  :-(</i><br>
+<i>&gt; Last time I tried 8 bpp when I was fighting startup lockups in 3.2.  It</i><br>
+<i>&gt; did not help, so I never tried it anymore until yesterday.</i><br>
+<p>
+so at least half a success ?  ok, let's look for the 2nd half too...<br>
+<p>
+btw, what about 32bpp? does it lockup too? <br>
+or does only 16bpp still show this problem?<br>
+<p>
+<i>&gt; Now I can say that it *may* be a real hardware problem.  First, the</i><br>
+<i>&gt; argument that "Digital UNIX doesn't lock up" no longer works: Digital</i><br>
+<i>&gt; UNIX operates only in 8 bpp mode.  Second, my investigations have shown</i><br>
+<i>&gt; that the problem arises when (and only when) I have Fore ATM card</i><br>
+<i>&gt; installed.  (It actually doesn't matter what slot S3 is in.)  </i><br>
+<p>
+this is a networking card (async. transfer mode, or similar), "Fore" the company ?<br>
+which chipsets etc ?  please send the output of "cat /proc/pci" and<br>
+"scanpci -v" with and without this card after reboot (plus server output<br>
+("-probeonly" is ok for lockup setup)).<br>
+<p>
+does this card have an own PCI bridge by any chance ?<br>
+there are problems with a 4-port-ethernet card for a x86-based system<br>
+right now (also rock stable without this card). just an idea...<br>
+<p>
+is it sufficient to crash if the card is installed without using it<br>
+or even configuring it ?<br>
+<p>
+<p>
+<i>&gt; Although it's rather strange problem - what on earth difference from the</i><br>
+<i>&gt; PCI bus point of view can there be between 8 and 16 bpp?  Twice as fast</i><br>
+<i>&gt; video scan?  Unlikely - it works in 1280x1024x8, but hangs in</i><br>
+<i>&gt; 800x600x16...  Maybe I should try various strange options like</i><br>
+<i>&gt; slow_dram_refresh, but there is a whole lot of them.  Maybe the</i><br>
+<i>&gt; difference in the way S3 accesses video memory in 8 and 16 bpp matters?</i><br>
+<p>
+- faster access to frame buffer (for same pixel/second rate) from CPU<br>
+- other pixel alignments (16bit access vs. 8bit accesses...)<br>
+<p>
+<i>&gt; Anyway, thanks very-very much for solving the problem in general.  3.3</i><br>
+<i>&gt; server with Option "no_pci_disconnect" is as stable as patched 3.2 - and</i><br>
+<i>&gt; still locks up instantly without this option.  Even on my supposedly buggy</i><br>
+<i>&gt; hardware both work pretty well in 8 bpp, and both may suddenly hang the</i><br>
+<i>&gt; system in 16 bpp mode.  And I tend to consider my lockups completely</i><br>
+<i>&gt; unrelated to that common AS255/S3 problem.</i><br>
+<p>
+or other AS255/S3 owners only use 8bpp ?  there have been a number of<br>
+reports for Trio64 card; don't think they're using 16bpp with only 80Mhz<br>
+and poor performace...<br>
+<p>
+for 16bpp, does it lockup immedieately at startup or only after some<br>
+time/operations ?  again, it's most important to know *where* it locks up<br>
+to get ideas what to try next<br>
+<p>
+<i>&gt; Just in case that you may have some ideas about this weirdness, here's</i><br>
+<i>&gt; the list of things I've tried in hope to make it work (with no luck):</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	rewriting BUSmemcpy.c and lnx-video.c to use sparse space</i><br>
+<i>&gt; 		instead of dense space and eliminate other-than-longword</i><br>
+<i>&gt; 		accesses and bursts on the PCI.</i><br>
+<p>
+even that didn't help ?  but does it crash in memcpy routines for your<br>
+lasting 16bpp problem, or probably somewhere else ?<br>
+<p>
+<i>&gt; Forcing Option "nomemaccess" (using proper hack in the code) helps to</i><br>
+<i>&gt; get rid of lockups, but as far as I understand Trios can't read in this</i><br>
+<i>&gt; mode, so the screen eventually gets messy.  Well, that's no surprise, as</i><br>
+<p>
+screen readback isn't possible with x64 chips in this mode.  <br>
+frame buffer writes chould be done, though (so maybe we should add<br>
+"no_memwrite_ access" and only call s3ImageWriteNoMem() but not s3ImageReadNoMem() ?<br>
+but OTOH this is slow and won't fix the real problem (but it's a pointer<br>
+that direct frame buffer access is still the problem).<br>
+<p>
+btw, which "proper hack" is needed (if any other than allowing this option) ?<br>
+<p>
+<i>&gt; we know that the reason for these lockups is certainly the framebuffer</i><br>
+<i>&gt; access (either through the LFB space or VGA window).</i><br>
+<p>
+I'd like that you have a PCI analyser which shows the last bus cycles <br>
+to get an idea why it's crashig (I'm dreaming of such a device for a long time now;)<br>
+<p>
+<i>&gt; I'm afraid I should send you my ATM card for this...  :-)</i><br>
+<p>
+please give more details about this card (vendor, model etc.).<br>
+my idea is asking around if anyone has such a card in my region <br>
+(e.g. Werner Almesberger in Zuerich, Switzerland).<br>
+<p>
+do you have different ATM cards for testing, or just this single one ?<br>
+could it be that this special card or just this model is broken?<br>
+or it's driver ?<br>
+<p>
+<p>
+<i>&gt; &gt; clearing CR67_7 disables "PCI bus disconnect" which might othewise occur if</i><br>
+<i>&gt; &gt; AD[1:0] != 00b (unaligned acces) or if the address during the burst goes outside</i><br>
+<i>&gt; &gt; the address ranges supported [from the S3 databook].</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; CR3A_7 must not be set if CR67_7 is zero.  when zero, it *EN*ables "PCI read burst cycles".</i><br>
+<i>&gt; </i><br>
+<i>&gt; Hold on...  What does Digital UNIX think about it?  Umm, you meant</i><br>
+<i>&gt; CR66_7, not CR67_7, didn't you?  At least your patch says it 66...</i><br>
+<i>&gt; All right, here we go:</i><br>
+<p>
+of course you're right, CR67 as a typo!<br>
+<p>
+<i>&gt; CR3A is 0x15 - whoa, burst cycles are enabled, as expected;</i><br>
+<i>&gt; CR66 is 0x89, CR67 is 0x08 - if the register in question is CR66, then</i><br>
+<i>&gt; 	DU has PCI disconnect enabled as well.</i><br>
+<p>
+so I guess CR66_7 doesn't matter for XF86_S3 for your lockups too ?<br>
+<p>
+<p>
+<i>&gt; &gt; I never understood why disabling read burst cycles needs the PCI disconnec feature</i><br>
+<i>&gt; &gt; and vice versa; maybe another S3 documentation bug ?!</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; I don't see any other reasonable explanation either.  Probably they</i><br>
+<i>&gt; could save a couple of transistors on this.</i><br>
+<i>&gt; </i><br>
+<i>&gt; All right, sorry for taking your time, and thanks again for your help.</i><br>
+<i>&gt; 256 colours is better than nothing, although way worse than even 65536.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Best wishes</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	Nikita</i><br>
+<p>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0800.html">Harald Koenig: "Re: XF86_S3 on AlphaStation 255 problem"</a>
+<li> <b>Previous message:</b> <a href="0798.html">Harald Koenig: "Re: Where is XFree86-VGA16 for the Alpha..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: Calling testers for another Dead Function</TITLE>
+<META NAME="Author" CONTENT="Graham Stoney (greyham@research.canon.com.au )">
+<META NAME="Subject" CONTENT="Re: Calling testers for another Dead Function Optimisation update">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Calling testers for another Dead Function Optimisation update</H1>
+<HR>
+<P>
+<!-- received="Sat May 20 20:04:04 2000" -->
+<!-- isoreceived="20000521030404" -->
+<!-- sent="Thu, 18 May 2000 12:21:27 +1000 (EST)" -->
+<!-- isosent="20000518022127" -->
+<!-- name="Graham Stoney" -->
+<!-- email="greyham@research.canon.com.au " -->
+<!-- subject="Re: Calling testers for another Dead Function Optimisation update" -->
+<!-- id="20000518022127.E636F3C95E@elph.research.canon.com.au" -->
+<!-- inreplyto="20000517125253.A21027@pcep-jamie.cern.ch" -->
+<STRONG>Subject: </STRONG>Re: Calling testers for another Dead Function Optimisation update<BR>
+<STRONG>From: </STRONG>Graham Stoney (<EM>greyham@research.canon.com.au </EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 17 2000 - 19:21:27 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#33">[ date ]</A>
+<A HREF="index.html#33">[ thread ]</A>
+<A HREF="subject.html#33">[ subject ]</A>
+<A HREF="author.html#33">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Barrett Southworth: "Free Disk Space"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Jeremy Fitzhardinge: "Re: Calling testers for another Dead Function Optimisation updat"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0031.html">Jamie Lokier: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Jeremy Fitzhardinge: "Re: Calling testers for another Dead Function Optimisation updat"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0031.html">Graham Stoney: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Graham Stoney wrote:
+<BR>
+<EM>&gt; I'm definitely with you on this one. Using ld -r in intermediate
+</EM><BR>
+<EM>&gt; stages is defeating the linker's natural ability to exclude unused
+</EM><BR>
+<EM>&gt; objects. My patch achieves a similar effect by allowing the linker to
+</EM><BR>
+<EM>&gt; exclude unused functions, but it does so in a very torturous way. I'd
+</EM><BR>
+<EM>&gt; prefer to have both .a's for wholesale dead object elimination _and_
+</EM><BR>
+<EM>&gt; -ffunction-sections for elimination of any remaining dead functions.
+</EM><BR>
+<P>Jamie Lokier writes:
+<BR>
+<EM>&gt; OTOH .a's are slower than ld -r.  They don't save any I/O: all the
+</EM><BR>
+<EM>&gt; enclosed object files have to be duplicated until the final link anyway.
+</EM><BR>
+<EM>&gt; ld -r removes duplicate symbols and debugging information, which makes
+</EM><BR>
+<EM>&gt; the .o files smaller than the corresponding .a files and faster to read.
+</EM><BR>
+<P>Even if Jamie's theoretical assertion that using 'ar' is slower overall than
+<BR>
+'ld -r' in the kernel build was true, the difference is in the noise. I just
+<BR>
+tried recompiling the exact same kernel with both, and the elapsed compilation
+<BR>
+times are essentially identical. In fact, 'ar' came out marginally faster, but
+<BR>
+the difference is pure noise because the intermediate library build and final
+<BR>
+link times are small compared to the overall compile time. Of course, the
+<BR>
+resulting vmlinux built with 'ar' is (slightly) smaller, every time.
+<BR>
+<P>With 'ar':
+<BR>
+% time make vmlinux 
+<BR>
+221.170u 18.560s 4:29.38 88.9%  0+0k 0+0io 360058pf+0w
+<BR>
+greyham@brixi% powerpc-linux-size vmlinux
+<BR>
+&nbsp;&nbsp;&nbsp;text    data     bss     dec     hex filename
+<BR>
+&nbsp;851068   70500   99320 1020888   f93d8 vmlinux
+<BR>
+<P>With 'ld -r':
+<BR>
+% time make vmlinux
+<BR>
+220.500u 17.340s 4:39.54 85.0%  0+0k 0+0io 325884pf+0w
+<BR>
+% powerpc-linux-size vmlinux
+<BR>
+&nbsp;&nbsp;&nbsp;text    data     bss     dec     hex filename
+<BR>
+&nbsp;864624   70516   99364 1034504   fc908 vmlinux
+<BR>
+<P>Also, bear in mind that using 'ar' would allow us to eliminate lots of
+<BR>
+&quot;ifdef CONFIG_...&quot; ugliness from Makefiles. Don't do by hand what the linker
+<BR>
+can do for us automatically.
+<BR>
+<P>For anyone interested in pursuing this, my patch for building using 'ar' is
+<BR>
+available at:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="http://members.xoom.com/greyhams/linux/patches/2.2/arbuild.patch">http://members.xoom.com/greyhams/linux/patches/2.2/arbuild.patch</A>
+<BR>
+<P>It should apply reasonably cleanly either with or without my earlier dead
+<BR>
+function optimisation patch. You need both to get the smallest result due to
+<BR>
+constant string handling issues in gcc 2.95.2.
+<BR>
+<P>Enjoy,
+<BR>
+Graham 
+<BR>
+<PRE>
+-- 
+Graham Stoney
+Principal Hardware/Software Engineer
+Canon Information Systems Research Australia
+Ph: +61 2 9805 2909  Fax: +61 2 9805 2929
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0034.html">Barrett Southworth: "Free Disk Space"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0032.html">Jeremy Fitzhardinge: "Re: Calling testers for another Dead Function Optimisation updat"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0031.html">Jamie Lokier: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Jeremy Fitzhardinge: "Re: Calling testers for another Dead Function Optimisation updat"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0031.html">Graham Stoney: "Re: Calling testers for another Dead Function Optimisation update"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

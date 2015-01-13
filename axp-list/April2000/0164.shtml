@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)</H1> 
+	
+<!-- received="Sun Apr 16 07:57:05 2000" -->
+<!-- isoreceived="20000416145705" -->
+<!-- sent="Fri, 14 Apr 2000 16:06:01 +0300" -->
+<!-- isosent="20000414130601" -->
+<!-- name="Harvey J. Stein" -->
+<!-- email="hjstein@bfr.co.il" -->
+<!-- subject="How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)" -->
+<!-- id="200004141306.QAA03155@blinky.bfr.co.il" -->
+<STRONG>Subject: </STRONG>How to shrink binaries?  ("relocation truncated to fit: LITERAL" problem.)<BR>
+<STRONG>From: </STRONG>Harvey J. Stein (<EM>hjstein@bfr.co.il</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Apr 14 06:06:01 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#164">[ date ]</A>
+<A HREF="index.shtml#164">[ thread ]</A>
+<A HREF="subject.shtml#164">[ subject ]</A>
+<A HREF="author.shtml#164">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0165.shtml">Xiaozhou Qiu: "Re: REPOST: 2.88M floppy - is it for real"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0163.shtml">Harvey J. Stein: "How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0163.shtml">Harvey J. Stein: "How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+(Sorry if you get this twice - I'm having trouble with mail from one
+<BR>
+system, so I'm sending it from another one too.)
+<BR>
+<P>My binary just got too big on Redhat 4.2.  When I link I start seeing
+<BR>
+gobs &amp; gobs &quot;relocation truncated to fit&quot;  errors, as in:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/usr/lib/crtend.o: In function `__do_global_ctors_aux':
+<BR>
+&nbsp;&nbsp;&nbsp;../sysdeps/alpha/elf/crtend.S:73: relocation truncated to fit: LITERAL __CTOR_END__
+<BR>
+&nbsp;&nbsp;&nbsp;../sysdeps/alpha/elf/crtend.S:73: relocation truncated to fit: LITERAL __do_global_ctors_aux
+<BR>
+&nbsp;&nbsp;&nbsp;/usr/lib/libpvm3.a(lpvm.o): In function `pvmbeatask':
+<BR>
+&nbsp;&nbsp;&nbsp;/usr/src/redhat/BUILD/pvm3/src/LINUXALPHA/../../src/lpvm.c:2956: relocation truncated to fit: LITERAL $C123
+<BR>
+&nbsp;&nbsp;&nbsp;/usr/src/redhat/BUILD/pvm3/src/LINUXALPHA/../../src/lpvm.c:2965: relocation truncated to fit: LITERAL $C124
+<BR>
+&nbsp;&nbsp;&nbsp;/usr/src/redhat/BUILD/pvm3/src/LINUXALPHA/../../src/lpvm.c:2970: relocation truncated to fit: LITERAL $C125
+<BR>
+&nbsp;&nbsp;&nbsp;/usr/src/redhat/BUILD/pvm3/src/LINUXALPHA/../../src/lpvm.c:2980: relocation truncated to fit: LITERAL $C126
+<BR>
+<P>I realize this has to do with one of the ELF sections getting too big, 
+<BR>
+and it can be worked around by either upgrading to RH 5 or later, or
+<BR>
+making some of the libraries shared.  For various reasons, I don't
+<BR>
+want to get into that right now.  For one thing they'd both be fairly
+<BR>
+significant changes to our system &amp; would require lots of testing time
+<BR>
+to prove out, and I really need to move these new binaries now.  So,
+<BR>
+I'd much prefer to just cut out some of the application code I'm
+<BR>
+familiar with in an effort to get under the limits.
+<BR>
+<P>So, what exactly is in this ELF section that's overflowing?  Do I need
+<BR>
+to get rid of global symbols, or will making global structures &amp;
+<BR>
+functions smaller also help?   Is there anything else in this section
+<BR>
+that I can decrease by tweaking the code?  How can I see exactly
+<BR>
+what it's trying to put in this section so as to see how much I have
+<BR>
+to get rid of?
+<BR>
+<P>If this doesn't help, is there a sort of minimal upgrade path I can
+<BR>
+use on RH4.2 to get it to the point where it'll split up this section?
+<BR>
+<P>Finally, when I use nm on some of my libraries, I see some weird
+<BR>
+stuff:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;[randy pascal-1.27]$ nm ApiUser/libapiuser_opt.a | head -20
+<BR>
+<P>&nbsp;&nbsp;&nbsp;bf_callback.o:
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000000 r $C33
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000008 r $C34
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000010 r $C35
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000020 r $C36
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000018 r $C37
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000028 r $C38
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000030 r $C39
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000038 r $C40
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000040 r $C41
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000048 r $C42
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000050 r $C43
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000058 r $C44
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000000 a *ABS*
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000000 t __gnu_compiled_c
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000300 d bf_current_seq_num
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000000 T bf_default_parameters
+<BR>
+&nbsp;&nbsp;&nbsp;0000000000000008 t bf_default_parameters..ng
+<BR>
+<P>I don't see these weird $Cxx symbols when I build under RH5.2 (yes,
+<BR>
+I've got a bunch of RH4.2s I can't upgrade &amp; a bunch of RH5.2s which
+<BR>
+are ok with the code).  What are these?  These aren't the only weird
+<BR>
+extra symbols I see on RH4.2 vs RH5.2.  Would getting rid of these
+<BR>
+things help?  Also, what are these weird ..ng symbols that are showing
+<BR>
+up?  They're not on RH5.2 either.
+<BR>
+<P>Thanks,
+<BR>
+<P><PRE>
+-- 
+Harvey Stein
+Bloomberg LP
+hjstein@bfr.co.il
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0165.shtml">Xiaozhou Qiu: "Re: REPOST: 2.88M floppy - is it for real"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0163.shtml">Harvey J. Stein: "How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0163.shtml">Harvey J. Stein: "How to shrink binaries?  (&quot;relocation truncated to fit: LITERAL&quot; problem.)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Mon May  1 18:42:01 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

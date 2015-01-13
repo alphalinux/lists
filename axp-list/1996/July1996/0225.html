@@ -1,0 +1,305 @@
+<!-- received="Tue Jul 23 03:46:38 1996 " -->
+<!-- sent="Tue, 23 Jul 1996 09:44:21 +0200" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="optimized memcpy()" -->
+<!-- id="199607230744.JAA15937@fozzy.comnets.rwth-aachen.de" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe 1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>optimized memcpy()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>optimized memcpy()</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>Tue, 23 Jul 1996 09:44:21 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#225">[ date ]</a><a href="index.html#225">[ thread ]</a><a href="subject.html#225">[ subject ]</a><a href="author.html#225">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0226.html">David Wild: "RE: RedHat mirrors"</a>
+<li> <b>Previous message:</b> <a href="0224.html">Richard Henderson: "21140 and 10/100Mbps config"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Note that I have already given that memcpy() routine to be used in </i><br>
+<i>&gt; XFree86, so you don't need to worry about the GPL if you use the routines </i><br>
+<i>&gt; under arch/alpha/lib - I consider them to be more-or-less public domain, </i><br>
+<i>&gt; but ask you that if you _do_ improve them (notably the start and end </i><br>
+<i>&gt; parts) you'd send me your improvements..</i><br>
+<p>
+OK, here I comes. If I am not mistaken, it's faster than the old<br>
+routine on anything but 1 byte transfers, with 2 byte transfers<br>
+having about the same cost. But I am still a little in doubt about the<br>
+costs of different type of branches.<br>
+<p>
+/*<br>
+ *  linux/arch/alpha/lib/memcpy.c<br>
+ *<br>
+ *  Copyright (C) 1995  Linus Torvalds<br>
+ *  Copyright (C) 1996  Martin Ostermann<br>
+ */<br>
+<p>
+/*<br>
+ * This is a reasonably optimized memcpy() routine.<br>
+ */<br>
+<p>
+/*<br>
+ * Note that the C code is written to be optimized into good assembly. However,<br>
+ * at this point gcc is unable to sanely compile "if (n &gt;= 0)", resulting in a<br>
+ * explicit compare against 0 (instead of just using the proper "blt reg, xx" or<br>
+ * "bge reg, xx"). I hope alpha-gcc will be fixed to notice this eventually..<br>
+ */<br>
+<p>
+#include &lt;linux/types.h&gt;<br>
+<p>
+/*<br>
+ * we're not allowed to read more than specified by [src..src+count). Also just write<br>
+ * from [dst..dst+count), since adjecent quadwords may belong to a different page, maybe<br>
+ * not accessible to us. This is what makes this function complicated.<br>
+ */<br>
+<p>
+static inline void<br>
+__memcpy_unaligned( unsigned long dst, unsigned long src_org, long count_org)<br>
+{<br>
+  unsigned long low_word, high_word,last_read,src;<br>
+  long  rm,count,loop;<br>
+  unsigned long tmp,org,org2,mask;<br>
+  <br>
+  rm = dst &amp; 7;<br>
+<p>
+  count = count_org + rm;<br>
+  __asm__("ldq_u %0,%1":"=r" (org):"m" (*(unsigned long *)(dst)));<br>
+  __asm__("ldq_u %0,%1":"=r" (low_word):"m" (*(unsigned long *)(src_org)));<br>
+  src = src_org - rm;<br>
+  if( count &gt; 8  ) {<br>
+    last_read = src_org+count_org;<br>
+    __asm__("ldq_u %0,%1":"=r" (high_word):"m" (*(unsigned long *)(src+8)));<br>
+    __asm__("extql %1,%2,%0"<br>
+	    :"=r" (low_word)<br>
+	    :"r" (low_word), "r" ((unsigned long)(src)));<br>
+    __asm__("extqh %1,%2,%0"<br>
+	    :"=r" (tmp)<br>
+	    :"r" (high_word), "r" ((unsigned long)(src)));<br>
+    tmp |= low_word;<br>
+    src += 8;<br>
+    __asm__("mskqh %1,%2,%0"<br>
+	    :"=r" (tmp)<br>
+	    :"r" (tmp), "r" (dst));<br>
+    __asm__("mskql %1,%2,%0"<br>
+	    :"=r" (org2)<br>
+	    :"r" (org), "r" (dst));<br>
+    tmp |= org2;<br>
+<p>
+    loop = (count-8) &gt;&gt; 3; /* loop eqv. count&gt;=16 ; count -= 8 */<br>
+    while (loop) { /* tmp to be stored completly -- need to read next word*/<br>
+      low_word = high_word;<br>
+      __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+      __asm__("ldq_u %0,%1":"=r" (high_word):"m" (*(unsigned long*)(src+8)));<br>
+      loop --;<br>
+      __asm__("extql %1,%2,%0"<br>
+	      :"=r" (low_word)<br>
+	      :"r" (low_word), "r" ((unsigned long)src));<br>
+      __asm__("extqh %1,%2,%0"<br>
+	      :"=r" (tmp)<br>
+	      :"r" (high_word), "r" ((unsigned long)src));<br>
+      src += 8;<br>
+      tmp |= low_word;<br>
+      dst += 8;<br>
+    }<br>
+    if ( count &amp; 7 ) { /* Store tmp completly, and possibly read one more word.*/<br>
+      __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+      __asm__("ldq_u %0,%1":"=r" (tmp):"m" (*((unsigned long *)(last_read)) ));<br>
+      dst += 8;<br>
+      __asm__("extql %1,%2,%0"<br>
+	      :"=r" (low_word)<br>
+	      :"r" (high_word), "r" ((unsigned long)src));<br>
+      __asm__("extqh %1,%2,%0"<br>
+	      :"=r" (tmp)<br>
+	      :"r" (tmp), "r" ((unsigned long)src));<br>
+      tmp |= low_word;<br>
+      __asm__("ldq_u %0,%1":"=r" (org):"m" (*(unsigned long *)(dst)));<br>
+<p>
+      __asm__("mskql %1,%2,%0"<br>
+	      :"=r" (tmp)<br>
+	      :"r" (tmp), "r" (count));<br>
+      __asm__("mskqh %1,%2,%0"<br>
+	      :"=r" (org)<br>
+	      :"r" (org), "r" (count));<br>
+    <br>
+      tmp |= org;<br>
+    } <br>
+    __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+    return;<br>
+  }<br>
+  <br>
+  else { /* count &gt; 8  */<br>
+    __asm__("ldq_u %0,%1":"=r" (high_word):"m" (*(unsigned long *)(src+8)));<br>
+    __asm__("extql %1,%2,%0"<br>
+	    :"=r" (low_word)<br>
+	    :"r" (low_word), "r" ((unsigned long)(src)));<br>
+    __asm__("extqh %1,%2,%0"<br>
+	    :"=r" (tmp)<br>
+	    :"r" (high_word), "r" ((unsigned long)(src)));<br>
+    tmp |= low_word;<br>
+    if( count &lt; 8 ) {<br>
+      /* only works if always count &lt; 8! */<br>
+      mask = -1;<br>
+      __asm__("mskqh %1,%2,%0"<br>
+	      :"=r" (mask)<br>
+	      :"r" (mask), "r" (dst));<br>
+      __asm__("mskql %1,%2,%0"<br>
+	      :"=r" (mask)<br>
+	      :"r" (mask), "r" (count));<br>
+      tmp = (tmp &amp; mask) | (org &amp; ~mask);<br>
+      __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+      return;<br>
+    }<br>
+    else {<br>
+      __asm__("mskqh %1,%2,%0"<br>
+	      :"=r" (tmp)<br>
+	      :"r" (tmp), "r" (dst));<br>
+      __asm__("mskql %1,%2,%0"<br>
+	      :"=r" (org2)<br>
+	      :"r" (org), "r" (dst));<br>
+<p>
+      tmp |= org2;<br>
+      __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp)); <br>
+      return;<br>
+    }<br>
+  }<br>
+}<br>
+<p>
+<p>
+static inline void<br>
+__memcpy_aligned(unsigned long dst, unsigned long src, long count)<br>
+{<br>
+      <br>
+  unsigned long tmp,org,rm,loop;<br>
+  <br>
+  rm = dst &amp; 7;<br>
+  count = count + rm;<br>
+<p>
+  __asm__("ldq_u %0,%1":"=r" (tmp):"m" (*(unsigned long*)(src)));<br>
+<p>
+#if 0 /* optimize for aligned quadword moves */  <br>
+  if( !(rm || count &amp; 7)) {<br>
+    loop = (count-8) &gt;&gt; 3;<br>
+  <br>
+    while (loop){ /* while( count &gt;= 8 )*/<br>
+      __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+      dst += 8;<br>
+      src += 8;<br>
+      __asm__("ldq_u %0,%1":"=r" (tmp):"m" (*(unsigned long*)(src)));<br>
+      loop--; /*  count -= 8 */<br>
+    }<br>
+    __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+    return;<br>
+  }<br>
+#endif    <br>
+  __asm__("ldq_u %0,%1":"=r" (org):"m" (*(unsigned long *)(dst)));<br>
+<p>
+  __asm__("mskqh %1,%2,%0"<br>
+	  :"=r" (tmp)<br>
+	  :"r" (tmp), "r" (dst));<br>
+  __asm__("mskql %1,%2,%0"<br>
+	  :"=r" (org)<br>
+	  :"r" (org), "r" (dst));<br>
+  tmp |= org;<br>
+<p>
+  loop = (count-1) &gt;&gt; 3;<br>
+  <br>
+  while (loop){ /* while( count &gt; 8 )*/<br>
+    __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+    dst += 8;<br>
+    src += 8;<br>
+    __asm__("ldq_u %0,%1":"=r" (tmp):"m" (*(unsigned long*)(src)));<br>
+    loop--; /*  count -= 8 */<br>
+  }<br>
+  <br>
+  if ( count &amp; 7) {   <br>
+    __asm__("ldq_u %0,%1":"=r" (org):"m" (*(unsigned long *)(dst)));<br>
+<p>
+    __asm__("mskql %1,%2,%0"<br>
+	    :"=r" (tmp)<br>
+	    :"r" (tmp), "r" (count));<br>
+    __asm__("mskqh %1,%2,%0"<br>
+	    :"=r" (org)<br>
+	    :"r" (org), "r" (count));<br>
+    tmp |= org;<br>
+  }<br>
+  __asm__("stq_u %1,%0":"=m" (*(unsigned long*)(dst)):"r" (tmp));<br>
+}<br>
+<p>
+void *<br>
+__memcpy(void * dest, const void *src, size_t n)<br>
+{<br>
+  if(!n) return dest;<br>
+  <br>
+	if (!(((unsigned long) dest ^ (unsigned long) src) &amp; 7)) {<br>
+		__memcpy_aligned((unsigned long) dest, (unsigned long) src, n);<br>
+		return dest;<br>
+	}<br>
+	__memcpy_unaligned((unsigned long) dest, (unsigned long) src, n);<br>
+	return dest;<br>
+}<br>
+#ifdef __KERNEL__<br>
+/*<br>
+ * Broken compiler uses "bcopy" to do internal<br>
+ * assignments. Silly OSF/1 BSDism.<br>
+ */<br>
+char *<br>
+bcopy(const char * src, char * dest, size_t n)<br>
+{<br>
+	__memcpy(dest, src, n);<br>
+	return dest;<br>
+}<br>
+<p>
+/*<br>
+ * gcc-2.7.1 and newer generate calls to memset and memcpy.  So we<br>
+ * need to define that here:<br>
+ */<br>
+asm (".weakext memcpy, __memcpy");<br>
+#endif<br>
+<p>
+<p>
+<p>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0226.html">David Wild: "RE: RedHat mirrors"</a>
+<li> <b>Previous message:</b> <a href="0224.html">Richard Henderson: "21140 and 10/100Mbps config"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

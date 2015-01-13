@@ -1,0 +1,202 @@
+<!-- received="Wed Oct 16 03:03:38 1996 " -->
+<!-- sent="Wed, 16 Oct 1996 08:33:51 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: 2.1.4 exception question" -->
+<!-- id="199610160504.WAA05277@netcom3.netcom.com" -->
+<!-- inreplyto="199610160022.TAA24271@atheist.tamu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 2.1.4 exception question</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 2.1.4 exception question</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Wed, 16 Oct 1996 08:33:51 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#509">[ date ]</a><a href="index.html#509">[ thread ]</a><a href="subject.html#509">[ subject ]</a><a href="author.html#509">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0510.html">Linus Torvalds: "Re: Wow!!!  UDB network is fast!!!!"</a>
+<li> <b>Previous message:</b> <a href="0508.html">Marc Singer: "RH 4.0 Install Buggy"</a>
+<li> <b>In reply to:</b> <a href="0497.html">Richard Henderson: "2.1.4 exception question"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 15 Oct 1996, Richard Henderson wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; I am aware that quite a bit was hashed about on linux-kernel recently,</i><br>
+<i>&gt; but to clarify, I'm wondering about the implementation of read/write</i><br>
+<i>&gt; as they exist in 2.1.4.  I take as my example the routines from</i><br>
+<i>&gt; drivers/char/mem.c.</i><br>
+<i>&gt; </i><br>
+<i>&gt; As it stands, copy_{to,from}_user correctly trap the exception, but </i><br>
+<i>&gt; the surrounding code does nothing with the status returned from those</i><br>
+<i>&gt; functions.</i><br>
+<p>
+Indeed. As I mentioned in my announcement notes, I've really only had time to<br>
+do the low-level implementation, and as people have found out there are lots<br>
+of places where the actual kernel code does not check the return values, and<br>
+some code (notably the sound driver) that I didn't even try to change to use<br>
+the new format yet. <br>
+<p>
+(Oh, and on the x86, the constraint should be "q" for the __copy_user()<br>
+argument "(size &amp; 3)", as people have already noticed on the kernel list, so<br>
+I didn't even get all the low-level stuff correct ;)<br>
+<p>
+Now, the actual low-level routines are all hidden in essentially just one<br>
+file per architecture (the &lt;asm/segment.h&gt; file), but even so it took me five<br>
+days to get it all to work the way I wanted. And I've been grumpy in the<br>
+meantime, with more than a thousand mails in my mailbox during those days.<br>
+Sorry to everybody I have been irritated at (Richard, David M-T, Alan, Pedro<br>
+et al).  Please accept my apologies. <br>
+<p>
+Your patches do seem to be the correct fix. And we definitely need to add the<br>
+error condition checking code. But right now it would be more important to<br>
+get the low-level code working exactly right, and do the RightThing (tm). <br>
+<p>
+There are a few things I'd like to get done on the low-level code before <br>
+starting on the "trivial" stuff:<br>
+<p>
+ - on alpha, do "get_user()" and "put_user()" without doing a function call. <br>
+   The function call has to load the function address, and also requires the<br>
+   (ugly) fixed registers. Instead of a function call, I'd _like_ to do <br>
+   something like this (this is just the 64-bit put_user case):<br>
+<p>
+	__asm__ __inline__(<br>
+		"br $28,1f\n\t"		/* set up exception address */<br>
+		"lda %0,-14"		/* exception: error = -EFAULT */<br>
+		"br $31,2f\n"<br>
+	"1:	stq %5,%3\n\t"		/* store incremented exception count */<br>
+		"stq %1,%2\n\t"		/* actual quadword store */<br>
+		"stq %4,%3\n"		/* restore exception count */<br>
+		"2:"<br>
+		:"=r" (result)<br>
+		:"r" (quad),"m" (*(long *)address),<br>
+		 "m" (current-&gt;tss.ex.count),<br>
+		 "r" (current-&gt;tss.ex.count), "r" (current-&gt;tss.ex.count+1));<br>
+<p>
+ - again, on alpha, the unaligned exception handler needs to recognize that a<br>
+   mm exception was pending, and use the exception handling "recursively" <br>
+   (easy to do as a special case) to make sure that an exception inside the<br>
+   unaligned exception handler is correctly handled down to the original<br>
+   code. That way we don't need to worry about unaligned accesses for the<br>
+   common case in get_user()/put_user(). <br>
+<p>
+ - on x86, the "__copy_user()" macro needs to be optimized. It does some very<br>
+   stupid things for constant-sized copies (and those are actually pretty <br>
+   normal: copying small structures to user space).<br>
+<p>
+ - in general, we need to do a "clear_user()" function that clears user space<br>
+   with exception handling.  This is needed both in drivers/char/mem.c<br>
+   (read_zero()) and in the ELF loader (padzero()), both of which currently<br>
+   do a very stupid byte-at-a-time clear (and especially the ELF loader is<br>
+   actually somewhat timing critical). This should be pretty easy: just copy<br>
+   the "copy_to_user()" code but make it zero the area instead of copy. <br>
+<p>
+ - we also need to do a "strncpy_from_user()" function that copies strings<br>
+   from user space - this is needed by execve() (argument handling) and by<br>
+   get_name() (filename and mount string handling). Both of these cases are<br>
+   performance-critical, and doing a "strncpy_from_user()" shouldn't be too<br>
+   bad. <br>
+<p>
+The above five things are the most important for me right now. Is there<br>
+anybody who would like to look into this? There are other areas that need<br>
+minor optimizations too, but the above five are the ones I _know_ have to be<br>
+fixed in order to get the full performance advantage of the new scheme. <br>
+<p>
+<i>&gt; According to my understanding of the recent discussion, the appended</i><br>
+<i>&gt; patch is required to make the code correct.  Specifically, it actually</i><br>
+<i>&gt; tests the return values and returns the amount actually written.  Is</i><br>
+<i>&gt; this indeed correct?  Should this pattern be replicated to the other</i><br>
+<i>&gt; drivers?</i><br>
+<p>
+These kinds of error checking patches should probably be put into all the<br>
+code. <br>
+<p>
+NOTE! Adding error handling isn't always strictly needed. Even if you don't<br>
+test the return code of the various user handling functions those functions<br>
+will never do a questionable store. So the functions themselves are "safe"<br>
+even in the absense of the final error checking. The only time we _have_ to<br>
+do error checking is<br>
+<p>
+ - the partial read or write impacts "meta-data" things (for example, in a<br>
+   file write we should check that we don't increment the file position the<br>
+   full length etc if we didn't actually write everything). <br>
+ - the partial read or write is a "secondary" security issue. For example, in<br>
+   the network layer a partial read from user space may mean that a packet is<br>
+   sent out with only partial data. That's generally fine (garbage in garbage<br>
+   out) BUT we must make sure that the _uncopied_ part of the packet doesn't<br>
+   contain any old data that may be a security hole (imagine the packet being<br>
+   allocated from the same physical page that previously contained secure<br>
+   information, and now only partially overwritten). <br>
+<p>
+<i>&gt; What about bits like those in, e.g., arch/alpha/kernel/osf_sys.c</i><br>
+<i>&gt; osf_filldir() that similarly assume that the entire buffer is valid,</i><br>
+<i>&gt; and blithely attempts to fill it all despite the fact that it </i><br>
+<i>&gt; generates oodles of exceptions? </i><br>
+<p>
+This is one case where we might just ignore the exceptions. "oodles of<br>
+exceptions" is not exactly what it should generate: you make it sound like<br>
+there might be a performance impact. <br>
+<p>
+If a bad user program gives us a bad filldir() buffer,we might return a value<br>
+that indicated that the filldir successfully completed, but obviously nothing<br>
+ever actually got written into user space. That isn't our problem: that's the<br>
+bad users problem. Blaah on him. <br>
+<p>
+<i>&gt; Or, on a slightly different tack, sys_newstat that never returns</i><br>
+<i>&gt; an error.  Or the set_termios bits which don't recognize that the</i><br>
+<i>&gt; copy_from_user failed.  True, POSIX says we needn't reliably report</i><br>
+<i>&gt; such errors, but is this what _we_ want in this situation?</i><br>
+<p>
+We generally want to return -EFAULT. I added the code to do that in some<br>
+trivial functions (kernel/time.c, for example: I used that file for some of<br>
+my testing). But on the other hand we may not want to go out of our way to<br>
+report the exceptions: if they aren't a kernel problem it's the users fault<br>
+if he does stupid things. <br>
+<p>
+<i>&gt; Just wondering what the Official Position on these issues are </i><br>
+<i>&gt; before doing wholesale changes.</i><br>
+<p>
+I'll be leaving for a week in the US this Sunday (househunting), and quite<br>
+frankly I'd like to get the five "critical" points above fixed first. The<br>
+"small but many" things (adding error checking) will probably have to wait<br>
+until I get back.  They are important too, but they aren't _fundamental_<br>
+important, if you get my drift. <br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0510.html">Linus Torvalds: "Re: Wow!!!  UDB network is fast!!!!"</a>
+<li> <b>Previous message:</b> <a href="0508.html">Marc Singer: "RH 4.0 Install Buggy"</a>
+<li> <b>In reply to:</b> <a href="0497.html">Richard Henderson: "2.1.4 exception question"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

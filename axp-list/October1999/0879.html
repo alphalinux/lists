@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Misbehaving IBM SCSI Disk on XL366</TITLE>
+<META NAME="Author" CONTENT="Jay.Estabrook@digital.com (Jay.Estabrook@digital.com)">
+<META NAME="Subject" CONTENT="Re: Misbehaving IBM SCSI Disk on XL366">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Misbehaving IBM SCSI Disk on XL366</H1>
+<HR>
+<P>
+<!-- received="Sun Oct 31 22:08:13 1999" -->
+<!-- isoreceived="19991101060813" -->
+<!-- sent="Sun, 31 Oct 1999 18:01:58 -0500" -->
+<!-- isosent="19991031230158" -->
+<!-- name="Jay.Estabrook@digital.com" -->
+<!-- email="Jay.Estabrook@digital.com" -->
+<!-- subject="Re: Misbehaving IBM SCSI Disk on XL366" -->
+<!-- id="199910312302.SAA01497@alpha1.estabrook.org" -->
+<!-- inreplyto="Pine.LNX.4.10.9910311516420.300-100000@excelsior.rkirkpat.net" -->
+<STRONG>Subject: </STRONG>Re: Misbehaving IBM SCSI Disk on XL366<BR>
+<EM>Jay.Estabrook@digital.com</EM><BR>
+<STRONG>Date: </STRONG>Sun Oct 31 1999 - 15:01:58 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#879">[ date ]</A>
+<A HREF="index.html#879">[ thread ]</A>
+<A HREF="subject.html#879">[ subject ]</A>
+<A HREF="author.html#879">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0880.html">Kurt Ludwig: "RE: Misbehaving IBM SCSI Disk on XL366"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0878.html">Robb Romans: "PC164 tru64 dual-boot"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0877.html">Ryan Kirkpatrick: "Misbehaving IBM SCSI Disk on XL366"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0891.html">Kurt Ludwig: "RE: Misbehaving IBM SCSI Disk on XL366"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0877.html">Jay.Estabrook@digital.com: "Re: Misbehaving IBM SCSI Disk on XL366"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;&gt;&gt; Ryan Kirkpatrick said:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	I am having an odd problem with an IBM 2GB Fast SCSI disk on my
+</EM><BR>
+<EM>&gt; XL366 alpha. This disk is being used as a system disk and is connected to
+</EM><BR>
+<EM>&gt; the onboard NCR53C810 controller. The system is running Debian 2.1 and
+</EM><BR>
+<EM>&gt; kernel 2.2.7.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	Yesterday I installed two Tekram 390 scsi cards and thereby
+</EM><BR>
+<EM>&gt; switched to the NCR53C8xx driver for all controllers (as recommended by
+</EM><BR>
+<EM>&gt; the axp-list archives and the kernel help messages). I recompiled a 2.2.7
+</EM><BR>
+<EM>&gt; kernel with this change and proceeded to boot the sytem. All disks are
+</EM><BR>
+<EM>&gt; correctly detected on all chains, and this is what the kernel tells me
+</EM><BR>
+<EM>&gt; about the disk in question:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    Vendor: IBM       Model: DORS-32160        Rev: WA6A 
+</EM><BR>
+<EM>&gt;    Type:   Direct-Access                      ANSI SCSI revision: 01 CCS 
+</EM><BR>
+<EM>&gt; Detected scsi disk sda at scsi0, channel 0, id 1, lun 0 
+</EM><BR>
+<EM>&gt; ...
+</EM><BR>
+<EM>&gt; ncr53c810a-0-&lt;1,*&gt;: FAST-10 SCSI 10.0 MB/s (100 ns, offset 8) 
+</EM><BR>
+<EM>&gt; SCSI device sdb: hdwr sector= 512 bytes. Sectors= 4127761 [2015 MB] [2.0 GB]
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Only, when the system goes to get partition maps for the disks and then
+</EM><BR>
+<EM>&gt; later load init off of this disk (since it is the system disk), I start
+</EM><BR>
+<EM>&gt; getting SCSI timeouts on this disk for the onboard scsi chain.
+</EM><BR>
+<P>This *may* be the same problem others have seen WRT compiling recent kernels
+<BR>
+with EGCS 1.1.2 or later. Try patching the following way, rebuild, and see
+<BR>
+if the problem goes away...
+<BR>
+<P>--- linux-2.2.12/include/asm-alpha/delay.h	Tue Dec 29 16:56:15 1998
+<BR>
++++ patch-2.2.12/include/asm-alpha/delay.h	Mon Sep 20 14:47:56 1999
+<BR>
+@@ -12,9 +12,10 @@
+<BR>
+&nbsp;extern __inline__ void
+<BR>
+&nbsp;__delay(unsigned long loops)
+<BR>
+&nbsp;{
+<BR>
+-	__asm__ __volatile__(&quot;.align 3\n&quot;
+<BR>
++	__asm__ __volatile__(&quot;.align 4\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:\tsubq %0,1,%0\n\t&quot;
+<BR>
+-		&quot;bge %0,1b&quot;: &quot;=r&quot; (loops) : &quot;0&quot; (loops));
+<BR>
++		&quot;bge %0,1b\n\t&quot;
+<BR>
++		&quot;nop&quot;: &quot;=r&quot; (loops) : &quot;0&quot; (loops));
+<BR>
+&nbsp;}
+<BR>
+<P>&nbsp;/*
+<BR>
+<P>Good luck.
+<BR>
+<P>--Jay++
+<BR>
+<P>---------------------------------------------------------------
+<BR>
+Jay A Estabrook                       Alpha Engineering - LINUX
+<BR>
+Compaq Computer Corp. - MRO1-2/K20    (508) 467-2080
+<BR>
+200 Forest Street, Marlboro MA 01752  Jay.Estabrook@compaq.com
+<BR>
+---------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0880.html">Kurt Ludwig: "RE: Misbehaving IBM SCSI Disk on XL366"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0878.html">Robb Romans: "PC164 tru64 dual-boot"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0877.html">Ryan Kirkpatrick: "Misbehaving IBM SCSI Disk on XL366"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0891.html">Kurt Ludwig: "RE: Misbehaving IBM SCSI Disk on XL366"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0877.html">Jay.Estabrook@digital.com: "Re: Misbehaving IBM SCSI Disk on XL366"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:54 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

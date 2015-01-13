@@ -1,0 +1,149 @@
+<!-- received="Tue Nov 19 05:02:06 1996 " -->
+<!-- sent="Tue, 19 Nov 1996 10:01:45 +0100 (MET)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="problem reading VGA text fonts" -->
+<!-- id="m0vPm3t-0001bSC@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>problem reading VGA text fonts</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>problem reading VGA text fonts</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Tue, 19 Nov 1996 10:01:45 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#796">[ date ]</a><a href="index.html#796">[ thread ]</a><a href="subject.html#796">[ subject ]</a><a href="author.html#796">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0797.html">Miquel van Smoorenburg: "Re: PLEASE HELP glibc 961111 : can't execute libm - linked programs"</a>
+<li> <b>Previous message:</b> <a href="0795.html">Scott Manley: "Re: udb and mpeg2 player"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0801.html">Martin Ostermann: "Re: problem reading VGA text fonts"</a>
+<li> <b>Reply:</b> <a href="0801.html">Martin Ostermann: "Re: problem reading VGA text fonts"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I spent a lot of time trying to find out why XF86_S3 doesn't restore<br>
+the text font correctly for DEC ALpha/AXP when switching back to text mode <br>
+but I still don't know why  and now I need your help and ideas.<br>
+tests (see below) show that the font gets corrupted when trying to read/save<br>
+it from the VGA card when starting X11.<br>
+<p>
+NOTE that his problem only shows up for Alpha/AXP, I never saw any<br>
+text font corruption for any of my cards (all S3) with my Intel PC.<br>
+<p>
+first I thougt it's a problem only with the ViRGE card but it happens<br>
+too with S3 864, Trio64V+ and 968.  also I got a report that it's not<br>
+only my XL266 box but at least also a problem with a PC64/300 box with S3 cards.<br>
+<p>
+<p>
+does anyone else have problems with text font corruption ?<br>
+since the save/restore code is the same for all VGA cards I'd like<br>
+to know if this only happens for S3 or for other cards too<br>
+(it's always Xserver/hw/xfree86/vga256/vga/vgaHW.c).<br>
+<p>
+this doesn't happen all the time but starting X several times <br>
+probably will show it; e.g. use<br>
+<p>
+	n=1; while [ $n -le 20 ] ; do xinit &amp; sleep 5 ; killall xterm ; n=$[ $n+1 ] ; done<br>
+<p>
+if you see any corruption, please mention card and chip, which alpha<br>
+architecture, cpu etc.  and which type of corruption.<br>
+<p>
+<p>
+I see 3 different types of font corruptions:<br>
+<p>
+- some few ramdom pixels set (sometimes cleared) in the character glyph<br>
+- completely trashed glygh (random pattern)<br>
+- block of 16 characters/glyphs is "shifted", e.g. very often ASCII  <br>
+  0x30-0x3f (digits etc. up to '?')  displays glyphs for ASCII 0x20-0x2f<br>
+  so pressing '1' I see a '!'<br>
+  since one character glyph is 32 bytes when saved/restored, the size<br>
+  of such a "shifted" block is always 512 bytes.  any idea about this size? <br>
+<p>
+<p>
+looking at the code of vgaHWsave() in vgaHW.c I tried lots of things:<br>
+<p>
+- writing the font/text areas to a file directly after copying it from<br>
+  the card shows that here it's already bad (if font gets corrupted when leaving X)<br>
+<p>
+- tried to use outb() instead of outw()<br>
+<p>
+- tried lots of different copy routines (tried memcpy() too) and delays<br>
+  in/after slowbcopy (slowbcopy does a mem_barrier() after every single<br>
+  byte copied when calling outb(0x80, 0x00))<br>
+<p>
+- changed the order of the SAVE_FONT1, SAVE_FONT2 and SAVE_TEXT blocks<br>
+  (text is never corrupted; maybe this is restored by the Linux kernel<br>
+  vc switching ?)<br>
+  <br>
+- added some code to do a syncronous reset on SR like in linux kernel code<br>
+  in linux/drivers/char/vga.c<br>
+<p>
+- tried to copy area multiple times and compare destinantions; <br>
+  they are always the same<br>
+<p>
+<p>
+<p>
+any idea what might explain these types of corruptions?<br>
+<p>
+what's the "magic" about 512 byte font blocks? why are always 16 characters<br>
+overwritten by some "shifted" glyphs (always 16glyph-aligned) ?<br>
+<p>
+what's different between AXP and x86 ?<br>
+<p>
+what should be tested/checked next ?<br>
+<p>
+<p>
+thanks for any idea,<br>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0797.html">Miquel van Smoorenburg: "Re: PLEASE HELP glibc 961111 : can't execute libm - linked programs"</a>
+<li> <b>Previous message:</b> <a href="0795.html">Scott Manley: "Re: udb and mpeg2 player"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0801.html">Martin Ostermann: "Re: problem reading VGA text fonts"</a>
+<li> <b>Reply:</b> <a href="0801.html">Martin Ostermann: "Re: problem reading VGA text fonts"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

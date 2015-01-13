@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: ext2fs bug : files are disapeared, unable to</TITLE>
+<META NAME="Author" CONTENT="Soohoon Lee (soohoon.lee@alpha-processor.com)">
+<META NAME="Subject" CONTENT="ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 22 05:29:23 2000" -->
+<!-- isoreceived="20000322132923" -->
+<!-- sent="Tue, 21 Mar 2000 17:59:54 -0500" -->
+<!-- isosent="20000321225954" -->
+<!-- name="Soohoon Lee" -->
+<!-- email="soohoon.lee@alpha-processor.com" -->
+<!-- subject="ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc." -->
+<!-- id="00fc01bf9389$2c263f90$a53ce9c0@alphaprocessor.com" -->
+<STRONG>Subject: </STRONG>ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc.<BR>
+<STRONG>From: </STRONG>Soohoon Lee (<EM>soohoon.lee@alpha-processor.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Mar 21 2000 - 14:59:54 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#130">[ date ]</A>
+<A HREF="index.html#130">[ thread ]</A>
+<A HREF="subject.html#130">[ subject ]</A>
+<A HREF="author.html#130">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0131.html">Richard Henderson: "Re: Not quite there with 2.3.99-pre2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0129.html">Peter Rival: "Re: Not quite there with 2.3.99-pre2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0141.html">tytso@mit.edu: "Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+With small free memory and frequent file create/delete operations,
+<BR>
+ext2 shows many problems.
+<BR>
+Sometimes files are disapeared, unable to delete, two files' contents are
+<BR>
+switched
+<BR>
+fsck finds inconsitencies in the properly unmounted filesystem etc.
+<BR>
+I'm not sure if this patch fixes all the problems but I cannot see the
+<BR>
+problems any more.
+<BR>
+<P>tested platform is UP2000, 1 CPU(EV67 750MHz), 256M, 2.2.14
+<BR>
+While one process is creating a file, it can be switched to do disk I/O like
+<BR>
+following
+<BR>
+stack trace.
+<BR>
+<P>&nbsp;schedule+0x1b0  (AR:0xfffffc0005d0bd48)
+<BR>
+&nbsp;sleep_on+0x5c  (AR:0xfffffc0005d0bd68)
+<BR>
+&nbsp;wakeup_bdflush+0x50  (AR:0xfffffc0005d0bd98)
+<BR>
+&nbsp;refile_buffer+0x10c  (AR:0xfffffc0005d0bda8)    -&gt; mark_buffer_dirty()
+<BR>
+&nbsp;ext2_add_entry+0x3ac  (AR:0xfffffc0005d0bdc8)
+<BR>
+&nbsp;ext2_create+0xe4  (AR:0xfffffc0005d0be28)
+<BR>
+&nbsp;open_namei+0x1c4  (AR:0xfffffc0005d0be78)
+<BR>
+&nbsp;filp_open+0x80  (AR:0xfffffc0005d0beb8)
+<BR>
+&nbsp;sys_open+0x6c  (AR:0xfffffc0005d0bee8)
+<BR>
+&nbsp;Exception frame:
+<BR>
+&nbsp;entSys+0xa8  (AR:0xfffffc0005d0bf18)
+<BR>
+<P>At that time ext2_add_entry() found a empty directory entry and It's going
+<BR>
+to
+<BR>
+be used for the new file being created. but it's not locked or marked.
+<BR>
+While it's sleeping, another process can steal the directory entry, because
+<BR>
+there's no sign that it's being used.
+<BR>
+After return from sleep, first process continues the file creation
+<BR>
+procedure.
+<BR>
+But the directory entry is already being used for another file and
+<BR>
+first process(in ext2_add_entry()) doesn't check it.
+<BR>
+And all the problems starts here.
+<BR>
+Mixed efforts with dcache, It makes many symptoms.
+<BR>
+<P>Supposing that ext2 is MP safe, my fix for this problem is removing
+<BR>
+mark_buffer_dirty() in ext2_add_entry(), simple.
+<BR>
+Every caller of ext2_add_entry() calls mark_buffer_dirty(), So it's
+<BR>
+superflous.
+<BR>
+Then the first process would not sleep until the directory entry is marked
+<BR>
+with
+<BR>
+allocated inode.
+<BR>
+<P>--- fs/ext2/namei.c.org Tue Mar 21 17:44:52 2000
+<BR>
++++ fs/ext2/namei.c     Tue Mar 21 15:32:13 2000
+<BR>
+@@ -302,7 +302,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;u.ext2_i.i_flags &amp;= ~EXT2_BTREE_FL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mark_inode_dirty(dir);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dir-&gt;i_version = ++global_event;
+<BR>
+-                       mark_buffer_dirty(bh, 1);
+<BR>
++//                     mark_buffer_dirty(bh, 1);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*res_dir = de;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*err = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return bh;
+<BR>
+<P>Soohoon.
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0131.html">Richard Henderson: "Re: Not quite there with 2.3.99-pre2"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0129.html">Peter Rival: "Re: Not quite there with 2.3.99-pre2"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0141.html">tytso@mit.edu: "Re: ext2fs bug : files are disapeared, unable to delete, two files' contents are switched etc."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

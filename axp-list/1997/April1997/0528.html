@@ -1,0 +1,410 @@
+<!-- received="Fri Apr 11 02:08:08 1997 " -->
+<!-- sent="Fri, 11 Apr 1997 01:03:54 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@stommel.tamu.edu" -->
+<!-- subject="axp patches for 2.1.33" -->
+<!-- id="199704110603.BAA17563@stommel.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>axp patches for 2.1.33</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>axp patches for 2.1.33</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@stommel.tamu.edu"><i>richard@stommel.tamu.edu</i></a>)<br>
+<i>Fri, 11 Apr 1997 01:03:54 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#528">[ date ]</a><a href="index.html#528">[ thread ]</a><a href="subject.html#528">[ subject ]</a><a href="author.html#528">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0529.html">Dmitry S. Rykunov: "Pinnacle Micro Apex 4.6 GB on DEC Alpha XL 366: kernel panic"</a>
+<li> <b>Previous message:</b> <a href="0527.html">David Paris: "Compiling 2.0.30"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Bits of this have been posted elsewhere, but not all.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/Makefile linux-2.1.33-rth/Makefile<br>
+--- linux-2.1.33/Makefile	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/Makefile	Thu Apr 10 22:36:38 1997<br>
+@@ -2,7 +2,7 @@ VERSION = 2<br>
+ PATCHLEVEL = 1<br>
+ SUBLEVEL = 33<br>
+ <br>
+-ARCH = i386<br>
++ARCH := $(shell uname -m | sed s/i.86/i386/)<br>
+ <br>
+ #<br>
+ # For SMP kernels, set this. We don't want to have this in the config file<br>
+@@ -11,10 +11,10 @@ ARCH = i386<br>
+ #<br>
+ # NOTE! SMP is experimental. See the file Documentation/SMP.txt<br>
+ #<br>
+-SMP = 1<br>
++#SMP = 1<br>
+ #<br>
+ # SMP profiling options<br>
+-SMP_PROF = 1<br>
++#SMP_PROF = 1<br>
+ <br>
+ .EXPORT_ALL_VARIABLES:<br>
+ <br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/arch/alpha/kernel/irq.c linux-2.1.33-rth/arch/alpha/kernel/irq.c<br>
+--- linux-2.1.33/arch/alpha/kernel/irq.c	Wed Oct 16 01:05:09 1996<br>
++++ linux-2.1.33-rth/arch/alpha/kernel/irq.c	Thu Apr 10 22:56:09 1997<br>
+@@ -53,6 +53,7 @@ extern void timer_interrupt(struct pt_re<br>
+  */<br>
+ static unsigned long irq_mask = ~0UL;<br>
+ <br>
++unsigned int local_irq_count[NR_CPUS];<br>
+ <br>
+ /*<br>
+  * Update the hardware with the irq mask passed in MASK.  The function<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/arch/alpha/lib/csum_partial_copy.c linux-2.1.33-rth/arch/alpha/lib/csum_partial_copy.c<br>
+--- linux-2.1.33/arch/alpha/lib/csum_partial_copy.c	Thu Apr 10 22:33:23 1997<br>
++++ linux-2.1.33-rth/arch/alpha/lib/csum_partial_copy.c	Thu Apr 10 23:42:57 1997<br>
+@@ -13,7 +13,7 @@<br>
+ <br>
+ <br>
+ #define ldq_u(x,y) \<br>
+-__asm__ __volatile__("ldq_u %0,%1":"=r" (x):"m" (*(unsigned long *)(y)))<br>
++__asm__ __volatile__("ldq_u %0,%1":"=r" (x):"m" (*(const unsigned long *)(y)))<br>
+ <br>
+ #define stq_u(x,y) \<br>
+ __asm__ __volatile__("stq_u %1,%0":"=m" (*(unsigned long *)(y)):"r" (x))<br>
+@@ -72,7 +72,7 @@ __asm__ __volatile__("insqh %1,%2,%0":"=<br>
+  * Ok. This isn't fun, but this is the EASY case.<br>
+  */<br>
+ static inline unsigned long<br>
+-csum_partial_cfu_aligned(unsigned long *src, unsigned long *dst,<br>
++csum_partial_cfu_aligned(const unsigned long *src, unsigned long *dst,<br>
+ 			 long len, unsigned long checksum,<br>
+ 			 int *errp)<br>
+ {<br>
+@@ -165,7 +165,7 @@ csum_partial_cfu_dest_aligned(unsigned l<br>
+  * This is slightly less fun than the above..<br>
+  */<br>
+ static inline unsigned long<br>
+-csum_partial_cfu_src_aligned(unsigned long *src, unsigned long *dst,<br>
++csum_partial_cfu_src_aligned(const unsigned long *src, unsigned long *dst,<br>
+ 			     unsigned long doff,<br>
+ 			     long len, unsigned long checksum,<br>
+ 			     unsigned long partial_dest,<br>
+@@ -227,7 +227,7 @@ csum_partial_cfu_src_aligned(unsigned lo<br>
+  * look at this too closely, you'll go blind.<br>
+  */<br>
+ static inline unsigned long<br>
+-csum_partial_cfu_unaligned(unsigned long * src, unsigned long * dst,<br>
++csum_partial_cfu_unaligned(const unsigned long * src, unsigned long * dst,<br>
+ 			   unsigned long soff, unsigned long doff,<br>
+ 			   long len, unsigned long checksum,<br>
+ 			   unsigned long partial_dest,<br>
+@@ -305,7 +305,7 @@ csum_partial_cfu_unaligned(unsigned long<br>
+ }<br>
+ <br>
+ static unsigned int<br>
+-do_csum_partial_copy_from_user(char *src, char *dst, int len,<br>
++do_csum_partial_copy_from_user(const char *src, char *dst, int len,<br>
+ 			       unsigned int sum, int *errp)<br>
+ {<br>
+ 	unsigned long checksum = (unsigned) sum;<br>
+@@ -316,12 +316,12 @@ do_csum_partial_copy_from_user(char *src<br>
+ 		if (!doff) {<br>
+ 			if (!soff)<br>
+ 				checksum = csum_partial_cfu_aligned(<br>
+-					(unsigned long *) src,<br>
++					(const unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					len-8, checksum, errp);<br>
+ 			else<br>
+ 				checksum = csum_partial_cfu_dest_aligned(<br>
+-					(unsigned long *) src,<br>
++					(const unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					soff, len-8, checksum, errp);<br>
+ 		} else {<br>
+@@ -329,13 +329,13 @@ do_csum_partial_copy_from_user(char *src<br>
+ 			ldq_u(partial_dest, dst);<br>
+ 			if (!soff)<br>
+ 				checksum = csum_partial_cfu_src_aligned(<br>
+-					(unsigned long *) src,<br>
++					(const unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					doff, len-8, checksum,<br>
+ 					partial_dest, errp);<br>
+ 			else<br>
+ 				checksum = csum_partial_cfu_unaligned(<br>
+-					(unsigned long *) src,<br>
++					(const unsigned long *) src,<br>
+ 					(unsigned long *) dst,<br>
+ 					soff, doff, len-8, checksum,<br>
+ 					partial_dest, errp);<br>
+@@ -352,7 +352,7 @@ do_csum_partial_copy_from_user(char *src<br>
+ }<br>
+ <br>
+ unsigned int<br>
+-csum_partial_copy_from_user(char *src, char *dst, int len,<br>
++csum_partial_copy_from_user(const char *src, char *dst, int len,<br>
+ 			    unsigned int sum, int *errp)<br>
+ {<br>
+ 	if (!access_ok(src, len, VERIFY_READ)) {<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/drivers/char/selection.c linux-2.1.33-rth/drivers/char/selection.c<br>
+--- linux-2.1.33/drivers/char/selection.c	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/drivers/char/selection.c	Thu Apr 10 23:42:57 1997<br>
+@@ -32,6 +32,8 @@<br>
+ /* Don't take this from &lt;ctype.h&gt;: 011-015 on the screen aren't spaces */<br>
+ #define isspace(c)	((c) == ' ')<br>
+ <br>
++extern void poke_blanked_console(void);<br>
++<br>
+ /* Variables for selection control. */<br>
+ /* Use a dynamic buffer, instead of static (Dec 1994) */<br>
+        int sel_cons = 0;		/* must not be disallocated */<br>
+@@ -118,7 +120,7 @@ int set_selection(const unsigned long ar<br>
+ 	int sel_mode, new_sel_start, new_sel_end, spc;<br>
+ 	char *bp, *obp;<br>
+ 	int i, ps, pe;<br>
+-	<br>
++<br>
+ 	do_unblank_screen();<br>
+ 	poke_blanked_console();<br>
+ <br>
+@@ -289,7 +291,7 @@ int paste_selection(struct tty_struct *t<br>
+ 	int	c = sel_buffer_lth;<br>
+ 	int	l;<br>
+ 	struct vt_struct *vt = (struct vt_struct *) tty-&gt;driver_data;<br>
+-	<br>
++<br>
+ 	if (!bp || !c)<br>
+ 		return 0;<br>
+ 	poke_blanked_console();<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/drivers/pnp/parport_init.c linux-2.1.33-rth/drivers/pnp/parport_init.c<br>
+--- linux-2.1.33/drivers/pnp/parport_init.c	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/drivers/pnp/parport_init.c	Thu Apr 10 22:36:38 1997<br>
+@@ -9,10 +9,11 @@<br>
+  *              and Philip Blundell &lt;<a href="mailto:Philip.Blundell@pobox.com">Philip.Blundell@pobox.com</a>&gt;<br>
+  */<br>
+ <br>
++#include &lt;linux/module.h&gt;<br>
++#include &lt;linux/tasks.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+ #include &lt;asm/dma.h&gt;<br>
+ <br>
+-#include &lt;linux/module.h&gt;<br>
+ #include &lt;linux/parport.h&gt;<br>
+ #include &lt;linux/delay.h&gt;<br>
+ #include &lt;linux/errno.h&gt;<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/drivers/pnp/parport_probe.c linux-2.1.33-rth/drivers/pnp/parport_probe.c<br>
+--- linux-2.1.33/drivers/pnp/parport_probe.c	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/drivers/pnp/parport_probe.c	Thu Apr 10 22:36:38 1997<br>
+@@ -5,6 +5,7 @@<br>
+  *             Philip Blundell &lt;<a href="mailto:Philip.Blundell@pobox.com">Philip.Blundell@pobox.com</a>&gt;<br>
+  */<br>
+ <br>
++#include &lt;linux/tasks.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+ #include &lt;asm/dma.h&gt;<br>
+ <br>
+@@ -20,7 +21,6 @@<br>
+ #include &lt;linux/lp.h&gt;<br>
+ <br>
+ #include &lt;asm/uaccess.h&gt;<br>
+-<br>
+ #undef DEBUG_PROBE<br>
+ <br>
+ static inline int read_nibble(struct parport *port) <br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/drivers/pnp/parport_procfs.c linux-2.1.33-rth/drivers/pnp/parport_procfs.c<br>
+--- linux-2.1.33/drivers/pnp/parport_procfs.c	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/drivers/pnp/parport_procfs.c	Thu Apr 10 22:36:38 1997<br>
+@@ -8,6 +8,7 @@<br>
+  *              and Philip Blundell &lt;<a href="mailto:Philip.Blundell@pobox.com">Philip.Blundell@pobox.com</a>&gt;<br>
+  */<br>
+ <br>
++#include &lt;linux/tasks.h&gt;<br>
+ #include &lt;asm/ptrace.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+ #include &lt;asm/dma.h&gt;<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/drivers/pnp/parport_share.c linux-2.1.33-rth/drivers/pnp/parport_share.c<br>
+--- linux-2.1.33/drivers/pnp/parport_share.c	Thu Apr 10 22:34:42 1997<br>
++++ linux-2.1.33-rth/drivers/pnp/parport_share.c	Thu Apr 10 22:36:38 1997<br>
+@@ -9,6 +9,7 @@<br>
+  *              and Philip Blundell &lt;<a href="mailto:Philip.Blundell@pobox.com">Philip.Blundell@pobox.com</a>&gt;<br>
+  */<br>
+ <br>
++#include &lt;linux/tasks.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+ #include &lt;asm/dma.h&gt;<br>
+ <br>
+@@ -64,7 +65,7 @@ struct parport *parport_register_port(un<br>
+ 	if (new.dma &gt;= 0) {<br>
+ 		if (request_dma(new.dma, new.name)) {<br>
+ 			printk(KERN_INFO "%s: unable to claim DMA %d\n", <br>
+-			       new.name, new..dma);<br>
++			       new.name, new.dma);<br>
+ 			release_region(new.base, new.size);<br>
+ 			if( new.modes &amp; PARPORT_MODE_ECR )<br>
+ 				release_region(new.base+0x400, 3);<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/fs/binfmt_em86.c linux-2.1.33-rth/fs/binfmt_em86.c<br>
+--- linux-2.1.33/fs/binfmt_em86.c	Thu Apr 10 22:34:33 1997<br>
++++ linux-2.1.33-rth/fs/binfmt_em86.c	Thu Apr 10 23:42:57 1997<br>
+@@ -20,13 +20,13 @@<br>
+ <br>
+ static int do_load_em86(struct linux_binprm *bprm,struct pt_regs *regs)<br>
+ {<br>
+-	char *cp, *interp, *i_name, *i_arg;<br>
++	char *interp, *i_name, *i_arg;<br>
+ 	int retval;<br>
+ 	struct elfhdr	elf_ex;<br>
+ <br>
+ 	/* Make sure this is a Linux/Intel ELF executable... */<br>
+ 	elf_ex = *((struct elfhdr *)bprm-&gt;buf);<br>
+-	<br>
++<br>
+         if (elf_ex.e_ident[0] != 0x7f ||<br>
+             strncmp(&amp;elf_ex.e_ident[1], "ELF",3) != 0) {<br>
+                 return  -ENOEXEC;<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/fs/isofs/dir.c linux-2.1.33-rth/fs/isofs/dir.c<br>
+--- linux-2.1.33/fs/isofs/dir.c	Thu Apr 10 22:34:33 1997<br>
++++ linux-2.1.33-rth/fs/isofs/dir.c	Thu Apr 10 23:42:57 1997<br>
+@@ -172,7 +172,7 @@ static int do_isofs_readdir(struct inode<br>
+ 			 * entries should terminate with a null size<br>
+ 			 * or end exactly at the end of the sector.<br>
+ 			 */<br>
+-		        printk("next_offset (%x) &gt; bufsize (%x)\n",<br>
++		        printk("next_offset (%x) &gt; bufsize (%lx)\n",<br>
+ 			       offset,bufsize);<br>
+ 			break;<br>
+ 		}<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/fs/isofs/inode.c linux-2.1.33-rth/fs/isofs/inode.c<br>
+--- linux-2.1.33/fs/isofs/inode.c	Thu Apr 10 22:34:43 1997<br>
++++ linux-2.1.33-rth/fs/isofs/inode.c	Thu Apr 10 23:42:57 1997<br>
+@@ -393,7 +393,7 @@ struct super_block *isofs_read_super(str<br>
+ 	if(    (blocksize != 0)<br>
+ 	    &amp;&amp; (orig_zonesize &lt; blocksize) )<br>
+ 	  {<br>
+-	      printk("Logical zone size(%ld) &lt; hardware blocksize(%ld)\n", <br>
++	      printk("Logical zone size(%d) &lt; hardware blocksize(%u)\n",<br>
+ 		     orig_zonesize, blocksize);<br>
+ 	      goto out;<br>
+ <br>
+@@ -549,12 +549,12 @@ int isofs_bmap(struct inode * inode,int <br>
+ 	     * the page with useless information without generating any<br>
+ 	     * I/O errors.<br>
+ 	     */<br>
+-	    max_legal_read_offset = (inode-&gt;i_size + PAGE_SIZE - 1) <br>
++	    max_legal_read_offset = (inode-&gt;i_size + PAGE_SIZE - 1)<br>
+ 	      &amp; ~(PAGE_SIZE - 1);<br>
+ 	    if( (block &lt;&lt; ISOFS_BUFFER_BITS(inode)) &gt;= max_legal_read_offset )<br>
+ 	      {<br>
+ <br>
+-		printk("_isofs_bmap: block&gt;= EOF(%d, %d)\n", block, <br>
++		printk("_isofs_bmap: block&gt;= EOF(%d, %ld)\n", block,<br>
+ 		       inode-&gt;i_size);<br>
+ 	      }<br>
+ 	    return 0;<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/include/asm-alpha/checksum.h linux-2.1.33-rth/include/asm-alpha/checksum.h<br>
+--- linux-2.1.33/include/asm-alpha/checksum.h	Thu Apr 10 22:33:33 1997<br>
++++ linux-2.1.33-rth/include/asm-alpha/checksum.h	Thu Apr 10 23:42:57 1997<br>
+@@ -53,7 +53,7 @@ unsigned int csum_partial_copy(const cha<br>
+  * this is a new version of the above that records errors it finds in *errp,<br>
+  * but continues and zeros the rest of the buffer.<br>
+  */<br>
+-unsigned int csum_partial_copy_from_user(char *src, char *dst, int len, unsigned int sum, int *errp);<br>
++unsigned int csum_partial_copy_from_user(const char *src, char *dst, int len, unsigned int sum, int *errp);<br>
+ <br>
+ /*<br>
+  * this routine is used for miscellaneous IP-like checksums, mainly<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/include/asm-alpha/io.h linux-2.1.33-rth/include/asm-alpha/io.h<br>
+--- linux-2.1.33/include/asm-alpha/io.h	Mon Oct  7 00:55:48 1996<br>
++++ linux-2.1.33-rth/include/asm-alpha/io.h	Thu Apr 10 22:44:54 1997<br>
+@@ -38,7 +38,8 @@ extern struct hae {<br>
+  */<br>
+ extern inline void set_hae(unsigned long new_hae)<br>
+ {<br>
+-	unsigned long ipl = swpipl(7);<br>
++	unsigned long ipl;<br>
++	swpipl(ipl,7);<br>
+ 	hae.cache = new_hae;<br>
+ 	*hae.reg = new_hae;<br>
+ 	mb();<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/include/asm-alpha/uaccess.h linux-2.1.33-rth/include/asm-alpha/uaccess.h<br>
+--- linux-2.1.33/include/asm-alpha/uaccess.h	Thu Apr 10 22:32:37 1997<br>
++++ linux-2.1.33-rth/include/asm-alpha/uaccess.h	Thu Apr 10 23:43:09 1997<br>
+@@ -352,10 +352,27 @@ __asm__ __volatile__("1: stb %r2,%1\n"		<br>
+  * Complex access routines<br>
+  */<br>
+ <br>
++#define __copy_to_user(to,from,n)   __copy_tofrom_user_nocheck((to),(from),(n))<br>
++#define __copy_from_user(to,from,n) __copy_tofrom_user_nocheck((to),(from),(n))<br>
++<br>
+ #define copy_to_user(to,from,n)   __copy_tofrom_user((to),(from),(n),__cu_to)<br>
+ #define copy_from_user(to,from,n) __copy_tofrom_user((to),(from),(n),__cu_from)<br>
+ <br>
+ extern void __copy_user(void);<br>
++<br>
++#define __copy_tofrom_user_nocheck(to,from,n)				\<br>
++({									\<br>
++	register void * __cu_to __asm__("$6") = (to);			\<br>
++	register const void * __cu_from __asm__("$7") = (from);		\<br>
++	register long __cu_len __asm__("$0") = (n);			\<br>
++	__asm__ __volatile__(						\<br>
++		"jsr $28,(%3),__copy_user"				\<br>
++		: "=r" (__cu_len), "=r" (__cu_from), "=r" (__cu_to)	\<br>
++		: "r" (__copy_user), "0" (__cu_len),			\<br>
++		  "1" (__cu_from), "2" (__cu_to)			\<br>
++		: "$1","$2","$3","$4","$5","$28","memory");		\<br>
++	__cu_len;							\<br>
++})<br>
+ <br>
+ #define __copy_tofrom_user(to,from,n,v)					    \<br>
+ ({									    \<br>
+diff -ruNp -x *.orig -x *~ linux-2.1.33/include/linux/binfmts.h linux-2.1.33-rth/include/linux/binfmts.h<br>
+--- linux-2.1.33/include/linux/binfmts.h	Thu Apr 10 22:32:38 1997<br>
++++ linux-2.1.33-rth/include/linux/binfmts.h	Thu Apr 10 23:42:57 1997<br>
+@@ -51,6 +51,7 @@ extern int init_elf_binfmt(void);<br>
+ extern int init_aout_binfmt(void);<br>
+ extern int init_script_binfmt(void);<br>
+ extern int init_java_binfmt(void);<br>
++extern int init_em86_binfmt(void);<br>
+ <br>
+ extern int prepare_binprm(struct linux_binprm *);<br>
+ extern void remove_arg_zero(struct linux_binprm *);<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0529.html">Dmitry S. Rykunov: "Pinnacle Micro Apex 4.6 GB on DEC Alpha XL 366: kernel panic"</a>
+<li> <b>Previous message:</b> <a href="0527.html">David Paris: "Compiling 2.0.30"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

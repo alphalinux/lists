@@ -1,0 +1,724 @@
+<!-- received="Wed Dec 10 18:34:01 1997 " -->
+<!-- sent="Wed, 10 Dec 1997 17:16:04 +0100" -->
+<!-- name="Kai Schuetz" -->
+<!-- email="kais@i6.informatik.rwth-aachen.de" -->
+<!-- subject="non-DMA CMD646 driver" -->
+<!-- id="3.0.3.32.19971211102021.009a2b50@lucifer.its.latrobe.edu.au" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>non-DMA CMD646 driver</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>non-DMA CMD646 driver</h2>
+
+<b>Kai Schuetz</b> (<a href="mailto:kais@i6.informatik.rwth-aachen.de"><i>kais@i6.informatik.rwth-aachen.de</i></a>)<br>
+<i>Wed, 10 Dec 1997 17:16:04 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#362">[ date ]</a><a href="index.html#362">[ thread ]</a><a href="subject.html#362">[ subject ]</a><a href="author.html#362">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0363.html">Mika Kortelainen: "2.1.72 and sound?"</a>
+<li> <b>Previous message:</b> <a href="0361.html">Huw Davies: "Re: 2.0.32"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0395.html">Kai Schuetz: "Re: non-DMA CMD646 driver"</a>
+<li> <b>Maybe reply:</b> <a href="0395.html">Kai Schuetz: "Re: non-DMA CMD646 driver"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+This is a multi-part message in MIME format.<br>
+<p>
+--------------620152BF6231<br>
+Content-Type: text/plain; charset=us-ascii<br>
+Content-Transfer-Encoding: 7bit<br>
+<p>
+I've hacked together suppot of the CMD 646 and CMD643 chips PIO-Mode<br>
+tweaking which is especially useful for owners of PC164, SX164 or LX164<br>
+Alpha-Boards.<br>
+<p>
+Linear-Read transfer speed rose from 1.5Mb/s to ~5Mb/s !<br>
+<p>
+Please not that this still has got _no_ DMA support, so the system load<br>
+will probably be as high as usual. Also note to get any speedup you <br>
+have got to use hdparm, e.g.<br>
+<p>
+hdparm -m16 -c1 -p5 /dev/hda<br>
+hdparm -p9 /dev/hda<br>
+hdparm -p7 /dev/hda<br>
+<p>
+works fine for us.<br>
+<p>
+Just take a 2.1.* kernel (I took linux-2.1.67-BEFORE-MEGAMERGE.tar.gz<br>
+from David Mosberger Tang) and apply the attached diff to cmd640.c in<br>
+drivers/block.<br>
+<p>
+Please also not I feel not responsible for any loss of data/problems<br>
+due to the patch, but for us it works fine on a PC164 with a Seagate<br>
+ST34342A harddisk.<br>
+<p>
+I would appreciate to hear anything about the driver, if it's <br>
+success or not. (Of course I rather would like to hear success stories<br>
+;-) )<br>
+<p>
+<pre>
+-- 
+|/
+|\ai
+<p>
+--------------------------------------------------------------------------------
+Kai Schuetz
+<a href="mailto:kais@i6.informatik.rwth-aachen.de">mailto:kais@i6.informatik.rwth-aachen.de</a>
+Hi, I'm not a signature virus. Why don't you just copy me into your
+signature?
+--------------------------------------------------------------------------------
+<p>
+--------------620152BF6231
+Content-Type: text/plain; charset=us-ascii; name="cmd640.c.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="cmd640.c.diff"
+<p>
+*** cmd640.c.orig	Wed Sep 17 20:32:54 1997
+--- cmd640.c	Wed Dec 10 12:31:46 1997
+***************
+*** 96,105 ****
+--- 96,108 ----
+   *			 ("fast" is necessary for 32bit I/O in some systems)
+   *  Version 1.02	fix bug that resulted in slow "setup times"
+   *			 (patch courtesy of Zoltan Hidvegi)
++  *  Version 1.03        Support for CMD643 and CMD646 chips.
++  *                      added by Kai Schuetz(<a href="mailto:kais@i6.informatik.rwth-aachen.de">kais@i6.informatik.rwth-aachen.de</a>)
+   */
+  
+  #undef REALLY_SLOW_IO		/* most systems can safely undef this */
+  #define CMD640_PREFETCH_MASKS 1
++ #define CMD640_DUMP_REGS
+  
+  #include &lt;linux/config.h&gt;
+  #include &lt;linux/types.h&gt;
+***************
+*** 110,115 ****
+--- 113,120 ----
+  #include &lt;linux/ioport.h&gt;
+  #include &lt;linux/blkdev.h&gt;
+  #include &lt;linux/hdreg.h&gt;
++ #include &lt;linux/pci.h&gt;
++ #include &lt;linux/bios32.h&gt;
+  #include &lt;asm/io.h&gt;
+  #include "ide.h"
+  #include "ide_modes.h"
+***************
+*** 126,132 ****
+  #define VID		0x00
+  #define DID		0x02
+  #define PCMD		0x04
+! #define   PCMD_ENA	0x01
+  #define PSTTS		0x06
+  #define REVID		0x08
+  #define PROGIF		0x09
+--- 131,137 ----
+  #define VID		0x00
+  #define DID		0x02
+  #define PCMD		0x04
+! #define   PCMD_ENA	0x0001
+  #define PSTTS		0x06
+  #define REVID		0x08
+  #define PROGIF		0x09
+***************
+*** 161,166 ****
+--- 166,174 ----
+  #define   ARTTIM23_DIS_RA2	0x04
+  #define   ARTTIM23_DIS_RA3	0x08
+  #define DRWTIM23	0x58
++ 				/* on a CMD646 this is splitted into 2 regs: */
++ #define DRWTIM2         0x58
++ #define DRWTIM3         0x5b
+  #define BRST		0x59
+  
+  /*
+***************
+*** 194,206 ****
+   * Interface to access cmd640x registers
+   */
+  static unsigned int cmd640_key;
+  static void (*put_cmd640_reg)(unsigned short reg, byte val);
+  static byte (*get_cmd640_reg)(unsigned short reg);
+  
+  /*
+   * This is read from the CFR reg, and is used in several places.
+   */
+! static unsigned int cmd640_chip_version;
+  
+  /*
+   * The CMD640x chip does not support DWORD config write cycles, but some
+--- 202,217 ----
+   * Interface to access cmd640x registers
+   */
+  static unsigned int cmd640_key;
++ unsigned char pci_bus;
++ unsigned char pci_dev_fn;
+  static void (*put_cmd640_reg)(unsigned short reg, byte val);
+  static byte (*get_cmd640_reg)(unsigned short reg);
+  
+  /*
+   * This is read from the CFR reg, and is used in several places.
+   */
+! enum {cmd640, cmd640b, cmd643, cmd646} cmd_chip_type;
+! static char cmd64x_strname[4] = {"640", "640b", "643", "646"};
+  
+  /*
+   * The CMD640x chip does not support DWORD config write cycles, but some
+***************
+*** 208,213 ****
+--- 219,239 ----
+   * Therefore, we must use direct IO instead.
+   */
+  
++ /* PCI bios32 access (needed e.g. for alpha) */
++ 
++ static void put_cmd640_reg_pci (unsigned short reg, byte val)
++ {
++   pcibios_write_config_byte(pci_bus, pci_dev_fn, reg, val);
++ }
++ 
++ 
++ static byte get_cmd640_reg_pci (unsigned short reg)
++ {
++   byte val;
++   pcibios_read_config_byte(pci_bus, pci_dev_fn, reg, &amp;val);
++   return val;
++ }
++ 
+  /* PCI method 1 access */
+  
+  static void put_cmd640_reg_pci1 (unsigned short reg, byte val)
+***************
+*** 290,300 ****
+  
+  static int match_pci_cmd640_device (void)
+  {
+- 	const byte ven_dev[4] = {0x95, 0x10, 0x40, 0x06};
+  	unsigned int i;
+! 	for (i = 0; i &lt; 4; i++) {
+! 		if (get_cmd640_reg(i) != ven_dev[i])
+! 			return 0;
+  	}
+  #ifdef STUPIDLY_TRUST_BROKEN_PCMD_ENA_BIT
+  	if ((get_cmd640_reg(PCMD) &amp; PCMD_ENA) == 0) {
+--- 316,340 ----
+  
+  static int match_pci_cmd640_device (void)
+  {
+  	unsigned int i;
+! 	if (get_cmd640_reg(0) != 0x95)
+! 	  return 0;
+! 	if (get_cmd640_reg(1) != 0x10)
+! 	  return 0;
+! 	if (get_cmd640_reg(3) != 0x06)
+! 	  return 0;
+! 	switch(get_cmd640_reg(2)) {
+! 	case 0x40:
+! 	  cmd_chip_type = cmd640;
+! 	  break;
+! 	case 0x43:
+! 	  cmd_chip_type = cmd643;
+! 	  break;
+! 	case 0x46:
+! 	  cmd_chip_type = cmd646;
+! 	  break;
+! 	default:
+! 	  return 0;
+  	}
+  #ifdef STUPIDLY_TRUST_BROKEN_PCMD_ENA_BIT
+  	if ((get_cmd640_reg(PCMD) &amp; PCMD_ENA) == 0) {
+***************
+*** 306,311 ****
+--- 346,382 ----
+  }
+  
+  /*
++  * Probe for CMD640x -- kernel pci support
++  */
++ static int probe_for_cmd640_pci (void)
++ {
++   get_cmd640_reg = get_cmd640_reg_pci;
++   put_cmd640_reg = put_cmd640_reg_pci;
++   if (pcibios_present) {
++     if (pcibios_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_CMD_646, 0, 
++ 			    &amp;pci_bus, &amp;pci_dev_fn) == PCIBIOS_SUCCESSFUL) {
++       cmd_chip_type = cmd646;
++       return 1;			/* success */
++     }else if (pcibios_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_CMD_643, 0, 
++ 				  &amp;pci_bus, &amp;pci_dev_fn) == PCIBIOS_SUCCESSFUL)
++     {
++       cmd_chip_type = cmd643;
++       return 1;			/* success */
++ 
++     /* Im not sure if the following will break something, see the note above 
++      about DWORD write cycles on CMD640 */
++ 
++     }else if (pcibios_find_device(PCI_VENDOR_ID_CMD, PCI_DEVICE_ID_CMD_640, 0, 
++ 				  &amp;pci_bus, &amp;pci_dev_fn) == PCIBIOS_SUCCESSFUL)
++     {
++       cmd_chip_type = cmd640;
++       return 1;			/* success */
++     }
++   }
++   return 0;
++ }
++ 
++ /*
+   * Probe for CMD640x -- pci method 1
+   */
+  static int probe_for_cmd640_pci1 (void)
+***************
+*** 313,320 ****
+  	get_cmd640_reg = get_cmd640_reg_pci1;
+  	put_cmd640_reg = put_cmd640_reg_pci1;
+  	for (cmd640_key = 0x80000000; cmd640_key &lt;= 0x8000f800; cmd640_key += 0x800) {
+! 		if (match_pci_cmd640_device())
+! 			return 1; /* success */
+  	}
+  	return 0;
+  }
+--- 384,391 ----
+  	get_cmd640_reg = get_cmd640_reg_pci1;
+  	put_cmd640_reg = put_cmd640_reg_pci1;
+  	for (cmd640_key = 0x80000000; cmd640_key &lt;= 0x8000f800; cmd640_key += 0x800) {
+! 	  if (match_pci_cmd640_device())
+! 	    return 1; /* success */
+  	}
+  	return 0;
+  }
+***************
+*** 384,394 ****
+   */
+  void cmd640_dump_regs (void)
+  {
+! 	unsigned int reg = cmd640_vlb ? 0x50 : 0x00;
+! 
+  	/* Dump current state of chip registers */
+! 	printk("ide: cmd640 internal register dump:");
+! 	for (; reg &lt;= 0x59; reg++) {
+  		if (!(reg &amp; 0x0f))
+  			printk("\n%04x:", reg);
+  		printk(" %02x", get_cmd640_reg(reg));
+--- 455,466 ----
+   */
+  void cmd640_dump_regs (void)
+  {
+! 	unsigned int reg = cmd640_vlb ? 0x50 : 0x00,
+! 	             toreg = (cmd_chip_type == cmd646) ? 0x5b : 0x59;
+  	/* Dump current state of chip registers */
+! 	printk("ide: cmd%s internal register dump:", 
+! 	       cmd64x_strname[cmd_chip_type]);
+! 	for (; reg &lt;= toreg; reg++) {
+  		if (!(reg &amp; 0x0f))
+  			printk("\n%04x:", reg);
+  		printk(" %02x", get_cmd640_reg(reg));
+***************
+*** 483,495 ****
+  	byte active_count, recovery_count;
+  
+  	active_count = active_counts[index];
+- 	if (active_count == 1)
+- 		++active_count;
+  	recovery_count = recovery_counts[index];
+! 	if (active_count &gt; 3 &amp;&amp; recovery_count == 1)
+! 		++recovery_count;
+! 	if (cmd640_chip_version &gt; 1)
+! 		recovery_count += 1;  /* cmd640b uses (count + 1)*/
+  	printk(", clocks=%d/%d/%d\n", setup_counts[index], active_count, recovery_count);
+  }
+  
+--- 555,582 ----
+  	byte active_count, recovery_count;
+  
+  	active_count = active_counts[index];
+  	recovery_count = recovery_counts[index];
+! 	switch(cmd_chip_type) {
+! 	case cmd640:
+! 	case cmd640b:
+! 	  if (active_count == 1)
+! 	    ++active_count;
+! 	  if (active_count &gt; 3 &amp;&amp; recovery_count == 1)
+! 	    ++recovery_count;
+! 	  if (cmd_chip_type == cmd640b)
+! 	    recovery_count += 1;  /* cmd640b uses (count + 1)*/
+! 	  break;
+! 	case cmd643:
+! 	case cmd646:
+! 	  ++recovery_count;
+! 	  switch(recovery_count) {
+! 	  case 1 :		/* 0x0 */
+! 	    recovery_count = 16; break;
+! 	  case 16 :		/* 0xf */
+! 	    recovery_count = 1; break;
+! 	  }
+! 	  break;
+! 	}
+  	printk(", clocks=%d/%d/%d\n", setup_counts[index], active_count, recovery_count);
+  }
+  
+***************
+*** 547,553 ****
+  	 * each drive.  Secondary interface has one common set of registers,
+  	 * so we merge the timings, using the slowest value for each timing.
+  	 */
+! 	if (index &gt; 1) {
+  		unsigned int mate;
+  		if (cmd_drives[mate = index ^ 1]-&gt;present) {
+  			if (setup_count &lt; setup_counts[mate])
+--- 634,641 ----
+  	 * each drive.  Secondary interface has one common set of registers,
+  	 * so we merge the timings, using the slowest value for each timing.
+  	 */
+! 	if ((cmd_chip_type == cmd640) || (cmd_chip_type == cmd640b)) {
+! 	  if (index &gt; 1) {
+  		unsigned int mate;
+  		if (cmd_drives[mate = index ^ 1]-&gt;present) {
+  			if (setup_count &lt; setup_counts[mate])
+***************
+*** 557,562 ****
+--- 645,651 ----
+  			if (recovery_count &lt; recovery_counts[mate])
+  				recovery_count = recovery_counts[mate];
+  		}
++ 	    }
+  	}
+  
+  	/*
+***************
+*** 592,598 ****
+  static void cmd640_set_mode (unsigned int index, byte pio_mode, unsigned int cycle_time)
+  {
+  	int setup_time, active_time, recovery_time, clock_time;
+! 	byte setup_count, active_count, recovery_count, recovery_count2, cycle_count;
+  	int bus_speed = ide_system_bus_speed();
+  
+  	if (pio_mode &gt; 5)
+--- 681,688 ----
+  static void cmd640_set_mode (unsigned int index, byte pio_mode, unsigned int cycle_time)
+  {
+  	int setup_time, active_time, recovery_time, clock_time;
+! 	byte setup_count, active_count, recovery_count, recovery_count2, 
+! 	cycle_count;
+  	int bus_speed = ide_system_bus_speed();
+  
+  	if (pio_mode &gt; 5)
+***************
+*** 614,631 ****
+  	if (recovery_count2 &gt; recovery_count)
+  		recovery_count = recovery_count2;
+  	if (recovery_count &lt; 2)
+! 		recovery_count = 2; /* minimum allowed by cmd640 */
+! 	if (recovery_count &gt; 17) {
+! 		active_count += recovery_count - 17;
+! 		recovery_count = 17;
+  	}
+  	if (active_count &gt; 16)
+! 		active_count = 16; /* maximum allowed by cmd640 */
+! 	if (cmd640_chip_version &gt; 1)
+! 		recovery_count -= 1;  /* cmd640b uses (count + 1)*/
+  	if (recovery_count &gt; 16)
+  		recovery_count = 16; /* maximum allowed by cmd640 */
+  
+  	setup_counts[index]    = setup_count;
+  	active_counts[index]   = active_count;
+  	recovery_counts[index] = recovery_count;
+--- 704,739 ----
+  	if (recovery_count2 &gt; recovery_count)
+  		recovery_count = recovery_count2;
+  	if (recovery_count &lt; 2)
+! 		recovery_count = 2; /* minimum allowed recovery count */
+! 	switch(cmd_chip_type) {
+! 	case cmd640:
+! 	case cmd640b:
+! 	  recovery_count2 = 17; break;
+! 	case cmd643:
+! 	case cmd646:
+! 	  recovery_count2 = 16; break;
+! 	}
+! 	if (recovery_count &gt; recovery_count2) {
+! 		active_count += recovery_count - recovery_count2;
+! 		recovery_count = recovery_count2;
+  	}
+  	if (active_count &gt; 16)
+! 		active_count = 16; /* maximum allowed by cmd64x */
+! 	if (cmd_chip_type == cmd640b)
+! 	  recovery_count -= 1;  /* cmd640b uses (count + 1)*/
+  	if (recovery_count &gt; 16)
+  		recovery_count = 16; /* maximum allowed by cmd640 */
+  
++ 	if ((cmd_chip_type == cmd643) || (cmd_chip_type == cmd646)) {
++ 	  --recovery_count;
++ 	  switch (recovery_count) {
++ 	  case 0:
++ 	    recovery_count = 0xf; break;
++ 	  case 15:
++ 	    recovery_count = 0x0; break;
++ 	  }
++ 	}
++ 
+  	setup_counts[index]    = setup_count;
+  	active_counts[index]   = active_count;
+  	recovery_counts[index] = recovery_count;
+***************
+*** 664,685 ****
+  			if (mode_wanted)
+  				b |= 0x27;
+  			put_cmd640_reg(CNTRL, b);
+! 			printk("%s: %sabled cmd640 fast host timing (devsel)\n", drive-&gt;name, mode_wanted ? "en" : "dis");
+  			return;
+  
+  		case 8: /* set prefetch off */
+  		case 9: /* set prefetch on */
+  			mode_wanted &amp;= 1;
+  			set_prefetch_mode(index, mode_wanted);
+! 			printk("%s: %sabled cmd640 prefetch\n", drive-&gt;name, mode_wanted ? "en" : "dis");
+  			return;
+  	}
+  
+  	(void) ide_get_best_pio_mode (drive, mode_wanted, 5, &amp;d);
+  	cmd640_set_mode (index, d.pio_mode, d.cycle_time);
+  
+! 	printk ("%s: selected cmd640 PIO mode%d (%dns)%s",
+  		drive-&gt;name,
+  		d.pio_mode,
+  		d.cycle_time,
+  		d.overridden ? " (overriding vendor mode)" : "");
+--- 772,794 ----
+  			if (mode_wanted)
+  				b |= 0x27;
+  			put_cmd640_reg(CNTRL, b);
+! 			printk("%s: %sabled cmd%s fast host timing (devsel)\n", drive-&gt;name, mode_wanted ? "en" : "dis", cmd64x_strname[cmd_chip_type]);
+  			return;
+  
+  		case 8: /* set prefetch off */
+  		case 9: /* set prefetch on */
+  			mode_wanted &amp;= 1;
+  			set_prefetch_mode(index, mode_wanted);
+! 			printk("%s: %sabled cmd%s prefetch\n", drive-&gt;name, mode_wanted ? "en" : "dis", cmd64x_strname[cmd_chip_type]);
+  			return;
+  	}
+  
+  	(void) ide_get_best_pio_mode (drive, mode_wanted, 5, &amp;d);
+  	cmd640_set_mode (index, d.pio_mode, d.cycle_time);
+  
+! 	printk ("%s: selected cmd%s PIO mode%d (%dns)%s",
+  		drive-&gt;name,
++ 		cmd64x_strname[cmd_chip_type],
+  		d.pio_mode,
+  		d.cycle_time,
+  		d.overridden ? " (overriding vendor mode)" : "");
+***************
+*** 699,711 ****
+  	int second_port_cmd640 = 0;
+  	const char *bus_type, *port2;
+  	unsigned int index;
+! 	byte b, cfr;
+  
+  	if (cmd640_vlb &amp;&amp; probe_for_cmd640_vlb()) {
+  		bus_type = "VLB";
+  	} else {
+  		cmd640_vlb = 0;
+! 		if (probe_for_cmd640_pci1())
+  			bus_type = "PCI (type1)";
+  		else if (probe_for_cmd640_pci2())
+  			bus_type = "PCI (type2)";
+--- 808,822 ----
+  	int second_port_cmd640 = 0;
+  	const char *bus_type, *port2;
+  	unsigned int index;
+! 	byte b, cfr=0;
+  
+  	if (cmd640_vlb &amp;&amp; probe_for_cmd640_vlb()) {
+  		bus_type = "VLB";
+  	} else {
+  		cmd640_vlb = 0;
+! 		if (probe_for_cmd640_pci())
+! 		        bus_type = "PCI (Bios32)";
+! 		else if (probe_for_cmd640_pci1())
+  			bus_type = "PCI (type1)";
+  		else if (probe_for_cmd640_pci2())
+  			bus_type = "PCI (type2)";
+***************
+*** 715,726 ****
+  	/*
+  	 * Undocumented magic (there is no 0x5b reg in specs)
+  	 */
+! 	put_cmd640_reg(0x5b, 0xbd);
+! 	if (get_cmd640_reg(0x5b) != 0xbd) {
+! 		printk("ide: cmd640 init failed: wrong value in reg 0x5b\n");
+! 		return 0;
+  	}
+- 	put_cmd640_reg(0x5b, 0);
+  
+  #ifdef CMD640_DUMP_REGS
+  	CMD640_DUMP_REGS;
+--- 826,840 ----
+  	/*
+  	 * Undocumented magic (there is no 0x5b reg in specs)
+  	 */
+! 	if (cmd_chip_type == 640) {
+! 	  put_cmd640_reg(0x5b, 0xbd);
+! 	  if (get_cmd640_reg(0x5b) != 0xbd) {
+! 	    printk("ide: cmd%s init failed: wrong value in reg 0x5b\n",
+! 		   cmd64x_strname[cmd_chip_type]);
+! 	    return 0;
+! 	  }
+! 	  put_cmd640_reg(0x5b, 0);
+  	}
+  
+  #ifdef CMD640_DUMP_REGS
+  	CMD640_DUMP_REGS;
+***************
+*** 729,749 ****
+  	/*
+  	 * Documented magic begins here
+  	 */
+! 	cfr = get_cmd640_reg(CFR);
+! 	cmd640_chip_version = cfr &amp; CFR_DEVREV;
+! 	if (cmd640_chip_version == 0) {
+! 		printk ("ide: bad cmd640 revision: %d\n", cmd640_chip_version);
+! 		return 0;
+  	}
+  
+  	/*
+  	 * Initialize data for primary port
+  	 */
+  	setup_device_ptrs ();
+! 	printk("%s: buggy cmd640%c interface on %s, config=0x%02x\n",
+! 	       cmd_hwif0-&gt;name, 'a' + cmd640_chip_version - 1, bus_type, cfr);
+  	cmd_hwif0-&gt;chipset = ide_cmd640;
+  #ifdef CONFIG_BLK_DEV_CMD640_ENHANCED
+  	cmd_hwif0-&gt;tuneproc = &amp;cmd640_tune_drive;
+  #endif /* CONFIG_BLK_DEV_CMD640_ENHANCED */
+  
+--- 843,873 ----
+  	/*
+  	 * Documented magic begins here
+  	 */
+! 	if (cmd_chip_type == 640) {
+! 	  int cmd640_chip_version;
+! 	  cfr = get_cmd640_reg(CFR);
+! 	  cmd640_chip_version = cfr &amp; CFR_DEVREV;
+! 	  if (cmd640_chip_version == 0) {
+! 	    printk ("ide: bad cmd640 revision: %d\n", cmd640_chip_version);
+! 	    return 0;
+! 	  }
+! 	  if (cmd640_chip_version &gt; 1)
+! 	    cmd_chip_type = cmd640b;
+  	}
+  
+  	/*
+  	 * Initialize data for primary port
+  	 */
+  	setup_device_ptrs ();
+! 	printk("%s:%s cmd%s interface on %s, config=0x%02x\n",
+! 	       cmd_hwif0-&gt;name, 
+! 	       ((cmd_chip_type &lt;= cmd640b) ? " buggy" : ""),
+! 	       cmd64x_strname[cmd_chip_type],
+! 	       bus_type, cfr);
+  	cmd_hwif0-&gt;chipset = ide_cmd640;
+  #ifdef CONFIG_BLK_DEV_CMD640_ENHANCED
++ 	if ((cmd_chip_type == cmd643) || (cmd_chip_type == cmd646))
++ 	  drwtim_regs[3] = DRWTIM3;
+  	cmd_hwif0-&gt;tuneproc = &amp;cmd640_tune_drive;
+  #endif /* CONFIG_BLK_DEV_CMD640_ENHANCED */
+  
+***************
+*** 819,825 ****
+  			recovery_counts [index] = 16;	/* max possible */
+  			program_drive_counts (index);
+  			set_prefetch_mode (index, 0);
+! 			printk("cmd640: drive%d timings/prefetch cleared\n", index);
+  		} else {
+  			/*
+  			 * Record timings/prefetch without changing them.
+--- 943,951 ----
+  			recovery_counts [index] = 16;	/* max possible */
+  			program_drive_counts (index);
+  			set_prefetch_mode (index, 0);
+! 			printk("cmd%s: drive%d timings/prefetch cleared\n", 
+! 			       cmd64x_strname[cmd_chip_type],
+! 			       index);
+  		} else {
+  			/*
+  			 * Record timings/prefetch without changing them.
+***************
+*** 827,834 ****
+  			 */
+  			retrieve_drive_counts (index);
+  			check_prefetch (index);
+! 			printk("cmd640: drive%d timings/prefetch(%s) preserved",
+! 				index, drive-&gt;no_io_32bit ? "off" : "on");
+  			display_clocks(index);
+  		}
+  #else
+--- 953,961 ----
+  			 */
+  			retrieve_drive_counts (index);
+  			check_prefetch (index);
+! 			printk("cmd%s: drive%d timings/prefetch(%s) preserved",
+! 			       cmd64x_strname[cmd_chip_type],
+! 			       index, drive-&gt;no_io_32bit ? "off" : "on");
+  			display_clocks(index);
+  		}
+  #else
+***************
+*** 836,843 ****
+  		 * Set the drive unmask flags to match the prefetch setting
+  		 */
+  		check_prefetch (index);
+! 		printk("cmd640: drive%d timings/prefetch(%s) preserved\n",
+! 			index, drive-&gt;no_io_32bit ? "off" : "on");
+  #endif /* CONFIG_BLK_DEV_CMD640_ENHANCED */
+  	}
+  
+--- 963,971 ----
+  		 * Set the drive unmask flags to match the prefetch setting
+  		 */
+  		check_prefetch (index);
+! 		printk("cmd%s: drive%d timings/prefetch(%s) preserved\n",
+! 		       cmd64x_strname[cmd_chip_type],
+! 		       index, drive-&gt;no_io_32bit ? "off" : "on");
+  #endif /* CONFIG_BLK_DEV_CMD640_ENHANCED */
+  	}
+  
+<p>
+--------------620152BF6231--
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0363.html">Mika Kortelainen: "2.1.72 and sound?"</a>
+<li> <b>Previous message:</b> <a href="0361.html">Huw Davies: "Re: 2.0.32"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0395.html">Kai Schuetz: "Re: non-DMA CMD646 driver"</a>
+<li> <b>Maybe reply:</b> <a href="0395.html">Kai Schuetz: "Re: non-DMA CMD646 driver"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

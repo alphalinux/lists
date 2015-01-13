@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Linux 2.3.X on Alpha..</TITLE>
+<META NAME="Author" CONTENT="Phillip Ezolt (ezolt@perf.zko.dec.com)">
+<META NAME="Subject" CONTENT="Re: Linux 2.3.X on Alpha..">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Linux 2.3.X on Alpha..</H1>
+<HR>
+<P>
+<!-- received="Tue Aug 24 17:31:09 1999" -->
+<!-- isoreceived="19990825003109" -->
+<!-- sent="Tue, 24 Aug 1999 13:26:30 -0400 (EDT)" -->
+<!-- isosent="19990824172630" -->
+<!-- name="Phillip Ezolt" -->
+<!-- email="ezolt@perf.zko.dec.com" -->
+<!-- subject="Re: Linux 2.3.X on Alpha.." -->
+<!-- id="Pine.OSF.3.96.990824131443.22118C-100000@perf.zko.dec.com" -->
+<!-- inreplyto="19990824094149.A20253@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: Linux 2.3.X on Alpha..<BR>
+<STRONG>From: </STRONG>Phillip Ezolt (<EM>ezolt@perf.zko.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Aug 24 1999 - 10:26:30 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#542">[ date ]</A>
+<A HREF="index.html#542">[ thread ]</A>
+<A HREF="subject.html#542">[ subject ]</A>
+<A HREF="author.html#542">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0543.html">Praveen Srinivasan: "PC164 RAM"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0541.html">Richard Henderson: "Re: Linux 2.3.X on Alpha.."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0541.html">Richard Henderson: "Re: Linux 2.3.X on Alpha.."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0541.html">Phillip Ezolt: "Re: Linux 2.3.X on Alpha.."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 24 Aug 1999, Richard Henderson wrote:
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Are you using 2.3.15-pre1 or pre2?  There was a bulk fb patch that
+</EM><BR>
+<EM>&gt; went in for pre2 that should have fixed things wrt tga...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; r~
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>I am using 2.3.15-pre2 with your patch and a patch for khttpd. 
+<BR>
+<P>On my DS20, the resulting kernel now boots.  (The unpatched kernel did not..)
+<BR>
+<P>In order to get TGAfb to even compile with this kernel I had to fiddle with
+<BR>
+the parameters to ioremap. (described below..) I could have done this wrong, 
+<BR>
+and that might be the cause of my trouble. 
+<BR>
+<P>Random note:
+<BR>
+It looks like the &quot;#include &lt;linux/tasks.h&gt;&quot; should be changed to 
+<BR>
+&quot;#include &lt;linux/threads.h&gt;&quot; in /usr/src/linux/include/asm/smp.h 
+<BR>
+<P>--Phil
+<BR>
+<P>Compaq: Business Critical Servers Division/Benchmark Performance Engineering 
+<BR>
+---------------- Alpha, The Fastest Processor on Earth --------------------
+<BR>
+Phillip.Ezolt@compaq.com        |C|O|M|P|A|Q|        ezolt@perf.zko.dec.com
+<BR>
+<P><P><P><EM>&gt;From ezolt@perf.zko.dec.com Tue Aug 24 13:14:22 1999
+</EM><BR>
+Date: Mon, 23 Aug 1999 11:02:14 -0400 (EDT)
+<BR>
+From: Phillip Ezolt &lt;ezolt@perf.zko.dec.com&gt;
+<BR>
+To: jay.estabrook@compaq.com
+<BR>
+Subject: ioremap incorrectly used in 2.3.15pre-2
+<BR>
+<P>Jay,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In the 2.3.X series, the definition of ioremap must have changed. 
+<BR>
+<P>Following the example of some other alpha files in the kernel, I changed 
+<BR>
+the ioremap calls from &quot;ioremap(address)&quot; to &quot;ioremap(address,0)&quot;
+<BR>
+<P>pgtable.h:625 
+<BR>
+-----------------
+<BR>
+#define io_remap_page_range(start, busaddr, size, prot) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remap_page_range(start, virt_to_phys(ioremap(busaddr)), size, prot)
+<BR>
+<P>to 
+<BR>
+<P>#define io_remap_page_range(start, busaddr, size, prot) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remap_page_range(start, virt_to_phys(ioremap(busaddr,0)), size, prot)
+<BR>
+<P><P>/usr/src/linux/drivers/video/tgafb.c:940
+<BR>
+-----------------
+<BR>
+Changed from 
+<BR>
+<P>disp-&gt;screen_base = ioremap(fb_info.tga_fb_base);
+<BR>
+<P>to 
+<BR>
+<P>disp-&gt;screen_base = ioremap(fb_info.tga_fb_base,0);
+<BR>
+<P><P>Please add these to your patches if they are correct, if not, please fix them.
+<BR>
+<P>BTW, Have you had any success with the 2.3.X kernels? 
+<BR>
+<P>Thanks,
+<BR>
+--Phil
+<BR>
+<P>Compaq: Business Critical Servers Division/Benchmark Performance Engineering 
+<BR>
+---------------- Alpha, The Fastest Processor on Earth --------------------
+<BR>
+Phillip.Ezolt@compaq.com        |C|O|M|P|A|Q|        ezolt@perf.zko.dec.com
+<BR>
+<P><P><P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0543.html">Praveen Srinivasan: "PC164 RAM"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0541.html">Richard Henderson: "Re: Linux 2.3.X on Alpha.."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0541.html">Richard Henderson: "Re: Linux 2.3.X on Alpha.."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0541.html">Phillip Ezolt: "Re: Linux 2.3.X on Alpha.."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

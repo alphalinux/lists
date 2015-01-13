@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: SCSI &amp; RAID questions</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: SCSI &amp; RAID questions">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: SCSI &amp; RAID questions</H1>
+<HR>
+<P>
+<!-- received="Fri Jun 25 20:25:42 1999" -->
+<!-- isoreceived="19990626032542" -->
+<!-- sent="Fri, 25 Jun 1999 13:04:12 -0600 (MDT)" -->
+<!-- isosent="19990625190412" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: SCSI &amp; RAID questions" -->
+<!-- id="199906251904.NAA09581@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="19990625121128.I3288@ststech.com" -->
+<STRONG>Subject: </STRONG>Re: SCSI & RAID questions<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jun 25 1999 - 12:04:12 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#555">[ date ]</A>
+<A HREF="index.html#555">[ thread ]</A>
+<A HREF="subject.html#555">[ subject ]</A>
+<A HREF="author.html#555">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0556.html">Jeff Garzik: "Re: network booting a Multia?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0554.html">designer seven: "Re: not linux related, but of interest to Multia owners"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0550.html">Steve Borho: "SCSI &amp; RAID questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0568.html">Jay.Estabrook@digital.com: "Re: SCSI &amp; RAID questions"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0550.html">Michal Jaegermann: "Re: SCSI &amp; RAID questions"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Steve Borho wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I got ambitious and replaced the failing 2GB drive with a pair of
+</EM><BR>
+<EM>&gt; cheetah's in a raid0 configuration; very sweet.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I had to install a new Adaptec adapter since the two cheetah's are
+</EM><BR>
+<EM>&gt; SCSI-2 and have 68 pin connectors, thus the on-board NCR controller
+</EM><BR>
+<EM>&gt; couldn't handle them.
+</EM><BR>
+<P>A sane way of doing things like that is to put RAID controller on
+<BR>
+a board if you want to boot from the thing but even your configuration
+<BR>
+can be dealt with.
+<BR>
+<P>And I would not use Adaptec, but this is just me. :-)
+<BR>
+<P><EM>&gt; After installing the new adapter, the kernel initializes the adaptec
+</EM><BR>
+<EM>&gt; driver before the on-board NCR, thus my sda turns into sdc.
+</EM><BR>
+<P>Controllers are asigned to channels in such order as they are detected in
+<BR>
+PCI scan - which happens to be reverse in 2.2 kernels than in 2.0 ones.
+<BR>
+The order was reversed to conform to what BIOSes are usually doing.
+<BR>
+2.2 kernels also have a boot flag which allow you to switch that order
+<BR>
+around if you need to.  SCSI drives are asigned consecutive letters in
+<BR>
+an order they are found - first all drives from a controller 0, then
+<BR>
+drives from a controller 1 and so on.
+<BR>
+<P><EM>&gt; What's really wierd is that I
+</EM><BR>
+<EM>&gt; never once told Linux about the card.  I just shut the alpha down,
+</EM><BR>
+<EM>&gt; stuck it in, booted it up, and there it was.
+</EM><BR>
+<P>Eh? And what did you expect?
+<BR>
+<P><EM>&gt; Is there anyway to get into the adaptec BIOS to adjust the settings,
+</EM><BR>
+<EM>&gt; or is this just an intel based feature?
+</EM><BR>
+<P>I thought that newer Adaptecs allowed an access to their BIOS in a
+<BR>
+bootup sequence of Alpha.  Pay close attention to messages.  If your
+<BR>
+controller is still from an old stock there is an 'acu.exe' utility
+<BR>
+(Adaptec Control Utility), which you can find somewhere on Compaq (DEC)
+<BR>
+sites.  You run that from firmware loading from a floppy.  A precise
+<BR>
+URL anyone?  I am not sure if this will help in your particular case,
+<BR>
+though, as the other controller will be still detected.  If you will
+<BR>
+recompile a kernel **without** a support for NCR, with Adaptec only,
+<BR>
+then NCR on board should be left alone.  But distribution kernels,
+<BR>
+during an upgrade - for example, will still see it.  Setting BIOS on
+<BR>
+Adaptec will have no relevance to what NCR is doing.
+<BR>
+<P><EM>&gt; The raid array (/dev/md0) isn't being detected during the kernel
+</EM><BR>
+<EM>&gt; initialization, even though I set the persistent flag in /etc/raidtab.
+</EM><BR>
+<EM>&gt; I had to add raidstart /dev/md0 and mount /raid to rc.local in order
+</EM><BR>
+<EM>&gt; for the array to be mounted.  Is this normal for Alpha/Linux?
+</EM><BR>
+<P>It is normal for Linux - period.  As you are using mirroring only
+<BR>
+this is not a big deal.  Separate disks are still valid by themselves
+<BR>
+and things are ok.  In more complicated setups you are booting into
+<BR>
+'initrd' ramdisk to set up RAID operations there and you are switching
+<BR>
+to you &quot;normal&quot; configuration continuing boot afterwards.  See
+<BR>
+'Documentation' subdirectory in linux kernel source tree for details.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0556.html">Jeff Garzik: "Re: network booting a Multia?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0554.html">designer seven: "Re: not linux related, but of interest to Multia owners"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0550.html">Steve Borho: "SCSI &amp; RAID questions"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0568.html">Jay.Estabrook@digital.com: "Re: SCSI &amp; RAID questions"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0550.html">Michal Jaegermann: "Re: SCSI &amp; RAID questions"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

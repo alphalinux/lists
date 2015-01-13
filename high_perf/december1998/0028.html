@@ -1,0 +1,483 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: how to optimize dgemm? No.3</TITLE>
+<META NAME="Author" CONTENT="Kazushige Goto (goto@statabo.rim.or.jp)">
+<META NAME="Subject" CONTENT="how to optimize dgemm? No.3">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>how to optimize dgemm? No.3</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:35 1999 EST" -->
+<!-- sent="Sat, 19 Dec 1998 00:06:36 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="how to optimize dgemm? No.3" -->
+<!-- id="19981219000636T.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="19981209231455P.goto@statabo.rim.or.jp" -->
+<STRONG>Kazushige Goto</STRONG> (<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.3"><EM>goto@statabo.rim.or.jp</EM></A>)<BR>
+<EM>Sat, 19 Dec 1998 00:06:36 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#28">[ date ]</A>
+<A HREF="index.html#28">[ thread ]</A>
+<A HREF="subject.html#28">[ subject ]</A>
+<A HREF="author.html#28">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0029.html">Jonathan L Dubois: "slightly off topic: gdb and stepping over doubles"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0027.html">naohiko shimizu: "Yet another DGEMM routine from Shimizu"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0030.html">Kazushige Goto: "how to optimize dgemm? No.4"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is a 3rd part document of DGEMM.
+<BR>
+<P>5. Copying 2
+<BR>
+<P>(a) 1st step
+<BR>
+<P>I use stack temporary array s_a(Matrix A).  And use these matrix in
+<BR>
+most inner loop.
+<BR>
+<P>&lt;&lt; 28 MFlops, 93494 DTB misses&gt;&gt;  &lt;- I added DTB miss information.
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+<P>&nbsp;&nbsp;int i, j, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P];
+<BR>
+<P>&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is; i &lt; MIN(m, is+Q); i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++)  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll] = a[i + l * lda];
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += b[l + j * ldb] * s_a[ll];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>(b) 2nd step
+<BR>
+<P>Expand temporary stack matrix s_a to 2 dimention.
+<BR>
+<P>&lt;&lt; 54 MFlops, 82681 DTB misses&gt;&gt;
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+<P>&nbsp;&nbsp;int i, ii, j, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P][Q];
+<BR>
+<P>&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll][ii] = a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += b[l + j * ldb] * s_a[ll][ii];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>(c) 3rd step
+<BR>
+<P>Do same way for s_b(Matrix B).
+<BR>
+<P><P>&lt;&lt; 68 MFlops, 82670 DTB misses&gt;&gt;
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+<P>&nbsp;&nbsp;int i, ii, j, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P][Q], s_b[P];
+<BR>
+<P>&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll][ii] = a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 0; j &lt; n; j++) {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++)   /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_b[ll] = b[l + j * ldb];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += s_b[ll] * s_a[ll][ii];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>(d) 4th step
+<BR>
+<P>I want to move &quot;s_b copying routine&quot; to outer loops.  But it's
+<BR>
+difficult to move, so apply Blocking for &quot;j loop&quot;.
+<BR>
+<P>&lt;&lt; 66 MFlops, 78124 DTB misses&gt;&gt;
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+<P>&nbsp;&nbsp;int i, ii, j, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is, js;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P][Q], s_b[P];
+<BR>
+<P>&nbsp;&nbsp;for (js = 0; js &lt; n; js += R){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll][ii] = a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = js; j &lt; MIN(n, js+R); j++) {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++)   /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_b[ll] = b[l + j * ldb];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += s_b[ll] * s_a[ll][ii];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>(e) 5th step
+<BR>
+<P>Also, expand s_b matrix to 2 dimention.
+<BR>
+<P>The matrix sizes of s_a and s_b are pretty large, but 21164 has large
+<BR>
+and no-wait 2nd cache, so I choose this algorithm.
+<BR>
+<P><P>&lt;&lt; 55 MFlops, 80007 DTB misses&gt;&gt;
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+#define R 32
+<BR>
+<P>&nbsp;&nbsp;int i, ii, j, jj, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is, js;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P][Q], s_b[R][P];
+<BR>
+<P>&nbsp;&nbsp;for (js = 0; js &lt; n; js += R){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll][ii] = a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = js, jj=0; j &lt; MIN(n, js+R); j++, jj++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++)   /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_b[jj][ll] = b[l + j * ldb];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = js, jj=0; j &lt; MIN(n, js+R); j++, jj++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += s_b[jj][ll] * s_a[ll][ii];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>(f) 6th(final) step
+<BR>
+<P>To move &quot;copying routine&quot; to outer loops,  I moved &quot;ls loop&quot; to most
+<BR>
+outer loop, then moved &quot;s_b copying routine&quot;.
+<BR>
+<P><P>&lt;&lt; 59 MFlops, 4470 DTB misses&gt;&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~~~~ &lt;- not typo.
+<BR>
+<P>#define P 40
+<BR>
+#define Q 16
+<BR>
+#define R 32
+<BR>
+<P>&nbsp;&nbsp;int i, ii, j, jj, l, ll;
+<BR>
+&nbsp;&nbsp;int ls, is, js;
+<BR>
+&nbsp;&nbsp;double temp;
+<BR>
+<P>&nbsp;&nbsp;double s_a[P][Q], s_b[R][P];
+<BR>
+<P>&nbsp;&nbsp;for (ls = 0; ls &lt; k; ls += P){      /* Swapped */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for (js = 0; js &lt; n; js += R){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = js, jj=0; j &lt; MIN(n, js+R); j++, jj++) {   /* Copying &amp; Moved */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_b[jj][ll] = b[l + j * ldb];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (is = 0; is &lt; m; is += Q){
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {  /* Copying */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s_a[ll][ii] = a[i + l * lda];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Now Start calculating ... */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = js, jj=0; j &lt; MIN(n, js+R); j++, jj++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = is, ii=0; i &lt; MIN(m, is+Q); i++, ii++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = 0.;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (l = ls, ll=0; l &lt; MIN(k, ls+P); l++, ll++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp += s_b[jj][ll] * s_a[ll][ii];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;c[i + j * ldc] += alpha * temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P><P>Thus, DTB misses were considerably reduced and we can avoid cache
+<BR>
+congruence problem.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cache Congruence(MFlops)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-----------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;size  |   510  |   511  |   512  |   513  |   514
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(a)   |  27.8  |  26.4  |  18.7  |  26.0  |  27.7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(b)   |  54.1  |  54.2  |  53.6  |  54.4  |  54.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(c)   |  67.0  |  68.9  |  65.8  |  68.5  |  66.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(d)   |  65.6  |  66.0  |  65.2  |  64.9  |  65.4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(e)   |  54.9  |  54.9  |  54.5  |  54.5  |  54.8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--------+--------+--------+--------+--------+--------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(f)   |  59.4  |  59.3  |  59.1  |  59.0  |  59.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-----------------------------------------------------
+<BR>
+<P>Continue to No.4
+<BR>
+<P>Basic optimization was finished.  Next, I'll explain Alpha 21164
+<BR>
+specific optimization.
+<BR>
+<P>Thanks,
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.3">goto@statabo.rim.or.jp</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0029.html">Jonathan L Dubois: "slightly off topic: gdb and stepping over doubles"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0027.html">naohiko shimizu: "Yet another DGEMM routine from Shimizu"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0030.html">Kazushige Goto: "how to optimize dgemm? No.4"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:40 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

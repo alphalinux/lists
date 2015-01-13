@@ -1,0 +1,183 @@
+<!-- received="Wed Apr 30 05:10:49 1997 " -->
+<!-- sent="Wed, 30 Apr 1997 11:00:52 +0200" -->
+<!-- name="Stephan Schroepfer" -->
+<!-- email="scr@iis.fhg.de" -->
+<!-- subject="Re: Wrong date with RHL4.1 on PC164" -->
+<!-- id="33670A44.41C67EA6@iis.fhg.de" -->
+<!-- inreplyto="Wrong date with RHL4.1 on PC164" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Wrong date with RHL4.1 on PC164</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Wrong date with RHL4.1 on PC164</h2>
+
+<b>Stephan Schroepfer</b> (<a href="mailto:scr@iis.fhg.de"><i>scr@iis.fhg.de</i></a>)<br>
+<i>Wed, 30 Apr 1997 11:00:52 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1224">[ date ]</a><a href="index.html#1224">[ thread ]</a><a href="subject.html#1224">[ subject ]</a><a href="author.html#1224">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1225.html">D. Champion: "Re: Linux/Alpha support for Iomega Zip/Jaz drives?"</a>
+<li> <b>Previous message:</b> <a href="1223.html">Bryce A. Roberts: "Linux/Alpha support for Iomega Zip/Jaz drives?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1191.html">Stephan Schroepfer: "Wrong date with RHL4.1 on PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a> wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; &gt;&gt;&gt; Stephan Schroepfer said:</i><br>
+<i>&gt; &gt;&gt; After installation of RHL4.1 on a PC164-based machine 'date'</i><br>
+<i>&gt; &gt;&gt; reports 'year 2017' (...)</i><br>
+<i>&gt; </i><br>
+<i>&gt; (...) Change /etc/sysconfig/clock to: CLOCKMODE="ARC".</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt;&gt; ... Calling clock (...) from the shell (...) I get a message</i><br>
+<i>&gt; &gt;&gt; like 'missing I/O port address'.</i><br>
+<i>&gt; </i><br>
+<i>&gt; If it says: "clock: unable to get I/O port access", its probably</i><br>
+<i>&gt; because you're not running as "root". If it says something else,</i><br>
+<i>&gt; check that the output of "cat /proc/cpuinfo" has EB164 for the</i><br>
+<i>&gt; value of "system type".</i><br>
+<i>&gt; ...</i><br>
+<i>&gt; Also, you could try the work-aound by doing:</i><br>
+<i>&gt;         ln -s EB164 /etc/alpha_systype</i><br>
+<i>&gt; which should allow "clock" to do the right thing.</i><br>
+<i>&gt; ...</i><br>
+<i>&gt; --Jay++</i><br>
+<p>
+Hello Jay and the others out there:<br>
+<p>
+Oh yes, I think there is a problem with 'clock' which cannot<br>
+be solved with Jay's 'ln -s' workaround alone.<br>
+<p>
+Summary:<br>
+ - Patching /etc/sysconfig/clock according to<br>
+   Jay A Eastbrook's tip seemed to solve the problem<br>
+   of having a wrong date only temporary (until<br>
+   next reboot (from milo))<br>
+ - 'ln -s EB164 /etc/alpha_systype' - workaround<br>
+   (according to Jay A Eastbrook) seemed to get date<br>
+   right until next to next reboot (had to use reset<br>
+   button and after that things got even more weird)<br>
+<p>
+Following text is a rewrite of some sort of commented manuscript<br>
+I made during my (somewhat frustrating) experiences with the<br>
+'Wrong date with RHL4.1 on PC164' - problem<br>
+ - I hope that there are no serious mistakes<br>
+ - may be difficult to read (lines without a leading<br>
+   '#' are shell commands together with their output)<br>
+ - maybe my problems stem to the fact that I'm new<br>
+   to axp (and such things as ARC-console ...)<br>
+<p>
+# logging in as root (I thought first settting the right date<br>
+# and then allow users to log in could be no error)<br>
+date                    : Sat Apr 29 19:46:51 2017<br>
+# (maybe Sat Apr 29 2017 will be really a saturday)<br>
+# '...2017' may serve as an alias in the following text as<br>
+# '...1997' will serve for the right date, I think '...2035'<br>
+# needs no further explanation<br>
+clock                   : ...2017<br>
+clock -r -A             : ...1997<br>
+grep type /proc/cpuinfo : system type : EB164<br>
+<p>
+# this constellation leads to file dates from year 2017 and is<br>
+# at the root of my problem ...<br>
+<p>
+##### now patched /etc/sysconfig/clock<br>
+# was: 'UTC=true\ARC=false'<br>
+# now: 'CLOCKMODE="ARC"'<br>
+sync;reboot<br>
+<p>
+# (... sometimes I have to remove the 'clear' command before<br>
+# 'login' lurking somewhere in RedHat4.1 ...)<br>
+date                    : ...1997<br>
+clock                   : ...2017<br>
+clock -r -A             : ...1997<br>
+<p>
+# maybe in this temporary state dates of newly created files could<br>
+# have been right but I have not tested it, doing a reboot to<br>
+# prove this state to be stable<br>
+sync;reboot<br>
+<p>
+# at boot time          : clock : unable to get I/O port access<br>
+# year 2017 is shown (couldn't find the 'clear' before 'login' yet)<br>
+# also shown : Last login ...2017<br>
+date                    : ...2017<br>
+# why? after a simple reboot without changing anything else date<br>
+# is ...2017 (was ...1997 before last reboot)<br>
+clock                   : unable to get I/O port access<br>
+# !!! why that? (logged in as root as in first login above) !!!<br>
+grep type /proc/cpuinfo : system type : 0<br>
+# !!! why that? (was 'EB164' on first startup) !!!<br>
+<p>
+##### now tried 'ln -s' workaround<br>
+ln -s EB164 /etc/alpha_systype<br>
+file alpha_systype      : alpha_systype : broken symbolic link ...<br>
+# yes its just a workaround, I didn't expect to have a file<br>
+# named 'EB164' to which a symbolic link could have pointed to<br>
+<p>
+clock                   : ...2017<br>
+clock -r -A             : ...1997<br>
+# o.k.: no 'unable to ...'-message since 'ln -s' workaround<br>
+# was applied applied<br>
+# doing another reboot<br>
+sync;reboot<br>
+# On shutdown: 'Broadcast message ...2017'<br>
+<p>
+# On reboot: 'setting clock ...1997'<br>
+date                    : ...1997<br>
+clock                   : ...2017<br>
+clock -r -A             : ...1997<br>
+<p>
+# o.k.: now I should be able to give user access ...<br>
+# doing (you guessed it) another reboot<br>
+sync;reboot<br>
+# !!! system halt, no reboot (first 'no-reboot' since I use !!!<br>
+# !!! axp-linux)                                            !!!<br>
+<p>
+# On shutdown; 'Broadcast message ...2017'<br>
+# !!! On reboot: 'setting clock ...2035' !!!<br>
+date                    : ...2035<br>
+clock                   : ...2017<br>
+clock -r -A             : ...1997<br>
+grep type /proc/cpuinfo : system type : EB164<br>
+<p>
+# At this point I gave up<br>
+<p>
+Stefan Schroepfer,<br>
+<a href="mailto:scr@iis.fhg.de">scr@iis.fhg.de</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1225.html">D. Champion: "Re: Linux/Alpha support for Iomega Zip/Jaz drives?"</a>
+<li> <b>Previous message:</b> <a href="1223.html">Bryce A. Roberts: "Linux/Alpha support for Iomega Zip/Jaz drives?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1191.html">Stephan Schroepfer: "Wrong date with RHL4.1 on PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

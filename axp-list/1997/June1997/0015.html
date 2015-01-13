@@ -1,0 +1,111 @@
+<!-- received="Sun Jun  1 21:20:45 1997 " -->
+<!-- sent="Sun, 1 Jun 1997 21:15:18 -0400 (EDT)" -->
+<!-- name="Jeff Odom" -->
+<!-- email="zeus@jhu.edu" -->
+<!-- subject="fix for gdb" -->
+<!-- id="199706012321.SAA27201@stommel.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>fix for gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>fix for gdb</h2>
+
+<b>Jeff Odom</b> (<a href="mailto:zeus@jhu.edu"><i>zeus@jhu.edu</i></a>)<br>
+<i>Sun, 1 Jun 1997 21:15:18 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#15">[ date ]</a><a href="index.html#15">[ thread ]</a><a href="subject.html#15">[ subject ]</a><a href="author.html#15">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0016.html">Patrick T. Glynn: "Re: Browsers for RHL"</a>
+<li> <b>Previous message:</b> <a href="0014.html">Erik Troan: "Re: Upgrading glibc on RH4.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+It seems that gdb still has a problem stepping over calls to malloc().<br>
+This is not isolated to only dynamic binaries, but includes static ones as<br>
+well.  After spending a while tracing through the code, I found the<br>
+offending code. This segment, taken from the gdb-4.16axp.patch.gz, seems<br>
+to break calls to malloc():<br>
+<p>
+diff -urN gdb-4.16/gdb/mdebugread.c gdb-4.16axp/gdb/mdebugread.c<br>
+--- gdb-4.16/gdb/mdebugread.c   Sat Apr  6 02:09:55 1996<br>
++++ gdb-4.16axp/gdb/mdebugread.c        Wed May 22 19:17:06 1996<br>
+@@ -835,7 +835,23 @@<br>
+       if (sh-&gt;sc == scUndefined || sh-&gt;sc == scNil)<br>
+        t = mdebug_type_int;<br>
+       else<br>
+-       t = parse_type (cur_fd, ax, sh-&gt;index + 1, 0, bigend, name);<br>
++       {<br>
++         t = parse_type (cur_fd, ax, sh-&gt;index + 1, 0, bigend, name);<br>
++         if (STREQ(name, "malloc") &amp;&amp; t-&gt;code == TYPE_CODE_VOID)<br>
++           {<br>
++             /* I don't know why, but, at least under Linux/Alpha,<br>
++                when linking against a malloc without debugging<br>
++                symbols, its read as a function returning void---this<br>
++                is bad because it means we cannot call functions with<br>
++                string arguments interactively; i.e., "call<br>
++                printf("howdy\n")" would fail with the error message<br>
++                "program has no memory available".  To avoid this, we<br>
++                patch up the type and make it void*<br>
++                instead. (<a href="mailto:davidm@azstarnet.com">davidm@azstarnet.com</a>)<br>
++                */<br>
++             t = t-&gt;pointer_type;<br>
++           }<br>
++       }<br>
+       b = top_stack-&gt;cur_block;<br>
+       if (sh-&gt;st == stProc)<br>
+        {<br>
+<p>
+The problem that this code looks like it is trying to address is that gdb,<br>
+on Linux/Alpha, sees malloc() as returning a type void, instead of <br>
+(void *).  In this code, t is a block with information about a type, and<br>
+t-&gt;pointer_type is a block with information about a pointer to that type.<br>
+<p>
+I'm guessing that, in the case of t describing (void), t-&gt;pointer_type<br>
+should describe (void *). However, in the case of a void type,<br>
+t-&gt;pointer_type is always NULL.<br>
+<p>
+I've removed this patch from the source build, and the resulting gdb seems<br>
+to work fine.  However, I can't help but wonder if the problem that this<br>
+patch addressed has been resolved elsewhere, or if I'm just breaking some<br>
+other functionality.<br>
+<p>
+Jeff Odom<br>
+System Administrator<br>
+The Johns Hopkins Kreiger Mind/Brain Institute<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0016.html">Patrick T. Glynn: "Re: Browsers for RHL"</a>
+<li> <b>Previous message:</b> <a href="0014.html">Erik Troan: "Re: Upgrading glibc on RH4.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

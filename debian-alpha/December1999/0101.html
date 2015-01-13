@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: That highly annoying C++ unaligned trap..</TITLE>
+<META NAME="Author" CONTENT="Jason Gunthorpe (jgg@ualberta.ca)">
+<META NAME="Subject" CONTENT="That highly annoying C++ unaligned trap..">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>That highly annoying C++ unaligned trap..</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 15 09:11:18 1999" -->
+<!-- isoreceived="19991215171118" -->
+<!-- sent="Wed, 15 Dec 1999 00:34:27 -0700 (MST)" -->
+<!-- isosent="19991215073427" -->
+<!-- name="Jason Gunthorpe" -->
+<!-- email="jgg@ualberta.ca" -->
+<!-- subject="That highly annoying C++ unaligned trap.." -->
+<!-- id="Pine.LNX.3.96.991214233021.4900C-100000@wakko.deltatee.com" -->
+<STRONG>Subject: </STRONG>That highly annoying C++ unaligned trap..<BR>
+<STRONG>From: </STRONG>Jason Gunthorpe (<EM>jgg@ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Dec 14 1999 - 23:34:27 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#101">[ date ]</A>
+<A HREF="index.html#101">[ thread ]</A>
+<A HREF="subject.html#101">[ subject ]</A>
+<A HREF="author.html#101">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0102.html">Paul Slootman: "potato/main/binary-alpha/Packages empty"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0100.html">simonst@WellsFargo.COM: "new 2.2.13 kernel won't boot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0106.html">Christopher C Chimelis: "Re: That highly annoying C++ unaligned trap.."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+.. turns out to be a bug in the glibc dynamic linker or gcc!
+<BR>
+<P>Using Chris's neat little program to enable SIGBUS signals, I was able to
+<BR>
+get gdb to stop at the exact position of the fault, then asking gdb to
+<BR>
+load the symbol table for ld-2.1.2.so to the proper load address yields a
+<BR>
+nice backtrace.
+<BR>
+[the fact that it was ld-2.1.2.so was determined by looking in /proc/*maps 
+<BR>
+&nbsp;and cross referencing the fault address with all loaded files, the magic
+<BR>
+&nbsp;number there is determined by adding the base address to the VMA of the 
+<BR>
+&nbsp;.text section given by objdump -h..]
+<BR>
+<P>So what we do is go on IRC and whine at Espy untill he recompiles glibc
+<BR>
+with debug symbols then do repeat the above to get something like this:
+<BR>
+<P>g++ -Wl,-dynamic-linker,/mnt/md0/home/espy/glibc-2.1.3/alpha-linux/libc6.1/lib/ld-2.1.3.so t.cc
+<BR>
+<P>lully{jgg}~#./sigbus /tmp/a.out 
+<BR>
+Starting program: /tmp/a.out 
+<BR>
+Program received signal SIGBUS, Bus error.
+<BR>
+0x2000000ed04 in ?? ()
+<BR>
+(gdb) add-symbol-file /mnt/md0/home/espy/glibc-2.1.3/alpha-linux/libc6.1/lib/ld-2.1.3.so 0x00000200000050e0
+<BR>
+(gdb) bt
+<BR>
+#0  _dl_relocate_object (l=0x2000001e9c0, scope=0x2000001edc0, lazy=1288320, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;consider_profiling=1288328) at ../sysdeps/alpha/dl-machine.h:456
+<BR>
+#1  0x20000007444 in dl_main (phdr=0x0, phent=59840, user_entry=0x11ffff5a8)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at rtld.c:1022
+<BR>
+#2  0x20000013610 in _dl_sysdep_start (start_argptr=0x20000121e40, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;dl_main=0x20000005ba0 &lt;dl_main&gt;) at ../sysdeps/generic/dl-sysdep.c:170
+<BR>
+#3  0x20000005974 in _dl_start_final (arg=0x11ffffa90, bootstrap_map_p=0x0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;start_time=126400) at rtld.c:232
+<BR>
+#4  0x200000058b0 in _dl_start (arg=0x11ffffa90) at rtld.c:192
+<BR>
+<P>and:
+<BR>
+(gdb) down
+<BR>
+#0  _dl_relocate_object (l=0x2000001e9c0, scope=0x2000001edc0,lazy=1288320, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;consider_profiling=1288328) at ../sysdeps/alpha/dl-machine.h:456
+<BR>
+456             *reloc_addr += map-&gt;l_addr;
+<BR>
+<P><P>*wew* 
+<BR>
+<P>Now at this point I start to give up - the dl_relocate_object is a
+<BR>
+*MASSIVE* inline'd function that spans many header files and so on - the
+<BR>
+net results is that *reloc_addr is not an aligned value. What I don't know
+<BR>
+is if it *should* be an aligned value or not.. ie should the linker be
+<BR>
+taking special measures to not do trap, or should the compiler not be
+<BR>
+generating relocations like that. 
+<BR>
+<P>Indeed, given this information an 'objdump -R
+<BR>
+/usr/lib/libstdc++-libc6.1-2.so.3' turns up a couple addresses like this: 
+<BR>
+<P>0000000000159424 RELATIVE          *ABS*
+<BR>
+<P>That's unaligned!!!
+<BR>
+<P>So.. The net result is that G++ is generating unaligned 64 bit relocation
+<BR>
+fields in the C++ library which causes the dynamic loader to unalign trap
+<BR>
+when it loads them.
+<BR>
+<P>'Fini'
+<BR>
+<P>Guys, I don't even know *who* to send this to who knows more about what
+<BR>
+should be going on, let alone fixing it - but I strongly suspect it should
+<BR>
+go to the gcc group.
+<BR>
+<P>Jason
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0102.html">Paul Slootman: "potato/main/binary-alpha/Packages empty"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0100.html">simonst@WellsFargo.COM: "new 2.2.13 kernel won't boot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0106.html">Christopher C Chimelis: "Re: That highly annoying C++ unaligned trap.."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:12 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

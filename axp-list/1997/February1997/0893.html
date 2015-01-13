@@ -1,0 +1,129 @@
+<!-- received="Thu Feb 27 20:39:41 1997 " -->
+<!-- sent="Thu, 27 Feb 1997 15:04:31 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="retry 2.1.26 csum patch" -->
+<!-- id="199702272104.PAA00130@atheist.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>retry 2.1.26 csum patch</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>retry 2.1.26 csum patch</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Thu, 27 Feb 1997 15:04:31 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#893">[ date ]</a><a href="index.html#893">[ thread ]</a><a href="subject.html#893">[ subject ]</a><a href="author.html#893">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0894.html">pfriedel@execpc.com: "Re: UDB and RH4.1 - Tulip probs?"</a>
+<li> <b>Previous message:</b> <a href="0892.html">Andrew D. Isaacson: "Re: UDB and RH4.1 - Tulip probs?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Bother.  It seems the csum_partial_from_user patch for 2.1.26<br>
+got lost for 2.1.27.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+--- linux-2.1.27/arch/alpha/lib/csum_partial_copy.c.orig	Thu Feb 27 14:22:33 1997<br>
++++ linux-2.1.27/arch/alpha/lib/csum_partial_copy.c	Thu Feb 27 14:26:37 1997<br>
+@@ -304,20 +304,14 @@ csum_partial_cfu_unaligned(unsigned long<br>
+ 	return checksum;<br>
+ }<br>
+ <br>
+-unsigned int<br>
+-csum_partial_copy_from_user(int *errp, char *src, char *dst,<br>
+-			    int len, unsigned int sum)<br>
++static unsigned int<br>
++do_csum_partial_copy_from_user(char *src, char *dst, int len,<br>
++			       unsigned int sum, int *errp)<br>
+ {<br>
+ 	unsigned long checksum = (unsigned) sum;<br>
+ 	unsigned long soff = 7 &amp; (unsigned long) src;<br>
+ 	unsigned long doff = 7 &amp; (unsigned long) dst;<br>
+ <br>
+-	if (!access_ok(src, len, VERIFY_READ)) {<br>
+-		*errp = -EFAULT;<br>
+-		memset(dst, 0, len);<br>
+-		return checksum;<br>
+-	}<br>
+-<br>
+ 	if (len) {<br>
+ 		if (!doff) {<br>
+ 			if (!soff)<br>
+@@ -358,12 +352,25 @@ csum_partial_copy_from_user(int *errp, c<br>
+ }<br>
+ <br>
+ unsigned int<br>
++csum_partial_copy_from_user(char *src, char *dst, int len,<br>
++			    unsigned int sum, int *errp)<br>
++{<br>
++	if (!access_ok(src, len, VERIFY_READ)) {<br>
++		*errp = -EFAULT;<br>
++		memset(dst, 0, len);<br>
++		return sum;<br>
++	}<br>
++<br>
++	return do_csum_partial_copy_from_user(src, dst, len, sum, errp);<br>
++}<br>
++<br>
++unsigned int<br>
+ csum_partial_copy (const char *src, char *dst, int len, unsigned int sum)<br>
+ {<br>
+ 	unsigned int ret;<br>
+ 	int error = 0;<br>
+ <br>
+-	ret = csum_partial_copy_from_user(&amp;error, src, dst, len, sum);<br>
++	ret = do_csum_partial_copy_from_user(src, dst, len, sum, &amp;error);<br>
+ 	if (error)<br>
+ 		printk("csum_partial_copy_old(): tell mingo to convert me!\n");<br>
+ <br>
+--- linux-2.1.27/include/asm-alpha/checksum.h.orig	Thu Feb 27 14:26:55 1997<br>
++++ linux-2.1.27/include/asm-alpha/checksum.h	Thu Feb 27 14:27:38 1997<br>
+@@ -53,7 +53,7 @@ unsigned int csum_partial_copy(const cha<br>
+  * this is a new version of the above that records errors it finds in *errp,<br>
+  * but continues and zeros the rest of the buffer.<br>
+  */<br>
+-unsigned int csum_partial_copy_from_user(int *errp, char *src, char *dst, int len, unsigned int sum);<br>
++unsigned int csum_partial_copy_from_user(char *src, char *dst, int len, unsigned int sum, int *errp);<br>
+ <br>
+ /*<br>
+  * this routine is used for miscellaneous IP-like checksums, mainly<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0894.html">pfriedel@execpc.com: "Re: UDB and RH4.1 - Tulip probs?"</a>
+<li> <b>Previous message:</b> <a href="0892.html">Andrew D. Isaacson: "Re: UDB and RH4.1 - Tulip probs?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

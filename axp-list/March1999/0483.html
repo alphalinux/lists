@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Sound cards on the Alpha.</TITLE>
+<META NAME="Author" CONTENT="Bob McElrath (mcelrath@draal.physics.wisc.edu)">
+<META NAME="Subject" CONTENT="Re: Sound cards on the Alpha.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Sound cards on the Alpha.</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 09 20:44:07 1999 PST" -->
+<!-- sent="Tue, 9 Mar 1999 14:18:03 -0600 (CST)" -->
+<!-- name="Bob McElrath" -->
+<!-- email="mcelrath@draal.physics.wisc.edu" -->
+<!-- subject="Re: Sound cards on the Alpha." -->
+<!-- id="Pine.LNX.4.04.9903091406320.1086-100000@draal.physics.wisc.edu" -->
+<!-- inreplyto="m10KNzE-0000ZvC@songdog" -->
+<STRONG>Bob McElrath</STRONG> (<A HREF="mailto:mcelrath@draal.physics.wisc.edu?subject=Re:%20Sound%20cards%20on%20the%20Alpha."><EM>mcelrath@draal.physics.wisc.edu</EM></A>)<BR>
+<EM>Tue, 9 Mar 1999 14:18:03 -0600 (CST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#483">[ date ]</A>
+<A HREF="index.html#483">[ thread ]</A>
+<A HREF="subject.html#483">[ subject ]</A>
+<A HREF="author.html#483">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0482.html">Michal Jaegermann: "Re: Prices for AlphaLinux systems with 4-8GB RAM ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0477.html">Greg Lindahl: "Re: Prices for AlphaLinux systems with 4-8GB RAM ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0445.html">Daniel Potts: "Re: Sound cards on the Alpha."</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 9 Mar 1999, Bill Roman wrote:
+<BR>
+<P><EM>&gt; Yesterday I wrote:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I've heard that the Ensoniq chip isn't fully PCI compliant -- something
+</EM><BR>
+<EM>&gt; &gt; about incompletely implemented BARs (Base Address Registers, in PCI
+</EM><BR>
+<EM>&gt; &gt; configuration space).  This makes sense in the context of working in
+</EM><BR>
+<EM>&gt; &gt; some slots and not others; it would depend on what resources were
+</EM><BR>
+<EM>&gt; &gt; assigned to the card.
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I'll ask the person who told me this for more details.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Here's the story I got.  I was right about incompletely implemented
+</EM><BR>
+<EM>&gt; registers, but it wasn't the BARs.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; First, the Ensoniq 1370 only implements four bits of the PCI
+</EM><BR>
+<EM>&gt; configuration Interrupt Line register.  The PCI-savvy have already
+</EM><BR>
+<EM>&gt; struck their foreheads and exclaimed &quot;DOH!&quot;; for those who haven't
+</EM><BR>
+<EM>&gt; yet made them familiar with all the details, this register is used by
+</EM><BR>
+<EM>&gt; the PCI configuration software to record the IRQ assigned to the card.
+</EM><BR>
+<EM>&gt; Of course four bits are sufficient on an obsolete computer architecture
+</EM><BR>
+<EM>&gt; some of us may be familiar with, but Alpha systems have more IRQs and
+</EM><BR>
+<EM>&gt; thus need more bits.
+</EM><BR>
+<P>4 bits would only encode values 0-15, so does that imply that the es137?'s
+<BR>
+need an interrupt vector of 15 or less?  On my LX164 alpha, &lt;15 is assigned
+<BR>
+to the ISA bridge (I think...) the lowest IRQ I can get for the thing is
+<BR>
+16...  lspci -v reports:
+<BR>
+00:06.0 Class 0401: 1274:5000 (rev 01)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Subsystem: 4942:4c4c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Flags: bus master, slow devsel, latency 32, IRQ 16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I/O ports at 8800
+<BR>
+Does this mean that when the card is done playing a block, it issues an
+<BR>
+interrupt DIFFERENT than 16?  I can see how that might cause a hang if the
+<BR>
+interrupt was used by a different piece of hardware.  Any sane interrupt
+<BR>
+handler should handle the spurious interrupt case though, so I suspect your
+<BR>
+second &quot;quirk&quot; below.
+<BR>
+<P><EM>&gt; What this means is that a driver that connects to an interrupt based on
+</EM><BR>
+<EM>&gt; information read from this register may connect to the wrong interrupt.
+</EM><BR>
+<EM>&gt; I confess I haven't traced this down in the source code, so I'm not sure
+</EM><BR>
+<EM>&gt; in detail what the implications are for Linux.  Since the IRQ assigned
+</EM><BR>
+<EM>&gt; to the card depends on the slot it is in, this could conceivably explain
+</EM><BR>
+<EM>&gt; some of the slot-related problems people have reported.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Second, both the 1370 and 1371 are incapable of handling burst
+</EM><BR>
+<EM>&gt; transactions as a target on the PCI bus.  The way they terminate the burst
+</EM><BR>
+<EM>&gt; violates the PCI specification, and thus they hang the bus.  On Alpha, any
+</EM><BR>
+<EM>&gt; quadword access to one of these chips is guaranteed to hang the system.
+</EM><BR>
+<EM>&gt; Multiple accesses without an intervening mb may hang the system (this
+</EM><BR>
+<EM>&gt; depends very much on other intervening accesses).
+</EM><BR>
+<P>Ugh.  Now I wish I hadn't bought one of these beasts.  How does one acheive
+<BR>
+quadword transactions (4*16-bit=64-bit) on the 32-bit PCI bus?  If quadword
+<BR>
+transactions are being used, it must be by the DMA chip, since the driver
+<BR>
+never does any direct data transfer with the card.
+<BR>
+<P>Looks like the fix to this will involve pouring over the PCI spec, and the
+<BR>
+DMA chip's spec.  Too bad all this info isn't in the ES1370 docs.  But of
+<BR>
+course, what chip manufacturer is going to put &quot;our chip violates all known
+<BR>
+standards&quot; right in their documentation?
+<BR>
+<P><EM>&gt; Finally, there may be some difficulty with the 1371 on Tsunami-based
+</EM><BR>
+<EM>&gt; systems (i.e., all EV6 systems to date).  This is still under
+</EM><BR>
+<EM>&gt; investigation.
+</EM><BR>
+<P>thanks for the help,
+<BR>
+<P>-- Bob
+<BR>
+<P>Bob McElrath (<A HREF="mailto:rsmcelrath@students.wisc.edu?subject=Re:%20Sound%20cards%20on%20the%20Alpha.">rsmcelrath@students.wisc.edu</A>) Univ. of Wisconsin at Madison
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Sound%20cards%20on%20the%20Alpha.">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Sound%20cards%20on%20the%20Alpha.">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0482.html">Michal Jaegermann: "Re: Prices for AlphaLinux systems with 4-8GB RAM ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0477.html">Greg Lindahl: "Re: Prices for AlphaLinux systems with 4-8GB RAM ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0445.html">Daniel Potts: "Re: Sound cards on the Alpha."</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Mar 09 1999 - 13:00:17 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,114 @@
+<!-- received="Sun Jan 21 16:30:20 1996 " -->
+<!-- sent="Sun, 21 Jan 96 16:30:20 -0500" -->
+<!-- name="Jay Estabrook - Alpha Migration Tools - LINUX Project" -->
+<!-- email="jestabro@brillig.amt.tay1.dec.com" -->
+<!-- subject="Important TGA-related patch" -->
+<!-- id="9601212130.AA03928@brillig.amt.tay1.dec.com" -->
+<!-- inreplyto="----------------------------1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Important TGA-related patch</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Important TGA-related patch</h2>
+
+<b>Jay Estabrook - Alpha Migration Tools - LINUX Project</b> (<a href="mailto:jestabro@brillig.amt.tay1.dec.com"><i>jestabro@brillig.amt.tay1.dec.com</i></a>)<br>
+<i>Sun, 21 Jan 96 16:30:20 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#95">[ date ]</a><a href="index.html#95">[ thread ]</a><a href="subject.html#95">[ subject ]</a><a href="author.html#95">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0096.html">Craig Groeschel: "&lt;varargs.h&gt; vs. &lt;stdarg.h&gt;; &lt;gnu/types.h&gt;"</a>
+<li> <b>Previous message:</b> <a href="0094.html">Ka'plaagh  20-Jan-1996 1415 +0000: "Re: Max RAM size for axp-kernels"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Gang,<br>
+<p>
+Here's a patch for *all* Alpha Linux kernels from 1.3.38 on, which is<br>
+MANDATORY for building *any* kernels with TGA console configured. The<br>
+problem manifests itself in unpredictable occurance of machine checks,<br>
+because of a bogus assumption I made related to the allocation of the<br>
+"shadow screen" memory; ie, that it *would* always be below any other VC's<br>
+backing store, if I allocated it during console initialization. IT AINT<br>
+SO... :-( :-(<br>
+<p>
+The problem is likely to manifest itself on any TGA-configured machine,<br>
+especially those with relatively small amounts of physical memory.<br>
+<p>
+Dave Rusling, this should not be a problem in MILO, I believe, but correct<br>
+me if I'm wrong.<br>
+<p>
+Anyway, sorry about the late appearance of this, but better late than later,<br>
+I always say... :-)<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+<p>
+diff -u --recursive old/drivers/char/selection.h new/drivers/char/selection.h<br>
+--- old/drivers/char/selection.h	Thu Jan 18 03:18:01 1996<br>
++++ new/drivers/char/selection.h	Thu Dec 21 07:31:00 1995<br>
+@@ -77,12 +77,9 @@<br>
+  * of the VC's backing store, or the "shadow screen" memory where the screen<br>
+  * contents are kept, as the TGA frame buffer is *not* char/attr cells.<br>
+  *<br>
+- * The "(unsigned long) addr &lt; video_mem_term" tests for an Alpha kernel<br>
+- *  virtual address less than the end of the "shadow scrren" memory. This<br>
+- *  indicates we really want to write to the screen, so, we do... :-)<br>
+- *<br>
+- * NOTE: we must guarantee that video_mem_term is less than *any* VC's backing<br>
+- * store; to do that, we must allocate it earlier than any VC's are done.<br>
++ * We must test for an Alpha kernel virtual address that falls within<br>
++ *  the "shadow screen" memory. This condition indicates we really want <br>
++ *  to write to the screen, so, we do... :-)<br>
+  *<br>
+  * NOTE also: there's only *TWO* operations: to put/get a character/attribute.<br>
+  *  All the others needed by VGA support go away, as Not Applicable for TGA.<br>
+@@ -94,7 +91,8 @@<br>
+ 	 * if so, then render the char/attr onto the real screen.<br>
+         */<br>
+         *addr = val;<br>
+-        if ((unsigned long)addr &lt; video_mem_term) {<br>
++        if ((unsigned long)addr &lt; video_mem_term &amp;&amp;<br>
++	    (unsigned long)addr &gt;= video_mem_base) {<br>
+                 tga_blitc(val, (unsigned long) addr);<br>
+         }<br>
+ }<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools<br>
+Mailstop: TAY1-2                        (DTN) 227-4202<br>
+Digital Equipment Corp.                 (external) (508) 952-4202<br>
+151 Taylor Street                       enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0096.html">Craig Groeschel: "&lt;varargs.h&gt; vs. &lt;stdarg.h&gt;; &lt;gnu/types.h&gt;"</a>
+<li> <b>Previous message:</b> <a href="0094.html">Ka'plaagh  20-Jan-1996 1415 +0000: "Re: Max RAM size for axp-kernels"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

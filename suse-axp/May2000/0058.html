@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>SuSE AXP: Re: [suse-axp] Bash: Character classes and small/CAPI</TITLE>
+<META NAME="Author" CONTENT="Joerg Bruehe (joerg@sql.de)">
+<META NAME="Subject" CONTENT="Re: [suse-axp] Bash: Character classes and small/CAPITAL letters">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [suse-axp] Bash: Character classes and small/CAPITAL letters</H1>
+<HR>
+<P>
+<!-- received="Wed May 31 13:08:57 2000" -->
+<!-- isoreceived="20000531200857" -->
+<!-- sent="Wed, 31 May 2000 12:27:57 +0200" -->
+<!-- isosent="20000531102757" -->
+<!-- name="Joerg Bruehe" -->
+<!-- email="joerg@sql.de" -->
+<!-- subject="Re: [suse-axp] Bash: Character classes and small/CAPITAL letters" -->
+<!-- id="3934E92D.B2CF4AB3@sql.de" -->
+<!-- inreplyto="Pine.LNX.4.21.0005310033180.19646-100000@softwareag.com" -->
+<STRONG>Subject: </STRONG>Re: [suse-axp] Bash: Character classes and small/CAPITAL letters<BR>
+<STRONG>From: </STRONG>Joerg Bruehe (<EM>joerg@sql.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 31 2000 - 03:27:57 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#58">[ date ]</A>
+<A HREF="index.html#58">[ thread ]</A>
+<A HREF="subject.html#58">[ subject ]</A>
+<A HREF="author.html#58">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0059.html">Jim Hoepner: "[suse-axp] SCSI CD-RW for Digital AlphaStation 200"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0057.html">Lennart Börjeson: "SV: [suse-axp] Building a distribution with CCC and Cxx?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0047.html">Joerg Bruehe: "Re: [suse-axp] Bash: Character classes and small/CAPITAL letters"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi ! 
+<BR>
+<P>My problem is solved, read on if you like explanations and hints ... 
+<BR>
+<P><P>Ruediger Oertel [cc:] wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; On Tue, 30 May 2000, Joerg Bruehe wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Hi to all !
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; I just was caught by big surprise:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; In a directory containing files with small and CAPITAL letters
+</EM><BR>
+<EM>&gt; &gt; (for example, random order:   &quot;ABC&quot;  &quot;CEF&quot;  &quot;ade&quot;  &quot;ccc&quot; ),
+</EM><BR>
+<EM>&gt; &gt; the bash expands some patterns from small to capital letters:
+</EM><BR>
+<EM>&gt; &gt;     [abc]*  -&gt;  ade ccc
+</EM><BR>
+<EM>&gt; &gt;     [a-c]*  -&gt;  ABC ade ccc CEF
+</EM><BR>
+<EM>&gt; &gt; IMHO, the latter expansion is wrong because the character range
+</EM><BR>
+<EM>&gt; &gt; from &quot;a&quot; to &quot;c&quot; (small) does not include &quot;A&quot; or &quot;C&quot; (capital).
+</EM><BR>
+<EM>&gt; this is usually caused by &quot;LC_COLLATE&quot;.
+</EM><BR>
+<EM>&gt; Try to check your /etc/profile , .bashrc , ... for setting of $LANG
+</EM><BR>
+<EM>&gt; (my .bashrc always has a &quot;unset LANG&quot; , but something like
+</EM><BR>
+<EM>&gt; &quot;export LC_COLLATE=POSIX&quot; should work as well). 
+</EM><BR>
+<P>I checked the environment: 
+<BR>
+- LANG was set to &quot;german&quot;, completely unsetting it did not help, 
+<BR>
+&nbsp;&nbsp;neither did setting &quot;LC_COLLATE=POSIX&quot;. 
+<BR>
+&nbsp;&nbsp;(see note below) 
+<BR>
+- Setting LANG to &quot;C&quot; and starting a sub-bash did not improve either, 
+<BR>
+&nbsp;&nbsp;on checking I found that LANG was &quot;german&quot; again ! 
+<BR>
+<P>I then checked the startup files and found that '~/.bashrc' reads 
+<BR>
+'/etc/profile' unless it finds a variable &quot;PROFILEREAD&quot; set 
+<BR>
+(which happens in '/etc/profile'). 
+<BR>
+The problem is that this variable, even if set, is _not_ exported, 
+<BR>
+so it does not propagate to sub-shells. When these start, they 
+<BR>
+again read '/etc/profile', and LANG is set back to &quot;german&quot; - what 
+<BR>
+happened to me. 
+<BR>
+<P>First circumvention: Setting LANG to &quot;C&quot; and starting a sub-bash 
+<BR>
+with '--norc' had the character class '[a-c]' behave correctly, 
+<BR>
+no capital characters matched. 
+<BR>
+<P>Correction: I added &quot;export PROFILEREAD&quot; to my '.bashrc' 
+<BR>
+after the sourcing of '/etc/profile'. 
+<BR>
+Now a sub-bash inherited LANG with the value &quot;C&quot; and worked. 
+<BR>
+<P>I suggest this should be propagated to the master versions, 
+<BR>
+for without this there is no chance of ever overriding any setting 
+<BR>
+of '/etc/profile' for any interactive sub-bash. 
+<BR>
+<P>Ruediger, you seem to work for SuSE - will you forward this, or 
+<BR>
+should I send an own bug report for '.bashrc' ? 
+<BR>
+<P><P>Note: I did not do a thorough test, but I checked in a bash 
+<BR>
+started with &quot;LANG=C&quot;: Even when changing LANG back to &quot;german&quot;, 
+<BR>
+the character class expanded correctly. So I suspect that these 
+<BR>
+variables are only evaluated at shell start, not for each expansion. 
+<BR>
+<P>In a sub-bash started with &quot;LANG=german&quot; and &quot;LC_COLLATE=POSIX&quot;, 
+<BR>
+it also worked. 
+<BR>
+<P>I would prefer this combination, but 
+<BR>
+setting and exporting &quot;LC_COLLATE=POSIX&quot; in '~/.bashrc' is not 
+<BR>
+sufficient, it seems to be too late (needed at startup). 
+<BR>
+If anybody has an idea where to put this setting so that it 
+<BR>
+has effect, I would appreciate a note. 
+<BR>
+<P>Regards, Joerg Bruehe 
+<BR>
+<P><PRE>
+-- 
+Joerg Bruehe, SQL Datenbanksysteme GmbH, Berlin, Germany
+     (speaking only for himself)
+mailto: joerg@sql.de
+<P>-- 
+To unsubscribe, e-mail: suse-axp-unsubscribe@suse.com
+For additional commands, e-mail: suse-axp-help@suse.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0059.html">Jim Hoepner: "[suse-axp] SCSI CD-RW for Digital AlphaStation 200"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0057.html">Lennart Börjeson: "SV: [suse-axp] Building a distribution with CCC and Cxx?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0047.html">Joerg Bruehe: "Re: [suse-axp] Bash: Character classes and small/CAPITAL letters"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:29 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

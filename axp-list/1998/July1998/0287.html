@@ -1,0 +1,98 @@
+<!-- received="Sat Jul  4 08:53:54 1998 " -->
+<!-- sent="Tue, 26 May 98 14:19:15 MESZ" -->
+<!-- name="Stefan Boresch" -->
+<!-- email="stefan@mdy.univie.ac.at" -->
+<!-- subject="Strange error message running a Digital Unix executable -- solved" -->
+<!-- id="199805261219.OAA05593@alpha.mdy.univie.ac.at" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Strange error message running a Digital Unix executable -- solved</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Strange error message running a Digital Unix executable -- solved</h2>
+
+<b>Stefan Boresch</b> (<a href="mailto:stefan@mdy.univie.ac.at"><i>stefan@mdy.univie.ac.at</i></a>)<br>
+<i>Tue, 26 May 98 14:19:15 MESZ</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#287">[ date ]</a><a href="index.html#287">[ thread ]</a><a href="subject.html#287">[ subject ]</a><a href="author.html#287">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0288.html">Mohanan P G: "Re: Boot Problems"</a>
+<li> <b>Previous message:</b> <a href="0286.html">Harald Koenig: "Re: while we're talking about the Millenium II..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I think I found the cause and have a workaround. Maybe this helps someone,<br>
+and maybe someone can help me find a more general solution.<br>
+<p>
+Briefly the problem again: A large program package compiled on DEC<br>
+Unix (4.0) with the DEC f77 compiler (non_shared) for performance<br>
+reasons runs OK under Linux (RH 5.0, 2.0.33; RH 4.2, 2.0.30) but<br>
+produces tons of error messages to the console that look like:<br>
+<p>
+&lt;sc 49(140ca7de0,40,c)&gt;<br>
+<p>
+In addition, the syslog gets flooded (from /var/log/messages):<br>
+<p>
+May 25 15:15:05 delta kernel: Cannot read proc file system: 9 - Bad file descriptor.<br>
+<p>
+In fact, the problem is a bit more obnoxious than I thought yesterday because<br>
+after a while syslogd and klogd get so confused that they eat up 30% of the<br>
+CPU each, even if the offending process has finished. This I noticed<br>
+only this morning -- restarting the daemons doesn't help, btw.<br>
+<p>
+Following a hint from Michal Jaegermann (thanks!), I looked at the<br>
+strace output from a sample run.  After some testing, I have found the<br>
+'culprit'. The <br>
+<p>
+getlogin and getlog (for FORTRAN) system calls <br>
+<p>
+don't transfer well from DEC Unix to Linux, i.e., they (i) don't work<br>
+and (ii) lead to the &lt;sc 49(140ca7de0,40,c)&gt; error -- the strace output<br>
+looks as follows:<br>
+SYS_49(0x140ca7de0, 0x40, 0xc, 0x2020202020202000, 0xfffffffffffffff9) = -1 EPERM (Operation not permitted)<br>
+<p>
+Once one avoids to use getlog and getlogin (I can live without them), the<br>
+weird proc filesystem warning doesn't occur either.<br>
+<p>
+Stefan<br>
+<p>
+PS: Wasn't there an emulation(?) library in the works that would do away<br>
+with the need for a 'non_shared' executable? (I don't want to 'steal'<br>
+the original DEC shared libs) However, what about libm, where I certainly<br>
+want to use the one from DEC for performance reasons.<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0288.html">Mohanan P G: "Re: Boot Problems"</a>
+<li> <b>Previous message:</b> <a href="0286.html">Harald Koenig: "Re: while we're talking about the Millenium II..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

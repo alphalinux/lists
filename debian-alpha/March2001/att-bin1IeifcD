@@ -1,0 +1,99 @@
+diff -urN old-sysklogd/ksym_mod.c new-sysklogd/ksym_mod.c
+--- old-sysklogd/ksym_mod.c	Mon Mar 26 18:33:51 2001
++++ new-sysklogd/ksym_mod.c	Mon Mar 26 18:55:57 2001
+@@ -92,10 +92,8 @@
+ #if !defined(__GLIBC__)
+ #include <linux/time.h>
+ #include <linux/module.h>
+-#else /* __GLIBC__ */
+-#include <linux/module.h>
+-extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
+-extern int get_kernel_syms __P ((struct kernel_sym *__table));
++#else
++#include "module.h"
+ #endif /* __GLIBC__ */
+ #include <stdarg.h>
+ #include <paths.h>
+@@ -119,6 +117,8 @@
+ #undef __LIBRARY__
+ extern int getsyms(struct kernel_sym *);
+ #else /* __GLIBC__ */
++extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
++extern int get_kernel_syms __P ((struct kernel_sym *__table));
+ #define getsyms get_kernel_syms
+ #endif /* __GLIBC__ */
+ 
+@@ -406,7 +406,7 @@
+ 		if ( lseek64(memfd, address, SEEK_SET) < 0 )
+ 		{
+ 			Syslog(LOG_WARNING, "Error seeking in /dev/kmem\n");
+-			Syslog(LOG_WARNING, "Symbol %s, value %08x\n", symbol, address);
++			Syslog(LOG_WARNING, "Symbol %s, value %lx\n", symbol, address);
+ 			return(0);
+ 		}
+ 		if ( read(memfd, \
+diff -urN old-sysklogd/module.h new-sysklogd/module.h
+--- old-sysklogd/module.h	Thu Jan  1 01:00:00 1970
++++ new-sysklogd/module.h	Mon Mar 26 18:47:27 2001
+@@ -0,0 +1,60 @@
++/*
++ * Taken from linux/module.h in order to achieve independence from deep kernel
++ * internals.
++ */
++
++/* Used by get_kernel_syms, which is obsolete.  */
++struct kernel_sym
++{
++	unsigned long value;
++	char name[60];		/* should have been 64-sizeof(long); oh well */
++};
++
++struct module
++{
++	unsigned long size_of_struct;	/* == sizeof(module) */
++	struct module *next;
++	const char *name;
++	unsigned long size;
++
++	union
++	{
++		long pad;
++	} uc;				/* Needs to keep its size - so says rth */
++
++	unsigned long flags;		/* AUTOCLEAN et al */
++
++	unsigned nsyms;
++	unsigned ndeps;
++
++	struct module_symbol *syms;
++	struct module_ref *deps;
++	struct module_ref *refs;
++	int (*init)(void);
++	void (*cleanup)(void);
++	const struct exception_table_entry *ex_table_start;
++	const struct exception_table_entry *ex_table_end;
++#ifdef __alpha__
++	unsigned long gp;
++#endif
++	/* Members past this point are extensions to the basic
++	   module support and are optional.  Use mod_member_present()
++	   to examine them.  */
++	const struct module_persist *persist_start;
++	const struct module_persist *persist_end;
++	int (*can_unload)(void);
++	int runsize;			/* In modutils, not currently used */
++	const char *kallsyms_start;	/* All symbols for kernel debugging */
++	const char *kallsyms_end;
++	const char *archdata_start;	/* arch specific data for module */
++	const char *archdata_end;
++	const char *kernel_data;	/* Reserved for kernel internal use */
++};
++
++struct module_info
++{
++	unsigned long addr;
++	unsigned long size;
++	unsigned long flags;
++	long usecount;
++};
+

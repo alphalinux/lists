@@ -1,0 +1,194 @@
+<!-- received="Mon Nov 17 22:37:47 1997 " -->
+<!-- sent="Tue, 18 Nov 1997 08:28:18 +0100" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="cdrecord on Linux/Alpha works" -->
+<!-- id="199711180440.UAA10881@proto.math.ucdavis.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>cdrecord on Linux/Alpha works</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>cdrecord on Linux/Alpha works</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Tue, 18 Nov 1997 08:28:18 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#459">[ date ]</a><a href="index.html#459">[ thread ]</a><a href="subject.html#459">[ subject ]</a><a href="author.html#459">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0460.html">Andreas Haumer: "Re: Best Linux-alpha scsi controller?"</a>
+<li> <b>Previous message:</b> <a href="0458.html">Benjamin Michael VanWagner: "video problems with alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I've asked a couple of days ago wether someone has used cdrecord on<br>
+Linux/Alpha successfully. As nobody had success with it, I debugged<br>
+cdrecord and found the usally problems (100 instead of HZ, casts<br>
+from pointers to ints and two functions which assume sizeof(long)==4).<br>
+Below is a patch, which fixes these problems. I was able to successful<br>
+"burn" two CDs in dummy mode and one in "real" mode (this wasn't quite<br>
+successful as the fixiating stage didn't finish, but I doubt that's a<br>
+problem with my JVC and even with the interrupted fixiating stage it is<br>
+readable).<br>
+<p>
+There are still some unaligned traps in cdrecord, but I don't quite under-<br>
+stand where they happen:<br>
+<p>
+Nov 16 22:54:06 alpha kernel: cdrecord(345): unaligned trap at <br>
+	0000000000000028: 0000000120129fde 2c 31<br>
+<p>
+When I look at this address with gdb, it indicates, that it's sigstack+40,<br>
+but that doesn't help me much. Any hints ?<br>
+<p>
+BTW while grepping through my /var/log/messages file I also found following <br>
+unaligned trap:<br>
+<p>
+Nov 16 23:58:07 alpha kernel: netstat(606): unaligned trap at 0000000000000029: <br>
+000000011ffff83c 2d 10<br>
+<p>
+Which is very surprising for me as the PC isn't longword aligned. How could<br>
+this happen ?<br>
+<p>
+Thomas.<br>
+<p>
+diff -ru orig/cdrecord-1.6/cdrecord/fifo.c cdrecord-1.6/cdrecord/fifo.c<br>
+--- orig/cdrecord-1.6/cdrecord/fifo.c	Wed Nov  5 17:43:41 1997<br>
++++ cdrecord-1.6/cdrecord/fifo.c	Sun Nov 16 01:25:15 1997<br>
+@@ -62,7 +62,7 @@<br>
+ #define	EDEBUG(a)<br>
+ #endif<br>
+ <br>
+-#define palign(x, a)	(((char *)(x)) + ((a) - 1 - (((unsigned)((x)-1))%(a))))<br>
++#define palign(x, a)	(((char *)(x)) + ((a) - 1 - (((unsigned long)((x)-1))%(a))))<br>
+ <br>
+ typedef enum faio_owner {<br>
+ 	owner_none,<br>
+diff -ru orig/cdrecord-1.6/cdrecord/scsi-linux-sg.c cdrecord-1.6/cdrecord/scsi-linux-sg.c<br>
+--- orig/cdrecord-1.6/cdrecord/scsi-linux-sg.c	Tue Nov  4 10:35:03 1997<br>
++++ cdrecord-1.6/cdrecord/scsi-linux-sg.c	Sun Nov 16 14:18:33 1997<br>
+@@ -312,9 +312,9 @@<br>
+ 	int	f;<br>
+ 	int	tmo;<br>
+ {<br>
+-	tmo *= 100;<br>
++	tmo *= HZ;<br>
+ 	if (tmo)<br>
+-		tmo += 50;<br>
++		tmo += HZ/2;<br>
+ <br>
+ 	if (ioctl(f, SG_SET_TIMEOUT, &amp;tmo) &lt; 0)<br>
+ 		comerr("Cannot set SG_SET_TIMEOUT.\n");<br>
+diff -ru orig/cdrecord-1.6/include/standard.h cdrecord-1.6/include/standard.h<br>
+--- orig/cdrecord-1.6/include/standard.h	Sun Jan 26 12:49:31 1997<br>
++++ cdrecord-1.6/include/standard.h	Sun Nov 16 01:41:15 1997<br>
+@@ -182,7 +182,7 @@<br>
+ extern	int	wait_chld __PR((int));<br>
+ extern	int	geterrno __PR((void));<br>
+ extern	void	raisecond __PR((const char *, long));<br>
+-extern	int	snprintf __PR((char *, unsigned, const char *, ...));<br>
++/* extern	int	snprintf __PR((char *, unsigned, const char *, ...)); */<br>
+ /*extern	int	sprintf __PR((char *, const char *, ...)); ist woanders falsch deklariert !!!*/<br>
+ extern	char	*strcatl __PR((char *, ...));<br>
+ extern	int	streql __PR((const char *, const char *));<br>
+diff -ru orig/cdrecord-1.6/lib/fillbytes.c cdrecord-1.6/lib/fillbytes.c<br>
+--- orig/cdrecord-1.6/lib/fillbytes.c	Sun Feb  4 18:40:33 1996<br>
++++ cdrecord-1.6/lib/fillbytes.c	Sun Nov 16 14:15:19 1997<br>
+@@ -19,6 +19,21 @@<br>
+  * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA. <br>
+  */<br>
+ <br>
++#ifdef __alpha__<br>
++/* the fillbytes() below doesn't work on machines with sizeof(long) != 4 */<br>
++/* and at least on Linux/Alpha memset does a better job */<br>
++#ifdef	PROTOTYPES<br>
++char *fillbytes(void *tov, int cnt, char val)<br>
++#else<br>
++char *fillbytes(tov, cnt, val)<br>
++	void	*tov;<br>
++	int	cnt;<br>
++	char	val;<br>
++#endif<br>
++{<br>
++	memset (tov, val, cnt);<br>
++}<br>
++#else<br>
+ #include &lt;standard.h&gt;<br>
+ #include &lt;align.h&gt;<br>
+ <br>
+@@ -83,3 +98,4 @@<br>
+ 	} while (--n &gt; 0);<br>
+ 	return (to);<br>
+ }<br>
++#endif<br>
+diff -ru orig/cdrecord-1.6/lib/movebytes.c cdrecord-1.6/lib/movebytes.c<br>
+--- orig/cdrecord-1.6/lib/movebytes.c	Sun Feb  4 18:40:34 1996<br>
++++ cdrecord-1.6/lib/movebytes.c	Sun Nov 16 14:14:57 1997<br>
+@@ -19,6 +19,17 @@<br>
+  * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA. <br>
+  */<br>
+ <br>
++#ifdef __alpha__<br>
++/* the movebytes() below doesn't work on machines with sizeof(long) != 4 */<br>
++/* and at least on Linux/Alpha memmove() does a better job */<br>
++char *movebytes(fromv, tov, cnt)<br>
++	const void	*fromv;<br>
++	void		*tov;<br>
++	int		cnt;<br>
++{<br>
++	memmove (tov, fromv, cnt);<br>
++}<br>
++#else<br>
+ #include &lt;standard.h&gt;<br>
+ #include &lt;align.h&gt;<br>
+ <br>
+@@ -117,3 +128,4 @@<br>
+ 		return (ep);<br>
+ 	}<br>
+ }<br>
++#endif<br>
+<p>
+<p>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0460.html">Andreas Haumer: "Re: Best Linux-alpha scsi controller?"</a>
+<li> <b>Previous message:</b> <a href="0458.html">Benjamin Michael VanWagner: "video problems with alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

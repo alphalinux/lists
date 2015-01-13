@@ -1,0 +1,152 @@
+<!-- received="Fri Apr  4 14:39:17 1997 " -->
+<!-- sent="Fri, 04 Apr 1997 12:34:19 -0700" -->
+<!-- name="Maurice W. Hilarius" -->
+<!-- email="maurice@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Linux/NT dual boot (Was: Moving to Digtal Alpha system" -->
+<!-- id="3.0.1.32.19970404123419.006cb348@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="199704041815.LAA07202@galileo.apo.nmsu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux/NT dual boot (Was: Moving to Digtal Alpha system</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux/NT dual boot (Was: Moving to Digtal Alpha system</h2>
+
+<b>Maurice W. Hilarius</b> (<a href="mailto:maurice@ellpspace.math.ualberta.ca"><i>maurice@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Fri, 04 Apr 1997 12:34:19 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#194">[ date ]</a><a href="index.html#194">[ thread ]</a><a href="subject.html#194">[ subject ]</a><a href="author.html#194">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0195.html">Theodore Tickell: "Re: Linux/NT dual boot (Was: Moving to Digtal Alpha system  from Intel...)"</a>
+<li> <b>Previous message:</b> <a href="0193.html">Alvaro: "Re: Problems with X11"</a>
+<li> <b>In reply to:</b> <a href="0191.html">Uncle George: "Re: cache sram for a pci33 board"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+At 11:15 AM 04-04-97 -0700, you wrote:<br>
+<i>&gt;&gt; 6. how hard is it to install NT 4.0 with Linux simutaneously?</i><br>
+<i>&gt;</i><br>
+<i>&gt;I've been searching for an answer to this one myself.  It is a common</i><br>
+<i>&gt;question on this list, and I've not seen an good answer.  The ARC</i><br>
+<i>&gt;console will boot either one, but I believe the disk boot blocks</i><br>
+<i>&gt;conflict, i.e., you can have only one set of boot code in the boot</i><br>
+<i>&gt;sector at a time.  Perhaps someone with dual boot experence can</i><br>
+<i>&gt;elaborate on this?</i><br>
+<i>&gt;</i><br>
+<p>
+It's really VERY simple:<br>
+You create and format the first partition on your disk using the NT utility<br>
+for prepping a FAT partition:<br>
+<p>
+Place the Windows NT CDROM in your CD drive.<br>
+<p>
+Note: I am assuming you have a SCSI CDROM drive and hard drive in these<br>
+examples.<br>
+<p>
+<i>&gt;From the ARC console: "Run a program"</i><br>
+the parameters to type in are: scsi(0)cdrom(X)fdisk(0)\alpha\arcinst.exe<br>
+Where X is the SCSI ID of the CDROM drive. So if it is at ID 4 the command is:<br>
+scsi(0)cdrom(4)fdisk(0)\alpha\arcinst.exe<br>
+<p>
+This will allow you to partition the disk and format partitions.<br>
+Create and format only 1 partition, big enough for the NT boot and Linload<br>
+and Milo. 300MB is quite big enough.<br>
+After that go ahead and install NT there.<br>
+<i>&gt;From the ARC console:</i><br>
+"Install Windows NT from CDROM"<br>
+<p>
+When you are done installing NT, create a directory on Drive C: (in<br>
+Microsoft parlance) called "milo". So the directory is c:\milo<br>
+copy linload.exe and the appropriate milo file for your machine type there.<br>
+You may also create a second NT partition on the hard disk. Use the Disk<br>
+Administrator tool in NT for this. I recommend an NTFS partition be used.<br>
+Be sure to leave enough room for Linux and swap though ( swap should be at<br>
+least 2 x actual RAM in your machine. Think ahead. If you plan on adding<br>
+more RAM soon, make a bigger swap partition!<br>
+Don't be tempted to create any more partitions, as we are going to have to<br>
+live with a total of 4 physical partitions is we are using only 1 hard disk.<br>
+<p>
+Now go ahead and reboot and use the Red Hat install floppies you have<br>
+created to install Linux. You will need to use fdisk to create the / and<br>
+swap partitions for Linux on the rest of the hard disk. <br>
+<p>
+Ther eare plenty of FAQs and other docs on this topic, so I will leave this<br>
+to your resources on how to plan and accomplish (RTFManual that comes with<br>
+Red Hat. You didn't BUY Red Hat? Silly boy.... ;-D)<br>
+<p>
+When you are done you create another boot option in ARC as following:<br>
+LOADIDENTIFIER=Linux<br>
+SYSTEMPARTITION=scsi(0)disk(0)rdisk(0)partition(1)<br>
+OSLOADER=scsi(0)disk(0)rdisk(0)partition(1)\milo\linload.exe<br>
+OSLOADPARTITION=scsi(0)disk(0)rdisk(0)partition(1)<br>
+OSLOADFILENAME=\milo\milo<br>
+OSLOADOPTIONS=boot sda3:vmlinux.gz root=/dev/sda3<br>
+<p>
+In the above I have assumed you have made a total of 4 physical partitions:<br>
+1=NT C: (FAT)<br>
+2=NT E: (NTFS) NT will have already assigned letter D to the CDROM<br>
+3=Linux root /<br>
+4=Linux swap<br>
+<p>
+If you do it differently you may need to change the OSLOADOPTIONS line to<br>
+reflect the correct partition.<br>
+<p>
+Now you will have 2 different ARC boot options, with the second being<br>
+available in ARC under "Boot an alternate operating system"<br>
+<p>
+You may go to "Supplementary Menu" - "Set up the system" - "Manage boot<br>
+selections" to change the default boot, verify the validity of boot<br>
+selections, etc.<br>
+<p>
+You may also create a floppy boot option here, but bear in mind that if<br>
+this floppy is not present at power-up then the system will complain that<br>
+your boot selections menu has an invalid entry. This is not fatal, just<br>
+annoying, and slows down your boot-up every time.<br>
+<p>
+To quote the movie "A Few Good Men" I hope this makes this procedure<br>
+"Crystal".<br>
+<p>
+Cheers,<br>
+	Maurice<br>
+<p>
+<p>
+<p>
+Maurice W. Hilarius<br>
+Hard Data Ltd.		Telephone:  (403) 456-1510<br>
+11060 - 166 Avenue	<a href="mailto:email:harddata@bigfoot.com">email:harddata@bigfoot.com</a><br>
+Edmonton, AB, Canada  - T5X 1Y3<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0195.html">Theodore Tickell: "Re: Linux/NT dual boot (Was: Moving to Digtal Alpha system  from Intel...)"</a>
+<li> <b>Previous message:</b> <a href="0193.html">Alvaro: "Re: Problems with X11"</a>
+<li> <b>In reply to:</b> <a href="0191.html">Uncle George: "Re: cache sram for a pci33 board"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

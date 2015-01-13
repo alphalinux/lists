@@ -1,0 +1,111 @@
+<!-- received="Thu May  9 10:43:52 1996 " -->
+<!-- sent="Thu, 9 May 1996 10:43:52 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: gdb" -->
+<!-- id="m0uHXse-0001qJC@atheist.tamu.edu" -->
+<!-- inreplyto="Pine.LNX.3.91.960509080842.11981C-100000@linux.cs.Helsinki.FI" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Thu, 9 May 1996 10:43:52 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#159">[ date ]</a><a href="index.html#159">[ thread ]</a><a href="subject.html#159">[ subject ]</a><a href="author.html#159">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0160.html">avib: "Jensen experiment"</a>
+<li> <b>Previous message:</b> <a href="0158.html">Ka'plaagh  09-May-1996 1618 +0100: "RE: UDB milo images"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Linus wrote:<br>
+<i>&gt; So, now think of the problem without a fixed assembler.. What do we get?  We</i><br>
+<i>&gt; get an assembler that isn't a "traditional" assembler any more: we just get a</i><br>
+<i>&gt; smart pre-processor. Essentially, the assembler shouldn't emit runnable code,</i><br>
+<i>&gt; it should emit runnable code _fragments_, and then the linker would be free</i><br>
+<i>&gt; to pad those as it sees fit.</i><br>
+<p>
+I don't believe that ELF is compatible with the notion of subsections,<br>
+at least in the same way that it supports regular sections.  However,<br>
+this has sparked an Idea.<br>
+<p>
+We introduce a new relocation type (CALL) which marks a bsr insn.<br>
+<p>
+We introduce a new assembler macro (call) that emits this relocation.<br>
+This obviates the need for the assembler to have any special intuition<br>
+about the code -- intutition that is often wrong when people are doing<br>
+odd hand assembly stuff.<br>
+<p>
+The assembler is required to retain fixup information across CALLs.<br>
+We allow the assembler to elide branch relocs that do not cross calls<br>
+to help reduce the size of the object file and speed linking.<br>
+<p>
+When the linker goes to put all this together, based on the specifics of<br>
+the situation, it expands the CALL reloc in one of three ways:<br>
+<p>
+  (1) intra-module, to a function with the same gp:<br>
+<p>
+	Fixes up the bsr with the function address.  If exists a<br>
+	GPDISP relocation at the function address, we add 8.<br>
+<p>
+  (2) intra-module, to a function with a different gp:<br>
+<p>
+	Expands to:<br>
+<p>
+		ldq	$27,fn($gp)<br>
+		bsr	reg,fn<br>
+		ldgp	$gp,0(reg)<br>
+<p>
+	where reg is extracted from the original bsr insn.<br>
+	This rather than hard-code $26 to support functions<br>
+	such as __divq that use t9.<br>
+<p>
+  (3) inter-module:<br>
+<p>
+	Expands to:<br>
+<p>
+		ldq	$27,fn($gp)<br>
+		jsr	reg,($27)<br>
+		ldgp	$gp,0(reg)<br>
+<p>
+So the linker will have to expand the section to accomodate the added<br>
+code (worst case by a factor of four), but we already specified that<br>
+the assembler must retain relocation information across the call, so the<br>
+linker has everything it needs to fix things up after its changes.<br>
+<p>
+Comments?<br>
+<p>
+<p>
+r~<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0160.html">avib: "Jensen experiment"</a>
+<li> <b>Previous message:</b> <a href="0158.html">Ka'plaagh  09-May-1996 1618 +0100: "RE: UDB milo images"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

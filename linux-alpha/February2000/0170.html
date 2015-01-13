@@ -1,0 +1,5690 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Sun Feb 27 20:39:02 2000" -->
+<!-- isoreceived="20000228043902" -->
+<!-- sent="Sun, 27 Feb 2000 20:28:51 +0100 (CET)" -->
+<!-- isosent="20000227192851" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.21.0002271953170.334-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.21.0002271902550.526-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Feb 27 2000 - 11:28:51 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#170">[ date ]</A>
+<A HREF="index.html#170">[ thread ]</A>
+<A HREF="subject.html#170">[ subject ]</A>
+<A HREF="author.html#170">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0169.html">Jan-Benedict Glaw: "2.3.48 link problem"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0174.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, 27 Feb 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt;[..] I'll include it along with the
+</EM><BR>
+<EM>&gt;all other platform updates. [..]
+</EM><BR>
+<P>These are the alpha updates (plus the common code an IA32 changes
+<BR>
+previously mentioned in the thread) and they looks ready for inclusion to
+<BR>
+me. It's against 2.3.48:
+<BR>
+<P>diff -urN 2.3.48/arch/alpha/kernel/Makefile irq/arch/alpha/kernel/Makefile
+<BR>
+--- 2.3.48/arch/alpha/kernel/Makefile	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/Makefile	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -14,7 +14,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;O_TARGET := kernel.o
+<BR>
+&nbsp;O_OBJS   := entry.o traps.o process.o osf_sys.o irq.o signal.o setup.o \
+<BR>
+-	    ptrace.o time.o semaphore.o i8259.o
+<BR>
++	    ptrace.o time.o semaphore.o i8259.o srm_irq.o alpha_irq.o
+<BR>
+&nbsp;OX_OBJS  := alpha_ksyms.o
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/alpha_irq.c irq/arch/alpha/kernel/alpha_irq.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/alpha_irq.c	Thu Jan  1 01:00:00 1970
+<BR>
++++ irq/arch/alpha/kernel/alpha_irq.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -0,0 +1,319 @@
+<BR>
++/*
+<BR>
++ * Alpha specific irq code.
+<BR>
++ */
+<BR>
++
+<BR>
++#include &lt;linux/init.h&gt;
+<BR>
++#include &lt;linux/sched.h&gt;
+<BR>
++#include &lt;linux/irq.h&gt;
+<BR>
++
+<BR>
++#include &lt;asm/machvec.h&gt;
+<BR>
++#include &lt;asm/dma.h&gt;
+<BR>
++
+<BR>
++#include &quot;proto.h&quot;
+<BR>
++#include &quot;irq_impl.h&quot;
+<BR>
++
+<BR>
++/* Only uniprocessor needs this IRQ/BH locking depth, on SMP it lives
+<BR>
++   in the per-cpu structure for cache reasons.  */
+<BR>
++#ifndef CONFIG_SMP
+<BR>
++int __local_irq_count;
+<BR>
++int __local_bh_count;
+<BR>
++unsigned long __irq_attempt[NR_IRQS];
+<BR>
++#endif
+<BR>
++
+<BR>
++/* Hack minimum IPL during interupt processing for broken hardware.  */
+<BR>
++#ifdef CONFIG_ALPHA_BROKEN_IRQ_MASK
+<BR>
++int __min_ipl;
+<BR>
++#endif
+<BR>
++
+<BR>
++/*
+<BR>
++ * Performance counter hook.  A module can override this to
+<BR>
++ * do something useful.
+<BR>
++ */
+<BR>
++static void
+<BR>
++dummy_perf(unsigned long vector, struct pt_regs *regs)
+<BR>
++{
+<BR>
++	irq_err_count++;
+<BR>
++	printk(KERN_CRIT &quot;Performance counter interrupt!\n&quot;);
+<BR>
++}
+<BR>
++
+<BR>
++void (*perf_irq)(unsigned long, struct pt_regs *) = dummy_perf;
+<BR>
++
+<BR>
++/*
+<BR>
++ * Dispatch device interrupts.
+<BR>
++ */
+<BR>
++
+<BR>
++/* Handle ISA interrupt via the PICs. */
+<BR>
++
+<BR>
++#if defined(CONFIG_ALPHA_GENERIC)
+<BR>
++# define IACK_SC	alpha_mv.iack_sc
+<BR>
++#elif defined(CONFIG_ALPHA_APECS)
+<BR>
++# define IACK_SC	APECS_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_LCA)
+<BR>
++# define IACK_SC	LCA_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_CIA)
+<BR>
++# define IACK_SC	CIA_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_PYXIS)
+<BR>
++# define IACK_SC	PYXIS_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_TSUNAMI)
+<BR>
++# define IACK_SC	TSUNAMI_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_POLARIS)
+<BR>
++# define IACK_SC	POLARIS_IACK_SC
+<BR>
++#elif defined(CONFIG_ALPHA_IRONGATE)
+<BR>
++# define IACK_SC        IRONGATE_IACK_SC
+<BR>
++#endif
+<BR>
++
+<BR>
++#if defined(IACK_SC)
+<BR>
++void
+<BR>
++isa_device_interrupt(unsigned long vector, struct pt_regs *regs)
+<BR>
++{
+<BR>
++	/*
+<BR>
++	 * Generate a PCI interrupt acknowledge cycle.  The PIC will
+<BR>
++	 * respond with the interrupt vector of the highest priority
+<BR>
++	 * interrupt that is pending.  The PALcode sets up the
+<BR>
++	 * interrupts vectors such that irq level L generates vector L.
+<BR>
++	 */
+<BR>
++	int j = *(vuip) IACK_SC;
+<BR>
++	j &amp;= 0xff;
+<BR>
++	if (j == 7) {
+<BR>
++		if (!(inb(0x20) &amp; 0x80)) {
+<BR>
++			/* It's only a passive release... */
+<BR>
++			return;
+<BR>
++		}
+<BR>
++	}
+<BR>
++	handle_irq(j, regs);
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
++#if defined(CONFIG_ALPHA_GENERIC) || !defined(IACK_SC)
+<BR>
++void
+<BR>
++isa_no_iack_sc_device_interrupt(unsigned long vector, struct pt_regs *regs)
+<BR>
++{
+<BR>
++	unsigned long pic;
+<BR>
++
+<BR>
++	/*
+<BR>
++	 * It seems to me that the probability of two or more *device*
+<BR>
++	 * interrupts occurring at almost exactly the same time is
+<BR>
++	 * pretty low.  So why pay the price of checking for
+<BR>
++	 * additional interrupts here if the common case can be
+<BR>
++	 * handled so much easier?
+<BR>
++	 */
+<BR>
++	/* 
+<BR>
++	 *  The first read of gives you *all* interrupting lines.
+<BR>
++	 *  Therefore, read the mask register and and out those lines
+<BR>
++	 *  not enabled.  Note that some documentation has 21 and a1 
+<BR>
++	 *  write only.  This is not true.
+<BR>
++	 */
+<BR>
++	pic = inb(0x20) | (inb(0xA0) &lt;&lt; 8);	/* read isr */
+<BR>
++	pic &amp;= 0xFFFB;				/* mask out cascade &amp; hibits */
+<BR>
++
+<BR>
++	while (pic) {
+<BR>
++		int j = ffz(~pic);
+<BR>
++		pic &amp;= pic - 1;
+<BR>
++		handle_irq(j, regs);
+<BR>
++	}
+<BR>
++}
+<BR>
++#endif
+<BR>
++
+<BR>
++/*
+<BR>
++ * The main interrupt entry point.
+<BR>
++ */
+<BR>
++
+<BR>
++asmlinkage void 
+<BR>
++do_entInt(unsigned long type, unsigned long vector, unsigned long la_ptr,
+<BR>
++	  unsigned long a3, unsigned long a4, unsigned long a5,
+<BR>
++	  struct pt_regs regs)
+<BR>
++{
+<BR>
++	switch (type) {
+<BR>
++	case 0:
+<BR>
++#ifdef CONFIG_SMP
+<BR>
++		handle_ipi(&amp;regs);
+<BR>
++		return;
+<BR>
++#else
+<BR>
++		irq_err_count++;
+<BR>
++		printk(KERN_CRIT &quot;Interprocessor interrupt? &quot;
+<BR>
++		       &quot;You must be kidding!\n&quot;);
+<BR>
++#endif
+<BR>
++		break;
+<BR>
++	case 1:
+<BR>
++#ifdef CONFIG_SMP
+<BR>
++		cpu_data[smp_processor_id()].smp_local_irq_count++;
+<BR>
++		smp_percpu_timer_interrupt(&amp;regs);
+<BR>
++		if (smp_processor_id() == boot_cpuid)
+<BR>
++#endif
+<BR>
++			handle_irq(RTC_IRQ, &amp;regs);
+<BR>
++		return;
+<BR>
++	case 2:
+<BR>
++		irq_err_count++;
+<BR>
++		alpha_mv.machine_check(vector, la_ptr, &amp;regs);
+<BR>
++		return;
+<BR>
++	case 3:
+<BR>
++		alpha_mv.device_interrupt(vector, &amp;regs);
+<BR>
++		return;
+<BR>
++	case 4:
+<BR>
++		perf_irq(vector, &amp;regs);
+<BR>
++		return;
+<BR>
++	default:
+<BR>
++		printk(KERN_CRIT &quot;Hardware intr %ld %lx? Huh?\n&quot;,
+<BR>
++		       type, vector);
+<BR>
++	}
+<BR>
++	printk(&quot;PC = %016lx PS=%04lx\n&quot;, regs.pc, regs.ps);
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
++common_init_isa_dma(void)
+<BR>
++{
+<BR>
++	outb(0, DMA1_RESET_REG);
+<BR>
++	outb(0, DMA2_RESET_REG);
+<BR>
++	outb(0, DMA1_CLR_MASK_REG);
+<BR>
++	outb(0, DMA2_CLR_MASK_REG);
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
++init_IRQ(void)
+<BR>
++{
+<BR>
++	alpha_mv.init_irq();
+<BR>
++	wrent(entInt, 0);
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * machine error checks
+<BR>
++ */
+<BR>
++#define MCHK_K_TPERR           0x0080
+<BR>
++#define MCHK_K_TCPERR          0x0082
+<BR>
++#define MCHK_K_HERR            0x0084
+<BR>
++#define MCHK_K_ECC_C           0x0086
+<BR>
++#define MCHK_K_ECC_NC          0x0088
+<BR>
++#define MCHK_K_OS_BUGCHECK     0x008A
+<BR>
++#define MCHK_K_PAL_BUGCHECK    0x0090
+<BR>
++
+<BR>
++#ifndef CONFIG_SMP
+<BR>
++struct mcheck_info __mcheck_info;
+<BR>
++#endif
+<BR>
++
+<BR>
++void
+<BR>
++process_mcheck_info(unsigned long vector, unsigned long la_ptr,
+<BR>
++		    struct pt_regs *regs, const char *machine,
+<BR>
++		    int expected)
+<BR>
++{
+<BR>
++	struct el_common *mchk_header;
+<BR>
++	const char *reason;
+<BR>
++
+<BR>
++	/*
+<BR>
++	 * See if the machine check is due to a badaddr() and if so,
+<BR>
++	 * ignore it.
+<BR>
++	 */
+<BR>
++
+<BR>
++#if DEBUG_MCHECK &gt; 0
+<BR>
++	 printk(KERN_CRIT &quot;%s machine check %s\n&quot;, machine,
+<BR>
++	        expected ? &quot;expected.&quot; : &quot;NOT expected!!!&quot;);
+<BR>
++#endif
+<BR>
++
+<BR>
++	if (expected) {
+<BR>
++		int cpu = smp_processor_id();
+<BR>
++		mcheck_expected(cpu) = 0;
+<BR>
++		mcheck_taken(cpu) = 1;
+<BR>
++		return;
+<BR>
++	}
+<BR>
++
+<BR>
++	mchk_header = (struct el_common *)la_ptr;
+<BR>
++
+<BR>
++	printk(KERN_CRIT &quot;%s machine check: vector=0x%lx pc=0x%lx code=0x%lx\n&quot;,
+<BR>
++	       machine, vector, regs-&gt;pc, mchk_header-&gt;code);
+<BR>
++
+<BR>
++	switch ((unsigned int) mchk_header-&gt;code) {
+<BR>
++	/* Machine check reasons.  Defined according to PALcode sources.  */
+<BR>
++	case 0x80: reason = &quot;tag parity error&quot;; break;
+<BR>
++	case 0x82: reason = &quot;tag control parity error&quot;; break;
+<BR>
++	case 0x84: reason = &quot;generic hard error&quot;; break;
+<BR>
++	case 0x86: reason = &quot;correctable ECC error&quot;; break;
+<BR>
++	case 0x88: reason = &quot;uncorrectable ECC error&quot;; break;
+<BR>
++	case 0x8A: reason = &quot;OS-specific PAL bugcheck&quot;; break;
+<BR>
++	case 0x90: reason = &quot;callsys in kernel mode&quot;; break;
+<BR>
++	case 0x96: reason = &quot;i-cache read retryable error&quot;; break;
+<BR>
++	case 0x98: reason = &quot;processor detected hard error&quot;; break;
+<BR>
++	
+<BR>
++	/* System specific (these are for Alcor, at least): */
+<BR>
++	case 0x202: reason = &quot;system detected hard error&quot;; break;
+<BR>
++	case 0x203: reason = &quot;system detected uncorrectable ECC error&quot;; break;
+<BR>
++	case 0x204: reason = &quot;SIO SERR occurred on PCI bus&quot;; break;
+<BR>
++	case 0x205: reason = &quot;parity error detected by CIA&quot;; break;
+<BR>
++	case 0x206: reason = &quot;SIO IOCHK occurred on ISA bus&quot;; break;
+<BR>
++	case 0x207: reason = &quot;non-existent memory error&quot;; break;
+<BR>
++	case 0x208: reason = &quot;MCHK_K_DCSR&quot;; break;
+<BR>
++	case 0x209: reason = &quot;PCI SERR detected&quot;; break;
+<BR>
++	case 0x20b: reason = &quot;PCI data parity error detected&quot;; break;
+<BR>
++	case 0x20d: reason = &quot;PCI address parity error detected&quot;; break;
+<BR>
++	case 0x20f: reason = &quot;PCI master abort error&quot;; break;
+<BR>
++	case 0x211: reason = &quot;PCI target abort error&quot;; break;
+<BR>
++	case 0x213: reason = &quot;scatter/gather PTE invalid error&quot;; break;
+<BR>
++	case 0x215: reason = &quot;flash ROM write error&quot;; break;
+<BR>
++	case 0x217: reason = &quot;IOA timeout detected&quot;; break;
+<BR>
++	case 0x219: reason = &quot;IOCHK#, EISA add-in board parity or other catastrophic error&quot;; break;
+<BR>
++	case 0x21b: reason = &quot;EISA fail-safe timer timeout&quot;; break;
+<BR>
++	case 0x21d: reason = &quot;EISA bus time-out&quot;; break;
+<BR>
++	case 0x21f: reason = &quot;EISA software generated NMI&quot;; break;
+<BR>
++	case 0x221: reason = &quot;unexpected ev5 IRQ[3] interrupt&quot;; break;
+<BR>
++	default: reason = &quot;unknown&quot;; break;
+<BR>
++	}
+<BR>
++
+<BR>
++	printk(KERN_CRIT &quot;machine check type: %s%s\n&quot;,
+<BR>
++	       reason, mchk_header-&gt;retry ? &quot; (retryable)&quot; : &quot;&quot;);
+<BR>
++
+<BR>
++	dik_show_regs(regs, NULL);
+<BR>
++
+<BR>
++#if DEBUG_MCHECK &gt; 1
+<BR>
++	{
+<BR>
++		/* Dump the logout area to give all info.  */
+<BR>
++		unsigned long *ptr = (unsigned long *)la_ptr;
+<BR>
++		long i;
+<BR>
++		for (i = 0; i &lt; mchk_header-&gt;size / sizeof(long); i += 2) {
+<BR>
++			printk(KERN_CRIT &quot;   +%8lx %016lx %016lx\n&quot;,
+<BR>
++			       i*sizeof(long), ptr[i], ptr[i+1]);
+<BR>
++		}
+<BR>
++	}
+<BR>
++#endif
+<BR>
++}
+<BR>
++
+<BR>
++/* RTC */
+<BR>
++static void enable_rtc(unsigned int irq) { }
+<BR>
++static unsigned int startup_rtc(unsigned int irq) { return 0; }
+<BR>
++#define shutdown_rtc	enable_rtc
+<BR>
++#define end_rtc		enable_rtc
+<BR>
++#define ack_rtc		enable_rtc
+<BR>
++#define disable_rtc	enable_rtc
+<BR>
++
+<BR>
++struct irqaction timer_irqaction  = { timer_interrupt,
+<BR>
++				      SA_INTERRUPT, 0, &quot;timer&quot;,
+<BR>
++				      NULL, NULL};
+<BR>
++
+<BR>
++void __init
+<BR>
++init_rtc_irq(void)
+<BR>
++{
+<BR>
++	static struct hw_interrupt_type rtc_irq_type = { &quot;RTC&quot;,
+<BR>
++							 startup_rtc,
+<BR>
++							 shutdown_rtc,
+<BR>
++							 enable_rtc,
+<BR>
++							 disable_rtc,
+<BR>
++							 ack_rtc,
+<BR>
++							 end_rtc };
+<BR>
++	irq_desc[RTC_IRQ].status = IRQ_DISABLED;
+<BR>
++	irq_desc[RTC_IRQ].handler = &amp;rtc_irq_type;
+<BR>
++
+<BR>
++	setup_irq(RTC_IRQ, &amp;timer_irqaction);
+<BR>
++}
+<BR>
++
+<BR>
++/* dummy irqactions */
+<BR>
++struct irqaction isa_cascade_irqaction = {
+<BR>
++	handler:	no_action,
+<BR>
++	name:		&quot;isa-cascade&quot;
+<BR>
++};
+<BR>
++
+<BR>
++struct irqaction timer_cascade_irqaction = {
+<BR>
++	handler:	no_action,
+<BR>
++	name:		&quot;timer-cascade&quot;
+<BR>
++};
+<BR>
++
+<BR>
++struct irqaction halt_switch_irqaction = {
+<BR>
++	handler:	no_action,
+<BR>
++	name:		&quot;halt-switch&quot;
+<BR>
++};
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/core_pyxis.c irq/arch/alpha/kernel/core_pyxis.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/core_pyxis.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/core_pyxis.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -304,7 +304,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_update_irq_hw(cached_irq_mask |= 1UL &lt;&lt; (irq - 16));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;pyxis_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_update_irq_hw(cached_irq_mask &amp;= ~(1UL &lt;&lt; (irq - 16)));
+<BR>
+@@ -318,6 +318,13 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
++pyxis_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		pyxis_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
+&nbsp;pyxis_mask_and_ack_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long bit = 1UL &lt;&lt; (irq - 16);
+<BR>
+@@ -340,7 +347,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		pyxis_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	pyxis_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		pyxis_mask_and_ack_irq,
+<BR>
+-	end:		pyxis_enable_irq,
+<BR>
++	end:		pyxis_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void 
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/i8259.c irq/arch/alpha/kernel/i8259.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/i8259.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/i8259.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -21,6 +21,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Note mask bit is true for DISABLED irqs.  */
+<BR>
+&nbsp;static unsigned int cached_irq_mask = 0xffff;
+<BR>
++spinlock_t i8259_irq_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;i8259_update_irq_hw(unsigned int irq, unsigned long mask)
+<BR>
+@@ -34,19 +35,30 @@
+<BR>
+&nbsp;inline void
+<BR>
+&nbsp;i8259a_enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	spin_lock(&amp;i8259_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i8259_update_irq_hw(irq, cached_irq_mask &amp;= ~(1 &lt;&lt; irq));
+<BR>
++	spin_unlock(&amp;i8259_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-inline void
+<BR>
+-i8259a_disable_irq(unsigned int irq)
+<BR>
++static inline void
+<BR>
++__i8259a_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i8259_update_irq_hw(irq, cached_irq_mask |= 1 &lt;&lt; irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
++i8259a_disable_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	spin_lock(&amp;i8259_irq_lock);
+<BR>
++	__i8259a_disable_irq(irq);
+<BR>
++	spin_unlock(&amp;i8259_irq_lock);
+<BR>
++}
+<BR>
++
+<BR>
++void
+<BR>
+&nbsp;i8259a_mask_and_ack_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+-	i8259a_disable_irq(irq);
+<BR>
++	spin_lock(&amp;i8259_irq_lock);
+<BR>
++	__i8259a_disable_irq(irq);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Ack the interrupt making it the lowest priority.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (irq &gt;= 8) {
+<BR>
+@@ -54,6 +66,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq = 2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0xE0 | irq, 0x20);			/* ack the master */
+<BR>
++	spin_unlock(&amp;i8259_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;unsigned int
+<BR>
+@@ -63,6 +76,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++void
+<BR>
++i8259a_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		i8259a_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;struct hw_interrupt_type i8259a_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;XT-PIC&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	i8259a_startup_irq,
+<BR>
+@@ -70,7 +90,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		i8259a_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	i8259a_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		i8259a_mask_and_ack_irq,
+<BR>
+-	end:		i8259a_enable_irq,
+<BR>
++	end:		i8259a_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/irq.c irq/arch/alpha/kernel/irq.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/irq.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/irq.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -17,304 +17,86 @@
+<BR>
+&nbsp;#include &lt;linux/kernel_stat.h&gt;
+<BR>
+&nbsp;#include &lt;linux/signal.h&gt;
+<BR>
+&nbsp;#include &lt;linux/sched.h&gt;
+<BR>
++#include &lt;linux/interrupt.h&gt;
+<BR>
+&nbsp;#include &lt;linux/malloc.h&gt;
+<BR>
+&nbsp;#include &lt;linux/random.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/delay.h&gt;
+<BR>
++#include &lt;linux/irq.h&gt;
+<BR>
++#include &lt;linux/proc_fs.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+-#include &lt;asm/dma.h&gt;
+<BR>
+&nbsp;#include &lt;asm/bitops.h&gt;
+<BR>
+-#include &lt;asm/machvec.h&gt;
+<BR>
+-
+<BR>
+-#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
+-
+<BR>
+-#define vulp	volatile unsigned long *
+<BR>
+-#define vuip	volatile unsigned int *
+<BR>
+-
+<BR>
+-/* Only uniprocessor needs this IRQ/BH locking depth, on SMP it lives
+<BR>
+-   in the per-cpu structure for cache reasons.  */
+<BR>
+-#ifndef CONFIG_SMP
+<BR>
+-int __local_irq_count;
+<BR>
+-int __local_bh_count;
+<BR>
+-unsigned long __irq_attempt[NR_IRQS];
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-#ifdef CONFIG_ALPHA_GENERIC
+<BR>
+-#define ACTUAL_NR_IRQS	alpha_mv.nr_irqs
+<BR>
+-#else
+<BR>
+-#define ACTUAL_NR_IRQS	NR_IRQS
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-/* Hack minimum IPL during interupt processing for broken hardware.  */
+<BR>
+-
+<BR>
+-#ifdef CONFIG_ALPHA_BROKEN_IRQ_MASK
+<BR>
+-int __min_ipl;
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Performance counter hook.  A module can override this to
+<BR>
+- * do something useful.
+<BR>
+- */
+<BR>
+-
+<BR>
+-static void
+<BR>
+-dummy_perf(unsigned long vector, struct pt_regs *regs)
+<BR>
+-{
+<BR>
+-        printk(KERN_CRIT &quot;Performance counter interrupt!\n&quot;);
+<BR>
+-}
+<BR>
+-
+<BR>
+-void (*perf_irq)(unsigned long, struct pt_regs *) = dummy_perf;
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Dispatch device interrupts.
+<BR>
+- */
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Handle ISA interrupt via the PICs.
+<BR>
+- */
+<BR>
+-
+<BR>
+-#if defined(CONFIG_ALPHA_GENERIC)
+<BR>
+-# define IACK_SC	alpha_mv.iack_sc
+<BR>
+-#elif defined(CONFIG_ALPHA_APECS)
+<BR>
+-# define IACK_SC	APECS_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_LCA)
+<BR>
+-# define IACK_SC	LCA_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_CIA)
+<BR>
+-# define IACK_SC	CIA_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_PYXIS)
+<BR>
+-# define IACK_SC	PYXIS_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_TSUNAMI)
+<BR>
+-# define IACK_SC	TSUNAMI_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_POLARIS)
+<BR>
+-# define IACK_SC	POLARIS_IACK_SC
+<BR>
+-#elif defined(CONFIG_ALPHA_IRONGATE)
+<BR>
+-# define IACK_SC        IRONGATE_IACK_SC
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-#if defined(IACK_SC)
+<BR>
+-void
+<BR>
+-isa_device_interrupt(unsigned long vector, struct pt_regs *regs)
+<BR>
+-{
+<BR>
+-	/*
+<BR>
+-	 * Generate a PCI interrupt acknowledge cycle.  The PIC will
+<BR>
+-	 * respond with the interrupt vector of the highest priority
+<BR>
+-	 * interrupt that is pending.  The PALcode sets up the
+<BR>
+-	 * interrupts vectors such that irq level L generates vector L.
+<BR>
+-	 */
+<BR>
+-	int j = *(vuip) IACK_SC;
+<BR>
+-	j &amp;= 0xff;
+<BR>
+-	if (j == 7) {
+<BR>
+-		if (!(inb(0x20) &amp; 0x80)) {
+<BR>
+-			/* It's only a passive release... */
+<BR>
+-			return;
+<BR>
+-		}
+<BR>
+-	}
+<BR>
+-	handle_irq(j, regs);
+<BR>
+-}
+<BR>
+-#endif
+<BR>
+-#if defined(CONFIG_ALPHA_GENERIC) || !defined(IACK_SC)
+<BR>
+-void
+<BR>
+-isa_no_iack_sc_device_interrupt(unsigned long vector, struct pt_regs *regs)
+<BR>
+-{
+<BR>
+-	unsigned long pic;
+<BR>
+-
+<BR>
+-	/*
+<BR>
+-	 * It seems to me that the probability of two or more *device*
+<BR>
+-	 * interrupts occurring at almost exactly the same time is
+<BR>
+-	 * pretty low.  So why pay the price of checking for
+<BR>
+-	 * additional interrupts here if the common case can be
+<BR>
+-	 * handled so much easier?
+<BR>
+-	 */
+<BR>
+-	/* 
+<BR>
+-	 *  The first read of gives you *all* interrupting lines.
+<BR>
+-	 *  Therefore, read the mask register and and out those lines
+<BR>
+-	 *  not enabled.  Note that some documentation has 21 and a1 
+<BR>
+-	 *  write only.  This is not true.
+<BR>
+-	 */
+<BR>
+-	pic = inb(0x20) | (inb(0xA0) &lt;&lt; 8);	/* read isr */
+<BR>
+-	pic &amp;= 0xFFFB;				/* mask out cascade &amp; hibits */
+<BR>
+-
+<BR>
+-	while (pic) {
+<BR>
+-		int j = ffz(~pic);
+<BR>
+-		pic &amp;= pic - 1;
+<BR>
+-		handle_irq(j, regs);
+<BR>
+-	}
+<BR>
+-}
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Handle interrupts from the SRM, assuming no additional weirdness.
+<BR>
+- */
+<BR>
+-
+<BR>
+-static inline void
+<BR>
+-srm_enable_irq(unsigned int irq)
+<BR>
+-{
+<BR>
+-	cserve_ena(irq - 16);
+<BR>
+-}
+<BR>
+-
+<BR>
+-static void
+<BR>
+-srm_disable_irq(unsigned int irq)
+<BR>
+-{
+<BR>
+-	cserve_dis(irq - 16);
+<BR>
+-}
+<BR>
+-
+<BR>
+-static unsigned int
+<BR>
+-srm_startup_irq(unsigned int irq)
+<BR>
+-{
+<BR>
+-	srm_enable_irq(irq);
+<BR>
+-	return 0;
+<BR>
+-}
+<BR>
+-
+<BR>
+-static struct hw_interrupt_type srm_irq_type = {
+<BR>
+-	typename:	&quot;SRM&quot;,
+<BR>
+-	startup:	srm_startup_irq,
+<BR>
+-	shutdown:	srm_disable_irq,
+<BR>
+-	enable:		srm_enable_irq,
+<BR>
+-	disable:	srm_disable_irq,
+<BR>
+-	ack:		srm_disable_irq,
+<BR>
+-	end:		srm_enable_irq,
+<BR>
+-};
+<BR>
+-
+<BR>
+-void 
+<BR>
+-srm_device_interrupt(unsigned long vector, struct pt_regs * regs)
+<BR>
+-{
+<BR>
+-	int irq = (vector - 0x800) &gt;&gt; 4;
+<BR>
+-	handle_irq(irq, regs);
+<BR>
+-}
+<BR>
+-
+<BR>
+-void __init
+<BR>
+-init_srm_irqs(long max, unsigned long ignore_mask)
+<BR>
+-{
+<BR>
+-	long i;
+<BR>
+-
+<BR>
+-	for (i = 16; i &lt; max; ++i) {
+<BR>
+-		if (i &lt; 64 &amp;&amp; ((ignore_mask &gt;&gt; i) &amp; 1))
+<BR>
+-			continue;
+<BR>
+-		irq_desc[i].status = IRQ_DISABLED;
+<BR>
+-		irq_desc[i].handler = &amp;srm_irq_type;
+<BR>
+-	}
+<BR>
+-}
+<BR>
++#include &lt;asm/uaccess.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+- * The not-handled irq handler.
+<BR>
++ * Controller mappings for all interrupt sources:
+<BR>
+&nbsp;&nbsp;*/
+<BR>
++irq_desc_t irq_desc[NR_IRQS] __cacheline_aligned =
+<BR>
++	{ [0 ... NR_IRQS-1] = { 0, &amp;no_irq_type, NULL, 0, SPIN_LOCK_UNLOCKED}};
+<BR>
+&nbsp;
+<BR>
+-static void
+<BR>
+-noirq_enable_disable(unsigned int irq)
+<BR>
+-{
+<BR>
+-}
+<BR>
++static void register_irq_proc (unsigned int irq);
+<BR>
+&nbsp;
+<BR>
+-static unsigned int
+<BR>
+-noirq_startup(unsigned int irq)
+<BR>
+-{
+<BR>
+-	return 0;
+<BR>
+-}
+<BR>
+-
+<BR>
+-static void
+<BR>
+-noirq_ack(unsigned int irq)
+<BR>
+-{
+<BR>
+-	printk(KERN_CRIT &quot;Unexpected IRQ %u\n&quot;, irq);
+<BR>
+-}
+<BR>
+-
+<BR>
+-static struct hw_interrupt_type no_irq_type = {
+<BR>
+-	typename:	&quot;none&quot;,
+<BR>
+-	startup:	noirq_startup,
+<BR>
+-	shutdown:	noirq_enable_disable,
+<BR>
+-	enable:		noirq_enable_disable,
+<BR>
+-	disable:	noirq_enable_disable,
+<BR>
+-	ack:		noirq_ack,
+<BR>
+-	end:		noirq_enable_disable,
+<BR>
+-};
+<BR>
++volatile unsigned long irq_err_count;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+- * The special RTC interrupt type.  The interrupt itself was
+<BR>
+- * processed by PALcode, and comes in via entInt vector 1.
+<BR>
++ * Special irq handlers.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-static struct hw_interrupt_type rtc_irq_type = {
+<BR>
+-	typename:	&quot;RTC&quot;,
+<BR>
+-	startup:	noirq_startup,
+<BR>
+-	shutdown:	noirq_enable_disable,
+<BR>
+-	enable:		noirq_enable_disable,
+<BR>
+-	disable:	noirq_enable_disable,
+<BR>
+-	ack:		noirq_enable_disable,
+<BR>
+-	end:		noirq_enable_disable,
+<BR>
+-};
+<BR>
+-
+<BR>
+-void __init
+<BR>
+-init_rtc_irq(void)
+<BR>
+-{
+<BR>
+-	irq_desc[RTC_IRQ].status = IRQ_DISABLED;
+<BR>
+-	irq_desc[RTC_IRQ].handler = &amp;rtc_irq_type;
+<BR>
+-}
+<BR>
++void no_action(int cpl, void *dev_id, struct pt_regs *regs) { }
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+- * Special irq handlers.
+<BR>
++ * Generic no controller code
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-void
+<BR>
+-no_action(int cpl, void *dev_id, struct pt_regs *regs)
+<BR>
++static void enable_none(unsigned int irq) { }
+<BR>
++static unsigned int startup_none(unsigned int irq) { return 0; }
+<BR>
++static void disable_none(unsigned int irq) { }
+<BR>
++static void ack_none(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	irq_err_count++;
+<BR>
++	printk(&quot;unexpected IRQ trap at vector %02x\n&quot;, irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-/* 
+<BR>
+- * Common irq handlers.
+<BR>
+- */
+<BR>
+-
+<BR>
+-struct irqaction isa_cascade_irqaction = {
+<BR>
+-	handler:	no_action,
+<BR>
+-	name:		&quot;isa-cascade&quot;
+<BR>
+-};
+<BR>
+-
+<BR>
+-struct irqaction timer_cascade_irqaction = {
+<BR>
+-	handler:	no_action,
+<BR>
+-	name:		&quot;timer-cascade&quot;
+<BR>
+-};
+<BR>
+-
+<BR>
+-struct irqaction halt_switch_irqaction = {
+<BR>
+-	handler:	no_action,
+<BR>
+-	name:		&quot;halt-switch&quot;
+<BR>
+-};
+<BR>
+-
+<BR>
++/* startup is the same as &quot;enable&quot;, shutdown is same as &quot;disable&quot; */
+<BR>
++#define shutdown_none	disable_none
+<BR>
++#define end_none	enable_none
+<BR>
+&nbsp;
+<BR>
+-spinlock_t irq_controller_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+-irq_desc_t irq_desc[NR_IRQS] __cacheline_aligned = {
+<BR>
+-	[0 ... NR_IRQS-1] = { 0, &amp;no_irq_type, }
+<BR>
++struct hw_interrupt_type no_irq_type = {
+<BR>
++	&quot;none&quot;,
+<BR>
++	startup_none,
+<BR>
++	shutdown_none,
+<BR>
++	enable_none,
+<BR>
++	disable_none,
+<BR>
++	ack_none,
+<BR>
++	end_none,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+-int
+<BR>
+-handle_IRQ_event(unsigned int irq, struct pt_regs *regs,
+<BR>
+-		 struct irqaction *action)
+<BR>
++int handle_IRQ_event(unsigned int irq, struct pt_regs * regs, struct irqaction * action)
+<BR>
+&nbsp;{
+<BR>
+-	int status, cpu = smp_processor_id();
+<BR>
+-	int old_ipl, ipl;
+<BR>
++	int status;
+<BR>
++	int cpu = smp_processor_id();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kstat.irqs[cpu][irq]++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_enter(cpu, irq);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;status = 1;	/* Force the &quot;do bottom halves&quot; bit */
+<BR>
+&nbsp;
+<BR>
+-	old_ipl = ipl = getipl();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do {
+<BR>
+-		int new_ipl = IPL_MIN;
+<BR>
+-		if (action-&gt;flags &amp; SA_INTERRUPT)
+<BR>
+-			new_ipl = IPL_MAX;
+<BR>
+-		if (new_ipl != ipl) {
+<BR>
+-			setipl(new_ipl);
+<BR>
+-			ipl = new_ipl;
+<BR>
+-		}
+<BR>
++		if (!(action-&gt;flags &amp; SA_INTERRUPT))
+<BR>
++			__sti();
+<BR>
++		else
+<BR>
++			__cli();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;status |= action-&gt;flags;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action-&gt;handler(irq, action-&gt;dev_id, regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action = action-&gt;next;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while (action);
+<BR>
+-	if (ipl != old_ipl)
+<BR>
+-		setipl(old_ipl);
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (status &amp; SA_SAMPLE_RANDOM)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;add_interrupt_randomness(irq);
+<BR>
++	__cli();
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_exit(cpu, irq);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return status;
+<BR>
+@@ -326,17 +108,18 @@
+<BR>
+&nbsp;&nbsp;* hardware disable after having gotten the irq
+<BR>
+&nbsp;&nbsp;* controller lock. 
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-void
+<BR>
++void inline
+<BR>
+&nbsp;disable_irq_nosync(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	irq_desc_t *desc = irq_desc + irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long flags;
+<BR>
+&nbsp;
+<BR>
+-	spin_lock_irqsave(&amp;irq_controller_lock, flags);
+<BR>
+-	if (!irq_desc[irq].depth++) {
+<BR>
+-		irq_desc[irq].status |= IRQ_DISABLED | IRQ_MASKED;
+<BR>
+-		irq_desc[irq].handler-&gt;disable(irq);
+<BR>
++	spin_lock_irqsave(&amp;desc-&gt;lock, flags);
+<BR>
++	if (!desc-&gt;depth++) {
+<BR>
++		desc-&gt;status |= IRQ_DISABLED;
+<BR>
++		desc-&gt;handler-&gt;disable(irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irqrestore(&amp;irq_controller_lock, flags);
+<BR>
++	spin_unlock_irqrestore(&amp;desc-&gt;lock, flags);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+@@ -358,32 +141,29 @@
+<BR>
+&nbsp;void
+<BR>
+&nbsp;enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	irq_desc_t *desc = irq_desc + irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long flags;
+<BR>
+&nbsp;
+<BR>
+-	spin_lock_irqsave(&amp;irq_controller_lock, flags);
+<BR>
+-	switch (irq_desc[irq].depth) {
+<BR>
+-	case 1:
+<BR>
+-	  {
+<BR>
+-		unsigned int status = irq_desc[irq].status;
+<BR>
+-
+<BR>
+-		status &amp;= ~(IRQ_DISABLED | IRQ_MASKED);
+<BR>
++	spin_lock_irqsave(&amp;desc-&gt;lock, flags);
+<BR>
++	switch (desc-&gt;depth) {
+<BR>
++	case 1: {
+<BR>
++		unsigned int status = desc-&gt;status &amp; ~IRQ_DISABLED;
+<BR>
++		desc-&gt;status = status;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((status &amp; (IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
+<BR>
+-			status |= IRQ_REPLAY;
+<BR>
+-			/* ??? We can't re-send on (most?) alpha hw.
+<BR>
+-			   hw_resend_irq(irq_desc[irq].handler,irq); */
+<BR>
++			desc-&gt;status = status | IRQ_REPLAY;
+<BR>
++			hw_resend_irq(desc-&gt;handler,irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-		irq_desc[irq].status = status;
+<BR>
+-		irq_desc[irq].handler-&gt;enable(irq);
+<BR>
++		desc-&gt;handler-&gt;enable(irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* fall-through */
+<BR>
+-	  }
+<BR>
++	}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:
+<BR>
+-		irq_desc[irq].depth--;
+<BR>
++		desc-&gt;depth--;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case 0:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;enable_irq() unbalanced from %p\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__builtin_return_address(0));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irqrestore(&amp;irq_controller_lock, flags);
+<BR>
++	spin_unlock_irqrestore(&amp;desc-&gt;lock, flags);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;int
+<BR>
+@@ -392,6 +172,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int shared = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction *old, **p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long flags;
+<BR>
++	irq_desc_t *desc = irq_desc + irq;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Some drivers like serial.c use request_irq() heavily,
+<BR>
+@@ -413,12 +194,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* The following block of code has to be executed atomically
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	spin_lock_irqsave(&amp;irq_controller_lock,flags);
+<BR>
+-	p = &amp;irq_desc[irq].action;
+<BR>
++	spin_lock_irqsave(&amp;desc-&gt;lock,flags);
+<BR>
++	p = &amp;desc-&gt;action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((old = *p) != NULL) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Can't share interrupts unless both agree to */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(old-&gt;flags &amp; new-&gt;flags &amp; SA_SHIRQ)) {
+<BR>
+-			spin_unlock_irqrestore(&amp;irq_controller_lock,flags);
+<BR>
++			spin_unlock_irqrestore(&amp;desc-&gt;lock,flags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EBUSY;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -433,14 +214,174 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*p = new;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!shared) {
+<BR>
+-		irq_desc[irq].depth = 0;
+<BR>
+-		irq_desc[irq].status &amp;= ~(IRQ_DISABLED | IRQ_MASKED);
+<BR>
+-		irq_desc[irq].handler-&gt;startup(irq);
+<BR>
++		desc-&gt;depth = 0;
+<BR>
++		desc-&gt;status &amp;= ~IRQ_DISABLED;
+<BR>
++		desc-&gt;handler-&gt;startup(irq);
+<BR>
++	}
+<BR>
++	spin_unlock_irqrestore(&amp;desc-&gt;lock,flags);
+<BR>
++
+<BR>
++	register_irq_proc(irq);
+<BR>
++	return 0;
+<BR>
++}
+<BR>
++
+<BR>
++static struct proc_dir_entry * root_irq_dir;
+<BR>
++static struct proc_dir_entry * irq_dir [NR_IRQS];
+<BR>
++static struct proc_dir_entry * smp_affinity_entry [NR_IRQS];
+<BR>
++
+<BR>
++static unsigned long irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = ~0UL };
+<BR>
++
+<BR>
++#define HEX_DIGITS 16
+<BR>
++
+<BR>
++static int irq_affinity_read_proc (char *page, char **start, off_t off,
+<BR>
++			int count, int *eof, void *data)
+<BR>
++{
+<BR>
++	if (count &lt; HEX_DIGITS+1)
+<BR>
++		return -EINVAL;
+<BR>
++	return sprintf (page, &quot;%016lx\n&quot;, irq_affinity[(long)data]);
+<BR>
++}
+<BR>
++
+<BR>
++static unsigned int parse_hex_value (const char *buffer,
+<BR>
++		unsigned long count, unsigned long *ret)
+<BR>
++{
+<BR>
++	unsigned char hexnum [HEX_DIGITS];
+<BR>
++	unsigned long value;
+<BR>
++	int i;
+<BR>
++
+<BR>
++	if (!count)
+<BR>
++		return -EINVAL;
+<BR>
++	if (count &gt; HEX_DIGITS)
+<BR>
++		count = HEX_DIGITS;
+<BR>
++	if (copy_from_user(hexnum, buffer, count))
+<BR>
++		return -EFAULT;
+<BR>
++
+<BR>
++	/*
+<BR>
++	 * Parse the first 8 characters as a hex string, any non-hex char
+<BR>
++	 * is end-of-string. '00e1', 'e1', '00E1', 'E1' are all the same.
+<BR>
++	 */
+<BR>
++	value = 0;
+<BR>
++
+<BR>
++	for (i = 0; i &lt; count; i++) {
+<BR>
++		unsigned int c = hexnum[i];
+<BR>
++
+<BR>
++		switch (c) {
+<BR>
++			case '0' ... '9': c -= '0'; break;
+<BR>
++			case 'a' ... 'f': c -= 'a'-10; break;
+<BR>
++			case 'A' ... 'F': c -= 'A'-10; break;
+<BR>
++		default:
+<BR>
++			goto out;
+<BR>
++		}
+<BR>
++		value = (value &lt;&lt; 4) | c;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irqrestore(&amp;irq_controller_lock,flags);
+<BR>
++out:
+<BR>
++	*ret = value;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static int irq_affinity_write_proc (struct file *file, const char *buffer,
+<BR>
++					unsigned long count, void *data)
+<BR>
++{
+<BR>
++	int irq = (long) data, full_count = count, err;
+<BR>
++	unsigned long new_value;
+<BR>
++
+<BR>
++	if (!irq_desc[irq].handler-&gt;set_affinity)
+<BR>
++		return -EIO;
+<BR>
++
+<BR>
++	err = parse_hex_value(buffer, count, &amp;new_value);
+<BR>
++
+<BR>
++#if CONFIG_SMP
+<BR>
++	/*
+<BR>
++	 * Do not allow disabling IRQs completely - it's a too easy
+<BR>
++	 * way to make the system unusable accidentally :-) At least
+<BR>
++	 * one online CPU still has to be targeted.
+<BR>
++	 */
+<BR>
++	if (!(new_value &amp; cpu_present_mask))
+<BR>
++		return -EINVAL;
+<BR>
++#endif
+<BR>
++
+<BR>
++	irq_affinity[irq] = new_value;
+<BR>
++	irq_desc[irq].handler-&gt;set_affinity(irq, new_value);
+<BR>
++
+<BR>
++	return full_count;
+<BR>
++}
+<BR>
++
+<BR>
++static int prof_cpu_mask_read_proc (char *page, char **start, off_t off,
+<BR>
++			int count, int *eof, void *data)
+<BR>
++{
+<BR>
++	unsigned long *mask = (unsigned long *) data;
+<BR>
++	if (count &lt; HEX_DIGITS+1)
+<BR>
++		return -EINVAL;
+<BR>
++	return sprintf (page, &quot;%08lx\n&quot;, *mask);
+<BR>
++}
+<BR>
++
+<BR>
++static int prof_cpu_mask_write_proc (struct file *file, const char *buffer,
+<BR>
++					unsigned long count, void *data)
+<BR>
++{
+<BR>
++	unsigned long *mask = (unsigned long *) data, full_count = count, err;
+<BR>
++	unsigned long new_value;
+<BR>
++
+<BR>
++	err = parse_hex_value(buffer, count, &amp;new_value);
+<BR>
++	if (err)
+<BR>
++		return err;
+<BR>
++
+<BR>
++	*mask = new_value;
+<BR>
++	return full_count;
+<BR>
++}
+<BR>
++
+<BR>
++#define MAX_NAMELEN 10
+<BR>
++
+<BR>
++static void register_irq_proc (unsigned int irq)
+<BR>
++{
+<BR>
++	struct proc_dir_entry *entry;
+<BR>
++	char name [MAX_NAMELEN];
+<BR>
++
+<BR>
++	if (!root_irq_dir || (irq_desc[irq].handler == &amp;no_irq_type))
+<BR>
++		return;
+<BR>
++
+<BR>
++	memset(name, 0, MAX_NAMELEN);
+<BR>
++	sprintf(name, &quot;%d&quot;, irq);
+<BR>
++
+<BR>
++	/* create /proc/irq/1234 */
+<BR>
++	irq_dir[irq] = proc_mkdir(name, root_irq_dir);
+<BR>
++
+<BR>
++	/* create /proc/irq/1234/smp_affinity */
+<BR>
++	entry = create_proc_entry(&quot;smp_affinity&quot;, 0700, irq_dir[irq]);
+<BR>
++
+<BR>
++	entry-&gt;nlink = 1;
+<BR>
++	entry-&gt;data = (void *)(long)irq;
+<BR>
++	entry-&gt;read_proc = irq_affinity_read_proc;
+<BR>
++	entry-&gt;write_proc = irq_affinity_write_proc;
+<BR>
++
+<BR>
++	smp_affinity_entry[irq] = entry;
+<BR>
++}
+<BR>
++
+<BR>
++unsigned long prof_cpu_mask = ~0UL;
+<BR>
++
+<BR>
++void init_irq_proc (void)
+<BR>
++{
+<BR>
++	struct proc_dir_entry *entry;
+<BR>
++	int i;
+<BR>
++
+<BR>
++	/* create /proc/irq */
+<BR>
++	root_irq_dir = proc_mkdir(&quot;irq&quot;, 0);
+<BR>
++
+<BR>
++	/* create /proc/irq/prof_cpu_mask */
+<BR>
++	entry = create_proc_entry(&quot;prof_cpu_mask&quot;, 0700, root_irq_dir);
+<BR>
++
+<BR>
++	entry-&gt;nlink = 1;
+<BR>
++	entry-&gt;data = (void *)&amp;prof_cpu_mask;
+<BR>
++	entry-&gt;read_proc = prof_cpu_mask_read_proc;
+<BR>
++	entry-&gt;write_proc = prof_cpu_mask_write_proc;
+<BR>
++
+<BR>
++	/*
+<BR>
++	 * Create entries for all existing IRQs.
+<BR>
++	 */
+<BR>
++	for (i = 0; i &lt; NR_IRQS; i++) {
+<BR>
++		if (irq_desc[i].handler == &amp;no_irq_type)
+<BR>
++			continue;
+<BR>
++		register_irq_proc(i);
+<BR>
++	}
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;int
+<BR>
+&nbsp;request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long irqflags, const char * devname, void *dev_id)
+<BR>
+@@ -488,6 +429,7 @@
+<BR>
+&nbsp;void
+<BR>
+&nbsp;free_irq(unsigned int irq, void *dev_id)
+<BR>
+&nbsp;{
+<BR>
++	irq_desc_t *desc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction **p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long flags;
+<BR>
+&nbsp;
+<BR>
+@@ -496,8 +438,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-	spin_lock_irqsave(&amp;irq_controller_lock,flags);
+<BR>
+-	p = &amp;irq_desc[irq].action;
+<BR>
++	desc = irq_desc + irq;
+<BR>
++	spin_lock_irqsave(&amp;desc-&gt;lock,flags);
+<BR>
++	p = &amp;desc-&gt;action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (;;) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction * action = *p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (action) {
+<BR>
+@@ -508,21 +451,23 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Found - now remove it from the list of entries.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*pp = action-&gt;next;
+<BR>
+-			if (!irq_desc[irq].action) {
+<BR>
+-				irq_desc[irq].status |= IRQ_DISABLED|IRQ_MASKED;
+<BR>
+-				irq_desc[irq].handler-&gt;shutdown(irq);
+<BR>
++			if (!desc-&gt;action) {
+<BR>
++				desc-&gt;status |= IRQ_DISABLED;
+<BR>
++				desc-&gt;handler-&gt;shutdown(irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-			spin_unlock_irqrestore(&amp;irq_controller_lock,flags);
+<BR>
++			spin_unlock_irqrestore(&amp;desc-&gt;lock,flags);
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_SMP
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Wait to make sure it's not being used on
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;another CPU.  */
+<BR>
+-			while (irq_desc[irq].status &amp; IRQ_INPROGRESS)
+<BR>
++			while (desc-&gt;status &amp; IRQ_INPROGRESS)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;barrier();
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kfree(action);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR &quot;Trying to free free IRQ%d\n&quot;,irq);
+<BR>
+-		spin_unlock_irqrestore(&amp;irq_controller_lock,flags);
+<BR>
++		spin_unlock_irqrestore(&amp;desc-&gt;lock,flags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+@@ -576,6 +521,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_data[cpu_logical_map(j)].smp_local_irq_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;\n&quot;);
+<BR>
+&nbsp;#endif
+<BR>
++	p += sprintf(p, &quot;ERR: %10lu\n&quot;, irq_err_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return p - buf;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -587,8 +533,6 @@
+<BR>
+&nbsp;spinlock_t global_irq_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Global IRQ locking depth. */
+<BR>
+-atomic_t global_irq_count = ATOMIC_INIT(0);
+<BR>
+-
+<BR>
+&nbsp;static void *previous_irqholder = NULL;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define MAXCOUNT 100000000
+<BR>
+@@ -607,7 +551,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* for bottom half handlers unless we're
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* already executing in one..
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-		if (!atomic_read(&amp;global_irq_count)) {
+<BR>
++		if (!irqs_running()) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (local_bh_count(cpu)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|| !spin_is_locked(&amp;global_bh_lock))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+@@ -625,7 +569,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;udelay(1); /* make sure to run pending irqs */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__cli();
+<BR>
+&nbsp;
+<BR>
+-			if (atomic_read(&amp;global_irq_count))
+<BR>
++			if (irqs_running())
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (spin_is_locked(&amp;global_irq_lock))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+@@ -755,7 +699,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;\n%s, CPU %d: %p\n&quot;, str, cpu, where);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;irq:  %d [%d %d]\n&quot;,
+<BR>
+-	       atomic_read(&amp;global_irq_count),
+<BR>
++	       irqs_running(),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_data[0].irq_count,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu_data[1].irq_count);
+<BR>
+&nbsp;
+<BR>
+@@ -809,7 +753,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while (global_count != local_count);
+<BR>
+&nbsp;#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Jay's version.  */
+<BR>
+-	if (atomic_read(&amp;global_irq_count)) {
+<BR>
++	if (irqs_running()) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cli();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sti();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -836,39 +780,26 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* handled by some other CPU. (or is disabled)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int cpu = smp_processor_id();
+<BR>
+-	irq_desc_t *desc;
+<BR>
++	irq_desc_t *desc = irq_desc + irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction * action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int status;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((unsigned) irq &gt; ACTUAL_NR_IRQS) {
+<BR>
++		irq_err_count++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_CRIT &quot;device_interrupt: illegal interrupt %d\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_attempt(cpu, irq)++;
+<BR>
+-	desc = irq_desc + irq;
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock); /* mask also the RTC */
+<BR>
++	spin_lock_irq(&amp;desc-&gt;lock); /* mask also the higher prio events */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;desc-&gt;handler-&gt;ack(irq);
+<BR>
+-	status = desc-&gt;status;
+<BR>
+-
+<BR>
+-#ifndef CONFIG_SMP
+<BR>
+-	/* Look for broken irq masking.  */
+<BR>
+-	if (status &amp; IRQ_MASKED) {
+<BR>
+-		static unsigned long last_printed;
+<BR>
+-		if (time_after(jiffies, last_printed+HZ)) {
+<BR>
+-			printk(KERN_CRIT &quot;Mask didn't work for irq %d!\n&quot;, irq);
+<BR>
+-			last_printed = jiffies;
+<BR>
+-		}
+<BR>
+-	}
+<BR>
+-#endif
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* REPLAY is when Linux resends an IRQ that was dropped earlier.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* WAITING is used by probe to mark irqs that are being tested.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+-	status &amp;= ~(IRQ_REPLAY | IRQ_WAITING);
+<BR>
+-	status |= IRQ_PENDING | IRQ_MASKED; /* we _want_ to handle it */
+<BR>
++	status = desc-&gt;status &amp; ~(IRQ_REPLAY | IRQ_WAITING);
+<BR>
++	status |= IRQ_PENDING; /* we _want_ to handle it */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* If the IRQ is disabled for whatever reason, we cannot
+<BR>
+@@ -881,7 +812,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;status |= IRQ_INPROGRESS; /* we are handling it */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;desc-&gt;status = status;
+<BR>
+-	spin_unlock(&amp;irq_controller_lock);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* If there is no IRQ handler or it was disabled, exit early.
+<BR>
+@@ -890,7 +820,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* will take care of it.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!action)
+<BR>
+-		return;
+<BR>
++		goto out;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Edge triggered interrupts need to remember pending events.
+<BR>
+@@ -902,22 +832,23 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* SMP environment.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (;;) {
+<BR>
++		spin_unlock(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_IRQ_event(irq, regs, action);
+<BR>
+-		spin_lock(&amp;irq_controller_lock);
+<BR>
++		spin_lock(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(desc-&gt;status &amp; IRQ_PENDING)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|| (desc-&gt;status &amp; IRQ_LEVEL))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;desc-&gt;status &amp;= ~IRQ_PENDING;
+<BR>
+-		spin_unlock(&amp;irq_controller_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	status = desc-&gt;status &amp; ~IRQ_INPROGRESS;
+<BR>
+-	if (!(status &amp; IRQ_DISABLED)) {
+<BR>
+-		status &amp;= ~IRQ_MASKED;
+<BR>
+-		desc-&gt;handler-&gt;end(irq);
+<BR>
+-	}
+<BR>
+-	desc-&gt;status = status;
+<BR>
+-	spin_unlock(&amp;irq_controller_lock);
+<BR>
++	desc-&gt;status &amp;= ~IRQ_INPROGRESS;
+<BR>
++out:
+<BR>
++	/*
+<BR>
++	 * The -&gt;end() handler has to deal with interrupts which got
+<BR>
++	 * disabled while the handler was running.
+<BR>
++	 */
+<BR>
++	desc-&gt;handler-&gt;end(irq);
+<BR>
++	spin_unlock(&amp;desc-&gt;lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+@@ -932,17 +863,20 @@
+<BR>
+&nbsp;probe_irq_on(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int i;
+<BR>
++	irq_desc_t *desc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long delay;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long val;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Something may have generated an irq long ago and we want to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush such a longstanding irq before considering it as spurious. */
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock);
+<BR>
+-	for (i = NR_IRQS-1; i &gt;= 0; i--)
+<BR>
++	for (i = NR_IRQS-1; i &gt;= 0; i--) {
+<BR>
++		desc = irq_desc + i;
+<BR>
++
+<BR>
++		spin_lock_irq(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!irq_desc[i].action) 
+<BR>
+-			if(irq_desc[i].handler-&gt;startup(i))
+<BR>
+-				irq_desc[i].status |= IRQ_PENDING;
+<BR>
+-	spin_unlock_irq(&amp;irq_controller_lock);
+<BR>
++			irq_desc[i].handler-&gt;startup(i);
+<BR>
++		spin_unlock_irq(&amp;desc-&gt;lock);
+<BR>
++	}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Wait for longstanding interrupts to trigger. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (delay = jiffies + HZ/50; time_after(delay, jiffies); )
+<BR>
+@@ -951,15 +885,17 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* enable any unassigned irqs (we must startup again here because
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if a longstanding irq happened in the previous stage, it may have
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;masked itself) first, enable any unassigned irqs. */
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = NR_IRQS-1; i &gt;= 0; i--) {
+<BR>
+-		if (!irq_desc[i].action) {
+<BR>
+-			irq_desc[i].status |= IRQ_AUTODETECT | IRQ_WAITING;
+<BR>
+-			if(irq_desc[i].handler-&gt;startup(i))
+<BR>
+-				irq_desc[i].status |= IRQ_PENDING;
+<BR>
++		desc = irq_desc + i;
+<BR>
++
+<BR>
++		spin_lock_irq(&amp;desc-&gt;lock);
+<BR>
++		if (!desc-&gt;action) {
+<BR>
++			desc-&gt;status |= IRQ_AUTODETECT | IRQ_WAITING;
+<BR>
++			if (desc-&gt;handler-&gt;startup(i))
+<BR>
++				desc-&gt;status |= IRQ_PENDING;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++		spin_unlock_irq(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Wait for spurious interrupts to trigger
+<BR>
+@@ -971,24 +907,24 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Now filter out any obviously spurious interrupts
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;val = 0;
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=0; i&lt;NR_IRQS; i++) {
+<BR>
+-		unsigned int status = irq_desc[i].status;
+<BR>
++		irq_desc_t *desc = irq_desc + i;
+<BR>
++		unsigned int status;
+<BR>
+&nbsp;
+<BR>
+-		if (!(status &amp; IRQ_AUTODETECT))
+<BR>
+-			continue;
+<BR>
+-		
+<BR>
+-		/* It triggered already - consider it spurious. */
+<BR>
+-		if (!(status &amp; IRQ_WAITING)) {
+<BR>
+-			irq_desc[i].status = status &amp; ~IRQ_AUTODETECT;
+<BR>
+-			irq_desc[i].handler-&gt;shutdown(i);
+<BR>
+-			continue;
+<BR>
+-		}
+<BR>
++		spin_lock_irq(&amp;desc-&gt;lock);
+<BR>
++		status = desc-&gt;status;
+<BR>
+&nbsp;
+<BR>
+-		if (i &lt; 64)
+<BR>
+-			val |= 1 &lt;&lt; i;
+<BR>
++		if (status &amp; IRQ_AUTODETECT) {
+<BR>
++			/* It triggered already - consider it spurious. */
+<BR>
++			if (!(status &amp; IRQ_WAITING)) {
+<BR>
++				desc-&gt;status = status &amp; ~IRQ_AUTODETECT;
+<BR>
++				desc-&gt;handler-&gt;shutdown(i);
+<BR>
++			} else
+<BR>
++				if (i &lt; 32)
+<BR>
++					val |= 1 &lt;&lt; i;
+<BR>
++		}
+<BR>
++		spin_unlock_irq(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return val;
+<BR>
+&nbsp;}
+<BR>
+@@ -1003,20 +939,22 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int mask;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = 0;
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; 16; i++) {
+<BR>
+-		unsigned int status = irq_desc[i].status;
+<BR>
++		irq_desc_t *desc = irq_desc + i;
+<BR>
++		unsigned int status;
+<BR>
+&nbsp;
+<BR>
+-		if (!(status &amp; IRQ_AUTODETECT))
+<BR>
+-			continue;
+<BR>
++		spin_lock_irq(&amp;desc-&gt;lock);
+<BR>
++		status = desc-&gt;status;
+<BR>
+&nbsp;
+<BR>
+-		if (!(status &amp; IRQ_WAITING))
+<BR>
+-			mask |= 1 &lt;&lt; i;
+<BR>
++		if (status &amp; IRQ_AUTODETECT) {
+<BR>
++			if (!(status &amp; IRQ_WAITING))
+<BR>
++				mask |= 1 &lt;&lt; i;
+<BR>
+&nbsp;
+<BR>
+-		irq_desc[i].status = status &amp; ~IRQ_AUTODETECT;
+<BR>
+-		irq_desc[i].handler-&gt;shutdown(i);
+<BR>
++			desc-&gt;status = status &amp; ~IRQ_AUTODETECT;
+<BR>
++			desc-&gt;handler-&gt;shutdown(i);
+<BR>
++		}
+<BR>
++		spin_unlock_irq(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return mask &amp; val;
+<BR>
+&nbsp;}
+<BR>
+@@ -1034,183 +972,26 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nr_irqs = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_found = 0;
+<BR>
+-	spin_lock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=0; i&lt;NR_IRQS; i++) {
+<BR>
+-		unsigned int status = irq_desc[i].status;
+<BR>
++		irq_desc_t *desc = irq_desc + i;
+<BR>
++		unsigned int status;
+<BR>
+&nbsp;
+<BR>
+-		if (!(status &amp; IRQ_AUTODETECT))
+<BR>
+-			continue;
+<BR>
++		spin_lock_irq(&amp;desc-&gt;lock);
+<BR>
++		status = desc-&gt;status;
+<BR>
+&nbsp;
+<BR>
+-		if (!(status &amp; IRQ_WAITING)) {
+<BR>
+-			if (!nr_irqs)
+<BR>
+-				irq_found = i;
+<BR>
+-			nr_irqs++;
+<BR>
++		if (status &amp; IRQ_AUTODETECT) {
+<BR>
++			if (!(status &amp; IRQ_WAITING)) {
+<BR>
++				if (!nr_irqs)
+<BR>
++					irq_found = i;
+<BR>
++				nr_irqs++;
+<BR>
++			}
+<BR>
++			desc-&gt;status = status &amp; ~IRQ_AUTODETECT;
+<BR>
++			desc-&gt;handler-&gt;shutdown(i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-		irq_desc[i].status = status &amp; ~IRQ_AUTODETECT;
+<BR>
+-		irq_desc[i].handler-&gt;shutdown(i);
+<BR>
++		spin_unlock_irq(&amp;desc-&gt;lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	spin_unlock_irq(&amp;irq_controller_lock);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (nr_irqs &gt; 1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_found = -irq_found;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return irq_found;
+<BR>
+-}
+<BR>
+-
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * The main interrupt entry point.
+<BR>
+- */
+<BR>
+-
+<BR>
+-asmlinkage void 
+<BR>
+-do_entInt(unsigned long type, unsigned long vector, unsigned long la_ptr,
+<BR>
+-	  unsigned long a3, unsigned long a4, unsigned long a5,
+<BR>
+-	  struct pt_regs regs)
+<BR>
+-{
+<BR>
+-	switch (type) {
+<BR>
+-	case 0:
+<BR>
+-#ifdef CONFIG_SMP
+<BR>
+-		handle_ipi(&amp;regs);
+<BR>
+-		return;
+<BR>
+-#else
+<BR>
+-		printk(KERN_CRIT &quot;Interprocessor interrupt? &quot;
+<BR>
+-		       &quot;You must be kidding!\n&quot;);
+<BR>
+-#endif
+<BR>
+-		break;
+<BR>
+-	case 1:
+<BR>
+-#ifdef CONFIG_SMP
+<BR>
+-		cpu_data[smp_processor_id()].smp_local_irq_count++;
+<BR>
+-		smp_percpu_timer_interrupt(&amp;regs);
+<BR>
+-		if (smp_processor_id() == boot_cpuid)
+<BR>
+-#endif
+<BR>
+-			handle_irq(RTC_IRQ, &amp;regs);
+<BR>
+-		return;
+<BR>
+-	case 2:
+<BR>
+-		alpha_mv.machine_check(vector, la_ptr, &amp;regs);
+<BR>
+-		return;
+<BR>
+-	case 3:
+<BR>
+-		alpha_mv.device_interrupt(vector, &amp;regs);
+<BR>
+-		return;
+<BR>
+-	case 4:
+<BR>
+-		perf_irq(vector, &amp;regs);
+<BR>
+-		return;
+<BR>
+-	default:
+<BR>
+-		printk(KERN_CRIT &quot;Hardware intr %ld %lx? Huh?\n&quot;,
+<BR>
+-		       type, vector);
+<BR>
+-	}
+<BR>
+-	printk(&quot;PC = %016lx PS=%04lx\n&quot;, regs.pc, regs.ps);
+<BR>
+-}
+<BR>
+-
+<BR>
+-void __init
+<BR>
+-common_init_isa_dma(void)
+<BR>
+-{
+<BR>
+-	outb(0, DMA1_RESET_REG);
+<BR>
+-	outb(0, DMA2_RESET_REG);
+<BR>
+-	outb(0, DMA1_CLR_MASK_REG);
+<BR>
+-	outb(0, DMA2_CLR_MASK_REG);
+<BR>
+-}
+<BR>
+-
+<BR>
+-void __init
+<BR>
+-init_IRQ(void)
+<BR>
+-{
+<BR>
+-	wrent(entInt, 0);
+<BR>
+-	alpha_mv.init_irq();
+<BR>
+-}
+<BR>
+-
+<BR>
+-
+<BR>
+-/*
+<BR>
+- */
+<BR>
+-#define MCHK_K_TPERR           0x0080
+<BR>
+-#define MCHK_K_TCPERR          0x0082
+<BR>
+-#define MCHK_K_HERR            0x0084
+<BR>
+-#define MCHK_K_ECC_C           0x0086
+<BR>
+-#define MCHK_K_ECC_NC          0x0088
+<BR>
+-#define MCHK_K_OS_BUGCHECK     0x008A
+<BR>
+-#define MCHK_K_PAL_BUGCHECK    0x0090
+<BR>
+-
+<BR>
+-#ifndef CONFIG_SMP
+<BR>
+-struct mcheck_info __mcheck_info;
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-void
+<BR>
+-process_mcheck_info(unsigned long vector, unsigned long la_ptr,
+<BR>
+-		    struct pt_regs *regs, const char *machine,
+<BR>
+-		    int expected)
+<BR>
+-{
+<BR>
+-	struct el_common *mchk_header;
+<BR>
+-	const char *reason;
+<BR>
+-
+<BR>
+-	/*
+<BR>
+-	 * See if the machine check is due to a badaddr() and if so,
+<BR>
+-	 * ignore it.
+<BR>
+-	 */
+<BR>
+-
+<BR>
+-#if DEBUG_MCHECK &gt; 0
+<BR>
+-	 printk(KERN_CRIT &quot;%s machine check %s\n&quot;, machine,
+<BR>
+-	        expected ? &quot;expected.&quot; : &quot;NOT expected!!!&quot;);
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-	if (expected) {
+<BR>
+-		int cpu = smp_processor_id();
+<BR>
+-		mcheck_expected(cpu) = 0;
+<BR>
+-		mcheck_taken(cpu) = 1;
+<BR>
+-		return;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	mchk_header = (struct el_common *)la_ptr;
+<BR>
+-
+<BR>
+-	printk(KERN_CRIT &quot;%s machine check: vector=0x%lx pc=0x%lx code=0x%lx\n&quot;,
+<BR>
+-	       machine, vector, regs-&gt;pc, mchk_header-&gt;code);
+<BR>
+-
+<BR>
+-	switch ((unsigned int) mchk_header-&gt;code) {
+<BR>
+-	/* Machine check reasons.  Defined according to PALcode sources.  */
+<BR>
+-	case 0x80: reason = &quot;tag parity error&quot;; break;
+<BR>
+-	case 0x82: reason = &quot;tag control parity error&quot;; break;
+<BR>
+-	case 0x84: reason = &quot;generic hard error&quot;; break;
+<BR>
+-	case 0x86: reason = &quot;correctable ECC error&quot;; break;
+<BR>
+-	case 0x88: reason = &quot;uncorrectable ECC error&quot;; break;
+<BR>
+-	case 0x8A: reason = &quot;OS-specific PAL bugcheck&quot;; break;
+<BR>
+-	case 0x90: reason = &quot;callsys in kernel mode&quot;; break;
+<BR>
+-	case 0x96: reason = &quot;i-cache read retryable error&quot;; break;
+<BR>
+-	case 0x98: reason = &quot;processor detected hard error&quot;; break;
+<BR>
+-	
+<BR>
+-	/* System specific (these are for Alcor, at least): */
+<BR>
+-	case 0x202: reason = &quot;system detected hard error&quot;; break;
+<BR>
+-	case 0x203: reason = &quot;system detected uncorrectable ECC error&quot;; break;
+<BR>
+-	case 0x204: reason = &quot;SIO SERR occurred on PCI bus&quot;; break;
+<BR>
+-	case 0x205: reason = &quot;parity error detected by CIA&quot;; break;
+<BR>
+-	case 0x206: reason = &quot;SIO IOCHK occurred on ISA bus&quot;; break;
+<BR>
+-	case 0x207: reason = &quot;non-existent memory error&quot;; break;
+<BR>
+-	case 0x208: reason = &quot;MCHK_K_DCSR&quot;; break;
+<BR>
+-	case 0x209: reason = &quot;PCI SERR detected&quot;; break;
+<BR>
+-	case 0x20b: reason = &quot;PCI data parity error detected&quot;; break;
+<BR>
+-	case 0x20d: reason = &quot;PCI address parity error detected&quot;; break;
+<BR>
+-	case 0x20f: reason = &quot;PCI master abort error&quot;; break;
+<BR>
+-	case 0x211: reason = &quot;PCI target abort error&quot;; break;
+<BR>
+-	case 0x213: reason = &quot;scatter/gather PTE invalid error&quot;; break;
+<BR>
+-	case 0x215: reason = &quot;flash ROM write error&quot;; break;
+<BR>
+-	case 0x217: reason = &quot;IOA timeout detected&quot;; break;
+<BR>
+-	case 0x219: reason = &quot;IOCHK#, EISA add-in board parity or other catastrophic error&quot;; break;
+<BR>
+-	case 0x21b: reason = &quot;EISA fail-safe timer timeout&quot;; break;
+<BR>
+-	case 0x21d: reason = &quot;EISA bus time-out&quot;; break;
+<BR>
+-	case 0x21f: reason = &quot;EISA software generated NMI&quot;; break;
+<BR>
+-	case 0x221: reason = &quot;unexpected ev5 IRQ[3] interrupt&quot;; break;
+<BR>
+-	default: reason = &quot;unknown&quot;; break;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	printk(KERN_CRIT &quot;machine check type: %s%s\n&quot;,
+<BR>
+-	       reason, mchk_header-&gt;retry ? &quot; (retryable)&quot; : &quot;&quot;);
+<BR>
+-
+<BR>
+-	dik_show_regs(regs, NULL);
+<BR>
+-
+<BR>
+-#if DEBUG_MCHECK &gt; 1
+<BR>
+-	{
+<BR>
+-		/* Dump the logout area to give all info.  */
+<BR>
+-		unsigned long *ptr = (unsigned long *)la_ptr;
+<BR>
+-		long i;
+<BR>
+-		for (i = 0; i &lt; mchk_header-&gt;size / sizeof(long); i += 2) {
+<BR>
+-			printk(KERN_CRIT &quot;   +%8lx %016lx %016lx\n&quot;,
+<BR>
+-			       i*sizeof(long), ptr[i], ptr[i+1]);
+<BR>
+-		}
+<BR>
+-	}
+<BR>
+-#endif
+<BR>
+&nbsp;}
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/irq_impl.h irq/arch/alpha/kernel/irq_impl.h
+<BR>
+--- 2.3.48/arch/alpha/kernel/irq_impl.h	Wed Feb 23 04:14:26 2000
+<BR>
++++ irq/arch/alpha/kernel/irq_impl.h	Sun Feb 27 20:07:04 2000
+<BR>
+@@ -19,6 +19,7 @@
+<BR>
+&nbsp;extern void srm_device_interrupt(unsigned long, struct pt_regs *);
+<BR>
+&nbsp;extern void pyxis_device_interrupt(unsigned long, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
++extern struct irqaction timer_irqaction;
+<BR>
+&nbsp;extern struct irqaction isa_cascade_irqaction;
+<BR>
+&nbsp;extern struct irqaction timer_cascade_irqaction;
+<BR>
+&nbsp;extern struct irqaction halt_switch_irqaction;
+<BR>
+@@ -33,27 +34,37 @@
+<BR>
+&nbsp;extern void i8259a_disable_irq(unsigned int);
+<BR>
+&nbsp;extern void i8259a_mask_and_ack_irq(unsigned int);
+<BR>
+&nbsp;extern unsigned int i8259a_startup_irq(unsigned int);
+<BR>
++extern void i8259a_end_irq(unsigned int);
+<BR>
+&nbsp;extern struct hw_interrupt_type i8259a_irq_type;
+<BR>
+&nbsp;extern void init_i8259a_irqs(void);
+<BR>
+&nbsp;
+<BR>
+-extern void no_action(int cpl, void *dev_id, struct pt_regs *regs);
+<BR>
+&nbsp;extern void handle_irq(int irq, struct pt_regs * regs);
+<BR>
+&nbsp;
+<BR>
++extern unsigned long prof_cpu_mask;
+<BR>
++
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;alpha_do_profile(unsigned long pc)
+<BR>
+&nbsp;{
+<BR>
+-	if (prof_buffer &amp;&amp; current-&gt;pid) {
+<BR>
+-		extern char _stext;
+<BR>
++	extern char _stext;
+<BR>
++
+<BR>
++	if (!prof_buffer)
+<BR>
++		return;
+<BR>
+&nbsp;
+<BR>
+-		pc -= (unsigned long) &amp;_stext;
+<BR>
+-		pc &gt;&gt;= prof_shift;
+<BR>
+-		/*
+<BR>
+-		 * Don't ignore out-of-bounds PC values silently,
+<BR>
+-		 * put them into the last histogram slot, so if
+<BR>
+-		 * present, they will show up as a sharp peak.
+<BR>
+-		 */
+<BR>
+-		if (pc &gt; prof_len - 1)
+<BR>
+-			pc = prof_len - 1;
+<BR>
+-		atomic_inc((atomic_t *)&amp;prof_buffer[pc]);
+<BR>
+-	}
+<BR>
++	/*
+<BR>
++	 * Only measure the CPUs specified by /proc/irq/prof_cpu_mask.
+<BR>
++	 * (default is all CPUs.)
+<BR>
++	 */
+<BR>
++	if (!((1&lt;&lt;smp_processor_id()) &amp; prof_cpu_mask))
+<BR>
++		return;
+<BR>
++
+<BR>
++	pc -= (unsigned long) &amp;_stext;
+<BR>
++	pc &gt;&gt;= prof_shift;
+<BR>
++	/*
+<BR>
++	 * Don't ignore out-of-bounds PC values silently,
+<BR>
++	 * put them into the last histogram slot, so if
+<BR>
++	 * present, they will show up as a sharp peak.
+<BR>
++	 */
+<BR>
++	if (pc &gt; prof_len - 1)
+<BR>
++		pc = prof_len - 1;
+<BR>
++	atomic_inc((atomic_t *)&amp;prof_buffer[pc]);
+<BR>
+&nbsp;}
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/proto.h irq/arch/alpha/kernel/proto.h
+<BR>
+--- 2.3.48/arch/alpha/kernel/proto.h	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/proto.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -10,7 +10,6 @@
+<BR>
+&nbsp;struct task_struct;
+<BR>
+&nbsp;struct pci_dev;
+<BR>
+&nbsp;struct pci_controler;
+<BR>
+-struct irqaction;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* core_apecs.c */
+<BR>
+&nbsp;extern struct pci_ops apecs_pci_ops;
+<BR>
+@@ -81,14 +80,13 @@
+<BR>
+&nbsp;extern int smp_info(char *buffer);
+<BR>
+&nbsp;extern void handle_ipi(struct pt_regs *);
+<BR>
+&nbsp;extern void smp_percpu_timer_interrupt(struct pt_regs *);
+<BR>
+-extern unsigned long cpu_present_mask;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* bios32.c */
+<BR>
+&nbsp;/* extern void reset_for_srm(void); */
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* time.c */
+<BR>
+&nbsp;extern void timer_interrupt(int irq, void *dev, struct pt_regs * regs);
+<BR>
+-extern void common_init_rtc(struct irqaction *);
+<BR>
++extern void common_init_rtc(void);
+<BR>
+&nbsp;extern unsigned long est_cycle_freq;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* smc37c93x.c */
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/setup.c irq/arch/alpha/kernel/setup.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/setup.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/setup.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -487,6 +487,7 @@
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;setup_smp();
+<BR>
+&nbsp;#endif
+<BR>
++	paging_init();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static char sys_unknown[] = &quot;Unknown&quot;;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/srm_irq.c irq/arch/alpha/kernel/srm_irq.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/srm_irq.c	Thu Jan  1 01:00:00 1970
+<BR>
++++ irq/arch/alpha/kernel/srm_irq.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -0,0 +1,82 @@
+<BR>
++/*
+<BR>
++ * Handle interrupts from the SRM, assuming no additional weirdness.
+<BR>
++ */
+<BR>
++
+<BR>
++#include &lt;linux/init.h&gt;
+<BR>
++#include &lt;linux/sched.h&gt;
+<BR>
++#include &lt;linux/irq.h&gt;
+<BR>
++
+<BR>
++#include &lt;asm/machvec.h&gt;
+<BR>
++#include &lt;asm/dma.h&gt;
+<BR>
++
+<BR>
++#include &quot;proto.h&quot;
+<BR>
++#include &quot;irq_impl.h&quot;
+<BR>
++
+<BR>
++
+<BR>
++/*
+<BR>
++ * Is the palcode SMP safe? In other words: can we call cserve_ena/dis
+<BR>
++ * at the same time in multiple CPUs? To be safe I added a spinlock
+<BR>
++ * but it can be removed trivially if the palcode is robust against smp.
+<BR>
++ */
+<BR>
++spinlock_t srm_irq_lock = SPIN_LOCK_UNLOCKED;
+<BR>
++
+<BR>
++static inline void
+<BR>
++srm_enable_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	spin_lock(&amp;srm_irq_lock);
+<BR>
++	cserve_ena(irq - 16);
+<BR>
++	spin_unlock(&amp;srm_irq_lock);
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
++srm_disable_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	spin_lock(&amp;srm_irq_lock);
+<BR>
++	cserve_dis(irq - 16);
+<BR>
++	spin_unlock(&amp;srm_irq_lock);
+<BR>
++}
+<BR>
++
+<BR>
++static unsigned int
+<BR>
++srm_startup_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	srm_enable_irq(irq);
+<BR>
++	return 0;
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
++srm_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		srm_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
++/* Handle interrupts from the SRM, assuming no additional weirdness.  */
+<BR>
++static struct hw_interrupt_type srm_irq_type = {
+<BR>
++	typename:	&quot;SRM&quot;,
+<BR>
++	startup:	srm_startup_irq,
+<BR>
++	shutdown:	srm_disable_irq,
+<BR>
++	enable:		srm_enable_irq,
+<BR>
++	disable:	srm_disable_irq,
+<BR>
++	ack:		srm_disable_irq,
+<BR>
++	end:		srm_end_irq,
+<BR>
++};
+<BR>
++
+<BR>
++void __init
+<BR>
++init_srm_irqs(long max, unsigned long ignore_mask)
+<BR>
++{
+<BR>
++	long i;
+<BR>
++
+<BR>
++	for (i = 16; i &lt; max; ++i) {
+<BR>
++		if (i &lt; 64 &amp;&amp; ((ignore_mask &gt;&gt; i) &amp; 1))
+<BR>
++			continue;
+<BR>
++		irq_desc[i].status = IRQ_DISABLED;
+<BR>
++		irq_desc[i].handler = &amp;srm_irq_type;
+<BR>
++	}
+<BR>
++}
+<BR>
++
+<BR>
++void 
+<BR>
++srm_device_interrupt(unsigned long vector, struct pt_regs * regs)
+<BR>
++{
+<BR>
++	int irq = (vector - 0x800) &gt;&gt; 4;
+<BR>
++	handle_irq(irq, regs);
+<BR>
++}
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_alcor.c irq/arch/alpha/kernel/sys_alcor.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_alcor.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_alcor.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -48,7 +48,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alcor_update_irq_hw(cached_irq_mask |= 1UL &lt;&lt; (irq - 16));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;alcor_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alcor_update_irq_hw(cached_irq_mask &amp;= ~(1UL &lt;&lt; (irq - 16)));
+<BR>
+@@ -81,6 +81,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)GRU_INT_CLEAR = 0; mb();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++alcor_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		alcor_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type alcor_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;ALCOR&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	alcor_startup_irq,
+<BR>
+@@ -88,7 +95,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		alcor_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	alcor_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		alcor_mask_and_ack_irq,
+<BR>
+-	end:		alcor_enable_irq,
+<BR>
++	end:		alcor_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -140,7 +147,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i8259a_irq_type.ack = alcor_isa_mask_and_ack_irq;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;setup_irq(16+31, &amp;isa_cascade_irqaction);
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_cabriolet.c irq/arch/alpha/kernel/sys_cabriolet.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_cabriolet.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_cabriolet.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -65,6 +65,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++cabriolet_end_irq(unsigned int irq)
+<BR>
++{ 
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		cabriolet_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type cabriolet_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;CABRIOLET&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	cabriolet_startup_irq,
+<BR>
+@@ -72,7 +79,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		cabriolet_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	cabriolet_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		cabriolet_disable_irq,
+<BR>
+-	end:		cabriolet_enable_irq,
+<BR>
++	end:		cabriolet_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -103,7 +110,6 @@
+<BR>
+&nbsp;cabriolet_init_irq(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (alpha_using_srm) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.device_interrupt = srm_device_interrupt;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_dp264.c irq/arch/alpha/kernel/sys_dp264.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_dp264.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_dp264.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -35,6 +35,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Note mask bit is true for ENABLED irqs.  */
+<BR>
+&nbsp;static unsigned long cached_irq_mask;
+<BR>
++/* dp264 boards handle at max four CPUs */
+<BR>
++static unsigned long cpu_irq_affinity[4];
+<BR>
++
+<BR>
++spinlock_t dp264_irq_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;tsunami_update_irq_hw(unsigned long mask, unsigned long isa_enable)
+<BR>
+@@ -47,12 +51,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;volatile unsigned long *dim0, *dim1, *dim2, *dim3;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long mask0, mask1, mask2, mask3, maskB, dummy;
+<BR>
+&nbsp;
+<BR>
+-	mask0 = mask1 = mask2 = mask3 = mask;
+<BR>
++	mask0 = mask &amp; cpu_irq_affinity[0];
+<BR>
++	mask1 = mask &amp; cpu_irq_affinity[1];
+<BR>
++	mask2 = mask &amp; cpu_irq_affinity[2];
+<BR>
++	mask3 = mask &amp; cpu_irq_affinity[3];
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maskB = mask | isa_enable;
+<BR>
+-	if (bcpu == 0) mask0 = maskB;
+<BR>
+-	if (bcpu == 1) mask1 = maskB;
+<BR>
+-	if (bcpu == 2) mask2 = maskB;
+<BR>
+-	if (bcpu == 3) mask3 = maskB;
+<BR>
++	if (bcpu == 0) mask0 = maskB &amp; cpu_irq_affinity[0];
+<BR>
++	else if (bcpu == 1) mask1 = maskB &amp; cpu_irq_affinity[1];
+<BR>
++	else if (bcpu == 2) mask2 = maskB &amp; cpu_irq_affinity[2];
+<BR>
++	else if (bcpu == 3) mask3 = maskB &amp; cpu_irq_affinity[3];
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dim0 = &amp;cchip-&gt;dim0.csr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dim1 = &amp;cchip-&gt;dim1.csr;
+<BR>
+@@ -73,10 +81,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*dim2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*dim3;
+<BR>
+&nbsp;#else
+<BR>
+-	volatile unsigned long *dimB = &amp;cchip-&gt;dim1.csr;
+<BR>
++	volatile unsigned long *dimB;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (bcpu == 0) dimB = &amp;cchip-&gt;dim0.csr;
+<BR>
+-	if (bcpu == 2) dimB = &amp;cchip-&gt;dim2.csr;
+<BR>
+-	if (bcpu == 3) dimB = &amp;cchip-&gt;dim3.csr;
+<BR>
++	else if (bcpu == 1) dimB = &amp;cchip-&gt;dim1.csr;
+<BR>
++	else if (bcpu == 2) dimB = &amp;cchip-&gt;dim2.csr;
+<BR>
++	else if (bcpu == 3) dimB = &amp;cchip-&gt;dim3.csr;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*dimB = mask | isa_enable;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*dimB;
+<BR>
+@@ -98,15 +108,19 @@
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;dp264_enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask |= 1UL &lt;&lt; irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp264_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;dp264_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask &amp;= ~(1UL &lt;&lt; irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp264_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static unsigned int
+<BR>
+@@ -116,18 +130,29 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++dp264_end_irq(unsigned int irq)
+<BR>
++{ 
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		dp264_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;clipper_enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask |= 1UL &lt;&lt; irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clipper_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;clipper_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cached_irq_mask &amp;= ~(1UL &lt;&lt; irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clipper_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static unsigned int
+<BR>
+@@ -137,6 +162,45 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++clipper_end_irq(unsigned int irq)
+<BR>
++{ 
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		clipper_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
++cpu_set_irq_affinity(unsigned int irq, unsigned long affinity)
+<BR>
++{
+<BR>
++	int cpu;
+<BR>
++
+<BR>
++	for (cpu = 0; cpu &lt; 4; cpu++) {
+<BR>
++		if (affinity &amp; (1UL &lt;&lt; cpu))
+<BR>
++			cpu_irq_affinity[cpu] |= 1UL &lt;&lt; irq;
+<BR>
++		else
+<BR>
++			cpu_irq_affinity[cpu] &amp;= ~(1UL &lt;&lt; irq);
+<BR>
++	}
+<BR>
++
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
++dp264_set_affinity(unsigned int irq, unsigned long affinity)
+<BR>
++{ 
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
++	cpu_set_irq_affinity(irq, affinity);
+<BR>
++	dp264_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
++clipper_set_affinity(unsigned int irq, unsigned long affinity)
+<BR>
++{ 
+<BR>
++	spin_lock(&amp;dp264_irq_lock);
+<BR>
++	cpu_set_irq_affinity(irq, affinity);
+<BR>
++	clipper_update_irq_hw(cached_irq_mask);
+<BR>
++	spin_unlock(&amp;dp264_irq_lock);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type dp264_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;DP264&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	dp264_startup_irq,
+<BR>
+@@ -144,7 +208,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		dp264_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	dp264_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		dp264_disable_irq,
+<BR>
+-	end:		dp264_enable_irq,
+<BR>
++	end:		dp264_end_irq,
+<BR>
++	set_affinity:	dp264_set_affinity,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static struct hw_interrupt_type clipper_irq_type = {
+<BR>
+@@ -154,7 +219,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		clipper_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	clipper_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		clipper_disable_irq,
+<BR>
+-	end:		clipper_enable_irq,
+<BR>
++	end:		clipper_end_irq,
+<BR>
++	set_affinity:	clipper_set_affinity,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -249,6 +315,8 @@
+<BR>
+&nbsp;static void __init
+<BR>
+&nbsp;dp264_init_irq(void)
+<BR>
+&nbsp;{
+<BR>
++	int cpu;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0, DMA1_RESET_REG);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0, DMA2_RESET_REG);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(DMA_MODE_CASCADE, DMA2_MODE_REG);
+<BR>
+@@ -257,10 +325,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (alpha_using_srm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.device_interrupt = dp264_srm_device_interrupt;
+<BR>
+&nbsp;
+<BR>
++	/* this is single threaded by design so no need of any smp lock */
+<BR>
++	for (cpu = 0; cpu &lt; 4; cpu++)
+<BR>
++		cpu_irq_affinity[cpu] = ~0UL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dp264_update_irq_hw(0UL);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_tsunami_irqs(&amp;dp264_irq_type);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -278,7 +348,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clipper_update_irq_hw(0UL);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_tsunami_irqs(&amp;clipper_irq_type);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_eb64p.c irq/arch/alpha/kernel/sys_eb64p.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_eb64p.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_eb64p.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -48,7 +48,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eb64p_update_irq_hw(irq, cached_irq_mask &amp;= ~(1 &lt;&lt; irq));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;eb64p_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eb64p_update_irq_hw(irq, cached_irq_mask |= 1 &lt;&lt; irq);
+<BR>
+@@ -61,6 +61,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++eb64p_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		eb64p_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type eb64p_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;EB64P&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	eb64p_startup_irq,
+<BR>
+@@ -68,7 +75,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		eb64p_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	eb64p_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		eb64p_disable_irq,
+<BR>
+-	end:		eb64p_enable_irq,
+<BR>
++	end:		eb64p_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -119,7 +126,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0xff, 0x27);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 16; i &lt; 32; ++i) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc[i].status = IRQ_DISABLED;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_eiger.c irq/arch/alpha/kernel/sys_eiger.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_eiger.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_eiger.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -76,6 +76,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++eiger_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		eiger_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type eiger_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;EIGER&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	eiger_startup_irq,
+<BR>
+@@ -83,7 +90,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		eiger_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	eiger_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		eiger_disable_irq,
+<BR>
+-	end:		eiger_enable_irq,
+<BR>
++	end:		eiger_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -147,7 +154,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eiger_update_irq_hw(i, -1);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 16; i &lt; 128; ++i) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc[i].status = IRQ_DISABLED;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_jensen.c irq/arch/alpha/kernel/sys_jensen.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_jensen.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_jensen.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -71,7 +71,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		i8259a_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	i8259a_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		jensen_local_ack,
+<BR>
+-	end:		i8259a_enable_irq,
+<BR>
++	end:		i8259a_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -110,7 +110,6 @@
+<BR>
+&nbsp;jensen_init_irq(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc[1].handler = &amp;jensen_local_irq_type;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc[4].handler = &amp;jensen_local_irq_type;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_miata.c irq/arch/alpha/kernel/sys_miata.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_miata.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_miata.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -70,7 +70,6 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Not interested in the bogus interrupts (3,10), Fan Fault (0),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NMI (1), or EIDE (9).
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_mikasa.c irq/arch/alpha/kernel/sys_mikasa.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_mikasa.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_mikasa.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -48,7 +48,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mikasa_update_irq_hw(cached_irq_mask |= 1 &lt;&lt; (irq - 16));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;mikasa_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mikasa_update_irq_hw(cached_irq_mask &amp;= ~(1 &lt;&lt; (irq - 16)));
+<BR>
+@@ -61,6 +61,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++mikasa_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		mikasa_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type mikasa_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;MIKASA&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	mikasa_startup_irq,
+<BR>
+@@ -68,7 +75,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		mikasa_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	mikasa_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		mikasa_disable_irq,
+<BR>
+-	end:		mikasa_enable_irq,
+<BR>
++	end:		mikasa_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -113,7 +120,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_nautilus.c irq/arch/alpha/kernel/sys_nautilus.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_nautilus.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_nautilus.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -54,7 +54,6 @@
+<BR>
+&nbsp;nautilus_init_irq(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_noritake.c irq/arch/alpha/kernel/sys_noritake.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_noritake.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_noritake.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -45,13 +45,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outw(mask, port);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;noritake_enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;noritake_update_irq_hw(irq, cached_irq_mask |= 1 &lt;&lt; (irq - 16));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void
+<BR>
++static void
+<BR>
+&nbsp;noritake_disable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;noritake_update_irq_hw(irq, cached_irq_mask &amp;= ~(1 &lt;&lt; (irq - 16)));
+<BR>
+@@ -140,7 +140,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_rawhide.c irq/arch/alpha/kernel/sys_rawhide.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_rawhide.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_rawhide.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -41,6 +41,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0xff0000, 0xfe0000, 0xff0000, 0xff0000
+<BR>
+&nbsp;};
+<BR>
+&nbsp;static unsigned int cached_irq_masks[4];
+<BR>
++spinlock_t rawhide_irq_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void
+<BR>
+&nbsp;rawhide_update_irq_hw(int hose, int mask)
+<BR>
+@@ -50,7 +51,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)MCPCIA_INT_MASK0(MCPCIA_HOSE2MID(hose));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static void 
+<BR>
++static inline void 
+<BR>
+&nbsp;rawhide_enable_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int mask, hose;
+<BR>
+@@ -59,9 +60,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose = irq / 24;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq -= hose * 24;
+<BR>
+&nbsp;
+<BR>
++	spin_lock(&amp;rawhide_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = cached_irq_masks[hose] |= 1 &lt;&lt; irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask |= hose_irq_masks[hose];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rawhide_update_irq_hw(hose, mask);
+<BR>
++	spin_unlock(&amp;rawhide_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -73,9 +76,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hose = irq / 24;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq -= hose * 24;
+<BR>
+&nbsp;
+<BR>
++	spin_lock(&amp;rawhide_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = cached_irq_masks[hose] &amp;= ~(1 &lt;&lt; irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask |= hose_irq_masks[hose];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rawhide_update_irq_hw(hose, mask);
+<BR>
++	spin_unlock(&amp;rawhide_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+@@ -86,6 +91,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++rawhide_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		rawhide_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type rawhide_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;RAWHIDE&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	rawhide_startup_irq,
+<BR>
+@@ -93,7 +105,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		rawhide_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	rawhide_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		rawhide_disable_irq,
+<BR>
+-	end:		rawhide_enable_irq,
+<BR>
++	end:		rawhide_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -143,7 +155,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_ruffian.c irq/arch/alpha/kernel/sys_ruffian.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_ruffian.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_ruffian.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -64,7 +64,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void __init
+<BR>
+-ruffian_init_rtc(struct irqaction *action)
+<BR>
++ruffian_init_rtc(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Ruffian does not have the RTC connected to the CPU timer
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;interrupt.  Instead, it uses the PIT connected to IRQ 0.  */
+<BR>
+@@ -78,7 +78,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x31, 0x42);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x13, 0x42);
+<BR>
+&nbsp;
+<BR>
+-	setup_irq(0, action);
+<BR>
++	setup_irq(0, &amp;timer_irqaction);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_rx164.c irq/arch/alpha/kernel/sys_rx164.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_rx164.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_rx164.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -65,6 +65,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++rx164_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		rx164_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type rx164_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;RX164&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	rx164_startup_irq,
+<BR>
+@@ -72,7 +79,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		rx164_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	rx164_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		rx164_disable_irq,
+<BR>
+-	end:		rx164_enable_irq,
+<BR>
++	end:		rx164_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -114,7 +121,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;setup_irq(16+20, &amp;isa_cascade_irqaction);
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_sable.c irq/arch/alpha/kernel/sys_sable.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_sable.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_sable.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -30,6 +30,7 @@
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
++spinlock_t sable_irq_lock = SPIN_LOCK_UNLOCKED:
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;*   For SABLE, which is really baroque, we manage 40 IRQ's, but the
+<BR>
+@@ -137,8 +138,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long bit, mask;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bit = sable_irq_swizzle.irq_to_mask[irq];
+<BR>
++	spin_lock(&amp;sable_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = sable_irq_swizzle.shadow_mask &amp;= ~(1UL &lt;&lt; bit);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sable_update_irq_hw(bit, mask);
+<BR>
++	spin_unlock(&amp;sable_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -147,8 +150,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long bit, mask;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bit = sable_irq_swizzle.irq_to_mask[irq];
+<BR>
++	spin_lock(&amp;sable_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = sable_irq_swizzle.shadow_mask |= 1UL &lt;&lt; bit;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sable_update_irq_hw(bit, mask);
+<BR>
++	spin_unlock(&amp;sable_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static unsigned int
+<BR>
+@@ -159,14 +164,23 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
++sable_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		sable_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
++static void
+<BR>
+&nbsp;sable_mask_and_ack_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long bit, mask;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bit = sable_irq_swizzle.irq_to_mask[irq];
+<BR>
++	spin_lock(&amp;sable_irq_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = sable_irq_swizzle.shadow_mask |= 1UL &lt;&lt; bit;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sable_update_irq_hw(bit, mask);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sable_ack_irq_hw(bit);
+<BR>
++	spin_unlock(&amp;sable_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static struct hw_interrupt_type sable_irq_type = {
+<BR>
+@@ -176,7 +190,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		sable_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	sable_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		sable_mask_and_ack_irq,
+<BR>
+-	end:		sable_enable_irq,
+<BR>
++	end:		sable_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void 
+<BR>
+@@ -208,7 +222,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc[i].handler = &amp;sable_irq_type;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_sio.c irq/arch/alpha/kernel/sys_sio.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_sio.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_sio.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -42,7 +42,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.device_interrupt = srm_device_interrupt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;common_init_isa_dma();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_sx164.c irq/arch/alpha/kernel/sys_sx164.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_sx164.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_sx164.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -43,7 +43,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.device_interrupt = srm_device_interrupt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Not interested in the bogus interrupts (0,3,4,5,40-47),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NMI (1), or HALT (2).  */
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/sys_takara.c irq/arch/alpha/kernel/sys_takara.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/sys_takara.c	Mon Feb 21 15:17:30 2000
+<BR>
++++ irq/arch/alpha/kernel/sys_takara.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -66,6 +66,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0; /* never anything pending */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void
+<BR>
++takara_end_irq(unsigned int irq)
+<BR>
++{
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
++		takara_enable_irq(irq);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static struct hw_interrupt_type takara_irq_type = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;typename:	&quot;TAKARA&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;startup:	takara_startup_irq,
+<BR>
+@@ -73,7 +80,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable:		takara_enable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disable:	takara_disable_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack:		takara_disable_irq,
+<BR>
+-	end:		takara_enable_irq,
+<BR>
++	end:		takara_end_irq,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -126,7 +133,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_i8259a_irqs();
+<BR>
+-	init_rtc_irq();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (alpha_using_srm) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.device_interrupt = takara_srm_device_interrupt;
+<BR>
+diff -urN 2.3.48/arch/alpha/kernel/time.c irq/arch/alpha/kernel/time.c
+<BR>
+--- 2.3.48/arch/alpha/kernel/time.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/alpha/kernel/time.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -163,7 +163,7 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+-common_init_rtc(struct irqaction *action)
+<BR>
++common_init_rtc()
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char x;
+<BR>
+&nbsp;
+<BR>
+@@ -192,18 +192,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x31, 0x42);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outb(0x13, 0x42);
+<BR>
+&nbsp;
+<BR>
+-	setup_irq(RTC_IRQ, action);
+<BR>
++	init_rtc_irq();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void
+<BR>
+&nbsp;time_init(void)
+<BR>
+&nbsp;{
+<BR>
+-	static struct irqaction timer_irqaction = {
+<BR>
+-		handler:	timer_interrupt,
+<BR>
+-		flags:		SA_INTERRUPT,
+<BR>
+-		name:		&quot;timer&quot;,
+<BR>
+-	};
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long cycle_freq, one_percent;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long diff;
+<BR>
+@@ -292,7 +286,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;state.partial_tick = 0L;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Startup the timer source. */
+<BR>
+-	alpha_mv.init_rtc(&amp;timer_irqaction);
+<BR>
++	alpha_mv.init_rtc();
+<BR>
++
+<BR>
++	do_get_fast_time = do_gettimeofday;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+diff -urN 2.3.48/arch/i386/kernel/i8259.c irq/arch/i386/kernel/i8259.c
+<BR>
+--- 2.3.48/arch/i386/kernel/i8259.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/i386/kernel/i8259.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -131,7 +131,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void end_8259A_irq (unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+-	if (!(irq_desc[irq].status &amp; IRQ_DISABLED))
+<BR>
++	if (!(irq_desc[irq].status &amp; (IRQ_DISABLED|IRQ_INPROGRESS)))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable_8259A_irq(irq);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/arch/i386/kernel/io_apic.c irq/arch/i386/kernel/io_apic.c
+<BR>
+--- 2.3.48/arch/i386/kernel/io_apic.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/i386/kernel/io_apic.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -1160,7 +1160,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void mask_and_ack_level_ioapic_irq (unsigned int i) { /* nothing */ }
+<BR>
+&nbsp;
+<BR>
+-static void set_ioapic_affinity (unsigned int irq, unsigned int mask)
+<BR>
++static void set_ioapic_affinity (unsigned int irq, unsigned long mask)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long flags;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+diff -urN 2.3.48/arch/i386/kernel/irq.c irq/arch/i386/kernel/irq.c
+<BR>
+--- 2.3.48/arch/i386/kernel/irq.c	Sun Feb 27 06:19:41 2000
+<BR>
++++ irq/arch/i386/kernel/irq.c	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -874,7 +874,7 @@
+<BR>
+&nbsp;static struct proc_dir_entry * irq_dir [NR_IRQS];
+<BR>
+&nbsp;static struct proc_dir_entry * smp_affinity_entry [NR_IRQS];
+<BR>
+&nbsp;
+<BR>
+-unsigned int irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = 0xffffffff};
+<BR>
++static unsigned long irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = ~0UL };
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define HEX_DIGITS 8
+<BR>
+&nbsp;
+<BR>
+@@ -883,7 +883,7 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (count &lt; HEX_DIGITS+1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EINVAL;
+<BR>
+-	return sprintf (page, &quot;%08x\n&quot;, irq_affinity[(int)data]);
+<BR>
++	return sprintf (page, &quot;%08lx\n&quot;, irq_affinity[(long)data]);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static unsigned int parse_hex_value (const char *buffer,
+<BR>
+@@ -926,7 +926,7 @@
+<BR>
+&nbsp;static int irq_affinity_write_proc (struct file *file, const char *buffer,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long count, void *data)
+<BR>
+&nbsp;{
+<BR>
+-	int irq = (int) data, full_count = count, err;
+<BR>
++	int irq = (long) data, full_count = count, err;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long new_value;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!irq_desc[irq].handler-&gt;set_affinity)
+<BR>
+@@ -993,7 +993,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry = create_proc_entry(&quot;smp_affinity&quot;, 0700, irq_dir[irq]);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;nlink = 1;
+<BR>
+-	entry-&gt;data = (void *)irq;
+<BR>
++	entry-&gt;data = (void *)(long)irq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;read_proc = irq_affinity_read_proc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;entry-&gt;write_proc = irq_affinity_write_proc;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/include/asm-alpha/hardirq.h irq/include/asm-alpha/hardirq.h
+<BR>
+--- 2.3.48/include/asm-alpha/hardirq.h	Fri Feb 25 04:09:45 2000
+<BR>
++++ irq/include/asm-alpha/hardirq.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -46,7 +46,16 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern int global_irq_holder;
+<BR>
+&nbsp;extern spinlock_t global_irq_lock;
+<BR>
+-extern atomic_t global_irq_count;
+<BR>
++
+<BR>
++static inline int irqs_running (void)
+<BR>
++{
+<BR>
++	int i;
+<BR>
++
+<BR>
++	for (i = 0; i &lt; smp_num_cpus; i++)
+<BR>
++		if (local_irq_count(i))
+<BR>
++			return 1;
+<BR>
++	return 0;
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void release_irqlock(int cpu)
+<BR>
+&nbsp;{
+<BR>
+@@ -60,7 +69,6 @@
+<BR>
+&nbsp;static inline void irq_enter(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++local_irq_count(cpu);
+<BR>
+-        atomic_inc(&amp;global_irq_count);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (spin_is_locked(&amp;global_irq_lock))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;barrier();
+<BR>
+@@ -68,7 +76,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void irq_exit(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+-	atomic_dec(&amp;global_irq_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--local_irq_count(cpu);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/include/asm-alpha/hw_irq.h irq/include/asm-alpha/hw_irq.h
+<BR>
+--- 2.3.48/include/asm-alpha/hw_irq.h	Mon Feb 21 15:17:34 2000
+<BR>
++++ irq/include/asm-alpha/hw_irq.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -1,5 +1,12 @@
+<BR>
+-/* This exists merely to satisfy &lt;linux/irq.h&gt;.  There is
+<BR>
+-   nothing that would go here of general interest.
+<BR>
++#ifndef _ALPHA_HW_IRQ_H
+<BR>
++#define _ALPHA_HW_IRQ_H
+<BR>
+&nbsp;
+<BR>
+-   Everything of consequence is in arch/alpha/kernel/irq_impl.h,
+<BR>
+-   to be used only in arch/alpha/kernel/.  */
+<BR>
++static inline void hw_resend_irq(struct hw_interrupt_type *h, unsigned int i) {}
+<BR>
++
+<BR>
++#ifdef CONFIG_ALPHA_GENERIC
+<BR>
++#define ACTUAL_NR_IRQS	alpha_mv.nr_irqs
+<BR>
++#else
+<BR>
++#define ACTUAL_NR_IRQS	NR_IRQS
+<BR>
++#endif
+<BR>
++
+<BR>
++#endif
+<BR>
+diff -urN 2.3.48/include/asm-alpha/machvec.h irq/include/asm-alpha/machvec.h
+<BR>
+--- 2.3.48/include/asm-alpha/machvec.h	Wed Feb 23 04:12:30 2000
+<BR>
++++ irq/include/asm-alpha/machvec.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -22,7 +22,6 @@
+<BR>
+&nbsp;struct pci_dev;
+<BR>
+&nbsp;struct pci_ops;
+<BR>
+&nbsp;struct pci_controler;
+<BR>
+-struct irqaction;
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct alpha_machine_vector
+<BR>
+&nbsp;{
+<BR>
+@@ -82,7 +81,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_arch)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_irq)(void);
+<BR>
+-	void (*init_rtc)(struct irqaction *);
+<BR>
++	void (*init_rtc)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*init_pci)(void);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*kill_arch)(int);
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.48/include/asm-alpha/pgtable.h irq/include/asm-alpha/pgtable.h
+<BR>
+--- 2.3.48/include/asm-alpha/pgtable.h	Fri Feb 25 04:09:45 2000
+<BR>
++++ irq/include/asm-alpha/pgtable.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -306,4 +306,6 @@
+<BR>
+&nbsp;#define pgd_ERROR(e) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;%s:%d: bad pgd %016lx.\n&quot;, __FILE__, __LINE__, pgd_val(e))
+<BR>
+&nbsp;
+<BR>
++extern void paging_init(void);
+<BR>
++
+<BR>
+&nbsp;#endif /* _ALPHA_PGTABLE_H */
+<BR>
+diff -urN 2.3.48/include/asm-alpha/smp.h irq/include/asm-alpha/smp.h
+<BR>
+--- 2.3.48/include/asm-alpha/smp.h	Sun Feb 27 02:56:17 2000
+<BR>
++++ irq/include/asm-alpha/smp.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -55,6 +55,8 @@
+<BR>
+&nbsp;#define hard_smp_processor_id()	__hard_smp_processor_id()
+<BR>
+&nbsp;#define smp_processor_id()	(current-&gt;processor)
+<BR>
+&nbsp;
+<BR>
++extern unsigned long cpu_present_mask;
+<BR>
++
+<BR>
+&nbsp;#endif /* __SMP__ */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define NO_PROC_ID	(-1)
+<BR>
+diff -urN 2.3.48/include/asm-i386/hardirq.h irq/include/asm-i386/hardirq.h
+<BR>
+--- 2.3.48/include/asm-i386/hardirq.h	Sun Feb 27 06:19:44 2000
+<BR>
++++ irq/include/asm-i386/hardirq.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -4,6 +4,22 @@
+<BR>
+&nbsp;#include &lt;linux/threads.h&gt;
+<BR>
+&nbsp;#include &lt;linux/irq.h&gt;
+<BR>
+&nbsp;
+<BR>
++typedef struct {
+<BR>
++	unsigned int __local_irq_count;
+<BR>
++	unsigned int __local_bh_count;
+<BR>
++	atomic_t __nmi_counter;
+<BR>
++	unsigned int __pad[5];
+<BR>
++} ____cacheline_aligned irq_cpustat_t;
+<BR>
++
+<BR>
++extern irq_cpustat_t irq_stat [NR_CPUS];
+<BR>
++
+<BR>
++/*
+<BR>
++ * Simple wrappers reducing source bloat
+<BR>
++ */
+<BR>
++#define local_irq_count(cpu) (irq_stat[(cpu)].__local_irq_count)
+<BR>
++#define local_bh_count(cpu) (irq_stat[(cpu)].__local_bh_count)
+<BR>
++#define nmi_counter(cpu) (irq_stat[(cpu)].__nmi_counter)
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Are we in an interrupt context? Either doing bottom half
+<BR>
+&nbsp;&nbsp;* or hardware interrupt processing?
+<BR>
+diff -urN 2.3.48/include/asm-i386/hw_irq.h irq/include/asm-i386/hw_irq.h
+<BR>
+--- 2.3.48/include/asm-i386/hw_irq.h	Sun Feb 27 06:19:44 2000
+<BR>
++++ irq/include/asm-i386/hw_irq.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -68,7 +68,6 @@
+<BR>
+&nbsp;&nbsp;* Interrupt entry/exit code at both C and assembly level
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-extern void no_action(int cpl, void *dev_id, struct pt_regs *regs);
+<BR>
+&nbsp;extern void mask_irq(unsigned int irq);
+<BR>
+&nbsp;extern void unmask_irq(unsigned int irq);
+<BR>
+&nbsp;extern void disable_8259A_irq(unsigned int irq);
+<BR>
+diff -urN 2.3.48/include/linux/irq.h irq/include/linux/irq.h
+<BR>
+--- 2.3.48/include/linux/irq.h	Sun Feb 27 06:19:44 2000
+<BR>
++++ irq/include/linux/irq.h	Sun Feb 27 20:06:41 2000
+<BR>
+@@ -26,7 +26,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*disable)(unsigned int irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*ack)(unsigned int irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*end)(unsigned int irq);
+<BR>
+-	void (*set_affinity)(unsigned int irq, unsigned int mask);
+<BR>
++	void (*set_affinity)(unsigned int irq, unsigned long mask);
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;typedef struct hw_interrupt_type  hw_irq_controller;
+<BR>
+@@ -44,34 +44,19 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction *action;	/* IRQ action list */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int depth;		/* nested irq disables */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spinlock_t lock;
+<BR>
+-	unsigned int __pad[3];
+<BR>
+&nbsp;} ____cacheline_aligned irq_desc_t;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern irq_desc_t irq_desc [NR_IRQS];
+<BR>
+&nbsp;
+<BR>
+-typedef struct {
+<BR>
+-	unsigned int __local_irq_count;
+<BR>
+-	unsigned int __local_bh_count;
+<BR>
+-	atomic_t __nmi_counter;
+<BR>
+-	unsigned int __pad[5];
+<BR>
+-} ____cacheline_aligned irq_cpustat_t;
+<BR>
+-
+<BR>
+-extern irq_cpustat_t irq_stat [NR_CPUS];
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Simple wrappers reducing source bloat
+<BR>
+- */
+<BR>
+-#define local_irq_count(cpu) (irq_stat[(cpu)].__local_irq_count)
+<BR>
+-#define local_bh_count(cpu) (irq_stat[(cpu)].__local_bh_count)
+<BR>
+-#define nmi_counter(cpu) (irq_stat[(cpu)].__nmi_counter)
+<BR>
+-
+<BR>
+&nbsp;#include &lt;asm/hw_irq.h&gt; /* the arch dependent stuff */
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
+<BR>
+-extern spinlock_t irq_controller_lock;
+<BR>
+&nbsp;extern int setup_irq(unsigned int , struct irqaction * );
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern hw_irq_controller no_irq_type;  /* needed in every arch ? */
+<BR>
++extern void no_action(int cpl, void *dev_id, struct pt_regs *regs);
+<BR>
++
+<BR>
++extern volatile unsigned long irq_err_count;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* __asm_h */
+<BR>
+&nbsp;
+<BR>
+<P>And this other below (orthogonal) patch fixes a longstanding bug in the
+<BR>
+shared irq handling of IA32 (also IA64 seems to have the same prolem,
+<BR>
+btw):
+<BR>
+<P>--- 2.3.47aa1/arch/i386/kernel/irq.c	Mon Feb 21 15:45:10 2000
+<BR>
++++ /tmp/irq.c	Tue Feb 22 15:33:21 2000
+<BR>
+@@ -419,10 +419,11 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;status = 1;	/* Force the &quot;do bottom halves&quot; bit */
+<BR>
+&nbsp;
+<BR>
+-	if (!(action-&gt;flags &amp; SA_INTERRUPT))
+<BR>
+-		__sti();
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do {
+<BR>
++		if (!(action-&gt;flags &amp; SA_INTERRUPT))
+<BR>
++			__sti();
+<BR>
++		else
+<BR>
++			__cli();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;status |= action-&gt;flags;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action-&gt;handler(irq, action-&gt;dev_id, regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action = action-&gt;next;
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0169.html">Jan-Benedict Glaw: "2.3.48 link problem"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0174.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

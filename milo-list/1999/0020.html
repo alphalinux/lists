@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Milo List: Re: Milo 2.2 - things are becoming generic.</TITLE>
+<META NAME="Author" CONTENT="Nikita Schmidt (cetus@snowball.ucd.ie)">
+<META NAME="Subject" CONTENT="Re: Milo 2.2 - things are becoming generic.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Milo 2.2 - things are becoming generic.</H1>
+<HR>
+<P>
+<!-- received="Wed Sep 08 19:15:16 1999" -->
+<!-- isoreceived="19990909021516" -->
+<!-- sent="Wed, 8 Sep 1999 18:29:55 +0100" -->
+<!-- isosent="19990908172955" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@snowball.ucd.ie" -->
+<!-- subject="Re: Milo 2.2 - things are becoming generic." -->
+<!-- id="19990908182954.A2907@snowball.ucd.ie" -->
+<!-- inreplyto="Pine.LNX.4.10.9909081335050.27353-100000@Wotan.suse.de" -->
+<STRONG>Subject: </STRONG>Re: Milo 2.2 - things are becoming generic.<BR>
+<STRONG>From: </STRONG>Nikita Schmidt (<EM>cetus@snowball.ucd.ie</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Sep 08 1999 - 10:29:55 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#20">[ date ]</A>
+<A HREF="index.html#20">[ thread ]</A>
+<A HREF="subject.html#20">[ subject ]</A>
+<A HREF="author.html#20">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0019.html">Stefan Reinauer: "Milo 2.2 - continued."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0018.html">Stefan Reinauer: "Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0018.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wednesday,  8 Sep, Stefan Reinauer wrote:
+<BR>
+<EM>&gt; Hi...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I want to generalize milo in 2 steps:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 1. Make a platform dependant milo link against a generic kernel. This
+</EM><BR>
+<EM>&gt;    means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+</EM><BR>
+<EM>&gt;    Makefile and this selects the correct palcode and dependencies in the
+</EM><BR>
+<EM>&gt;    different source files as well as the hard coded hwrpb.
+</EM><BR>
+<P>..and the machine vector.
+<BR>
+<P>Good idea: this way kernel bits and most of MILO will have to be
+<BR>
+compiled only once in a multi-platform build.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt;    To do this, I need to initialize the hwrpb and alpha_mv before I do
+</EM><BR>
+<EM>&gt;    any I/O. Afaik, this means we have no possibility to do any output on
+</EM><BR>
+<EM>&gt;    vga/serial in the stub and relocation code.
+</EM><BR>
+<P>Why do you need HWRPB for I/O?  Alpha_mv alone should suffice, and it
+<BR>
+will be statically linked into MILO anyway.
+<BR>
+<P>I don't think that &quot;production&quot; (non-debug) MILOs should do any I/O
+<BR>
+before passing control to the uncompressed full image.  For the debug
+<BR>
+versions even a less than ideal solution should be fine.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; 2. I don't know much about the ARC stuff, but is it somehow possible to
+</EM><BR>
+<EM>&gt;    determine via ARC, which board/machine is used?  I know there's no
+</EM><BR>
+<EM>&gt;    hwrpb, but at least the AlphaBIOS prints out the machine's &quot;name&quot; so 
+</EM><BR>
+<EM>&gt;    it must know it, hardcoded or not.
+</EM><BR>
+<P>Apparently yes, at least as a string of characters: see
+<BR>
+GetConfigurationData call in the firmware vector.  There is also
+<BR>
+ReturnExtendedSystemInformation in the vendor vector which provides
+<BR>
+system information in more reasonable form, but it is not available on
+<BR>
+the Deskstation ARCS firmware.
+<BR>
+<P><EM>&gt;    I would love to have a function to give ldmilo a) the name
+</EM><BR>
+<EM>&gt;    of the milo to load and possibly the machine type, too.
+</EM><BR>
+<EM>&gt;    What we could *maybe* do is get the machine type via an ARC environment
+</EM><BR>
+<EM>&gt;    variable.
+</EM><BR>
+<P>ARC passes SystemPartition, OSLoadFilename, OSLoadPartition, and
+<BR>
+OSLoadOptions to linload/ldmilo.  IIRC, current practice is that
+<BR>
+OSLoadFilename points to the MILO image file and OSLoadOptions get
+<BR>
+passed as arguments to the kernel.  You probably can stick additional
+<BR>
+information into OSLoadFilename after the MILO filename, if you really
+<BR>
+need it.
+<BR>
+<P>Are you thinking of doing more generic MILOs - e.g., one MILO per
+<BR>
+PALcode?  What exactly possibilities are there for different system
+<BR>
+types that a single MILO can serve?  Maybe they are detectable by the
+<BR>
+MILO itself?
+<BR>
+<P>I don't like to rely on anything from the console, as it makes it harder
+<BR>
+to eventually support flashable MILOs.  Information obtained from the
+<BR>
+firmware should be used only as a convenience (e.g., for autoboot), not
+<BR>
+for vital decisions such as system type or memory size.  It might be
+<BR>
+nice, for instance, to fill HWRPB's DSR with the symbolic system name
+<BR>
+obtained through GetConfigurationData(): there is nothing in the system
+<BR>
+that depends on it, but it will show up nicely in /proc/cpuinfo.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt;    In the linload Sources I found that the last line executed is (or
+</EM><BR>
+<EM>&gt;    should be) 
+</EM><BR>
+<EM>&gt; 			JumpToPal(Linux_Entry);
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    As far as I can see, this doesn't really swap the PALcode, but only
+</EM><BR>
+<EM>&gt;    jumps into the milo head.S.
+</EM><BR>
+<P>Head.S?  I thought it was micropal.S.  The idea at this stage is not to
+<BR>
+swap the PALcode, but rather pass the control to MILO in PALmode so it
+<BR>
+can relocate itself to where it wants to be and *then* swap to its
+<BR>
+PALcode, after it has been put in its permanent place.
+<BR>
+<P><EM>&gt;    Otherwise the PALcode gets swapped twice,
+</EM><BR>
+<EM>&gt;    since milo does this again. (This wouldn't really make sense in my
+</EM><BR>
+<EM>&gt;    opinion)
+</EM><BR>
+<P>Currently MILO swaps PALcode three times (two on MIKASA), which is
+<BR>
+clearly redundant.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Now I have some other things:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; * MILO license. MILO itself is under a free Digital license, the kernel
+</EM><BR>
+<EM>&gt;   which is linked against milo ist GPL, so I guess the result has to be
+</EM><BR>
+<EM>&gt;   GPL again. Am I wrong? I just don't want to run into problems here.
+</EM><BR>
+<P>I'm not an expert so I can't advise on this, but I think you're right.
+<BR>
+There is however one nasty clause in the Digital's licence that requires
+<BR>
+anybody who makes changes to the code to &quot;prominently mark&quot; those
+<BR>
+modifications &quot;as not part of the original&quot;.  What a nuisance!
+<BR>
+<P>I had an idea to overcome it with a statment saying that the original
+<BR>
+code is on gatekeeper.dec.com and that you can run diff and see exactly
+<BR>
+what changes have been made, but it is not what I'd actually call
+<BR>
+&quot;prominent&quot; marking...
+<BR>
+<P>Regards,
+<BR>
+<P>Nikita
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0019.html">Stefan Reinauer: "Milo 2.2 - continued."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0018.html">Stefan Reinauer: "Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0018.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

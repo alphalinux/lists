@@ -1,0 +1,171 @@
+<!-- received="Thu Nov 21 10:57:28 1996 " -->
+<!-- sent="Thu, 21 Nov 1996 16:47:29 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="Fix for redhat-4.0-axp wu-ftpd" -->
+<!-- id="9611211647.ZM3726@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Fix for redhat-4.0-axp wu-ftpd</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Fix for redhat-4.0-axp wu-ftpd</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Thu, 21 Nov 1996 16:47:29 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#893">[ date ]</a><a href="index.html#893">[ thread ]</a><a href="subject.html#893">[ subject ]</a><a href="author.html#893">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0894.html">Lev D Gelb: "Re: 500mhz Alpha"</a>
+<li> <b>Previous message:</b> <a href="0892.html">Robert Williams: "Re: Proper milo &amp; kernel for the PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+This is my solution to get the wu-ftpd from redhat-4.0-axp to work with <br>
+anonymous access.<br>
+<p>
+First the shared libraries are missing in ~ftp/lib, <br>
+if anonftp-2.3-1.axp.rpm is installed.<br>
+<p>
+I don't know what is really needed there, but at my machine the <br>
+directory  now looks like:<br>
+<p>
+root:~&gt;ls -l ~ftp/lib/<br>
+total 1931<br>
+-rwxr-xr-x   1 root     root       233450 Nov 21 14:29 ld.so.1*<br>
+-rwxr-xr-x   1 root     root      1642348 Nov 21 14:29 libc-1.93.so*<br>
+lrwxrwxrwx   1 root     root           12 Nov 21 12:15 libc.so.6 -&gt; libc-1.93.so*<br>
+-rwxr-xr-x   1 root     root        58695 Sep  9 01:01 libnss_files-1.93.so*<br>
+lrwxrwxrwx   1 root     root           20 Nov 21 14:43 libnss_files.so.1 -&gt; libnss_files-1.93.so*<br>
+lrwxrwxrwx   1 root     root           19 Nov 21 12:14 libtermcap.so.2 -&gt; libtermcap.so.2.0.8*<br>
+-rwxr-xr-x   1 root     root        30201 Nov 21 14:29 libtermcap.so.2.0.8*<br>
+<p>
+Well, that's easy, now comes the harder part:<br>
+<p>
+The source file  ftpd.c has a bug, that shows up if the server is configured to<br>
+use rfc822 password checking with warning, what is the case if the anonftp<br>
+package is installed.<br>
+If somebody logs in as anonymous and does not supply the 'recommended' <br>
+password, e.g, simply types &lt;enter&gt; at the password-prompt, the server hangs.<br>
+<p>
+It looks like the bug is introduced by the pam-patch contained in the source-rpm.<br>
+the function pass_anonymous does not return a value in most cases, what it<br>
+really should, because the return value is used by the caller.<br>
+<p>
+The following patch must be applied to the already prepared source package and fixes this.<br>
+<p>
+-x-x-x-x-x- snip snip -x-x-x-x-x-x- <br>
+--- ftpd.c.bad	Thu Nov 21 14:57:09 1996<br>
++++ ftpd.c	Thu Nov 21 14:55:49 1996<br>
+@@ -1425,7 +1425,7 @@<br>
+ 		 remotehost, remoteaddr);<br>
+ 	  exit(0);<br>
+ 	}<br>
+-	return;<br>
++	return 0;<br>
+       }<br>
+ <br>
+       if (!valid) {<br>
+@@ -1433,21 +1433,22 @@<br>
+ 	lreply(230,<br>
+ 	       "Next time please use your e-mail address as your password");<br>
+ 	lreply(230, "        for example: %s@%s",<br>
+-	       authenticated ? authuser : "joe", remotehost);<br>
++	       authenticated ? authuser : "Stan_Laurel", remotehost);<br>
++	<br>
+       }<br>
+     }<br>
+ <br>
+   if (!*passwd) {<br>
+     strcpy(guestpw, "[none_given]");<br>
+-    return;<br>
+-  }<br>
+-<br>
+-  cnt = sizeof(guestpw) - 2;<br>
+-  for (pwin = passwd, pwout = guestpw; *pwin &amp;&amp; cnt--; pwin++)<br>
++  } else {<br>
++    cnt = sizeof(guestpw) - 2;<br>
++    for (pwin = passwd, pwout = guestpw; *pwin &amp;&amp; cnt--; pwin++)<br>
+     if (!isgraph(*pwin))<br>
+       *pwout++ = '_';<br>
+     else<br>
+       *pwout++ = *pwin;<br>
++  }<br>
++  return 1;<br>
+ }<br>
+ <br>
+ int<br>
+-x-x-x-x-x-x snip snip -x-x-x-x-x-x-<br>
+<p>
+I don't know how to build Source rpm's, so i only can describe how i built the daemon. 8-(<br>
+You first have to install the SRPM wu-ftpd-2.4.2b11-8.src.rpm.<br>
+Then, prepare the source:<br>
+$ cd /usr/src/redhat/SPECS <br>
+$ rpm -bp wu-ftpd-2.4.2.spec<br>
+apply the patch:<br>
+$ cd /usr/src/redhat/BUILD/wu-ftpd-2.4.2-beta-11/src <br>
+$ patch &lt;   /....path_to...patch<br>
+<p>
+Then compile the source without reinstalling<br>
+<p>
+$ rpm -bc --short-circuit /usr/src/redhat/SPECS/wu-ftpd-2.4.2.spec<br>
+<p>
+when building is finished, install ( as root ):<br>
+<p>
+$ rpm -bi --short-circuit /usr/src/redhat/SPECS/wu-ftpd-2.4.2.spec<br>
+<p>
+You may test the server with ftp localhost, give ftp as username and<br>
+no password, the daemon shold now respond with:<br>
+230-The response '' is not valid<br>
+230-Next time please use your e-mail address as your password<br>
+230-        for example: Stan_Laurel@loopback<br>
+230 Guest login ok, access restrictions apply.<br>
+<p>
+Good luck, Martin<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0894.html">Lev D Gelb: "Re: 500mhz Alpha"</a>
+<li> <b>Previous message:</b> <a href="0892.html">Robert Williams: "Re: Proper milo &amp; kernel for the PC164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: potato install-items</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@linuxcare.com)">
+<META NAME="Subject" CONTENT="Re: potato install-items">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: potato install-items</H1>
+<HR>
+<P>
+<!-- received="Sun Apr 09 08:15:57 2000" -->
+<!-- isoreceived="20000409151557" -->
+<!-- sent="08 Apr 2000 21:18:26 -0400" -->
+<!-- isosent="20000409011826" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Re: potato install-items" -->
+<!-- id="8766tst6l9.fsf@tarwebok.thepuffingroup.com" -->
+<!-- inreplyto="Sun, 9 Apr 2000 00:12:28 +0200 (MET DST)&quot;" -->
+<STRONG>Subject: </STRONG>Re: potato install-items<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Apr 08 2000 - 18:18:26 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#62">[ date ]</A>
+<A HREF="index.html#62">[ thread ]</A>
+<A HREF="subject.html#62">[ subject ]</A>
+<A HREF="author.html#62">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0063.html">Wai-Sun Chia: "Re: Custom kernel (2.3.99) build on frozen"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0061.html">David Huggins-Daines: "Re: troff segfaulting"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0064.html">Kerstin Hoef-Emden: "Re: potato install-items"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0042.html">David Huggins-Daines: "Re: potato install-items"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Kerstin Hoef-Emden &lt;Kerstin.Hoef-Emden@Uni-Koeln.DE&gt; writes:
+<BR>
+<P><EM>&gt; Hmm, my Alpha has an AlphaBIOS 5.66, it is not SRM, but since I don't
+</EM><BR>
+<EM>&gt; intend to setup a DHCP server, this hopefully won't trouble me.
+</EM><BR>
+<P>Actually it's the DHCP/BOOTP client (pump) that's affected by this in
+<BR>
+my experience.
+<BR>
+<P>It happens with ARC too, and on further reflection I suspect that it's
+<BR>
+a kernel bug - the code that sets the initial system clock contains
+<BR>
+this little gem (arch/alpha/kernel/time.c, line 309):
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((year += 1900) &lt; 1970)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year += 100;
+<BR>
+<P>But 'year' here is being read from NVRAM and is not a two-digit offset
+<BR>
+from 1900 except when the console type is set to VMS.  So, in your
+<BR>
+case, if you set the year to 2000 in the ARC console, the kernel will
+<BR>
+read 20 here, then dutifully add 100 to it and call mktime() with a
+<BR>
+year of 120, i.e. 2020.  Likewise with SRM - 2000 = 48 in console
+<BR>
+years.
+<BR>
+<P>You know, this could be construed as a Y2K bug.
+<BR>
+<P>Since there's little chance that time is going to start moving backwards,
+<BR>
+this should at least be changed to something like:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Now that it's 2000, we can do this more reasonably.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Of course this will fail in 2020 on VMS console
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;machines. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (year &gt;= 48) /* assume UNIX */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year += 1952;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else if (year &gt;= 20) /* assume WNT */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year += 1980;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else /* assume VMS */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year += 2000;
+<BR>
+<P>A better solution (for SRM at least) might be to read the console's
+<BR>
+OS_TYPE environment variable to see what the console thinks the epoch
+<BR>
+is (1900 or 1952 for VMS or Unix, respectively).  We'll be able to do
+<BR>
+this soon :)
+<BR>
+<P><PRE>
+-- 
+David Huggins-Daines, Senior Linux Consultant, Linuxcare, Inc.
+613.562.1239 desk, 613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0063.html">Wai-Sun Chia: "Re: Custom kernel (2.3.99) build on frozen"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0061.html">David Huggins-Daines: "Re: troff segfaulting"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0064.html">Kerstin Hoef-Emden: "Re: potato install-items"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0042.html">David Huggins-Daines: "Re: potato install-items"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:04 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

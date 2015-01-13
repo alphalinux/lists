@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 09 04:38:28 2000" -->
+<!-- isoreceived="20000309123828" -->
+<!-- sent="Wed, 8 Mar 2000 19:42:08 -0800" -->
+<!-- isosent="20000309034208" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="20000308194208.A13825@cygnus.com" -->
+<!-- inreplyto="Pine.LNX.4.21.0003090332570.4457-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@cygnus.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 08 2000 - 19:42:08 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#27">[ date ]</A>
+<A HREF="index.html#27">[ thread ]</A>
+<A HREF="subject.html#27">[ subject ]</A>
+<A HREF="author.html#27">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0028.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0026.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0025.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0028.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0025.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, Mar 09, 2000 at 04:09:45AM +0100, Andrea Arcangeli wrote:
+<BR>
+<EM>&gt; &gt;Each cpu has its own interrupt mask register, so the actual interrupt
+</EM><BR>
+<EM>&gt; &gt;handler needn't worry about communicating with other processors. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Yes, but we definitely need the per irq-desc locking to avoid to run the
+</EM><BR>
+<EM>&gt; irq handler on two CPUs at the same time.
+</EM><BR>
+<P>Yes, we do need the irq-desc lock.  I'd been talking about the
+<BR>
+interrupt controler lock.  Sorry for being imprecise.
+<BR>
+<P><EM>&gt; Hug, handler-&gt;enable_irq()/handler-&gt;disable_irq() are called for _each_
+</EM><BR>
+<EM>&gt; irq.
+</EM><BR>
+<P>Really?  I thought ack/end was used in the interrupt handler,
+<BR>
+not disable/enable.  I am talking about the hw_interrupt_type
+<BR>
+functions, not the dp264 functions of nearly the same name.
+<BR>
+<P><EM>&gt; And the real enable_irq()/disable_irq() is not less frequent than
+</EM><BR>
+<EM>&gt; interrupts in the 3c509 case (it may be the only operation while
+</EM><BR>
+<EM>&gt; transmitting data in UDP and that's an issue at least for multicasting).
+</EM><BR>
+<P>Really?  I don't see any ocurrence of those functions in 3c509.c,
+<BR>
+nor in the net/ipv4 or net/core directories. 
+<BR>
+<P>I do see a use in 3c59x.c, (is that what you really meant?) in
+<BR>
+vortex_timer, but that looks like it's used for timeout processing
+<BR>
+e.g. for media type selection.  Which seems definitely off the
+<BR>
+critical path.
+<BR>
+<P><EM>&gt; I think using IPI for synchronization is a loss even if possible thing to
+</EM><BR>
+<EM>&gt; do. enable_irq/disable_irq should be really fast.
+</EM><BR>
+<P>Please show me where time-critical disable_irq happens.  I don't
+<BR>
+understand why it is necessary.
+<BR>
+<P><EM>&gt; (And it's not fully
+</EM><BR>
+<EM>&gt; clear to me how to solve the above race by using IPI btw :).
+</EM><BR>
+<P>I'll prototype some code that show you what I had in mind.
+<BR>
+<P><EM>&gt; The current default for dp264 should be ok at lest for 2-way and maybe ok
+</EM><BR>
+<EM>&gt; for 4-way too (max number of CPU supported by dp264).
+</EM><BR>
+<P>Eh.  It still seems sloppy.
+<BR>
+<P><P>r~
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0028.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0026.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0025.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0028.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0025.html">Richard Henderson: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,129 @@
+<!-- received="Wed Oct  9 15:58:19 1996 " -->
+<!-- sent="08 Oct 1996 23:37:12 +0200" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="Re: redhat-4.0: /sbin/clock for the Jensen (again)" -->
+<!-- id="199610082238.RAA03531@system1.virginia.edu" -->
+<!-- inreplyto="Tue, 8 Oct 1996 13:34:53 -0700 (MST)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: redhat-4.0: /sbin/clock for the Jensen (again)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: redhat-4.0: /sbin/clock for the Jensen (again)</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>08 Oct 1996 23:37:12 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#287">[ date ]</a><a href="index.html#287">[ thread ]</a><a href="subject.html#287">[ subject ]</a><a href="author.html#287">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0288.html">Hunter Andreas Ware: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0286.html">Martin Ostermann: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<li> <b>In reply to:</b> <a href="0283.html">David  Mosberger: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+David  Mosberger &lt;<a href="mailto:davidm@AZStarNet.com">davidm@AZStarNet.com</a>&gt; writes:<br>
+<i>&gt;  Martin&gt; Because of &lt;asm/io.h&gt;, the kernel i/o functions get used instead of</i><br>
+<i>&gt;  Martin&gt; the ones in glibc. Thus it only works on the i/o-architecture it was</i><br>
+<i>&gt;  Martin&gt; compiled on (or similar ones). But even if I compile it on my Jensen,</i><br>
+<i>&gt;  Martin&gt; it doesn't work. I need USE_DEV_PORT. I am going to take a look at it.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I don't think that's true.  Even with &lt;asm/io.h&gt;, you should get the</i><br>
+<i>&gt; library versions.  But it would be cleaner to include &lt;sys/io.h&gt; for</i><br>
+<i>&gt; glibc.</i><br>
+<p>
+It was/is partially true: Only &lt;asm/jensen.h&gt; lacked the following<br>
+#ifdef __KERNEL__ :<br>
+<p>
+--- jensen.h.org	Tue Nov  7 08:18:36 1995<br>
++++ jensen.h	Tue Oct  8 22:51:59 1996<br>
+@@ -95,6 +95,7 @@<br>
+ 		set_hae(addr);<br>
+ }<br>
+ <br>
++#ifdef __KERNEL__<br>
+ /*<br>
+  * IO functions<br>
+  *<br>
+@@ -258,6 +259,8 @@<br>
+ <br>
+ #define outb(x, port) \<br>
+ (__builtin_constant_p((port))?__outb((x),(port)):_outb((x),(port)))<br>
++<br>
++#endif /* __KERNEL__ */<br>
+ <br>
+ /*<br>
+  * The Alpha Jensen hardware for some rather strange reason puts<br>
+<p>
+<p>
+But your right, at least some routines were taken from libc, because<br>
+otherwise it would work.<br>
+<p>
+<i>&gt; The axp-diffs have some patches to rtc.c that are supposed to fix this</i><br>
+<i>&gt; problem.  But I haven't heard from Miquel in a while, so I'm not sure</i><br>
+<i>&gt; whether it's all working.</i><br>
+<i>&gt; </i><br>
+<i>&gt;  Martin&gt; I see if I can clock working with glibc's i/o functions. Should be no</i><br>
+<i>&gt;  Martin&gt; problem. </i><br>
+<i>&gt; </i><br>
+<i>&gt; It should work, I agree.  If not, maybe there is a bug in the glibc</i><br>
+<i>&gt; functions in which case a fix is definitively needed.</i><br>
+<p>
+I looked at it: It's the Jensen's concept of "local" i/o<br>
+addresses. These are: (from &lt;asm/jensen.h&gt;)<br>
+<p>
+#define __is_local(addr) ( \<br>
+/* keyboard */	(addr == 0x60 || addr == 0x64) || \<br>
+/* RTC */	(addr == 0x170 || addr == 0x171) || \<br>
+/* mb COM2 */	(addr &gt;= 0x2f8 &amp;&amp; addr &lt;= 0x2ff) || \<br>
+/* mb LPT1 */	(addr &gt;= 0x3bc &amp;&amp; addr &lt;= 0x3be) || \<br>
+/* mb COM2 */	(addr &gt;= 0x3f8 &amp;&amp; addr &lt;= 0x3ff))<br>
+<p>
+Glibc doesn't know about this, and I think it shouldn't, because this<br>
+would require runtime checking. Since anything but the RTC is kernel<br>
+controlled anyhow, I'd guess we ought to go for /dev/rtc, too.<br>
+<p>
+But the short term solution is /dev/port, of cause.<br>
+<p>
+Martin<br>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0288.html">Hunter Andreas Ware: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0286.html">Martin Ostermann: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<li> <b>In reply to:</b> <a href="0283.html">David  Mosberger: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

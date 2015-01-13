@@ -1,0 +1,354 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [BUG] (alpha) kernel thread panics due to sta</TITLE>
+<META NAME="Author" CONTENT="Dave Anderson (anderson@missioncriticallinux.com)">
+<META NAME="Subject" CONTENT="[BUG] (alpha) kernel thread panics due to stale PTBR settings in 2.3.47">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[BUG] (alpha) kernel thread panics due to stale PTBR settings in 2.3.47</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 25 23:14:31 2000" -->
+<!-- isoreceived="20000226071431" -->
+<!-- sent="Fri, 25 Feb 2000 14:46:16 -0500" -->
+<!-- isosent="20000225194616" -->
+<!-- name="Dave Anderson" -->
+<!-- email="anderson@missioncriticallinux.com" -->
+<!-- subject="[BUG] (alpha) kernel thread panics due to stale PTBR settings in 2.3.47" -->
+<!-- id="38B6DC08.149FE822@mclinux.com" -->
+<STRONG>Subject: </STRONG>[BUG] (alpha) kernel thread panics due to stale PTBR settings in 2.3.47<BR>
+<STRONG>From: </STRONG>Dave Anderson (<EM>anderson@missioncriticallinux.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Feb 25 2000 - 11:46:16 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#162">[ date ]</A>
+<A HREF="index.html#162">[ thread ]</A>
+<A HREF="subject.html#162">[ subject ]</A>
+<A HREF="author.html#162">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0163.html">Manfred Spraul: "Re: [BUG] (alpha) kernel thread panics due to stale PTBR settings in  2.3.47"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0161.html">Stephen Degler: "2.3.4X detonates my miata"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0163.html">Manfred Spraul: "Re: [BUG] (alpha) kernel thread panics due to stale PTBR settings in  2.3.47"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&nbsp;&nbsp;Hello,
+<BR>
+<P>&nbsp;&nbsp;Sorry for the wide distribution -- I'm not sure who this should be
+<BR>
+directed
+<BR>
+&nbsp;&nbsp;to...
+<BR>
+<P>&nbsp;&nbsp;We had been seeing panics in the alpha 2.3.41 stream where a kernel
+<BR>
+thread,
+<BR>
+&nbsp;&nbsp;typically one of the nfsd daemons or kswapd, fault on the swap_info
+<BR>
+swap_map
+<BR>
+&nbsp;&nbsp;address, which is a mapped (vmalloc'd) address.  The problem was due
+<BR>
+to
+<BR>
+&nbsp;&nbsp;the disconnect between the active_mm pgd value and what's actually
+<BR>
+stored
+<BR>
+&nbsp;&nbsp;in the kernel task's ptbr value -- which is what gets loaded into the
+<BR>
+PTBR
+<BR>
+&nbsp;&nbsp;register with each alpha context switch.  Eventually kernel tasks will
+<BR>
+find
+<BR>
+&nbsp;&nbsp;that the physical address stored in their thread_struct's ptbr become
+<BR>
+stale,
+<BR>
+&nbsp;&nbsp;as the page that they reference is freed and re-used elsewhere.
+<BR>
+<P>&nbsp;&nbsp;I note that in 2.3.47, the problem looked to have been addressed by
+<BR>
+&nbsp;&nbsp;the addition of the enter_lazy_tlb() call in schedule():
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!mm) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (next-&gt;active_mm) BUG();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next-&gt;active_mm = oldmm;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_inc(&amp;oldmm-&gt;mm_count);
+<BR>
+&nbsp;&nbsp;+++           enter_lazy_tlb(oldmm, next, this_cpu);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;Unfortunately the alpha enter_lazy_tlb() doesn't do anything:
+<BR>
+<P>static inline void enter_lazy_tlb(struct mm_struct *mm, struct
+<BR>
+task_struct *tsk, unsigned cpu)
+<BR>
+{
+<BR>
+}
+<BR>
+<P>&nbsp;&nbsp;If this is still a work in progress, excuse my interruption, but if
+<BR>
+not,
+<BR>
+&nbsp;&nbsp;the alpha enter_lazy_tlb() should update the kernel task's ptbr with
+<BR>
+the
+<BR>
+&nbsp;&nbsp;oldmm's pgd.  Right?
+<BR>
+<P>&nbsp;&nbsp;If you're interested in the details, here's the evidence from a 2.3.47
+<BR>
+crash
+<BR>
+&nbsp;&nbsp;dump, in which kswapd panicked trying to reference a swap_map address
+<BR>
+at
+<BR>
+&nbsp;&nbsp;fffffe0000000032:
+<BR>
+<P><EM>crash&gt; bt
+</EM><BR>
+PID: 2  TASK: fffffc001fd64000  CPU: 0  COMMAND: &quot;kswapd&quot;
+<BR>
+&nbsp;#0 [fffffc001fd67ad0] crash_save_current_state at fffffc0000336ffc
+<BR>
+&nbsp;#1 [fffffc001fd67ae0] panic at fffffc00003271f8
+<BR>
+&nbsp;#2 [fffffc001fd67b80] die_if_kernel at fffffc00003113d0
+<BR>
+&nbsp;#3 [fffffc001fd67bb0] do_page_fault at fffffc000031fecc
+<BR>
+&nbsp;#4 [fffffc001fd67bf0] entMM at fffffc000031055c
+<BR>
+&nbsp;EFRAME: fffffc001fd67c28      R24: 0000000000000cec
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R0: 0000000000000001      R25: 0000000000000007
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R1: fffffe0000000032      R26: fffffc0000350aec
+<BR>
+&lt;__delete_from_swap_cache+0x8c&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R2: 0000000000000003      R27: fffffc00003514c0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R3: 0000190000000000      R28: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R4: fffffc000052d888      HAE: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R5: 0000000000000200  TRAP_A0: fffffe0000000032
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R6: fffffc00006329d0  TRAP_A1: 0000000000000001
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R7: fffffc001fd67dc0  TRAP_A2: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R8: fffffc001fd64000       PS: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R19: 0000000000000400       PC: fffffc0000351544  &lt;__swap_free+0x84&gt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;R20: fffffc00005317c0       GP: fffffc0000554030
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R21: 0000000000000000      R16: 0000190000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R22: 0000000000000006      R17: 0000000000000001
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R23: fffffc0000345244      R18: 0000000000000059
+<BR>
+&nbsp;#5 [fffffc001fd67d10] __swap_free at fffffc0000351544
+<BR>
+&nbsp;#6 [fffffc001fd67d50] __delete_from_swap_cache at fffffc0000350aec
+<BR>
+&nbsp;#7 [fffffc001fd67d60] shrink_mmap at fffffc0000345460
+<BR>
+&nbsp;#8 [fffffc001fd67de0] do_try_to_free_pages at fffffc000034f87c
+<BR>
+&nbsp;#9 [fffffc001fd67e20] kswapd at fffffc000034fa2c
+<BR>
+#10 [fffffc001fd67e60] kernel_thread at fffffc00003107f0
+<BR>
+<P>&nbsp;&nbsp;In the case above, the kswapd's ptbr references physical address
+<BR>
+&nbsp;&nbsp;5bd8000, which has long since been freed and re-assigned to the
+<BR>
+&nbsp;&nbsp;kmem slab area:
+<BR>
+<P><EM>crash&gt; task fffffc001fd64000 | grep ptbr
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ptbr = 0x2dec,
+<BR>
+<EM>crash&gt; ptob 0x2dec
+</EM><BR>
+2dec: 5bd8000
+<BR>
+<EM>crash&gt; kmem -p 5bd8000
+</EM><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PAGE       PHYSICAL       MAPPING      INDEX  CNT FLAGS
+<BR>
+fffffc0000c212e0   5bd8000  0000000000000000    106  1  uptodate,slab
+<BR>
+<P>&nbsp;&nbsp;At the same time as the panic above, the 8 nfsd daemons and the two
+<BR>
+&nbsp;&nbsp;idle tasks *all* contained ptbr values referencing physical addresses
+<BR>
+that
+<BR>
+&nbsp;&nbsp;had been freed and re-used.
+<BR>
+<P>&nbsp;&nbsp;Thanks,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dave Anderson
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;anderson@missioncriticallinux.com
+<BR>
+<P><P><P><P><P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+&nbsp; <tt>Hello,</tt><tt></tt>
+<p><tt>&nbsp; Sorry for the wide distribution -- I'm not sure who this
+should be directed</tt>
+<br><tt>&nbsp; to...</tt><tt></tt>
+<p><tt>&nbsp; We had been seeing panics in the alpha 2.3.41 stream where
+a kernel thread,</tt>
+<br><tt>&nbsp; typically one of the nfsd daemons or kswapd, fault on the
+swap_info swap_map</tt>
+<br><tt>&nbsp; address, which is a mapped (vmalloc'd) address.&nbsp; The
+problem was due to</tt>
+<br><tt>&nbsp; the disconnect between the active_mm pgd value and what's
+actually stored</tt>
+<br><tt>&nbsp; in the kernel task's ptbr value -- which is what gets loaded
+into the PTBR</tt>
+<br><tt>&nbsp; register with each alpha context switch.&nbsp; Eventually
+kernel tasks will find</tt>
+<br><tt>&nbsp; that the physical address stored in their thread_struct's
+ptbr become stale,</tt>
+<br><tt>&nbsp; as the page that they reference is freed and re-used elsewhere.</tt><tt></tt>
+<p><tt>&nbsp; I note that in 2.3.47, the problem looked to have been addressed
+by</tt>
+<br><tt>&nbsp; the addition of the enter_lazy_tlb() call in schedule():</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (!mm) {</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+if (next->active_mm) BUG();</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+next->active_mm = oldmm;</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+atomic_inc(&amp;oldmm->mm_count);</tt>
+<br><tt>&nbsp; +++&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+enter_lazy_tlb(oldmm, next, this_cpu);</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }</tt><tt></tt>
+<p><tt>&nbsp; Unfortunately the alpha enter_lazy_tlb() doesn't do anything:</tt><tt></tt>
+<p><tt>static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct
+*tsk, unsigned cpu)</tt>
+<br><tt>{</tt>
+<br><tt>}</tt><tt></tt>
+<p><tt>&nbsp; If this is still a work in progress, excuse my interruption,
+but if not,</tt>
+<br><tt>&nbsp; the alpha enter_lazy_tlb() should update the kernel task's
+ptbr with the</tt>
+<br><tt>&nbsp; oldmm's pgd.&nbsp; Right?</tt><tt></tt>
+<p><tt>&nbsp; If you're interested in the details, here's the evidence
+from a 2.3.47 crash</tt>
+<br><tt>&nbsp; dump, in which kswapd panicked trying to reference a swap_map
+address at</tt>
+<br><tt>&nbsp; fffffe0000000032:</tt><tt></tt>
+<p><tt>crash> bt</tt>
+<br><tt>PID: 2&nbsp; TASK: fffffc001fd64000&nbsp; CPU: 0&nbsp; COMMAND:
+"kswapd"</tt>
+<br><tt>&nbsp;#0 [fffffc001fd67ad0] crash_save_current_state at fffffc0000336ffc</tt>
+<br><tt>&nbsp;#1 [fffffc001fd67ae0] panic at fffffc00003271f8</tt>
+<br><tt>&nbsp;#2 [fffffc001fd67b80] die_if_kernel at fffffc00003113d0</tt>
+<br><tt>&nbsp;#3 [fffffc001fd67bb0] do_page_fault at fffffc000031fecc</tt>
+<br><tt>&nbsp;#4 [fffffc001fd67bf0] entMM at fffffc000031055c</tt>
+<br><tt>&nbsp;EFRAME: fffffc001fd67c28&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; R24:
+0000000000000cec</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R0: 0000000000000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R25: 0000000000000007</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R1: fffffe0000000032&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R26: fffffc0000350aec&nbsp; &lt;__delete_from_swap_cache+0x8c></tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R2: 0000000000000003&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R27: fffffc00003514c0</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R3: 0000190000000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R28: 0000000000000000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R4: fffffc000052d888&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+HAE: 0000000000000000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R5: 0000000000000200&nbsp; TRAP_A0: fffffe0000000032</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R6: fffffc00006329d0&nbsp; TRAP_A1: 0000000000000001</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R7: fffffc001fd67dc0&nbsp; TRAP_A2: 0000000000000000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; R8: fffffc001fd64000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+PS: 0000000000000000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; R19: 0000000000000400&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+PC: fffffc0000351544&nbsp; &lt;__swap_free+0x84></tt>
+<br><tt>&nbsp;&nbsp;&nbsp; R20: fffffc00005317c0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+GP: fffffc0000554030</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; R21: 0000000000000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R16: 0000190000000000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; R22: 0000000000000006&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R17: 0000000000000001</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; R23: fffffc0000345244&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R18: 0000000000000059</tt>
+<br><tt>&nbsp;#5 [fffffc001fd67d10] __swap_free at fffffc0000351544</tt>
+<br><tt>&nbsp;#6 [fffffc001fd67d50] __delete_from_swap_cache at fffffc0000350aec</tt>
+<br><tt>&nbsp;#7 [fffffc001fd67d60] shrink_mmap at fffffc0000345460</tt>
+<br><tt>&nbsp;#8 [fffffc001fd67de0] do_try_to_free_pages at fffffc000034f87c</tt>
+<br><tt>&nbsp;#9 [fffffc001fd67e20] kswapd at fffffc000034fa2c</tt>
+<br><tt>#10 [fffffc001fd67e60] kernel_thread at fffffc00003107f0</tt><tt></tt>
+<p><tt>&nbsp; In the case above, the kswapd's ptbr references physical
+address</tt>
+<br><tt>&nbsp; 5bd8000, which has long since been freed and re-assigned
+to the</tt>
+<br><tt>&nbsp; kmem slab area:</tt><tt></tt>
+<p><tt>crash> task fffffc001fd64000 | grep ptbr</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; ptbr = 0x2dec,</tt>
+<br><tt>crash> ptob 0x2dec</tt>
+<br><tt>2dec: 5bd8000</tt>
+<br><tt>crash> kmem -p 5bd8000</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; PAGE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+PHYSICAL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MAPPING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+INDEX&nbsp; CNT FLAGS</tt>
+<br><tt>fffffc0000c212e0&nbsp;&nbsp; 5bd8000&nbsp; 0000000000000000&nbsp;&nbsp;&nbsp;
+106&nbsp; 1&nbsp; uptodate,slab</tt><tt></tt>
+<p><tt>&nbsp; At the same time as the panic above, the 8 nfsd daemons and
+the two</tt>
+<br><tt>&nbsp; idle tasks *all* contained ptbr values referencing physical
+addresses that</tt>
+<br><tt>&nbsp; had been freed and re-used.</tt><tt></tt>
+<p><tt>&nbsp; Thanks,</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; Dave Anderson</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp; anderson@missioncriticallinux.com</tt>
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0163.html">Manfred Spraul: "Re: [BUG] (alpha) kernel thread panics due to stale PTBR settings in  2.3.47"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0161.html">Stephen Degler: "2.3.4X detonates my miata"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0163.html">Manfred Spraul: "Re: [BUG] (alpha) kernel thread panics due to stale PTBR settings in  2.3.47"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

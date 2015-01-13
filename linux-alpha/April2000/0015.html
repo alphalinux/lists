@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: SMP gettimeofday patch</TITLE>
+<META NAME="Author" CONTENT="Larry Woodman (woodman@missioncriticallinux.com)">
+<META NAME="Subject" CONTENT="SMP gettimeofday patch">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>SMP gettimeofday patch</H1>
+<HR>
+<P>
+<!-- received="Wed Apr 26 16:45:19 2000" -->
+<!-- isoreceived="20000426234519" -->
+<!-- sent="Mon, 24 Apr 2000 12:19:57 -0400" -->
+<!-- isosent="20000424161957" -->
+<!-- name="Larry Woodman" -->
+<!-- email="woodman@missioncriticallinux.com" -->
+<!-- subject="SMP gettimeofday patch" -->
+<!-- id="3904742D.3588AE34@missioncriticallinux.com" -->
+<STRONG>Subject: </STRONG>SMP gettimeofday patch<BR>
+<STRONG>From: </STRONG>Larry Woodman (<EM>woodman@missioncriticallinux.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Apr 24 2000 - 09:19:57 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#15">[ date ]</A>
+<A HREF="index.html#15">[ thread ]</A>
+<A HREF="subject.html#15">[ subject ]</A>
+<A HREF="author.html#15">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">Larry Woodman: "Patch to eliminate idle loop from kernel profiling output."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Richard Henderson: "Re: Alpha clock problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0019.html">Andrea Arcangeli: "Re: SMP gettimeofday patch"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here is a patch to make the gettimeofday system call more accurate for
+<BR>
+Alpha SMP.  Rather than
+<BR>
+just returning xtime.tv_sec and xtime.tv_usec this patch makes each CPU
+<BR>
+record its process cycle
+<BR>
+counter in the cpuinfo_alpha structure for that CPU in
+<BR>
+smp_percpu_timer_interrupt().  When
+<BR>
+gettimeofday is called it adds the difference between the current
+<BR>
+process cycle counter and last one
+<BR>
+stored in the cpuinfo_alpha structure to the time.tv_sec and
+<BR>
+xtime.tv_usec.  This is not perfect but if
+<BR>
+you stay on the same CPU its close to what is returned on a non-SMP
+<BR>
+alpha kernel.
+<BR>
+<P>Larry Woodman
+<BR>
+<A HREF="http://www.missioncriticallinux.com">http://www.missioncriticallinux.com</A>
+<BR>
+<P><P><P><P>
+diff -u --recursive linux-2.3.99-pre3.vanilla/arch/alpha/kernel/smp.c linux-2.3.99-pre3.clock/arch/alpha/kernel/smp.c
+<BR>
+--- linux-2.3.99-pre3.vanilla/arch/alpha/kernel/smp.c	Fri Mar 17 16:02:05 2000
+<BR>
++++ linux-2.3.99-pre3.clock/arch/alpha/kernel/smp.c	Fri Apr 24 09:58:04 2020
+<BR>
+@@ -613,6 +613,13 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long user, unsigned long system,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int cpu);
+<BR>
+&nbsp;
+<BR>
++static inline __u32 rpcc(void)
+<BR>
++{
+<BR>
++    __u32 result;
+<BR>
++    asm volatile (&quot;rpcc %0&quot; : &quot;=r&quot;(result));
+<BR>
++    return result;
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;void
+<BR>
+&nbsp;smp_percpu_timer_interrupt(struct pt_regs *regs)
+<BR>
+&nbsp;{
+<BR>
+@@ -620,6 +627,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long user = user_mode(regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct cpuinfo_alpha *data = &amp;cpu_data[cpu];
+<BR>
+&nbsp;
+<BR>
++	/* remember the process cycle counter */
+<BR>
++	data-&gt;last_rpcc = rpcc();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Record kernel PC.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!user)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_do_profile(regs-&gt;pc);
+<BR>
+diff -u --recursive linux-2.3.99-pre3.vanilla/arch/alpha/kernel/time.c linux-2.3.99-pre3.clock/arch/alpha/kernel/time.c
+<BR>
+--- linux-2.3.99-pre3.vanilla/arch/alpha/kernel/time.c	Wed Mar 15 14:08:04 2000
+<BR>
++++ linux-2.3.99-pre3.clock/arch/alpha/kernel/time.c	Fri Apr 24 09:59:24 2020
+<BR>
+@@ -304,10 +304,15 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long sec, usec, lost, flags;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long delta_cycles, delta_usec, partial_tick;
+<BR>
++	struct cpuinfo_alpha *data = &amp;cpu_data[smp_processor_id()];
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_lock_irqsave(&amp;xtime_lock, flags);
+<BR>
+&nbsp;
+<BR>
++#ifdef __SMP__
+<BR>
++	delta_cycles = rpcc() - data-&gt;last_rpcc;
+<BR>
++#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_cycles = rpcc() - state.last_time;
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sec = xtime.tv_sec;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;usec = xtime.tv_usec;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;partial_tick = state.partial_tick;
+<BR>
+@@ -315,11 +320,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_unlock_irqrestore(&amp;xtime_lock, flags);
+<BR>
+&nbsp;
+<BR>
+-#ifdef __SMP__
+<BR>
+-	/* Until and unless we figure out how to get cpu cycle counters
+<BR>
+-	   in sync and keep them there, we can't use the rpcc tricks.  */
+<BR>
+-	delta_usec = lost * (1000000 / HZ);
+<BR>
+-#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* usec = cycles * ticks_per_cycle * 2**48 * 1e6 / (2**48 * ticks)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*	= cycles * (s_t_p_c) * 1e6 / (2**48 * ticks)
+<BR>
+@@ -334,10 +334,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_usec = (delta_cycles * state.scaled_ticks_per_cycle 
+<BR>
++#ifndef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ partial_tick
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (lost &lt;&lt; FIX_SHIFT)) * 15625;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delta_usec = ((delta_usec / ((1UL &lt;&lt; (FIX_SHIFT-6-1)) * HZ)) + 1) / 2;
+<BR>
+-#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;usec += delta_usec;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (usec &gt;= 1000000) {
+<BR>
+diff -u --recursive linux-2.3.99-pre3.vanilla/include/asm-alpha/smp.h linux-2.3.99-pre3.clock/include/asm-alpha/smp.h
+<BR>
+--- linux-2.3.99-pre3.vanilla/include/asm-alpha/smp.h	Fri Mar 17 16:02:05 2000
+<BR>
++++ linux-2.3.99-pre3.clock/include/asm-alpha/smp.h	Fri Apr 24 10:00:35 2020
+<BR>
+@@ -21,6 +21,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/threads.h&gt;
+<BR>
+&nbsp;#include &lt;asm/irq.h&gt;
+<BR>
++#include &lt;linux/types.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct cpuinfo_alpha {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long loops_per_sec;
+<BR>
+@@ -33,6 +34,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long prof_multiplier;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long prof_counter;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int irq_count, bh_count;
+<BR>
++	__u32 last_rpcc;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_expected;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_taken;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_extra;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0016.html">Larry Woodman: "Patch to eliminate idle loop from kernel profiling output."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Richard Henderson: "Re: Alpha clock problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0019.html">Andrea Arcangeli: "Re: SMP gettimeofday patch"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

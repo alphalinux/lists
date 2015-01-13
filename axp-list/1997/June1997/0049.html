@@ -1,0 +1,126 @@
+<!-- received="Mon Jun  2 12:00:27 1997 " -->
+<!-- sent="Mon, 2 Jun 1997 11:42:32 -0400 (EDT)" -->
+<!-- name="sperati" -->
+<!-- email="Sperati@cris.com" -->
+<!-- subject="UNSOLICITED JUNK E-MAIL. RETURN TO SENDER" -->
+<!-- id="199706021536.LAA02184@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="199706020340.UAA16094@jolt.d2.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>UNSOLICITED JUNK E-MAIL. RETURN TO SENDER</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>UNSOLICITED JUNK E-MAIL. RETURN TO SENDER</h2>
+
+<b>sperati</b> (<a href="mailto:Sperati@cris.com"><i>Sperati@cris.com</i></a>)<br>
+<i>Mon, 2 Jun 1997 11:42:32 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#49">[ date ]</a><a href="index.html#49">[ thread ]</a><a href="subject.html#49">[ subject ]</a><a href="author.html#49">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0050.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>Previous message:</b> <a href="0048.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>In reply to:</b> <a href="0019.html">Rick Windham: "New PAM Config in 4.2"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sun, 1 Jun 1997, Daryll Strauss wrote:<br>
+<p>
+<i>&gt; Date: Sun, 1 Jun 1997 20:40:38 -0700 (PDT)</i><br>
+<i>&gt; From: Daryll Strauss &lt;<a href="mailto:daryll@d2.com">daryll@d2.com</a>&gt;</i><br>
+<i>&gt; Reply-To: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; To: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Subject: IEEE FP Problems</i><br>
+<i>&gt; Resent-Date: 2 Jun 1997 03:53:50 -0000</i><br>
+<i>&gt; Resent-From: <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Resent-cc: recipient list not shown: ;</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; We've got a couple of IEEE floating point intensive applications that</i><br>
+<i>&gt; we're trying to run under Alpha Linux. One of the applications is a Dec</i><br>
+<i>&gt; Unix application which we don't have source to and the other is an</i><br>
+<i>&gt; in-house tools which is native under Linux. Both expect the IEEE</i><br>
+<i>&gt; behavior for floating point.</i><br>
+<i>&gt; </i><br>
+<i>&gt; There was some useful information on this topic posted to the list by</i><br>
+<i>&gt; Jim Paradis in April. I've looked through that and the kernel sources</i><br>
+<i>&gt; for traps.c, osf_sys.c, fp-emul.c, and ieee-math.c in 2.1.35. There</i><br>
+<i>&gt; seems to be several problems I'm encountering. I've made a little</i><br>
+<i>&gt; headway, but I've hit a serious stumbling block.</i><br>
+<i>&gt; </i><br>
+<i>&gt; The first thing I tried was to compile a program under Dec Unix that</i><br>
+<i>&gt; checked the state of the fp control register. Those start out being</i><br>
+<i>&gt; different. It looks like Dec Unix is clearing the bits back 0 and Linux</i><br>
+<i>&gt; isn't. I forced those bits to 0 and I made sure</i><br>
+<i>&gt; current-&gt;tss.flags&amp;IEEE_TRAP_ENABLE_MASK=0 in</i><br>
+<i>&gt; osf_set_program_attributes.</i><br>
+<i>&gt; </i><br>
+<i>&gt; My native Dec Unix application did better, but still produced an FPE on</i><br>
+<i>&gt; some data files. I remembered Jim's comments about division by zero, and</i><br>
+<i>&gt; took a look at ieee-math.c. It looks like division by 0 returns NaN for</i><br>
+<i>&gt; 0/0, but causes and FPE for any other numerator. As a first stab I</i><br>
+<i>&gt; corrected that by returning setting *c=IEEE_PINF and returning 0 in the</i><br>
+<i>&gt; two division routines.</i><br>
+<i>&gt; </i><br>
+<i>&gt; This doesn't appear to be the right answer, because I'm always returning</i><br>
+<i>&gt; IEEE_PINF. I'm not sure of the exact IEEE spec. It seems like I should</i><br>
+<i>&gt; have to check the sign bits of the two operands and return IEEE_NINF if</i><br>
+<i>&gt; they are different. (Is that true for division by negative 0?) From</i><br>
+<i>&gt; looking at the rest of the code I don't think IEEE_NINF is ever</i><br>
+<i>&gt; returned.</i><br>
+<i>&gt; </i><br>
+<i>&gt; These changes completely solved my floating point exceptions. Now I'm</i><br>
+<i>&gt; seeing some arithmetic acceptions. So far, my testing has shown this</i><br>
+<i>&gt; as occuring in fp-emul.c in alpha_fp_emul_imprecise in the case where a</i><br>
+<i>&gt; OPC_PAL or OPC_JSR is encountered. I'm kind of baffled by this, because</i><br>
+<i>&gt; I don't know enough about the Alpha instructions and scheduling. What's</i><br>
+<i>&gt; this routine trying to do and what does the arithmetic exception really</i><br>
+<i>&gt; mean? </i><br>
+<i>&gt; </i><br>
+<i>&gt; If anyone has an suggestions for how to tackle this I'd be happy to hear</i><br>
+<i>&gt; them. I'm hoping to bundle these changes up into a patch once I get all</i><br>
+<i>&gt; the problems striaghtened out.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 							Thanks,</i><br>
+<i>&gt; 							- |Daryll</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; --</i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0050.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>Previous message:</b> <a href="0048.html">sperati: "UNSOLICITED JUNK E-MAIL. RETURN TO SENDER"</a>
+<li> <b>In reply to:</b> <a href="0019.html">Rick Windham: "New PAM Config in 4.2"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,566 @@
+diff -rup linux/arch/alpha/Makefile 2.3.99-3/arch/alpha/Makefile
+--- linux/arch/alpha/Makefile	Wed Dec 15 10:32:47 1999
++++ 2.3.99-3/arch/alpha/Makefile	Tue Mar 28 19:05:38 2000
+@@ -10,7 +10,7 @@
+ 
+ NM := nm -B
+ 
+-LINKFLAGS = -static -T arch/alpha/vmlinux.lds #-N -relax
++LINKFLAGS = -static -T arch/alpha/vmlinux.lds -N #-relax
+ CFLAGS := $(CFLAGS) -pipe -mno-fp-regs -ffixed-8
+ 
+ # Determine if we can use the BWX instructions with GAS.
+diff -rup linux/arch/alpha/kernel/core_cia.c 2.3.99-3/arch/alpha/kernel/core_cia.c
+--- linux/arch/alpha/kernel/core_cia.c	Sat Mar 25 12:38:21 2000
++++ 2.3.99-3/arch/alpha/kernel/core_cia.c	Tue Mar 28 19:05:38 2000
+@@ -16,6 +16,7 @@
+ #include <linux/pci.h>
+ #include <linux/sched.h>
+ #include <linux/init.h>
++#include <linux/mm.h>
+ 
+ #include <asm/system.h>
+ #include <asm/ptrace.h>
+@@ -396,13 +397,11 @@ cia_pci_tbi_try2(struct pci_controler *h
+ static void __init
+ verify_tb_operation(void)
+ {
+-	static int page[PAGE_SIZE/4]
+-		__attribute__((aligned(PAGE_SIZE)))
+-		__initlocaldata = { 0 };
+-
+ 	struct pci_iommu_arena *arena = pci_isa_hose->sg_isa;
+ 	int ctrl, addr0, tag0, pte0, data0;
+-	int temp;
++	int temp, *page;
++
++	page = (int *) get_zeroed_page(GFP_KERNEL);
+ 
+ 	/* Put the chip into PCI loopback mode.  */
+ 	mb();
+@@ -578,6 +577,8 @@ exit:
+ 	mb();
+ 	*(vip)CIA_IOC_CIA_CTRL;
+ 	mb();
++
++	free_page((unsigned long) page);
+ 	return;
+ 
+ failed:
+diff -rup linux/arch/alpha/kernel/head.S 2.3.99-3/arch/alpha/kernel/head.S
+--- linux/arch/alpha/kernel/head.S	Tue Dec 14 08:51:10 1999
++++ 2.3.99-3/arch/alpha/kernel/head.S	Tue Mar 28 21:05:44 2000
+@@ -7,13 +7,10 @@
+  * the kernel global pointer and jump to the kernel entry-point.
+  */
+ 
+-#include <asm/system.h>
+-
+-.globl swapper_pg_dir
+-.globl _stext
+-swapper_pg_dir=SWAPPER_PGD
++#include <asm/pal.h>
+ 
+ 	.set noreorder
++	.globl _stext
+ 	.globl	__start
+ 	.ent	__start
+ _stext:
+@@ -30,7 +27,7 @@ __start:
+ 	call_pal PAL_halt
+ 	.end __start
+ 
+-#ifdef __SMP__
++#ifdef CONFIG_SMP
+ 	.align 3
+ 	.globl	__smp_callin
+ 	.ent	__smp_callin
+@@ -40,53 +37,24 @@ __start:
+ 	   of the target idle task.  */
+ __smp_callin:
+ 	.prologue 1
+-	ldgp	$29,0($27)	# First order of business, load the GP.
++	ldgp	$29,0($27)	/* First order of business, load the GP.  */
+ 
+-	call_pal PAL_rduniq	# Grab the target PCBB.
+-	mov	$0,$16		# Install it.
++	call_pal PAL_rduniq	/* Grab the target PCBB.  */
++	mov	$0,$16		/* Install it.  */
+ 	call_pal PAL_swpctx
+ 
+-	lda	$8,0x3fff	# Find "current".
++	lda	$8,0x3fff	/* Find "current".  */
+ 	bic	$30,$8,$8
+ 	
+ 	jsr	$26,smp_callin
+ 	call_pal PAL_halt
+ 	.end __smp_callin
+-#endif /* __SMP__ */
+-
+-	#
+-	# The following two functions are needed for supporting SRM PALcode
+-	# on the PC164 (at least), since that PALcode manages the interrupt
+-	# masking, and we cannot duplicate the effort without causing problems
+-	#
+-
+-	.align 3
+-	.globl	cserve_ena
+-	.ent	cserve_ena
+-cserve_ena:
+-	.prologue 0
+-	bis	$16,$16,$17
+-	lda	$16,52($31)
+-	call_pal PAL_cserve
+-	ret	($26)
+-	.end	cserve_ena
++#endif /* CONFIG_SMP */
+ 
+-	.align 3
+-	.globl	cserve_dis
+-	.ent	cserve_dis
+-cserve_dis:
+-	.prologue 0
+-	bis	$16,$16,$17
+-	lda	$16,53($31)
+-	call_pal PAL_cserve
+-	ret	($26)
+-	.end	cserve_dis
+-
+-	#
+-	# It is handy, on occasion, to make halt actually just loop. 
+-	# Putting it here means we dont have to recompile the whole
+-	# kernel.
+-	#
++/*
++ * It is handy, on occasion, to make halt actually just loop. 
++ * Putting it here means we dont have to recompile the whole kernel.
++ */
+ 
+ 	.align 3
+ 	.globl	halt
+diff -rup linux/arch/alpha/kernel/irq.c 2.3.99-3/arch/alpha/kernel/irq.c
+--- linux/arch/alpha/kernel/irq.c	Sat Mar 25 12:38:08 2000
++++ 2.3.99-3/arch/alpha/kernel/irq.c	Tue Mar 28 19:05:38 2000
+@@ -628,7 +628,7 @@ handle_irq(int irq, struct pt_regs * reg
+ 	/*
+ 	 * Edge triggered interrupts need to remember pending events.
+ 	 * This applies to any hw interrupts that allow a second
+-	 * instance of the same irq to arrive while we are in do_IRQ
++	 * instance of the same irq to arrive while we are in handle_irq
+ 	 * or in the handler. But the code here only handles the _second_
+ 	 * instance of the irq, not the third or fourth. So it is mostly
+ 	 * useful for irq hardware that does not mask cleanly in an
+diff -rup linux/arch/alpha/kernel/process.c 2.3.99-3/arch/alpha/kernel/process.c
+--- linux/arch/alpha/kernel/process.c	Sat Mar 25 12:38:21 2000
++++ 2.3.99-3/arch/alpha/kernel/process.c	Tue Mar 28 19:06:44 2000
+@@ -48,15 +48,18 @@
+  * setup.
+  */
+ 
+-unsigned long init_user_stack[1024] = { STACK_MAGIC, };
+ static struct vm_area_struct init_mmap = INIT_MMAP;
+ static struct fs_struct init_fs = INIT_FS;
+ static struct files_struct init_files = INIT_FILES;
+ static struct signal_struct init_signals = INIT_SIGNALS;
+ struct mm_struct init_mm = INIT_MM(init_mm);
+ 
+-union task_union init_task_union __attribute__((section("init_task")))
+-	 = { task: INIT_TASK(init_task_union.task) };
++union task_union init_task_union
++	__attribute__((section("init_task"), aligned(2*PAGE_SIZE)))
++	= { task: INIT_TASK(init_task_union.task) };
++
++pgd_t swapper_pg_dir[1024] __attribute__((aligned(PAGE_SIZE)));
++char ___zero_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+ 
+ /*
+  * No need to acquire the kernel lock, we're entirely local..
+diff -rup linux/arch/alpha/kernel/setup.c 2.3.99-3/arch/alpha/kernel/setup.c
+--- linux/arch/alpha/kernel/setup.c	Sat Mar 25 12:38:08 2000
++++ 2.3.99-3/arch/alpha/kernel/setup.c	Tue Mar 28 19:05:38 2000
+@@ -72,7 +72,7 @@ static void get_sysnames(long, long, cha
+  * initialized, we need to copy things out into a more permanent
+  * place.
+  */
+-#define PARAM			ZERO_PGE
++#define PARAM			(IDENT_ADDR + 0x30A000)
+ #define COMMAND_LINE		((char*)(PARAM + 0x0000))
+ #define COMMAND_LINE_SIZE	256
+ #define INITRD_START		(*(unsigned long *) (PARAM+0x100))
+@@ -205,11 +205,13 @@ reserve_std_resources(void)
+ static void __init
+ setup_memory(void)
+ {
++	extern char _stext[], _end[];
++
+ 	struct memclust_struct * cluster;
+ 	struct memdesc_struct * memdesc;
+-	unsigned long start_pfn, bootmap_size, bootmap_pages, bootmap_start;
++	unsigned long start_kernel_pfn, end_kernel_pfn;
++	unsigned long bootmap_size, bootmap_pages, bootmap_start;
+ 	unsigned long start, end;
+-	extern char _end[];
+ 	int i;
+ 
+ 	/* Find free clusters, and init and free the bootmem accordingly.  */
+@@ -232,12 +234,13 @@ setup_memory(void)
+ 			max_low_pfn = end;
+ 	}
+ 
+-	/* Find the end of the kernel memory.  */
+-	start_pfn = PFN_UP(virt_to_phys(_end));
++	/* Find the bounds of kernel memory.  */
++	start_kernel_pfn = PFN_UP(virt_to_phys(_stext));
++	end_kernel_pfn = PFN_UP(virt_to_phys(_end));
+ 	bootmap_start = -1;
+ 
+  try_again:
+-	if (max_low_pfn <= start_pfn)
++	if (max_low_pfn <= end_kernel_pfn)
+ 		panic("not enough memory to boot");
+ 
+ 	/* We need to know how many physically contigous pages
+@@ -251,14 +254,19 @@ setup_memory(void)
+ 
+ 		start = cluster->start_pfn;
+ 		end = start + cluster->numpages;
+-		if (end <= start_pfn)
+-			continue;
+ 		if (start >= max_low_pfn)
+ 			continue;
+-		if (start < start_pfn)
+-			start = start_pfn;
+ 		if (end > max_low_pfn)
+ 			end = max_low_pfn;
++		if (start < start_kernel_pfn) {
++			if (end > end_kernel_pfn
++			    && end - end_kernel_pfn >= bootmap_pages) {
++				bootmap_start = end_kernel_pfn;
++				break;
++			} else if (end > start_kernel_pfn)
++				end = start_kernel_pfn;
++		} else if (start < end_kernel_pfn)
++			start = end_kernel_pfn;
+ 		if (end - start >= bootmap_pages) {
+ 			bootmap_start = start;
+ 			break;
+@@ -279,22 +287,28 @@ setup_memory(void)
+ 			continue;
+ 
+ 		start = cluster->start_pfn;
+-		if (start < start_pfn)
+-			start = start_pfn;
+-
+ 		end = cluster->start_pfn + cluster->numpages;
++		if (start >= max_low_pfn)
++			continue;
+ 		if (end > max_low_pfn)
+ 			end = max_low_pfn;
+-
++		if (start < start_kernel_pfn) {
++			if (end > end_kernel_pfn) {
++				free_bootmem(PFN_PHYS(start),
++					     (PFN_PHYS(start_kernel_pfn)
++					      - PFN_PHYS(start)));
++				printk("freeing pages %ld:%ld\n",
++				       start, start_kernel_pfn);
++				start = end_kernel_pfn;
++			} else if (end > start_kernel_pfn)
++				end = start_kernel_pfn;
++		} else if (start < end_kernel_pfn)
++			start = end_kernel_pfn;
+ 		if (start >= end)
+ 			continue;
+ 
+-		start = PFN_PHYS(start);
+-		end = PFN_PHYS(end);
+-
+-		free_bootmem(start, end - start);
+-		printk("freeing pages %ld:%ld\n",
+-		       PFN_UP(start), PFN_DOWN(end));
++		free_bootmem(PFN_PHYS(start), PFN_PHYS(end) - PFN_PHYS(start));
++		printk("freeing pages %ld:%ld\n", start, end);
+ 	}
+ 
+ 	/* Reserve the bootmap memory.  */
+@@ -309,7 +323,7 @@ setup_memory(void)
+ 
+ 		if (initrd_end > phys_to_virt(PFN_PHYS(max_low_pfn))) {
+ 			printk("initrd extends beyond end of memory "
+-			       "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
++			       "(0x%lx > 0x%lx)\ndisabling initrd\n",
+ 			       initrd_end,
+ 			       phys_to_virt(PFN_PHYS(max_low_pfn)));
+ 			initrd_start = initrd_end = 0;
+diff -rup linux/arch/alpha/mm/init.c 2.3.99-3/arch/alpha/mm/init.c
+--- linux/arch/alpha/mm/init.c	Wed Mar  1 02:41:03 2000
++++ 2.3.99-3/arch/alpha/mm/init.c	Tue Mar 28 19:05:38 2000
+@@ -41,6 +41,31 @@ struct thread_struct original_pcb;
+ struct pgtable_cache_struct quicklists;
+ #endif
+ 
++/*
++ * BAD_PAGE is the page that is used for page faults when linux
++ * is out-of-memory. Older versions of linux just did a
++ * do_exit(), but using this instead means there is less risk
++ * for a process dying in kernel mode, possibly leaving an inode
++ * unused etc..
++ *
++ * BAD_PAGETABLE is the accompanying page-table: it is initialized
++ * to point to BAD_PAGE entries.
++ *
++ * ZERO_PAGE is a special page that is used for zero-initialized
++ * data and COW.
++ */
++inline pmd_t *
++__bad_pagetable(void)
++{
++	return (pmd_t *) ___zero_page;
++}
++
++inline pte_t 
++__bad_page(void)
++{
++	return pte_mkdirty(mk_pte(ZERO_PAGE(0), PAGE_SHARED));
++}
++
+ void
+ __bad_pmd(pgd_t *pgd)
+ {
+@@ -117,33 +142,6 @@ int do_check_pgt_cache(int low, int high
+         return freed;
+ }
+ 
+-/*
+- * BAD_PAGE is the page that is used for page faults when linux
+- * is out-of-memory. Older versions of linux just did a
+- * do_exit(), but using this instead means there is less risk
+- * for a process dying in kernel mode, possibly leaving an inode
+- * unused etc..
+- *
+- * BAD_PAGETABLE is the accompanying page-table: it is initialized
+- * to point to BAD_PAGE entries.
+- *
+- * ZERO_PAGE is a special page that is used for zero-initialized
+- * data and COW.
+- */
+-pmd_t *
+-__bad_pagetable(void)
+-{
+-	memset((void *) EMPTY_PGT, 0, PAGE_SIZE);
+-	return (pmd_t *) EMPTY_PGT;
+-}
+-
+-pte_t
+-__bad_page(void)
+-{
+-	memset((void *) EMPTY_PGE, 0, PAGE_SIZE);
+-	return pte_mkdirty(mk_pte(mem_map + MAP_NR(EMPTY_PGE), PAGE_SHARED));
+-}
+-
+ void
+ show_mem(void)
+ {
+@@ -218,8 +216,8 @@ paging_init(void)
+ 
+ 	/* Initialize the kernel's page tables.  Linux puts the vptb in
+ 	   the last slot of the L1 page table.  */
+-	memset((void *)ZERO_PGE, 0, PAGE_SIZE);
+-	memset(swapper_pg_dir, 0, PAGE_SIZE);
++	clear_page(___zero_page);
++	clear_page(swapper_pg_dir);
+ 	newptbr = ((unsigned long) swapper_pg_dir - PAGE_OFFSET) >> PAGE_SHIFT;
+ 	pgd_val(swapper_pg_dir[1023]) =
+ 		(newptbr << 32) | pgprot_val(PAGE_KERNEL);
+diff -rup linux/include/asm-alpha/pgtable.h 2.3.99-3/include/asm-alpha/pgtable.h
+--- linux/include/asm-alpha/pgtable.h	Sat Mar 25 12:38:25 2000
++++ 2.3.99-3/include/asm-alpha/pgtable.h	Tue Mar 28 19:12:08 2000
+@@ -136,11 +136,12 @@
+ extern pte_t __bad_page(void);
+ extern pmd_t * __bad_pagetable(void);
+ 
++extern char ___zero_page[];
+ extern unsigned long __zero_page(void);
+ 
+ #define BAD_PAGETABLE	__bad_pagetable()
+ #define BAD_PAGE	__bad_page()
+-#define ZERO_PAGE(vaddr)	(mem_map + MAP_NR(ZERO_PGE))
++#define ZERO_PAGE(vaddr)	(mem_map + MAP_NR(___zero_page))
+ 
+ /* number of bits that fit into a memory pointer */
+ #define BITS_PER_PTR			(8*sizeof(unsigned long))
+diff -rup linux/include/asm-alpha/system.h 2.3.99-3/include/asm-alpha/system.h
+--- linux/include/asm-alpha/system.h	Wed Mar  1 02:41:30 2000
++++ 2.3.99-3/include/asm-alpha/system.h	Tue Mar 28 19:12:13 2000
+@@ -10,27 +10,6 @@
+  * files, so it does only defines, not any C code.
+  */
+ 
+-/*
+- * We leave one page for the initial stack page, and one page for
+- * the initial process structure. Also, the console eats 3 MB for
+- * the initial bootloader (one of which we can reclaim later).
+- * With a few other pages for various reasons, we'll use an initial
+- * load address of PAGE_OFFSET+0x310000UL
+- */
+-#define BOOT_PCB	0x20000000
+-#define BOOT_ADDR	0x20000000
+-/* Remove when official MILO sources have ELF support: */
+-#define BOOT_SIZE	(16*1024)
+-
+-#define KERNEL_START	(PAGE_OFFSET+0x300000)
+-#define SWAPPER_PGD	(PAGE_OFFSET+0x300000)
+-#define INIT_STACK	(PAGE_OFFSET+0x302000)
+-#define EMPTY_PGT	(PAGE_OFFSET+0x304000)
+-#define EMPTY_PGE	(PAGE_OFFSET+0x308000)
+-#define ZERO_PGE	(PAGE_OFFSET+0x30A000)
+-
+-#define START_ADDR	(PAGE_OFFSET+0x310000)
+-
+ #ifndef __ASSEMBLY__
+ 
+ /*
+@@ -183,8 +162,8 @@ enum amask_enum {
+    __asm__ ("amask %1,%0" : "=r"(__amask) : "rI"(__input));	\
+    __amask; })
+ 
+-#define __CALL_PAL_R0(NAME, TYPE)				\
+-static inline TYPE NAME(void)					\
++#define __CALL_PAL_R0(FN, NAME, TYPE)				\
++static inline TYPE FN(void)					\
+ {								\
+ 	register TYPE __r0 __asm__("$0");			\
+ 	__asm__ __volatile__(					\
+@@ -195,8 +174,8 @@ static inline TYPE NAME(void)					\
+ 	return __r0;						\
+ }
+ 
+-#define __CALL_PAL_W1(NAME, TYPE0)				\
+-static inline void NAME(TYPE0 arg0)				\
++#define __CALL_PAL_W1(FN, NAME, TYPE0)				\
++static inline void FN(TYPE0 arg0)				\
+ {								\
+ 	register TYPE0 __r16 __asm__("$16") = arg0;		\
+ 	__asm__ __volatile__(					\
+@@ -206,8 +185,8 @@ static inline void NAME(TYPE0 arg0)				\
+ 		: "$1", "$22", "$23", "$24", "$25");		\
+ }
+ 
+-#define __CALL_PAL_W2(NAME, TYPE0, TYPE1)			\
+-static inline void NAME(TYPE0 arg0, TYPE1 arg1)			\
++#define __CALL_PAL_W2(FN, NAME, TYPE0, TYPE1)			\
++static inline void FN(TYPE0 arg0, TYPE1 arg1)			\
+ {								\
+ 	register TYPE0 __r16 __asm__("$16") = arg0;		\
+ 	register TYPE1 __r17 __asm__("$17") = arg1;		\
+@@ -218,8 +197,8 @@ static inline void NAME(TYPE0 arg0, TYPE
+ 		: "$1", "$22", "$23", "$24", "$25");		\
+ }
+ 
+-#define __CALL_PAL_RW1(NAME, RTYPE, TYPE0)			\
+-static inline RTYPE NAME(TYPE0 arg0)				\
++#define __CALL_PAL_RW1(FN, NAME, RTYPE, TYPE0)			\
++static inline RTYPE FN(TYPE0 arg0)				\
+ {								\
+ 	register RTYPE __r0 __asm__("$0");			\
+ 	register TYPE0 __r16 __asm__("$16") = arg0;		\
+@@ -231,8 +210,8 @@ static inline RTYPE NAME(TYPE0 arg0)				
+ 	return __r0;						\
+ }
+ 
+-#define __CALL_PAL_RW2(NAME, RTYPE, TYPE0, TYPE1)		\
+-static inline RTYPE NAME(TYPE0 arg0, TYPE1 arg1)		\
++#define __CALL_PAL_RW2(FN, NAME, RTYPE, TYPE0, TYPE1)		\
++static inline RTYPE FN(TYPE0 arg0, TYPE1 arg1)			\
+ {								\
+ 	register RTYPE __r0 __asm__("$0");			\
+ 	register TYPE0 __r16 __asm__("$16") = arg0;		\
+@@ -245,19 +224,19 @@ static inline RTYPE NAME(TYPE0 arg0, TYP
+ 	return __r0;						\
+ }
+ 
+-__CALL_PAL_W1(cflush, unsigned long);
+-__CALL_PAL_R0(rdmces, unsigned long);
+-__CALL_PAL_R0(rdps, unsigned long);
+-__CALL_PAL_R0(rdusp, unsigned long);
+-__CALL_PAL_RW1(swpipl, unsigned long, unsigned long);
+-__CALL_PAL_R0(whami, unsigned long);
+-__CALL_PAL_W2(wrent, void*, unsigned long);
+-__CALL_PAL_W1(wripir, unsigned long);
+-__CALL_PAL_W1(wrkgp, unsigned long);
+-__CALL_PAL_W1(wrmces, unsigned long);
+-__CALL_PAL_RW2(wrperfmon, unsigned long, unsigned long, unsigned long);
+-__CALL_PAL_W1(wrusp, unsigned long);
+-__CALL_PAL_W1(wrvptptr, unsigned long);
++__CALL_PAL_W1(cflush, cflush, unsigned long);
++__CALL_PAL_R0(rdmces, rdmces, unsigned long);
++__CALL_PAL_R0(rdps, rdps, unsigned long);
++__CALL_PAL_R0(rdusp, rdusp, unsigned long);
++__CALL_PAL_RW1(swpipl, swpipl, unsigned long, unsigned long);
++__CALL_PAL_R0(whami, whami, unsigned long);
++__CALL_PAL_W2(wrent, wrent, void*, unsigned long);
++__CALL_PAL_W1(wripir, wripir, unsigned long);
++__CALL_PAL_W1(wrkgp, wrkgp, unsigned long);
++__CALL_PAL_W1(wrmces, wrmces, unsigned long);
++__CALL_PAL_RW2(wrperfmon, wrperfmon, unsigned long, unsigned long, unsigned long);
++__CALL_PAL_W1(wrusp, wrusp, unsigned long);
++__CALL_PAL_W1(wrvptptr, wrvptptr, unsigned long);
+ 
+ #define IPL_MIN		0
+ #define IPL_SW0		1
+@@ -272,7 +251,7 @@ __CALL_PAL_W1(wrvptptr, unsigned long);
+ 
+ #ifdef CONFIG_ALPHA_BROKEN_IRQ_MASK
+ #undef IPL_MIN
+-#define IPL_MIN		__min_ipl
++#define IPL_MIN __min_ipl
+ extern int __min_ipl;
+ #endif
+ 
+@@ -319,23 +298,26 @@ extern void __global_restore_flags(unsig
+ /*
+  * TB routines..
+  */
+-#define __tbi(nr,arg,arg1...)					\
+-({								\
+-	register unsigned long __r16 __asm__("$16") = (nr);	\
+-	register unsigned long __r17 __asm__("$17"); arg;	\
+-	__asm__ __volatile__(					\
+-		"call_pal %3 #__tbi"				\
+-		:"=r" (__r16),"=r" (__r17)			\
+-		:"0" (__r16),"i" (PAL_tbi) ,##arg1		\
+-		:"$0", "$1", "$22", "$23", "$24", "$25");	\
+-})
+-
+-#define tbi(x,y)	__tbi(x,__r17=(y),"1" (__r17))
+-#define tbisi(x)	__tbi(1,__r17=(x),"1" (__r17))
+-#define tbisd(x)	__tbi(2,__r17=(x),"1" (__r17))
+-#define tbis(x)		__tbi(3,__r17=(x),"1" (__r17))
+-#define tbiap()		__tbi(-1, /* no second argument */)
+-#define tbia()		__tbi(-2, /* no second argument */)
++
++__CALL_PAL_W2(tbi, tbi, unsigned long, unsigned long);
++__CALL_PAL_W1(__tbi1, tbi, unsigned long);
++
++extern inline void tbisi(unsigned long addr)	{ tbi(1, addr); }
++extern inline void tbisd(unsigned long addr)	{ tbi(2, addr); }
++extern inline void tbis(unsigned long addr)	{ tbi(3, addr); }
++extern inline void tbiap(void)			{ __tbi1(-1); }
++extern inline void tbia(void)			{ __tbi1(-2); }
++
++/*
++ * The following two functions are needed for supporting SRM PALcode
++ * on several systems, since that PALcode manages the interrupt
++ * masking and we cannot duplicate the effort without causing problems.
++ */
++
++__CALL_PAL_W2(__cserve2, cserve, unsigned long, unsigned long);
++
++static inline void cserve_ena(unsigned long vector) { __cserve2(52, vector); }
++static inline void cserve_dis(unsigned long vector) { __cserve2(53, vector); }
+ 
+ /*
+  * Atomic exchange.
+
+--y0ulUmNC+osPPQO6--
+

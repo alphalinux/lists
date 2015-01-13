@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>AXP-List Hypermail Archive: 2.3.28 kernels</TITLE>
+<META NAME="Author" CONTENT="Michael Werner (werner@quantum.ece.ucsb.edu)">
+<META NAME="Subject" CONTENT="2.3.28 kernels">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.3.28 kernels</H1>
+<HR>
+<P>
+<!-- received="Sat Nov 13 15:52:41 1999" -->
+<!-- isoreceived="19991114005241" -->
+<!-- sent="Sat, 13 Nov 1999 16:40:29 -0800" -->
+<!-- isosent="19991114004029" -->
+<!-- name="Michael Werner" -->
+<!-- email="werner@quantum.ece.ucsb.edu" -->
+<!-- subject="2.3.28 kernels" -->
+<!-- id="99111316521400.06144@cluster1" -->
+<STRONG>Subject: </STRONG>2.3.28 kernels<BR>
+<STRONG>From: </STRONG>Michael Werner (<EM>werner@quantum.ece.ucsb.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Nov 13 1999 - 15:40:29 AKST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#487">[ date ]</A>
+<A HREF="index.html#487">[ thread ]</A>
+<A HREF="subject.html#487">[ subject ]</A>
+<A HREF="author.html#487">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0488.html">Adam Chrystie: "em86 first time install"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0486.html">Praveen Srinivasan: "Re: AlphaBIOS/Milo and reboot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0506.html">Waibel Niki: "RE: 2.3.28 kernels"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+</PRE>
+<P>
+mm/memory.c has problems on alpha as mentioned earlier.
+<BR>
+It appears also that several casts to void * conflict with their declarations.
+<BR>
+i.e in include/linux/mm.h  and include/linux/highmem.h
+<BR>
+diffs for those appear below:
+<BR>
+<P>[werner@feynman linux]$ diff mm.h.orig mm.h
+<BR>
+306c306
+<BR>
+&lt; 		clear_page((void *)page);
+<BR>
+<PRE>
+---
+&gt; 		clear_page(page);
+[werner@feynman linux]$ diff highmem.h highmem.h.orig
+38c38
+&lt; 	clear_page(kaddr);
+---
+&gt; 	clear_page((void *)kaddr);
+74c74
+&lt; 	copy_page(vto, vfrom);
+---
+&gt; 	copy_page((void *)vto, (void *)vfrom);
+<P><P>----------------------------------------------------------
+<P>These small changes remove a  lot of warnings in the 2.3.28 compilation but
+more remain. Still working on those...
+<P> make -C  mm
+make[1]: Entering directory `/usr/local/werner/linux/mm'
+make all_targets
+make[2]: Entering directory `/usr/local/werner/linux/mm'
+gcc -D__KERNEL__ -I/usr/local/werner/linux/include -Wall -Wstrict-prototypes -O2
+ -fomit-frame-pointer -fno-strict-aliasing -pipe -mno-fp-regs -ffixed-8 -mcpu=ev
+5 -Wa,-mev6   -c -o memory.o memory.c
+/usr/local/werner/linux/include/linux/highmem.h: In function `clear_highpage':
+In file included from memory.c:46:
+/usr/local/werner/linux/include/linux/highmem.h:37: warning: implicit declaratio
+n of function `page_address'
+memory.c: In function `copy_cow_page':
+memory.c:63: warning: comparison between pointer and integer
+memory.c: In function `free_one_pmd':
+memory.c:93: warning: implicit declaration of function `pmd_ERROR'
+memory.c: In function `free_one_pgd':
+memory.c:110: warning: implicit declaration of function `pgd_ERROR'
+memory.c: In function `copy_page_range':
+memory.c:230: warning: implicit declaration of function `pte_to_swp_entry'
+memory.c:230: incompatible type for argument 1 of `swap_duplicate'
+memory.c:234: warning: implicit declaration of function `pte_pagenr'
+memory.c: In function `free_pte':
+memory.c:285: incompatible type for argument 1 of `__swap_free'
+memory.c: In function `follow_page':
+memory.c:408: warning: return makes pointer from integer without a cast
+memory.c: In function `get_page_map':
+memory.c:423: warning: comparison between pointer and integermemory.c: In function `put_dirty_page':
+memory.c:741: warning: implicit declaration of function `pte_ERROR'
+memory.c:746: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c: In function `do_wp_page':
+memory.c:825: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c: In function `partial_clear':
+memory.c:873: warning: assignment makes pointer from integer without a cast
+memory.c: In function `swapin_readahead':
+memory.c:952: invalid operands to binary &gt;&gt;
+memory.c:953: invalid operands to binary &gt;&gt;
+memory.c:972: invalid operands to binary &gt;&gt;
+memory.c:972: incompatible type for argument 1 of `read_swap_cache_async'
+memory.c: In function `do_swap_page':
+memory.c:1004: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c:1010: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c: In function `do_anonymous_page':
+memory.c:1034: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c: In function `do_no_page':
+memory.c:1088: warning: passing arg 1 of `mk_pte' makes integer from pointer without a cast
+memory.c: In function `handle_pte_fault':
+memory.c:1128: incompatible type for argument 5 of `do_swap_page'
+make[2]: *** [memory.o] Error 1
+make[2]: Leaving directory `/usr/local/werner/linux/mm'
+make[1]: *** [first_rule] Error 2
+make[1]: Leaving directory `/usr/local/werner/linux/mm'
+make: *** [_dir_mm] Error 2
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0488.html">Adam Chrystie: "em86 first time install"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0486.html">Praveen Srinivasan: "Re: AlphaBIOS/Milo and reboot"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0506.html">Waibel Niki: "RE: 2.3.28 kernels"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a23</A> 
+: <EM>Sat Nov 13 1999 - 15:52:42 AKST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

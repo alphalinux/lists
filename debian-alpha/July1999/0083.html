@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: alpha versus intel performance?</TITLE>
+<META NAME="Author" CONTENT="Danny Heap (danny@gibbs.med.utoronto.ca)">
+<META NAME="Subject" CONTENT="alpha versus intel performance?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>alpha versus intel performance?</H1>
+<HR>
+<P>
+<!-- received="Tue Jul 13 15:42:55 1999" -->
+<!-- isoreceived="19990713224255" -->
+<!-- sent="Tue, 13 Jul 1999 11:16:49 -0400 (EDT)" -->
+<!-- isosent="19990713151649" -->
+<!-- name="Danny Heap" -->
+<!-- email="danny@gibbs.med.utoronto.ca" -->
+<!-- subject="alpha versus intel performance?" -->
+<!-- id="E1144Ib-0003Yq-00@gibbs.med.utoronto.ca" -->
+<STRONG>Subject: </STRONG>alpha versus intel performance?<BR>
+<STRONG>From: </STRONG>Danny Heap (<EM>danny@gibbs.med.utoronto.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jul 13 1999 - 08:16:49 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#83">[ date ]</A>
+<A HREF="index.html#83">[ thread ]</A>
+<A HREF="subject.html#83">[ subject ]</A>
+<A HREF="author.html#83">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.html">Jay.Estabrook@digital.com: "Re: alpha versus intel performance?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.html">Goswin Brederlow: "Re: SHMMAX, cdrecord, kernel"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0084.html">Jay.Estabrook@digital.com: "Re: alpha versus intel performance?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Our lab purchased a DEC alpha lx164 recently.  We had seen benchmarks
+<BR>
+(and heard comments) that suggested that it would outperform
+<BR>
+similarly-clocked P-II processors, especially in floating point
+<BR>
+operations.
+<BR>
+<P>In fact, our experience has been the reverse: our 350MHz P-IIs
+<BR>
+outperform our 533MHz alpha by at least a factor of 2.  I am including
+<BR>
+a short loop in C, with lots of trig functions (I assume that this
+<BR>
+should showcase floating point operations), plus the output from our
+<BR>
+DEC and Intel boxes.  I am also enclosing the output of `cat
+<BR>
+/proc/cpuinfo` in case that is relevant.
+<BR>
+<P>Any suggestions?  Are there some optimizations for the alpha that are
+<BR>
+(a) still being developed, or (b) that we can pass the compiler?
+<BR>
+<P>Thanks for any help.
+<BR>
+<P>Danny Heap
+<BR>
+danny@gibbs.med.utoronto.ca
+<BR>
+-----------------------
+<BR>
+This is floating.c:
+<BR>
+-----------------------
+<BR>
+#include &lt;math.h&gt;
+<BR>
+<P>main(){
+<BR>
+double trig1, trig2;
+<BR>
+int ctr;
+<BR>
+<P>&nbsp;for (ctr=0; ctr&lt;1000000; ctr++){
+<BR>
+&nbsp;&nbsp;&nbsp;trig1 = sin(ctr);
+<BR>
+&nbsp;&nbsp;&nbsp;trig2 = asin(trig1);
+<BR>
+&nbsp;&nbsp;&nbsp;trig1 = cos(trig2);
+<BR>
+&nbsp;&nbsp;&nbsp;trig2 = acos(trig1);
+<BR>
+&nbsp;}
+<BR>
+}
+<BR>
+<P>-----------------------
+<BR>
+This is our DEC alpha:
+<BR>
+-----------------------
+<BR>
+&lt;arrhenius&gt;$ cat /proc/cpuinfo
+<BR>
+cpu			: Alpha
+<BR>
+cpu model		: EV56
+<BR>
+cpu variation		: 0
+<BR>
+cpu revision		: 0
+<BR>
+cpu serial number	: Linux_is_Great!
+<BR>
+system type		: EB164
+<BR>
+system variation	: LX164
+<BR>
+system revision		: 0
+<BR>
+system serial number	: MILO-2.0.35-c5.
+<BR>
+cycle frequency [Hz]	: 533194304 
+<BR>
+timer frequency [Hz]	: 1024.00
+<BR>
+page size [bytes]	: 8192
+<BR>
+phys. address bits	: 40
+<BR>
+max. addr. space #	: 127
+<BR>
+BogoMIPS		: 530.57
+<BR>
+kernel unaligned acc	: 0 (pc=0,va=0)
+<BR>
+user unaligned acc	: 752 (pc=12004deb4,va=1205cf83f)
+<BR>
+platform string		: N/A
+<BR>
+---------------------
+<BR>
+&lt;arrhenius&gt;$ time ./floating.alpha
+<BR>
+
+<BR>
+real	0m4.903s
+<BR>
+user	0m4.896s
+<BR>
+sys	0m0.007s
+<BR>
+<P>-------------------
+<BR>
+This is our intel machine:
+<BR>
+-----------------------
+<BR>
+&lt;gibbs&gt;$ cat /proc/cpuinfo
+<BR>
+processor	: 0
+<BR>
+cpu		: 686
+<BR>
+model		: 5
+<BR>
+vendor_id	: GenuineIntel
+<BR>
+stepping	: 2
+<BR>
+fdiv_bug	: no
+<BR>
+hlt_bug		: no
+<BR>
+f00f_bug	: no
+<BR>
+fpu		: yes
+<BR>
+fpu_exception	: yes
+<BR>
+cpuid		: yes
+<BR>
+wp		: yes
+<BR>
+flags		: fpu vme de pse tsc msr pae mce cx8 11 mtrr pge mca cmov 16 17 mmx 24
+<BR>
+bogomips	: 348.16
+<BR>
+------------------
+<BR>
+`time ./floating.intel`
+<BR>
+------------------
+<BR>
+real	0m2.751s
+<BR>
+user	0m2.510s
+<BR>
+sys	0m0.000s
+<BR>
+-----------------------------------------------------------------
+<BR>
+<P><P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.html">Jay.Estabrook@digital.com: "Re: alpha versus intel performance?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.html">Goswin Brederlow: "Re: SHMMAX, cdrecord, kernel"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0084.html">Jay.Estabrook@digital.com: "Re: alpha versus intel performance?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:38 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

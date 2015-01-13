@@ -1,0 +1,187 @@
+<!-- received="Fri Apr 19 02:45:02 1996 " -->
+<!-- sent="Fri, 19 Apr 1996 02:45:02 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Re: bad blocks on SCSI disk with NCR 810 controller :-(" -->
+<!-- id="9604190625.AA06295@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="199604182010.QAA03726@bip.anatomy.upenn.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: bad blocks on SCSI disk with NCR 810 controller :-(</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: bad blocks on SCSI disk with NCR 810 controller :-(</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 19 Apr 1996 02:45:02 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#284">[ date ]</a><a href="index.html#284">[ thread ]</a><a href="subject.html#284">[ subject ]</a><a href="author.html#284">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0285.html">Harald Koenig: "emacs-19.30-3.axp not working"</a>
+<li> <b>Previous message:</b> <a href="0283.html">velcro@pobox.com: "Re: AlphaStation info"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; &gt; 2) the other nasty thing is that there is no tool to check or print the</i><br>
+<i>&gt; &gt; bad blocks marked in a ext2fs (linked to inode #1) which makes it impossible&gt; &gt; to check if "e2fsck" did work correctly (other than hacking the e2fsck</i><br>
+<i>&gt; &gt; sources of course).</i><br>
+<i>&gt; &gt;</i><br>
+<i>&gt; Check out the dumpe2fs command with "man dumpe2fs".  </i><br>
+<i>&gt; I think it does what you want.</i><br>
+<p>
+you're right but it wasn't that obvious (i did run dumpe2fs before) <br>
+since the man page doesn't mention bad blocks and the current <br>
+version (e2fsprogs-1.02) of dumpe2fs and debugfs are not 64bit-clean.  <br>
+<p>
+thus dumpe2fs locked up for Linux/AXP in the first ctime() call since <br>
+the ext2fs timestamps are 32bit and ctime gets passed a pointer <br>
+to 64bit time_t...<br>
+<p>
+here is a small sample which shows the problem (and producing an <br>
+unaligned trap too)<br>
+<p>
+-------------------------------------------------------------------------------<br>
+#include &lt;linux/ext2_fs_sb.h&gt;<br>
+main()<br>
+{<br>
+  struct ext2_super_block s;<br>
+  s.s_mtime = 829857997;<br>
+  s.s_wtime = 829857997;<br>
+  s.s_lastcheck = 829857997;<br>
+  printf("%s\n",ctime(&amp;s.s_mtime));<br>
+  printf("done...\n");<br>
+}<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+and here is a fix for this ctime() problems for e2fsprogs-1.02.<br>
+maybe it would look better to use a wrapper function for ctime() ?!<br>
+<p>
+<p>
+-------------------------------------------------------------------------------<br>
+--- e2fsprogs-1.02/lib/e2p/ls.c.ORIG	Mon Oct 30 23:44:05 1995<br>
++++ e2fsprogs-1.02/lib/e2p/ls.c	Fri Apr 19 02:23:04 1996<br>
+@@ -45,6 +45,7 @@<br>
+ <br>
+ void list_super (struct ext2_super_block * s)<br>
+ {<br>
++  time_t tm;<br>
+ 	printf ("Filesystem magic number:  0x%04X\n", s-&gt;s_magic);<br>
+ 	printf ("Filesystem state:        ");<br>
+ 	print_fs_state (stdout, s-&gt;s_state);<br>
+@@ -63,11 +64,14 @@<br>
+ 	printf ("Blocks per group:         %u\n", s-&gt;s_blocks_per_group);<br>
+ 	printf ("Fragments per group:      %u\n", s-&gt;s_frags_per_group);<br>
+ 	printf ("Inodes per group:         %u\n", s-&gt;s_inodes_per_group);<br>
+-	printf ("Last mount time:          %s", ctime ((time_t *) &amp;s-&gt;s_mtime));<br>
+-	printf ("Last write time:          %s", ctime ((time_t *) &amp;s-&gt;s_wtime));<br>
++	tm = s-&gt;s_mtime;<br>
++	printf ("Last mount time:          %s", ctime (&amp;tm));<br>
++	tm = s-&gt;s_wtime;<br>
++	printf ("Last write time:          %s", ctime (&amp;tm));<br>
+ 	printf ("Mount count:              %u\n", s-&gt;s_mnt_count);<br>
+ 	printf ("Maximum mount count:      %d\n", s-&gt;s_max_mnt_count);<br>
+-	printf ("Last checked:             %s", ctime ((time_t *) &amp;s-&gt;s_lastcheck));<br>
++	tm = s-&gt;s_lastcheck;<br>
++	printf ("Last checked:             %s", ctime (&amp;tm));<br>
+ 	printf ("Check interval:           %u\n", s-&gt;s_checkinterval);<br>
+ 	if (s-&gt;s_checkinterval)<br>
+ 	{<br>
+--- e2fsprogs-1.02/debugfs/debugfs.c.ORIG	Thu Sep  7 05:18:50 1995<br>
++++ e2fsprogs-1.02/debugfs/debugfs.c	Fri Apr 19 02:29:56 1996<br>
+@@ -164,6 +164,7 @@<br>
+ {<br>
+ 	int	i;<br>
+ 	FILE 	*out;<br>
++	time_t  tm;<br>
+ <br>
+ 	if (argc &gt; 1) {<br>
+ 		com_err(argv[0], 0, "Usage: show_super");<br>
+@@ -174,8 +175,10 @@<br>
+ 	out = open_pager();<br>
+ 	fprintf(out, "Filesystem is read-%s\n", fs-&gt;flags &amp; EXT2_FLAG_RW ?<br>
+ 	        "write" : "only");<br>
+-	fprintf(out, "Last mount time = %s", ctime(&amp;fs-&gt;super-&gt;s_mtime));<br>
+-	fprintf(out, "Last write time = %s", ctime(&amp;fs-&gt;super-&gt;s_wtime));<br>
++	tm = fs-&gt;super-&gt;s_mtime;<br>
++	fprintf(out, "Last mount time = %s", ctime(&amp;tm));<br>
++	tm = fs-&gt;super-&gt;s_wtime;<br>
++	fprintf(out, "Last write time = %s", ctime(&amp;tm));<br>
+ 	fprintf(out, "Mount counts = %d (maximal = %d)\n",<br>
+ 		fs-&gt;super-&gt;s_mnt_count, fs-&gt;super-&gt;s_max_mnt_count);<br>
+ 	fprintf(out, "Superblock size = %d\n", sizeof(struct ext2_super_block));<br>
+@@ -246,6 +249,7 @@<br>
+ {<br>
+ 	const char *i_type;<br>
+ 	FILE	*out;<br>
++	time_t tm;<br>
+ 	<br>
+ 	out = open_pager();<br>
+ 	if (LINUX_S_ISDIR(inode.i_mode)) i_type = "directory";<br>
+@@ -269,15 +273,19 @@<br>
+ 	fprintf(out, "Fragment:  Address: %d    Number: %d    Size: %d\n",<br>
+ 		inode.i_faddr, inode.i_frag, inode.i_fsize);<br>
+ #endif<br>
++	tm = inode.i_ctime;<br>
+ 	fprintf(out, "ctime: 0x%08x -- %s", inode.i_ctime,<br>
+-		ctime(&amp;inode.i_ctime));<br>
++		ctime(&amp;tm));<br>
++	tm = inode.i_atime;<br>
+ 	fprintf(out, "atime: 0x%08x -- %s", inode.i_atime,<br>
+-		ctime(&amp;inode.i_atime));<br>
++		ctime(&amp;tm));<br>
++	tm = inode.i_mtime;<br>
+ 	fprintf(out, "mtime: 0x%08x -- %s", inode.i_mtime,<br>
+-		ctime(&amp;inode.i_mtime));<br>
++		ctime(&amp;tm));<br>
++	tm = inode.i_dtime;<br>
+ 	if (inode.i_dtime) <br>
+ 	  fprintf(out, "dtime: 0x%08x -- %s", inode.i_dtime,<br>
+-		  ctime(&amp;inode.i_dtime));<br>
++		  ctime(&amp;tm));<br>
+ 	if (LINUX_S_ISLNK(inode.i_mode) &amp;&amp; inode.i_blocks == 0)<br>
+ 		fprintf(out, "Fast_link_dest: %s\n", (char *)inode.i_block);<br>
+ 	else<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0285.html">Harald Koenig: "emacs-19.30-3.axp not working"</a>
+<li> <b>Previous message:</b> <a href="0283.html">velcro@pobox.com: "Re: AlphaStation info"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

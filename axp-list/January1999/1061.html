@@ -1,0 +1,438 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Alpha/2.2.0-pre8 hang on boot</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: Alpha/2.2.0-pre8 hang on boot">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alpha/2.2.0-pre8 hang on boot</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 02:25:53 1999 PST" -->
+<!-- sent="Wed, 20 Jan 1999 18:27:47 -0800" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: Alpha/2.2.0-pre8 hang on boot" -->
+<!-- id="19990120182747.A19275@piglet.twiddle.net" -->
+<!-- inreplyto="199901200838.IAA06393@ppp393.ts.rz.tu-bs.de" -->
+<STRONG>Richard Henderson</STRONG> (<A HREF="mailto:rth@twiddle.net?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot"><EM>rth@twiddle.net</EM></A>)<BR>
+<EM>Wed, 20 Jan 1999 18:27:47 -0800</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1061">[ date ]</A>
+<A HREF="index.html#1061">[ thread ]</A>
+<A HREF="subject.html#1061">[ subject ]</A>
+<A HREF="author.html#1061">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1062.html">Richard Henderson: "Re: 2100 with HSZ"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1060.html">Jeff DeMaagd: "Re: Wanna Buy My Alpha?"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0968.html">Jim W. Howard: "Wanna Buy My Alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, Jan 20, 1999 at 08:38:14AM +0000, <A HREF="mailto:y0000218@rzsrv2.rz.tu-bs.de?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot">y0000218@rzsrv2.rz.tu-bs.de</A> wrote:
+<BR>
+<EM>&gt; Even with the Henderson fix : pre8 doesnt boot for me, no pre
+</EM><BR>
+<EM>&gt; kernel did (well anything after 2.1.130 that i tried).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The kernel never even outputs a single character. &quot;jumping into
+</EM><BR>
+<EM>&gt; the linux kernel&quot; and thats it.
+</EM><BR>
+<P>I need more information.  To get it, you need a patch and
+<BR>
+something hooked up to ttyS0. 
+<BR>
+<P>Apply this and enable both CONFIG_SERIAL_CONSOLE and
+<BR>
+CONFIG_EARLY_SERIAL_CONSOLE.  You should get more in the
+<BR>
+way of early configuration output.  Presumably some panic
+<BR>
+before the system gets going properly.
+<BR>
+<P><P>r~
+<BR>
+<P><P>
+Index: arch/alpha/config.in
+<BR>
+===================================================================
+<BR>
+RCS file: /home/rth/CVSROOT/linux/arch/alpha/config.in,v
+<BR>
+retrieving revision 1.11
+<BR>
+diff -u -p -r1.11 config.in
+<BR>
+--- arch/alpha/config.in	1998/10/02 07:21:49	1.11
+<BR>
++++ arch/alpha/config.in	1998/11/12 02:41:17
+<BR>
+@@ -289,4 +289,11 @@ else
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
+&nbsp;bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ
+<BR>
++
+<BR>
++if [ &quot;$CONFIG_SERIAL_CONSOLE&quot; = &quot;y&quot; ]; then
+<BR>
++  bool 'Enable serial console early (ttyS0 only)' CONFIG_EARLY_SERIAL_CONSOLE
+<BR>
++fi
+<BR>
++
+<BR>
++bool 'In-kernel strace' CONFIG_KERNEL_STRACE
+<BR>
++
+<BR>
+&nbsp;endmenu
+<BR>
+Index: arch/alpha/kernel/entry.S
+<BR>
+===================================================================
+<BR>
+RCS file: /home/rth/CVSROOT/linux/arch/alpha/kernel/entry.S,v
+<BR>
+retrieving revision 1.8
+<BR>
+diff -u -p -r1.8 entry.S
+<BR>
+--- arch/alpha/kernel/entry.S	1998/10/31 07:54:45	1.8
+<BR>
++++ arch/alpha/kernel/entry.S	1998/11/12 04:15:54
+<BR>
+@@ -4,6 +4,7 @@
+<BR>
+&nbsp;&nbsp;* kernel entry-points
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define halt	.long PAL_halt
+<BR>
+@@ -539,7 +540,11 @@ entSys:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s8addq	$0,$5,$5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and     $3,PF_PTRACED,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$18,SP_OFF+40($30)
+<BR>
++#ifdef CONFIG_KERNEL_STRACE
+<BR>
++	br	strace
+<BR>
++#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bne     $3,strace
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$4,1f
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$27,0($5)
+<BR>
+&nbsp;1:	jsr	$26,($27),alpha_ni_syscall
+<BR>
+@@ -577,7 +582,9 @@ restore_all:
+<BR>
+&nbsp;.align 3
+<BR>
+&nbsp;strace:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* set up signal stack, call syscall_trace */
+<BR>
++	mov	$30,$16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr	$1,do_switch_stack
+<BR>
++	mov	0,$17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr     $26,syscall_trace
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr	$1,undo_switch_stack
+<BR>
+&nbsp;
+<BR>
+@@ -607,7 +614,9 @@ strace:
+<BR>
+&nbsp;strace_success:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0,0($30)		/* save return value */
+<BR>
+&nbsp;
+<BR>
++	mov	$30,$16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr	$1,do_switch_stack
+<BR>
++	mov	1,$17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr     $26,syscall_trace
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr	$1,undo_switch_stack
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br	$31,ret_from_sys_call
+<BR>
+@@ -623,9 +632,11 @@ strace_error:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0,0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$1,72($30)	/* a3 for return */
+<BR>
+&nbsp;
+<BR>
++	mov	$30,$16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bsr	$1,do_switch_stack
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis	$19,$19,$9	/* save old syscall number */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis	$20,$20,$10	/* save old a3 */
+<BR>
++	mov	1,$17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr     $26,syscall_trace
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis	$9,$9,$19
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis	$10,$10,$20
+<BR>
+Index: arch/alpha/kernel/ptrace.c
+<BR>
+===================================================================
+<BR>
+RCS file: /home/rth/CVSROOT/linux/arch/alpha/kernel/ptrace.c,v
+<BR>
+retrieving revision 1.7
+<BR>
+diff -u -p -r1.7 ptrace.c
+<BR>
+--- arch/alpha/kernel/ptrace.c	1998/10/12 01:15:24	1.7
+<BR>
++++ arch/alpha/kernel/ptrace.c	1998/11/12 04:30:32
+<BR>
+@@ -4,6 +4,7 @@
+<BR>
+&nbsp;/* mangled further by Bob Manson (<A HREF="mailto:manson@santafe.edu?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot">manson@santafe.edu</A>) */
+<BR>
+&nbsp;/* more mutilation by David Mosberger (<A HREF="mailto:davidm@azstarnet.com?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot">davidm@azstarnet.com</A>) */
+<BR>
+&nbsp;
+<BR>
++#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;linux/kernel.h&gt;
+<BR>
+&nbsp;#include &lt;linux/sched.h&gt;
+<BR>
+&nbsp;#include &lt;linux/mm.h&gt;
+<BR>
+@@ -637,8 +638,20 @@ sys_ptrace(long request, long pid, long 
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;asmlinkage void
+<BR>
+-syscall_trace(void)
+<BR>
++syscall_trace(struct pt_regs *regs, int returning_p)
+<BR>
+&nbsp;{
+<BR>
++#ifdef CONFIG_KERNEL_STRACE
+<BR>
++	if (!returning_p)
+<BR>
++		printk(KERN_INFO &quot;TRACE: %s (%d): entering syscall &quot;
+<BR>
++		       &quot;%ld (%#lx,%#lx,%#lx,%#lx,%#lx)\n&quot;,
+<BR>
++		       current-&gt;comm, current-&gt;pid, regs-&gt;r0, regs-&gt;r16,
+<BR>
++		       regs-&gt;r17, regs-&gt;r18, regs-&gt;r19, regs-&gt;r20);
+<BR>
++	else
+<BR>
++		printk(KERN_INFO &quot;TRACE: %s (%d): leaving syscall -&gt; %s %ld\n&quot;,
+<BR>
++		       current-&gt;comm, current-&gt;pid,
+<BR>
++		       (regs-&gt;r20 ? &quot;error&quot; : &quot;ok&quot;), regs-&gt;r0);
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((current-&gt;flags &amp; (PF_PTRACED|PF_TRACESYS))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!= (PF_PTRACED|PF_TRACESYS))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+Index: arch/alpha/kernel/setup.c
+<BR>
+===================================================================
+<BR>
+RCS file: /home/rth/CVSROOT/linux/arch/alpha/kernel/setup.c,v
+<BR>
+retrieving revision 1.19
+<BR>
+diff -u -p -r1.19 setup.c
+<BR>
+--- arch/alpha/kernel/setup.c	1998/10/16 05:37:37	1.19
+<BR>
++++ arch/alpha/kernel/setup.c	1998/11/22 21:38:22
+<BR>
+@@ -258,6 +259,24 @@ setup_arch(char **cmdline_p, unsigned lo
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Give us a default console.  TGA users will see nothing until
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* chr_dev_init is called, rather late in the boot sequence.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
++
+<BR>
++#ifdef CONFIG_EARLY_SERIAL_CONSOLE
+<BR>
++      {
+<BR>
++	extern int preferred_console;
+<BR>
++
+<BR>
++	/*
+<BR>
++	 * Uses only the defaults found in drivers/char/serial.c at the
+<BR>
++	 * moment.  We'd have to something fairly ugly with console_cmdline
+<BR>
++	 * to get something else to happen before normal command-line
+<BR>
++	 * processing is done. 
+<BR>
++	 *
+<BR>
++	 * Since the default is a quite sensible ttyS0,9600,8,N,1 this
+<BR>
++	 * doesn't seem worth persuing.
+<BR>
++	 */
+<BR>
++	*memory_start_p = serial_console_init(*memory_start_p, *memory_end_p);
+<BR>
++	preferred_console = -1;
+<BR>
++      }
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef CONFIG_VT
+<BR>
+&nbsp;#if defined(CONFIG_VGA_CONSOLE)
+<BR>
+Index: kernel/printk.c
+<BR>
+===================================================================
+<BR>
+RCS file: /home/rth/CVSROOT/linux/kernel/printk.c,v
+<BR>
+retrieving revision 1.4
+<BR>
+diff -u -p -r1.4 printk.c
+<BR>
+--- kernel/printk.c	1998/09/20 03:08:00	1.4
+<BR>
++++ kernel/printk.c	1998/11/12 04:03:57
+<BR>
+@@ -53,7 +53,7 @@ static char log_buf[LOG_BUF_LEN];
+<BR>
+&nbsp;static unsigned long log_start = 0;
+<BR>
+&nbsp;static unsigned long logged_chars = 0;
+<BR>
+&nbsp;struct console_cmdline console_cmdline[MAX_CMDLINECONSOLES];
+<BR>
+-static int preferred_console = -1;
+<BR>
++int preferred_console = -1;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;*	Setup a list of consoles. Called from init/main.c
+<BR>
+@@ -331,6 +331,10 @@ void register_console(struct console * c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char	buf[16];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;signed char msg_level = -1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char	*q;
+<BR>
++
+<BR>
++	/* Handle attempts to register a console multiple times.  */
+<BR>
++	if (console-&gt;flags &amp; CON_ENABLED)
+<BR>
++		return;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*	See if we want to use this console driver. If we
+<BR>
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Alpha/2.2.0-pre8%20hang%20on%20boot">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1062.html">Richard Henderson: "Re: 2100 with HSZ"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1060.html">Jeff DeMaagd: "Re: Wanna Buy My Alpha?"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0968.html">Jim W. Howard: "Wanna Buy My Alpha?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:51 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

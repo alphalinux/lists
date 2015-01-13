@@ -1,0 +1,200 @@
+<!-- received="Tue Dec 31 16:20:28 1996 " -->
+<!-- sent="Tue, 31 Dec 1996 14:07:41 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: using PostScript fonts in LaTeX" -->
+<!-- id="199612312107.OAA19022@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="w4od8vrd711.fsf@rose-hulman.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: using PostScript fonts in LaTeX</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: using PostScript fonts in LaTeX</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Tue, 31 Dec 1996 14:07:41 -0700 (MST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#951">[ date ]</a><a href="index.html#951">[ thread ]</a><a href="subject.html#951">[ subject ]</a><a href="author.html#951">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0952.html">Stephen J. Gaudet: "Re: Problems installing 4.0 on Alpha workstation"</a>
+<li> <b>Previous message:</b> <a href="0950.html">Eric Smith: "Re: Unidentified subject!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; I've got a ton of Type 1</i><br>
+<i>&gt; fonts on a Windows machine that I've been meaning to get working under</i><br>
+<i>&gt; TeX.  I'd be nice if I could use them under X and GhostScript, too.</i><br>
+<p>
+This is not exactly axp issue, but...  Consider this a Xmas gift. :-)<br>
+<p>
+Using new fonts in GhostScript is rather trivial matter.  Just drop<br>
+them (or links to them, safer) into its path and edit Fontmap<br>
+file.  Later entries clobber earlier ones, so you do not even have<br>
+to bother to remove something which points Times-Roman to<br>
+URW Nimbus Roman, for example; the later one is what counts.<br>
+'gs -h' will show you path used by ghostscript, among other things.<br>
+An alternate method is to give absolute locations of your extra<br>
+fonts in Fontmap, but if you will move something then you have to<br>
+remember to update this file.<br>
+<p>
+Here is an account how I made ghostcript fonts (Type1) avaialable<br>
+to X server.  This can be used, with small modifications, with<br>
+any Type1 fonts, from whatever a source, which you have on hand.<br>
+<p>
+First I created a directory /usr/local/lib/type1_fonts, to keep everything<br>
+out of rpm harm way, and filled it with links to .pf{ab} and .afm files<br>
+which I wanted.  So I ended up there with a stuff like:<br>
+<p>
+a010013l.afm<br>
+a010013l.pfb<br>
+a010015l.afm<br>
+a010015l.pfb<br>
+....<br>
+<p>
+and so on.<br>
+<p>
+Next I used the following Perl program to create a skeleton<br>
+fonts.scale file.  It is far from beeing perfect.  Installing new<br>
+fonts is not done often enough to get very deeply into parsing pfa<br>
+and pfb files, but editing results surely beats creating everything<br>
+by hand from scratch.  Here it is for yours further improvements<br>
+and use:<br>
+<p>
+#!/usr/bin/perl<br>
+#<br>
+# Helper program to prepare entries for fonts.scale file for Type1 fonts<br>
+# Expects .pfa or .pfb file names as its input<br>
+#<br>
+# Michal Jaegermann, 1996-12-1<br>
+#<br>
+<p>
+$outfile = "fonts_scale.tmp";<br>
+<p>
+$fndry = "urw"; # for now, change to whatever you fancy<br>
+$fmly = "";<br>
+$wght = "";     # black, bold, demibold, medium, regular<br>
+$slant= "";     # i, o, r<br>
+$sWdth= "normal";     # normal, semicondensed<br>
+$fill = "-0-0-0-0";<br>
+$spc  = "";     # c, m, p - 'c' is constant, 'm' is monospaced, really<br>
+                # the same thing; 'p' is proportional<br>
+$tail = "0-iso8859-1";<br>
+<p>
+$count = 0;<br>
+open (OUT, "&gt;$outfile") or die "cannot write to $outfile: $!\n";<br>
+<p>
+while ($infile = shift) {<br>
+  open (IN, $infile) or die "cannot read $infile: $!\n";<br>
+  while (&lt;IN&gt;) {<br>
+    chomp;<br>
+    if (/FamilyName/) {<br>
+      ($fmly = lc $_) =~ s/.*\((.*)\).*/$1/;<br>
+    }<br>
+    if (/Weight/) {<br>
+      ($wght = lc $_) =~ s/.*\((.*)\).*/$1/;<br>
+    }<br>
+   if (/ItalicAngle/) {<br>
+      $_ = (split ' ', $_)[1];<br>
+      $slant = (0 == $_ ? 'r' : 'i');<br>
+    }<br>
+    if (/isFixedPitch/) {<br>
+      $_ = (split ' ', $_)[1];<br>
+      $spc = ('true' eq $_ ? 'm' : 'p');<br>
+    }<br>
+    last if /currentdict end/;<br>
+  }<br>
+  close IN;<br>
+  $count += 1;<br>
+  print OUT "$infile -$fndry-$fmly-$wght-$slant-$sWdth-$fill-$spc-$tail\n";<br>
+}<br>
+print OUT "$count\n";<br>
+exit 0;<br>
+<p>
+__END__<br>
+<p>
+<p>
+I fed to it all my '*.pf?' files as arguments and after editing results<br>
+with an editor I got this 'fonts.scale':<br>
+<p>
+35<br>
+a010013l.pfb -urw-gothic-medium-r-normal--0-0-0-0-p-0-iso8859-1<br>
+a010015l.pfb -urw-gothic-demibold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+a010033l.pfb -urw-gothic-medium-i-normal--0-0-0-0-p-0-iso8859-1<br>
+a010035l.pfb -urw-gothic-demibold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+b018012l.pfb -urw-bookman-regular-r-normal--0-0-0-0-p-0-iso8859-1<br>
+b018015l.pfb -urw-bookman-bold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+b018032l.pfb -urw-bookman-regular-i-normal--0-0-0-0-p-0-iso8859-1<br>
+b018035l.pfb -urw-bookman-bold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+c059013l.pfb -urw-century schoolbook-regular-r-normal--0-0-0-0-p-0-iso8859-1<br>
+c059016l.pfb -urw-century schoolbook-bold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+c059033l.pfb -urw-century schoolbook-regular-i-normal--0-0-0-0-p-0-iso8859-1<br>
+c059036l.pfb -urw-century schoolbook-bold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+d050000l.pfb -urw-dingbats-regular-r-normal--0-0-0-0-p-0-adobe-fontspecific<br>
+n019003l.pfb -urw-nimbus sans-regular-r-normal--0-0-0-0-p-0-iso8859-1<br>
+n019004l.pfb -urw-nimbus sans-bold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+n019023l.pfb -urw-nimbus sans-regular-i-normal--0-0-0-0-p-0-iso8859-1<br>
+n019024l.pfb -urw-nimbus sans-bold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+n019043l.pfb -urw-nimbus sans-regular-r-semicondensed--0-0-0-0-p-0-iso8859-1<br>
+n019044l.pfb -urw-nimbus sans-bold-r-semicondensed--0-0-0-0-p-0-iso8859-1<br>
+n019063l.pfb -urw-nimbus sans-regular-i-semicondensed--0-0-0-0-p-0-iso8859-1<br>
+n019064l.pfb -urw-nimbus sans-bold-i-semicondensed--0-0-0-0-p-0-iso8859-1<br>
+n021003l.pfb -urw-nimbus roman-regular-r-normal--0-0-0-0-p-0-iso8859-1<br>
+n021004l.pfb -urw-nimbus roman-bold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+n021023l.pfb -urw-nimbus roman-regular-i-normal--0-0-0-0-p-0-iso8859-1<br>
+n021024l.pfb -urw-nimbus roman-bold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+n022003l.pfb -urw-nimbus mono-regular-r-normal--0-0-0-0-m-0-iso8859-1<br>
+n022004l.pfb -urw-nimbus mono-bold-r-normal--0-0-0-0-m-0-iso8859-1<br>
+n022023l.pfb -urw-nimbus mono-regular-i-normal--0-0-0-0-m-0-iso8859-1<br>
+n022024l.pfb -urw-nimbus mono-bold-i-normal--0-0-0-0-m-0-iso8859-1<br>
+p052003l.pfb -urw-palladio-regular-r-normal--0-0-0-0-p-0-iso8859-1<br>
+p052004l.pfb -urw-palladio-bold-r-normal--0-0-0-0-p-0-iso8859-1<br>
+p052023l.pfb -urw-palladio-regular-i-normal--0-0-0-0-p-0-iso8859-1<br>
+p052024l.pfb -urw-palladio-bold-i-normal--0-0-0-0-p-0-iso8859-1<br>
+s050000l.pfb -urw-symbol-regular-r-normal--0-0-0-0-p-0-adobe-fontspecific<br>
+z003034l.pfb -urw-chancery-medium-i-normal--0-0-0-0-p-0-iso8859-1<br>
+<p>
+<p>
+Subseqently I run mkfontdir (the manual says that for scaled fonts this<br>
+is really equivalent to 'cp fonts.scale fonts.dir', but just in case :-),<br>
+added /usr/local/lib/type1_font to FontPath in my XF86Config file<br>
+and restarted X server.  That is about it. Start your 'xfontsel' and<br>
+preview what you got.<br>
+<p>
+  Have fun with your fonts,<br>
+  Michal<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0952.html">Stephen J. Gaudet: "Re: Problems installing 4.0 on Alpha workstation"</a>
+<li> <b>Previous message:</b> <a href="0950.html">Eric Smith: "Re: Unidentified subject!"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

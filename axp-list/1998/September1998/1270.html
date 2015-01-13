@@ -1,0 +1,145 @@
+<!-- received="Tue Oct  6 09:19:03 1998 " -->
+<!-- sent="Tue, 06 Oct 1998 08:12:55 -0400" -->
+<!-- name="Craig P Prescott" -->
+<!-- email="prescott@phys.ufl.edu" -->
+<!-- subject="Re: runaway klogd/syslogd happening now" -->
+<!-- id="199810061212.IAA08407@neptune.phys.ufl.edu" -->
+<!-- inreplyto="runaway klogd/syslogd happening now" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: runaway klogd/syslogd happening now</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: runaway klogd/syslogd happening now</h2>
+
+<b>Craig P Prescott</b> (<a href="mailto:prescott@phys.ufl.edu"><i>prescott@phys.ufl.edu</i></a>)<br>
+<i>Tue, 06 Oct 1998 08:12:55 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1270">[ date ]</a><a href="index.html#1270">[ thread ]</a><a href="subject.html#1270">[ subject ]</a><a href="author.html#1270">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1271.html">Joakim Roubert: "Re: MPEG player (mtv)"</a>
+<li> <b>Previous message:</b> <a href="1269.html">Kazushige Goto: "fast sqrt routine"</a>
+<li> <b>Maybe in reply to:</b> <a href="1162.html">Craig P Prescott: "runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1272.html">Greg Lindahl: "Re: runaway klogd/syslogd happening now"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; "mj" == Michal Jaegermann &lt;<a href="mailto:michal@ellpspace.math.ualberta.ca">michal@ellpspace.math.ualberta.ca</a>&gt; writes:</i><br>
+<p>
+    mj&gt; Uncle George wrote:<br>
+<i>    &gt;&gt;  actually its klogd that reads kern messages, like the one u</i><br>
+<i>    &gt;&gt; posted.</i><br>
+<i>    &gt;&gt; </i><br>
+<i>    &gt;&gt; its probably better to fix the kern messages.</i><br>
+<p>
+    mj&gt; Patches which Jay announced for 2.0.35 (and things which I<br>
+    mj&gt; hacked based on that for an upcoming 2.0.36) actually add<br>
+    mj&gt; missing newline.  It is in arch/alpha/kernel/traps.c.<br>
+<p>
+    mj&gt;   --mj<br>
+<p>
+Cool.  On a related note, I noticed tonight that klogd silently dies<br>
+(syslogd remains alive) more frequently than we get the syslogd/klogd<br>
+runaway problem - I just never noticed.  From previous discussions I<br>
+don't recall "death of klogd" as documented behavior.  Is this known<br>
+behavior?  Seems that klogd goes away whenever the contents of<br>
+/proc/kmsg hits 8192 bytes.(?)<br>
+<p>
+[root@helix07 tmp]# ps aux | grep klogd<br>
+root     12873  0.0  0.4  2120   560  p2 D   15:38   0:00 grep klogd <br>
+[root@helix07 tmp]# head -1 /var/run/klogd.pid<br>
+165<br>
+[root@helix07 tmp]# ps aux | grep 165<br>
+root     12889  0.0  0.4  2184   608  p2 S   15:46   0:00 grep 165 <br>
+[root@helix07 tmp]# ps aux | grep syslog<br>
+root       156  0.0  0.2  7464   336  ?  S  Oct  5   0:04 syslogd <br>
+root     12899  0.0  0.0   192    24  p2 R   15:47   0:00 grep syslog <br>
+[root@helix07 tmp]# cat /proc/kmsg &gt; kmsg.log<br>
+^C<br>
+[root@helix07 tmp]# wc kmsg.log <br>
+      5     395    8192 kmsg.log<br>
+<p>
+About 10 machines were as above.  There was no evidence in<br>
+/var/log/messages that klogd had left the building.  The contents of<br>
+kmsg.log from above are at the end of this note - you can see that<br>
+almost all of this stuff comes from do_entSys in traps.c (at least it<br>
+is the only printk("&lt;sc...") in the kernel).<br>
+<p>
+I'm not sure what to make of this - I know nothing of sysklogd (or<br>
+linux) innards, but I'm learning.  Is it normal that /proc/kmsg can<br>
+get to 8 Kbytes?  If all the newlines get put in like they should,<br>
+will klogd still die if /proc/kmsg gets too big?  I guess this is<br>
+easily testable.  Are death and runaway both reasonable results of<br>
+trashing the stack?<br>
+<p>
+All this probably explains the unexpectedly low frequency of<br>
+syslogd/klogd runaways I've seen since my original post - haven't had<br>
+a runaway in the last few days on any machine - most of my klogd<br>
+processes were dead before they could go bananas.  This fits the<br>
+hypothesis that syslogd doesn't get mad if klogd is not bugging it.<br>
+<p>
+Cheers,<br>
+Craig<br>
+<pre>
+---
+Craig P Prescott                              (352) 846-3145 (Phone)
+2011 New Physics Building                     (352) 392-8863 (Fax)
+University of Florida, Gainesville, FL 32611  <a href="mailto:prescott@phys.ufl.edu">prescott@phys.ufl.edu</a>
+<p>
+[root@helix07 tmp]# cat kmsg.log
+0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f320a0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,!
+!
+40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;NFS server helix06 not responding, still trying.
+&lt;4&gt;NFS server helix06 OK.
+&lt;4&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f30cd0,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)!
+!
+&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f2d470,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;!
+!
+sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc!
+!
+ 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;EXT2-fs warning: mounting unchecked fs, running e2fsck is recommended
+&lt;2&gt;EXT2-fs error (device 08:11): ext2_check_blocks_bitmap: Wrong free blocks count for group 487, stored = 0, counted = 216
+&lt;2&gt;EXT2-fs error (device 08:11): ext2_check_blocks_bitmap: Wrong free blocks count in super block, stored = 6741676, counted = 6741892
+&lt;4&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)!
+!
+&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;!
+!
+sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc!
+!
+ 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;&lt;sc 49(140f3bc70,40,8)&gt;
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1271.html">Joakim Roubert: "Re: MPEG player (mtv)"</a>
+<li> <b>Previous message:</b> <a href="1269.html">Kazushige Goto: "fast sqrt routine"</a>
+<li> <b>Maybe in reply to:</b> <a href="1162.html">Craig P Prescott: "runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1272.html">Greg Lindahl: "Re: runaway klogd/syslogd happening now"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

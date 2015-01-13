@@ -1,0 +1,124 @@
+<!-- received="Thu Mar 20 15:49:05 1997 " -->
+<!-- sent="Thu, 20 Mar 1997 14:45:37 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@stommel.tamu.edu" -->
+<!-- subject="Re: again: dlopen (ld)  bug" -->
+<!-- id="199703202045.OAA27125@stommel.tamu.edu" -->
+<!-- inreplyto="9703201958.ZM1954@fabsoft2.zarm.uni-bremen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: again: dlopen (ld)  bug</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: again: dlopen (ld)  bug</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@stommel.tamu.edu"><i>richard@stommel.tamu.edu</i></a>)<br>
+<i>Thu, 20 Mar 1997 14:45:37 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#590">[ date ]</a><a href="index.html#590">[ thread ]</a><a href="subject.html#590">[ subject ]</a><a href="author.html#590">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0591.html">Redhat Mailinglist: "where is the $PATH ?"</a>
+<li> <b>Previous message:</b> <a href="0589.html">Claus Denk: "Re: Interesting gcc to cc comparison"</a>
+<li> <b>In reply to:</b> <a href="0589.html">Claus Denk: "Re: Interesting gcc to cc comparison"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Just rebuilt glibc 2.0.2 with binutils 2.7.0.10 and noticed</i><br>
+<i>&gt; dlopen is still not working in dynamically linked programs.</i><br>
+<p>
+I thought I posted this here a week or two ago, but perhaps<br>
+it fell through the cracks.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+<p>
+Tue Mar 18 23:03:17 1997  Richard Henderson  &lt;<a href="mailto:rth@tamu.edu">rth@tamu.edu</a>&gt;<br>
+<p>
+	* elf64-alpha.c (elf64_alpha_adjust_dynamic_symbol): Don't create<br>
+	.plt entry if we've taken the function's address.<br>
+	(elf64_alpha_merge_gots): Merge collected flags info as well.<br>
+<p>
+<p>
+<p>
+diff -u -r --new-file --show-function-line=^[A-Za-z_] /home/raeburn/offsite/snap/old/gas-970318/bfd/elf64-alpha.c ./bfd/elf64-alpha.c<br>
+--- /home/raeburn/offsite/snap/old/gas-970318/bfd/elf64-alpha.c	Tue Mar 18 01:13:33 1997<br>
++++ ./bfd/elf64-alpha.c	Wed Mar 19 01:12:59 1997<br>
+@@ -46,6 +46,7 @@ Foundation, Inc., 59 Temple Place - Suit<br>
+ #define ECOFF_64<br>
+ #include "ecoffswap.h"<br>
+ <br>
++static boolean elf64_alpha_mkobject PARAMS ((bfd *));<br>
+ static struct bfd_hash_entry * elf64_alpha_link_hash_newfunc<br>
+   PARAMS((struct bfd_hash_entry *, struct bfd_hash_table *, const char *));<br>
+ static struct bfd_link_hash_table * elf64_alpha_bfd_link_hash_table_create<br>
+@@ -97,7 +98,14 @@ static boolean elf64_alpha_can_merge_got<br>
+   PARAMS((bfd *, bfd *));<br>
+ static void elf64_alpha_merge_gots<br>
+   PARAMS((bfd *, bfd *));<br>
+-<br>
++static boolean elf64_alpha_calc_got_offsets_for_symbol<br>
++  PARAMS ((struct alpha_elf_link_hash_entry *, PTR));<br>
++static void elf64_alpha_calc_got_offsets PARAMS ((struct bfd_link_info *));<br>
++static void elf64_alpha_strip_section_from_output PARAMS ((asection *));<br>
++static boolean elf64_alpha_always_size_sections<br>
++  PARAMS ((bfd *, struct bfd_link_info *));<br>
++static boolean elf64_alpha_calc_dynrel_sizes<br>
++  PARAMS ((struct alpha_elf_link_hash_entry *, struct bfd_link_info *));<br>
+ static boolean elf64_alpha_check_relocs<br>
+   PARAMS((bfd *, struct bfd_link_info *, asection *sec,<br>
+ 	  const Elf_Internal_Rela *));<br>
+@@ -1777,7 +1785,8 @@ elf64_alpha_adjust_dynamic_symbol (info,<br>
+ <br>
+   if (h-&gt;root.type != bfd_link_hash_undefweak<br>
+       &amp;&amp; alpha_elf_dynamic_symbol_p (h, info)<br>
+-      &amp;&amp; (h-&gt;type == STT_FUNC<br>
++      &amp;&amp; ((h-&gt;type == STT_FUNC<br>
++	   &amp;&amp; !(ah-&gt;flags &amp; ALPHA_ELF_LINK_HASH_LU_ADDR))<br>
+<i> 	  || (h-&gt;type == STT_NOTYPE</i><br>
+ 	      &amp;&amp; ah-&gt;flags == ALPHA_ELF_LINK_HASH_LU_FUNC))<br>
+       /* Don't prevent otherwise valid programs from linking by attempting<br>
+@@ -1938,6 +1947,7 @@ elf64_alpha_merge_gots (a, b)<br>
+ 	    for (ae = *start; ae ; ae = ae-&gt;next)<br>
+ 	      if (ae-&gt;gotobj == a &amp;&amp; ae-&gt;addend == be-&gt;addend)<br>
+ 		{<br>
++		  ae-&gt;flags |= be-&gt;flags;<br>
+ 		  *pbe = be-&gt;next;<br>
+ 		  goto global_found;<br>
+ 		}<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0591.html">Redhat Mailinglist: "where is the $PATH ?"</a>
+<li> <b>Previous message:</b> <a href="0589.html">Claus Denk: "Re: Interesting gcc to cc comparison"</a>
+<li> <b>In reply to:</b> <a href="0589.html">Claus Denk: "Re: Interesting gcc to cc comparison"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

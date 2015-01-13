@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Fri Mar 03 13:40:19 2000" -->
+<!-- isoreceived="20000303214019" -->
+<!-- sent="Fri, 3 Mar 2000 15:25:23 +0100 (CET)" -->
+<!-- isosent="20000303142523" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003031518440.4292-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="20000303062010.A13292@chelm.cs.nmt.edu" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Mar 03 2000 - 06:25:23 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#7">[ date ]</A>
+<A HREF="index.html#7">[ thread ]</A>
+<A HREF="subject.html#7">[ subject ]</A>
+<A HREF="author.html#7">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0009.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, 3 Mar 2000 yodaiken@chelm.cs.nmt.edu wrote:
+<BR>
+<P><EM>&gt; On Sun, Feb 27, 2000 at 04:04:13PM +0100, Ingo Molnar wrote:
+</EM><BR>
+<EM>&gt; &gt; 	- per-IRQ-source spinlocks and per-IRQ-controller spinlocks
+</EM><BR>
+<EM>&gt; &gt; 	  increasing scalability: now two IRQ handlers on two CPUs
+</EM><BR>
+<EM>&gt; &gt; 	  can run do_IRQ in parallel. Note that level-triggered PCI IRQ
+</EM><BR>
+<EM>&gt; &gt; 	  handlers never actually take the IRQ-controller spinlock in the
+</EM><BR>
+<EM>&gt; &gt; 	  'IRQ handling fast path'.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This change puts spinlock back into the low level irq code -- and I took 
+</EM><BR>
+<EM>&gt; them out specifically to make RTLinux work and to make Linus happy since
+</EM><BR>
+<EM>&gt; he was concerned about minimizing the number of spinlocks.  The 
+</EM><BR>
+<EM>&gt; &quot;optimization&quot; means that you can, in parallel run a tiny section of code
+</EM><BR>
+<EM>&gt; that is called infrequently -- [...]
+</EM><BR>
+<P>it actually makes a huge difference as the _real_ optimization you missed
+<BR>
+is the lack of cacheline ping-pongs, which pingpong inevitably happens if
+<BR>
+globally shared spinlocks are used.
+<BR>
+<P><EM>&gt;                 [...] if there is any performance gain at all, it
+</EM><BR>
+<EM>&gt; comes at the expense of introducing extra spin locks, making the low
+</EM><BR>
+<EM>&gt; level code bigger and therefore less cache friendly, and causing  an
+</EM><BR>
+<EM>&gt; additional check for irq status which is quite expensive on some hardware
+</EM><BR>
+<EM>&gt; (including x86).
+</EM><BR>
+<P>you have not actually checked the fast IRQ handling path, have you? The
+<BR>
+IO-APIC level-triggered IRQ code does not use the lowlevel spinlock, at
+<BR>
+all. This was one of the goals of the optimization.
+<BR>
+<P><EM>&gt; I don't see the &quot;fast path&quot; in a first look at the code. Are you now
+</EM><BR>
+<EM>&gt; skiping &quot;do_irq&quot; for some interrupt handlers?
+</EM><BR>
+<P>check out the fast path of level-triggered PCI IRQs:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do_IRQ()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask_and_ack_level_ioapic_irq: empty!
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&gt;handler()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_level_ioapic_irq: a fast local-APIC write
+<BR>
+<P>no lowlevel spinlock taken. This is actually the case where the IOAPIC IRQ
+<BR>
+hardware turned out to be very sane. The borken edge-triggered case is
+<BR>
+nicely isolated.
+<BR>
+<P>-- mingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0009.html">yodaiken@chelm.cs.nmt.edu: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

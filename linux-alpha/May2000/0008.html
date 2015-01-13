@@ -1,0 +1,424 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [PATCH] bogo-resource-management for 2.2.15 b</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@linuxcare.com)">
+<META NAME="Subject" CONTENT="[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)</H1>
+<HR>
+<P>
+<!-- received="Thu May 11 04:27:03 2000" -->
+<!-- isoreceived="20000511112703" -->
+<!-- sent="10 May 2000 17:23:08 -0400" -->
+<!-- isosent="20000510212308" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)" -->
+<!-- id="87og6e3xs3.fsf@linuxcare.com" -->
+<STRONG>Subject: </STRONG>[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 10 2000 - 14:23:08 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#8">[ date ]</A>
+<A HREF="index.html#8">[ thread ]</A>
+<A HREF="subject.html#8">[ subject ]</A>
+<A HREF="author.html#8">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0009.html">Graham Stoney: "Calling testers for another Dead Function Optimisation update"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0007.html">Soohoon Lee: "PCI configuration problem in 2.3.99 prex"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0011.html">Jay Estabrook: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>Certain Miatas (most notably the 600au) have a problem where the SRM
+<BR>
+console will configure the Cypress PCI-IDE interface's I/O space at
+<BR>
+0x90a0.
+<BR>
+<P>Because the 2.2 kernel ignores the Cypress chip completely when doing
+<BR>
+PCI bus layout, it has a bad habit of putting the Qlogic-ISP's I/O
+<BR>
+space controller at 0x9000.  If one enables the PCI IDE driver, it
+<BR>
+claims this space to the exclusion of the SCSI host adaptor, with
+<BR>
+predictable results...
+<BR>
+<P>This patch tries to avoid placing devices on top of the Cypress chip's
+<BR>
+I/O space.
+<BR>
+<P>This patch is admittedly bogus, but so is bios32.c (or, arguably, so
+<BR>
+is the SRM console on Miata, or the Cypress chip, or any number of
+<BR>
+other things :-)  2.3 does things right, thankfully.
+<BR>
+<P>I'd appreciate if people could test it on other machines with the
+<BR>
+Cypress (i.e. the 164SX/LX, DP264, and DS20) and with other PCI
+<BR>
+devices to see if it breaks anything that wasn't already broken.
+<BR>
+<P>Cheers
+<BR>
+<P>(I hope Gnus will not try to encode this as quoted-unreadable :P)
+<BR>
+<P>diff -urN linux/arch/alpha/kernel/bios32.c linux-cypress-hack/arch/alpha/kernel/bios32.c
+<BR>
+--- linux/arch/alpha/kernel/bios32.c	Thu May  4 00:23:58 2000
+<BR>
++++ linux-cypress-hack/arch/alpha/kernel/bios32.c	Thu May  4 12:41:48 2000
+<BR>
+@@ -439,17 +439,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-	/*
+<BR>
+-	 * We don't have code that will init the CYPRESS bridge correctly
+<BR>
+-	 * so we do the next best thing, and depend on the previous
+<BR>
+-	 * console code to do the right thing, and ignore it here... :-\
+<BR>
+-	 */
+<BR>
+-	if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
+-	    dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693) {
+<BR>
+-		DBG_DEVS((&quot;disable_dev: ignoring CYPRESS bridge...\n&quot;));
+<BR>
+-		return;
+<BR>
+-	}
+<BR>
+-
+<BR>
+&nbsp;#if DEBUG_DEVS &amp;&amp; 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Worse HACK: Don't disable the video card, so I can see where
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it is *really* falling over.  */
+<BR>
+@@ -489,6 +478,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int orig_base;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int alignto;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long handle;
+<BR>
++	int cypress_hack = 0;
+<BR>
++	static unsigned int cypress_base = 0, cypress_size = 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* HACK: the PCI-to-EISA bridge does not seem to identify
+<BR>
+@@ -509,14 +500,27 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+-	 * We don't have code that will init the CYPRESS bridge correctly
+<BR>
+-	 * so we do the next best thing, and depend on the previous
+<BR>
+-	 * console code to do the right thing, and ignore it here... :-\
+<BR>
++	 * We don't have code that will init the CYPRESS bridge correctly.
+<BR>
++	 *
+<BR>
++	 * Unfortunately, we can't just ignore it on 600au Miatas (at
+<BR>
++	 * least) because it means we don't reserve the I/O space it
+<BR>
++	 * takes up, and SRM has a bad habit of configuring the
+<BR>
++	 * IDE-DMA control registers at 0x90a0, which is above
+<BR>
++	 * DEFAULT_IO_BASE.  Usually this results in a resource
+<BR>
++	 * conflict with the Qlogic SCSI controller, which is
+<BR>
++	 * obviously a Bad Thing.
+<BR>
++	 *
+<BR>
++	 * So, in the absence of real resource management such as we
+<BR>
++	 * have in 2.3 (which does not have this problem), we will add
+<BR>
++	 * a special case for it where we try half-heartedly (and
+<BR>
++	 * hopefully not to the detriment of other devices) to avoid
+<BR>
++	 * this particular I/O space given to it by the console which
+<BR>
++	 * causes our problems.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693) {
+<BR>
+-		DBG_DEVS((&quot;layout_dev: ignoring CYPRESS bridge...\n&quot;));
+<BR>
+-		return;
+<BR>
++		DBG_DEVS((&quot;layout_dev: CYPRESS HACK!\n&quot;));
+<BR>
++		cypress_hack = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus = dev-&gt;bus;
+<BR>
+@@ -565,12 +569,63 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Adaptecs, especially, resent such intrusions.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alignto = MAX(0x800, size);
+<BR>
+-			base = ALIGN(io_base, alignto);
+<BR>
+-			io_base = base + size;
+<BR>
+&nbsp;
+<BR>
++			/* We don't have real resource management, so
+<BR>
++			   just try to make sure it doesn't overlay
+<BR>
++			   anything else we allocate here */
+<BR>
++			if (cypress_hack) {
+<BR>
++				base = orig_base &amp; ~1;
+<BR>
++				if (base &lt; DEFAULT_IO_BASE) /* don't care */
+<BR>
++					goto rewrite_ioconfig;
+<BR>
++
+<BR>
++				if (base &gt;= io_base) {
+<BR>
++					if (cypress_base)
+<BR>
++						printk(KERN_WARNING
+<BR>
++						       &quot;bios32.c: already reserved CYPRESS &quot;
+<BR>
++						       &quot;space (%d bytes at %#x), possible &quot;
+<BR>
++						       &quot;resource confilct!\n&quot;, cypress_size,
+<BR>
++						       cypress_base);
+<BR>
++					cypress_base = base;
+<BR>
++					cypress_size = size;
+<BR>
++					DBG_DEVS((&quot;CYPRESS HACK: reserving %d bytes at %#x\n&quot;,
+<BR>
++						  cypress_size, cypress_base));
+<BR>
++				} else {
+<BR>
++					/* argh! we already clobbered it */
+<BR>
++					printk(KERN_WARNING
+<BR>
++					       &quot;bios32.c: CYPRESS at %#x (&lt;=%#x), possible&quot;
+<BR>
++					       &quot;resource conflict!\n&quot;, base, io_base);
+<BR>
++				}
+<BR>
++			} else {
+<BR>
++				if (cypress_base) {
+<BR>
++					unsigned int cypress_end
+<BR>
++						= cypress_base + cypress_size;
+<BR>
++					DBG_DEVS((&quot;cypress %#x-%#x, dev %#x-%#x\n&quot;,
+<BR>
++						  cypress_base, cypress_end,
+<BR>
++						  io_base, io_base + size));
+<BR>
++					if ((cypress_base &gt;= io_base
+<BR>
++					     &amp;&amp; cypress_base &lt; io_base + size)
+<BR>
++					    || (cypress_end &gt; io_base
+<BR>
++						&amp;&amp; cypress_end &lt;= io_base + size)
+<BR>
++					    || (cypress_base &lt;= io_base
+<BR>
++						&amp;&amp; cypress_end &gt;= io_base + size))
+<BR>
++					{
+<BR>
++						io_base = cypress_base + cypress_size;
+<BR>
++						DBG_DEVS((&quot;CYPRESS HACK: moving io_base to %#x\n&quot;,
+<BR>
++							  io_base));
+<BR>
++					}
+<BR>
++				}
+<BR>
++
+<BR>
++				base = ALIGN(io_base, alignto);
+<BR>
++				io_base = base + size;
+<BR>
++				DBG_DEVS((&quot;layout_dev: base %#x io_base %#x\n&quot;,
+<BR>
++					  base, io_base));
+<BR>
++			}
+<BR>
++
+<BR>
++		rewrite_ioconfig:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_write_config_dword(bus-&gt;number, dev-&gt;devfn, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;off, base | 0x1);
+<BR>
+-			new_io_reset(dev, off, orig_base);
+<BR>
++			if (!cypress_hack)
+<BR>
++				new_io_reset(dev, off, orig_base);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle = PCI_HANDLE(bus-&gt;number) | base | 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;base_address[idx] = handle;
+<BR>
+@@ -626,7 +681,14 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* align to multiple of size of minimum base */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alignto = MAX(0x1000, size);
+<BR>
+-			base = ALIGN(mem_base, alignto);
+<BR>
++
+<BR>
++			if (cypress_hack) {
+<BR>
++				/* Don't bother, we shouldn't have conflicts */
+<BR>
++				base = orig_base;
+<BR>
++				goto rewrite_memconfig;
+<BR>
++			} else {
+<BR>
++				base = ALIGN(mem_base, alignto);
+<BR>
++			}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (size &gt; 7 * 16*MB) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;bios32 WARNING: slot %d, function %d&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot; requests 0x%x bytes of contiguous&quot;
+<BR>
+@@ -648,9 +710,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mem_base = base + size;
+<BR>
+&nbsp;
+<BR>
++		rewrite_memconfig:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_write_config_dword(bus-&gt;number, dev-&gt;devfn,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;off, base);
+<BR>
+-			new_io_reset(dev, off, orig_base);
+<BR>
++			if (!cypress_hack)
+<BR>
++				new_io_reset(dev, off, orig_base);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle = PCI_HANDLE(bus-&gt;number) | base;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;base_address[idx] = handle;
+<BR>
+<P><P><PRE>
+-- 
+David Huggins-Daines, Senior GNU/Linux Consultant, Linuxcare, Inc.
+613.562.1239 desk, 613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0009.html">Graham Stoney: "Calling testers for another Dead Function Optimisation update"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0007.html">Soohoon Lee: "PCI configuration problem in 2.3.99 prex"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0011.html">Jay Estabrook: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

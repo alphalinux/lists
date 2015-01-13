@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 14 05:50:55 2000" -->
+<!-- isoreceived="20000314135055" -->
+<!-- sent="Mon, 13 Mar 2000 10:31:36 -0800 (PST)" -->
+<!-- isosent="20000313183136" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131023450.1257-100000@penguin.transmeta.com" -->
+<!-- inreplyto="Pine.LNX.4.10.10003131943380.5886-100000@chiara.csoma.elte.hu" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 10:31:36 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#55">[ date ]</A>
+<A HREF="index.html#55">[ thread ]</A>
+<A HREF="subject.html#55">[ subject ]</A>
+<A HREF="author.html#55">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0056.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0054.html">Ingo Molnar: "[patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0064.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0077.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0064.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000, Ingo Molnar wrote:
+<BR>
+<EM>&gt; &gt; NOTE NOTE NOTE! You must NOT change the SMP case at all, including the
+</EM><BR>
+<EM>&gt; &gt; &quot;are we in the kernel&quot; test. Not only do we not have a global
+</EM><BR>
+<EM>&gt; &gt; spinlock_count (and we don't want one - it would be cache-line death),
+</EM><BR>
+<EM>&gt; &gt; but even if we used the above heuristic it would be seriously wrong on
+</EM><BR>
+<EM>&gt; &gt; SMP, because it would mean that anything that caches the value of
+</EM><BR>
+<EM>&gt; &gt; &quot;current CPU&quot; would need to lock. Which is just too expensive to even
+</EM><BR>
+<EM>&gt; &gt; think about, because it happens all over the place. On UP, that just
+</EM><BR>
+<EM>&gt; &gt; isn't a problem ;)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; oops, i missed that indeed, darn. Hm., there are not all that many such
+</EM><BR>
+<EM>&gt; places though, and the value itself is cached in current-&gt;processor anyway
+</EM><BR>
+<EM>&gt; (and 'current' can be cached across reschedules). I cannot see any easy
+</EM><BR>
+<EM>&gt; way to avoid this bug in any 'automatic' way though. How can we prevent
+</EM><BR>
+<EM>&gt; writing a 'semi-constant' to a local variable, possibly at compile-time?
+</EM><BR>
+<P>Solution: don't do it, then.
+<BR>
+<P>There is pretty much no point in making the SMP case be &quot;threaded&quot; in
+<BR>
+this sense.
+<BR>
+<P>Threaded kernels are WAAAY overvalued. I did not agree with the
+<BR>
+low-latency patches because I thought they were ugly for no real gain. I
+<BR>
+_would_ agree to the UP-case only thing, simply because it uses the SMP
+<BR>
+locking that already exists, and extends it in a simple way to the UP case
+<BR>
+(&quot;threading&quot; a UP box by making the scheduling consider one CPU as a
+<BR>
+special case of multiple CPU's).
+<BR>
+<P>Threading the SMP case is simply not worth it. With two CPU's you already
+<BR>
+get the benefit of threading across CPU's instead of across &quot;time&quot;, to the
+<BR>
+degree that the small added advantage of anything else is not worth it.
+<BR>
+Really.
+<BR>
+<P>Don't even try to thread the SMP case. I wouldn't accept the patches
+<BR>
+anyway.
+<BR>
+<P>Also, don't try to be clever about the UP case. I would not accept patches
+<BR>
+that do what you suggested
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thread_avoid();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_lock(x);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_lock(y);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_unlock(y);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_unlock(x);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thread_unavoid();
+<BR>
+<P>because that defeats the whole process of using the SMP locking for the UP
+<BR>
+case, and that's a slippery slope. Soon enough people will start trying to
+<BR>
+be clever, and that's just too horrible to contemplate.
+<BR>
+<P>Getting nested locks is expensive. If people are aware of that expense
+<BR>
+even on UP, all the better. Don't fight it.
+<BR>
+<P><EM>&gt; hm, current-&gt;spinlock_depth should work pretty well i believe, no? That
+</EM><BR>
+<EM>&gt; one is SMP-safe as well. It doesnt have any global cacheline problems
+</EM><BR>
+<EM>&gt; either.
+</EM><BR>
+<P>Agreed, but what is the point of it? Now every spinlock has to look up
+<BR>
+current. The nice spinlock code that used to be 2 instructions (or 1 for
+<BR>
+the unlock case) suddenly became 5 or more. No, thank you. Especially as I
+<BR>
+don't believe it buys you anything on SMP.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0056.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0054.html">Ingo Molnar: "[patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0064.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0077.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0064.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

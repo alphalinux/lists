@@ -1,0 +1,277 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.99-pre8 misc alpha patches</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@linuxcare.com)">
+<META NAME="Subject" CONTENT="Re: 2.3.99-pre8 misc alpha patches">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.99-pre8 misc alpha patches</H1>
+<HR>
+<P>
+<!-- received="Tue May 23 18:01:40 2000" -->
+<!-- isoreceived="20000524010140" -->
+<!-- sent="23 May 2000 12:47:32 -0400" -->
+<!-- isosent="20000523164732" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Re: 2.3.99-pre8 misc alpha patches" -->
+<!-- id="87k8glusbf.fsf@linuxcare.com" -->
+<!-- inreplyto="Mon, 22 May 2000 12:17:25 -0600 (MDT)&quot;" -->
+<STRONG>Subject: </STRONG>Re: 2.3.99-pre8 misc alpha patches<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue May 23 2000 - 09:47:32 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#39">[ date ]</A>
+<A HREF="index.html#39">[ thread ]</A>
+<A HREF="subject.html#39">[ subject ]</A>
+<A HREF="author.html#39">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0040.html">David Huggins-Daines: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0038.html">Michal Jaegermann: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0041.html">Ivan Kokshaysky: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0037.html">David Huggins-Daines: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Michal Jaegermann &lt;michal@ellpspace.math.ualberta.ca&gt; writes:
+<BR>
+<P><EM>&gt; Looking at the code it appears to me that these patches are not
+</EM><BR>
+<EM>&gt; limited to 2.3.99-pre8 but are equally valid (or invalid, as the
+</EM><BR>
+<EM>&gt; case may be) for 2.2 kernels as well.  No, I did not check how they
+</EM><BR>
+<EM>&gt; would fit into an existing sources.
+</EM><BR>
+<P>It looks like pci_set_master() became architecture specific between
+<BR>
+pre6 and pre8.  The previous arch-indep version of it did the same
+<BR>
+thing as the version in the patch, so that part of the diff is not
+<BR>
+necessary for 2.2.
+<BR>
+<P>For your convenience, here is a version of that patch for 2.2.14,
+<BR>
+which should also work in 2.2.15.  It seems to work on Miata, but I
+<BR>
+don't have a net-accessible SX164 at the moment.
+<BR>
+<P>diff --exclude=*~ -urN linux-2.2-vanilla/arch/alpha/kernel/core_pyxis.c linux-2.2/arch/alpha/kernel/core_pyxis.c
+<BR>
+--- linux-2.2-vanilla/arch/alpha/kernel/core_pyxis.c	Tue Jan  4 13:12:11 2000
+<BR>
++++ linux-2.2/arch/alpha/kernel/core_pyxis.c	Tue May 23 12:17:15 2000
+<BR>
+@@ -15,6 +15,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/ptrace.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
++#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __EXTERN_INLINE inline
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+@@ -514,6 +515,23 @@
+<BR>
+&nbsp;void __init
+<BR>
+&nbsp;pyxis_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
+&nbsp;{
+<BR>
++	unsigned int cc0, cc1;
+<BR>
++	unsigned long pyxis_cc;
+<BR>
++
+<BR>
++	/* On pyxis machines we can precisely calculate the
+<BR>
++	   CPU clock frequency using pyxis real time counter.
+<BR>
++	   Especially it's useful for SX164 with broken RTC.
+<BR>
++	   Both CPU and chipset are driven by the single 16.666M
+<BR>
++	   or 16.667M crystal oscillator. PYXIS_RT_COUNT clock is
+<BR>
++	   66.66 MHz. -ink */
+<BR>
++
+<BR>
++	__asm__ __volatile__ (&quot;rpcc %0&quot; : &quot;=r&quot;(cc0));
+<BR>
++	pyxis_cc = *(vulp)PYXIS_RT_COUNT;
+<BR>
++	do { } while(*(vulp)PYXIS_RT_COUNT - pyxis_cc &lt; 4096);
+<BR>
++	__asm__ __volatile__ (&quot;rpcc %0&quot; : &quot;=r&quot;(cc1));
+<BR>
++	cc1 -= cc0;
+<BR>
++	hwrpb-&gt;cycle_freq = ((cc1 &gt;&gt; 11) * 100000000UL) / 3;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_enable_errors();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!pyxis_srm_window_setup())
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pyxis_native_window_setup();
+<BR>
+diff --exclude=*~ -urN linux-2.2-vanilla/arch/alpha/kernel/sys_sx164.c linux-2.2/arch/alpha/kernel/sys_sx164.c
+<BR>
+--- linux-2.2-vanilla/arch/alpha/kernel/sys_sx164.c	Sun Feb 21 22:06:36 1999
+<BR>
++++ linux-2.2/arch/alpha/kernel/sys_sx164.c	Tue May 23 12:21:19 2000
+<BR>
+@@ -24,6 +24,7 @@
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
+&nbsp;#include &lt;asm/core_pyxis.h&gt;
+<BR>
++#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+&nbsp;#include &quot;irq.h&quot;
+<BR>
+@@ -186,6 +187,35 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SMC669_Init(0);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void __init
+<BR>
++sx164_init_arch(unsigned long *mem_start, unsigned long *mem_end)
+<BR>
++{
+<BR>
++	/*
+<BR>
++	 * OSF palcode v1.23 forgets to enable PCA56 Motion Video
+<BR>
++	 * Instructions. Let's enable it.
+<BR>
++	 * We have to check palcode revision because CSERVE interface
+<BR>
++	 * is subject to change without notice. For example, it
+<BR>
++	 * has been changed completely since v1.16 (found in MILO
+<BR>
++	 * distribution). -ink
+<BR>
++	 */
+<BR>
++	struct percpu_struct *cpu = (struct percpu_struct*)
+<BR>
++				((char*)hwrpb + hwrpb-&gt;processor_offset);
+<BR>
++
+<BR>
++	if (alpha_using_srm &amp;&amp; (cpu-&gt;pal_revision &amp; 0xffff) == 0x117) {
+<BR>
++		__asm__ __volatile__(
+<BR>
++		&quot;lda	$16,8($31)\n&quot;
+<BR>
++		&quot;call_pal 9\n&quot;		/* Allow PALRES insns in kernel mode */
+<BR>
++		&quot;pal19	0x118\n&quot;	/* hw_mfpr $0,icsr */
+<BR>
++		&quot;ldah	$16,(1&lt;&lt;(19-16))($31)\n&quot;
+<BR>
++		&quot;or	$0,$16,$0\n&quot;	/* set MVE bit */
+<BR>
++		&quot;pal1d	0x118\n&quot;	/* hw_mtpr $0,icsr */
+<BR>
++		&quot;lda	$16,9($31)\n&quot;
+<BR>
++		&quot;call_pal 9&quot;		/* Disable PALRES insns */
+<BR>
++		: : : &quot;$0&quot;, &quot;$16&quot;);
+<BR>
++		printk(&quot;PCA56 MVI set enabled\n&quot;);
+<BR>
++	}
+<BR>
++	pyxis_init_arch(mem_start, mem_end);
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* The System Vector
+<BR>
+@@ -206,7 +236,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ack_irq:		generic_ack_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;device_interrupt:	sx164_device_interrupt,
+<BR>
+&nbsp;
+<BR>
+-	init_arch:		pyxis_init_arch,
+<BR>
++	init_arch:		sx164_init_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sx164_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		generic_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_fixup:		sx164_pci_fixup,
+<BR>
+<P><P><PRE>
+-- 
+David Huggins-Daines, Senior GNU/Linux Consultant, Linuxcare, Inc.
+613.562.1239 desk, 613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0040.html">David Huggins-Daines: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0038.html">Michal Jaegermann: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0041.html">Ivan Kokshaysky: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0037.html">David Huggins-Daines: "Re: 2.3.99-pre8 misc alpha patches"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

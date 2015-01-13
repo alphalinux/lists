@@ -1,0 +1,149 @@
+diff -ur 2.3.99-pre8/arch/alpha/kernel/core_cia.c linux/arch/alpha/kernel/core_cia.c
+--- 2.3.99-pre8/arch/alpha/kernel/core_cia.c	Tue Mar 21 21:46:21 2000
++++ linux/arch/alpha/kernel/core_cia.c	Thu May 18 20:01:37 2000
+@@ -19,6 +19,7 @@
+ 
+ #include <asm/system.h>
+ #include <asm/ptrace.h>
++#include <asm/hwrpb.h>
+ 
+ #define __EXTERN_INLINE inline
+ #include <asm/io.h>
+@@ -712,6 +713,23 @@
+ void __init
+ pyxis_init_arch(void)
+ {
++	/* On pyxis machines we can precisely calculate the
++	   CPU clock frequency using pyxis real time counter.
++	   Especially it's useful for SX164 with broken RTC.
++	   Both CPU and chipset are driven by the single 16.666M
++	   or 16.667M crystal oscillator. PYXIS_RT_COUNT clock is
++	   66.66 MHz. -ink */
++
++	unsigned int cc0, cc1;
++	unsigned long pyxis_cc;
++
++	__asm__ __volatile__ ("rpcc %0" : "=r"(cc0));
++	pyxis_cc = *(vulp)PYXIS_RT_COUNT;
++	do { } while(*(vulp)PYXIS_RT_COUNT - pyxis_cc < 4096);
++	__asm__ __volatile__ ("rpcc %0" : "=r"(cc1));
++	cc1 -= cc0;
++	hwrpb->cycle_freq = ((cc1 >> 11) * 100000000UL) / 3;
++
+ 	do_init_arch(1);
+ }
+ 
+diff -ur 2.3.99-pre8/arch/alpha/kernel/pci.c linux/arch/alpha/kernel/pci.c
+--- 2.3.99-pre8/arch/alpha/kernel/pci.c	Wed Apr 26 04:56:06 2000
++++ linux/arch/alpha/kernel/pci.c	Thu May 18 19:29:23 2000
+@@ -367,6 +367,22 @@
+ 	return 0;
+ }
+ 
++/*
++ *  If we set up a device for bus mastering, we need to check the latency
++ *  timer as certain firmware forgets to set it properly, as seen
++ *  on SX164 and LX164 with SRM.
++ */
++void
++pcibios_set_master(struct pci_dev *dev)
++{
++	u8 lat;
++	pci_read_config_byte(dev, PCI_LATENCY_TIMER, &lat);
++	if (lat >= 16) return;
++	printk("PCI: Setting latency timer of device %s to 64\n",
++							dev->slot_name);
++	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 64);
++}
++
+ #define ROUND_UP(x, a)		(((x) + (a) - 1) & ~((a) - 1))
+ 
+ static void __init
+diff -ur 2.3.99-pre8/arch/alpha/kernel/sys_sx164.c linux/arch/alpha/kernel/sys_sx164.c
+--- 2.3.99-pre8/arch/alpha/kernel/sys_sx164.c	Fri Mar 17 01:08:32 2000
++++ linux/arch/alpha/kernel/sys_sx164.c	Thu May 18 20:03:40 2000
+@@ -24,6 +24,7 @@
+ #include <asm/io.h>
+ #include <asm/pgtable.h>
+ #include <asm/core_cia.h>
++#include <asm/hwrpb.h>
+ 
+ #include "proto.h"
+ #include "irq_impl.h"
+@@ -114,6 +115,35 @@
+ 	SMC669_Init(0);
+ }
+ 
++static void __init
++sx164_init_arch(void)
++{
++	/*
++	 * OSF palcode v1.23 forgets to enable PCA56 Motion Video
++	 * Instructions. Let's enable it.
++	 * We have to check palcode revision because CSERVE interface
++	 * is subject to change without notice. For example, it
++	 * has been changed completely since v1.16 (found in MILO
++	 * distribution). -ink
++	 */
++	struct percpu_struct *cpu = (struct percpu_struct*)
++				((char*)hwrpb + hwrpb->processor_offset);
++
++	if (alpha_using_srm && (cpu->pal_revision & 0xffff) == 0x117) {
++		__asm__ __volatile__(
++		"lda	$16,8($31)\n"
++		"call_pal 9\n"		/* Allow PALRES insns in kernel mode */
++		"pal19	0x118\n"	/* hw_mfpr $0,icsr */
++		"ldah	$16,(1<<(19-16))($31)\n"
++		"or	$0,$16,$0\n"	/* set MVE bit */
++		"pal1d	0x118\n"	/* hw_mtpr $0,icsr */
++		"lda	$16,9($31)\n"
++		"call_pal 9"		/* Disable PALRES insns */
++		: : : "$0", "$16");
++		printk("PCA56 MVI set enabled\n");
++	}
++	pyxis_init_arch();
++}
+ 
+ /*
+  * The System Vector
+@@ -133,7 +163,7 @@
+ 	nr_irqs:		48,
+ 	device_interrupt:	pyxis_device_interrupt,
+ 
+-	init_arch:		pyxis_init_arch,
++	init_arch:		sx164_init_arch,
+ 	init_irq:		sx164_init_irq,
+ 	init_rtc:		common_init_rtc,
+ 	init_pci:		sx164_init_pci,
+diff -ur 2.3.99-pre8/arch/alpha/vmlinux.lds linux/arch/alpha/vmlinux.lds
+--- 2.3.99-pre8/arch/alpha/vmlinux.lds	Fri Feb 25 09:36:04 2000
++++ linux/arch/alpha/vmlinux.lds	Thu May 18 16:56:05 2000
+@@ -1,10 +1,11 @@
+ OUTPUT_FORMAT("elf64-alpha")
+ ENTRY(__start)
++PHDRS { kernel PT_LOAD ; }
+ SECTIONS
+ {
+   . = 0xfffffc0000310000;
+   _text = .;
+-  .text : { *(.text) }
++  .text : { *(.text) } :kernel
+   _etext = .;
+ 
+   /* Exception table */
+diff -ur 2.3.99-pre8/include/asm-alpha/pci.h linux/include/asm-alpha/pci.h
+--- 2.3.99-pre8/include/asm-alpha/pci.h	Tue Mar 21 21:46:21 2000
++++ linux/include/asm-alpha/pci.h	Thu May 18 19:40:53 2000
+@@ -51,10 +51,7 @@
+ #define PCIBIOS_MIN_IO		alpha_mv.min_io_address
+ #define PCIBIOS_MIN_MEM		alpha_mv.min_mem_address
+ 
+-extern inline void pcibios_set_master(struct pci_dev *dev)
+-{
+-	/* No special bus mastering setup handling */
+-}
++extern void pcibios_set_master(struct pci_dev *dev);
+ 
+ /* IOMMU controls.  */
+ 
+

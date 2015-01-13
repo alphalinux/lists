@@ -1,0 +1,246 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-Hardware Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-Hardware Archive<BR> Re: [Axp-hardware] tftpboot alpha server 4/275</H1> 
+	
+<!-- received="Sun Apr 08 14:30:43 2001" -->
+<!-- isoreceived="20010408213043" -->
+<!-- sent="Sat, 07 Apr 2001 17:24:23 +0200" -->
+<!-- isosent="20010407152423" -->
+<!-- name="T. Weyergraf" -->
+<!-- email="kirk@colinet.de" -->
+<!-- subject="Re: [Axp-hardware] tftpboot alpha server 4/275" -->
+<!-- id="kirk-1010407172423.A09257@hydra.colinet.de" -->
+<!-- inreplyto="F114JLtosJ3Ih7jtrSB000018df@hotmail.com" -->
+<STRONG>Subject: </STRONG>Re: [Axp-hardware] tftpboot alpha server 4/275<BR>
+<STRONG>From: </STRONG>T. Weyergraf (<EM>kirk@colinet.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Apr  7 08:24:23 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#6">[ date ]</A>
+<A HREF="index.shtml#6">[ thread ]</A>
+<A HREF="subject.shtml#6">[ subject ]</A>
+<A HREF="author.shtml#6">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.shtml">duane ellis: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.shtml">duane ellis: "[Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0005.shtml">duane ellis: "[Axp-hardware] tftpboot alpha server 4/275"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.shtml">duane ellis: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0005.shtml">T. Weyergraf: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P><P><EM>&gt; Hello all, I'm trying to boot an AS2000 4/275
+</EM><BR>
+<EM>&gt; via bootp from my RH7.0 Intel box. I'm having some
+</EM><BR>
+<EM>&gt; success - and some problems.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If this is the wrong list to ask this on please
+</EM><BR>
+<EM>&gt; give me a suggestion.
+</EM><BR>
+<P><EM>&gt;[... Lots of stuff deleted ...]
+</EM><BR>
+<P>Ok, here are the necessary steps to netboot an Alpha:
+<BR>
+<P>First of all, you need to create a netbootable Kernelimage foer the Alpha. That of course,
+<BR>
+assumes, that you have an Alpha on which you can build a kernel. If not, feel free
+<BR>
+to send me the proper .config and the version of the kernel you want and I can build
+<BR>
+one for you. Make sure, the kernel contains proper networking and a non-module (!) driver
+<BR>
+for the ethernet card  In addition, the following options must be set:
+<BR>
+<P>CONFIG_IP_PNP=y
+<BR>
+CONFIG_IP_PNP_BOOTP=y
+<BR>
+CONFIG_IP_PNP_RARP=y
+<BR>
+<P>CONFIG_NFS_FS=y
+<BR>
+CONFIG_ROOT_NFS=y
+<BR>
+CONFIG_SUNRPC=y
+<BR>
+CONFIG_LOCKD=y
+<BR>
+<P><P>Compile the kernel as follows:
+<BR>
+First the normal stuff:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;make dep ; make clean ; make boot
+<BR>
+<P>Then, create the bootimage by doing:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;make bootpfile
+<BR>
+<P>That gives you a file called &quot;bootpfile&quot; in arch/alpha/boot. This is the kernel, you can boot
+<BR>
+via bootp. Copy that kernel to the location, where the root-filesystem you intend to export
+<BR>
+for the Alpha lives. I use the whole networking stuff, to boot my experimental Alpha-clustering
+<BR>
+kernels, which are based on linux-kernel. So the following examples are real-world ones.
+<BR>
+I'll use /home/colinet/cid1, and call the kernel vmlinux ( i call the vmccol, but that doesn't
+<BR>
+matter, since it's not normal linux anyway ;-). That gives you the complete path of the kernel:
+<BR>
+<P>/home/colinet/cid1/vmlinux
+<BR>
+<P>Along with the kernel, the directory /home/colinet/cid1 should also contain a reasonable
+<BR>
+amount of linux-related files, like a correct init-binary, an /etc hirachy, /sbin, /usr/bin, /var
+<BR>
+and all that stuff. Edit that whole thing to your requirements. It's an awful lot of work. As a
+<BR>
+starter, I used the Debian ( my distro ) boot-floppies, unpacked the whole stuff in the
+<BR>
+/home/colinet/cid1 and reconfigured the /etc hirachy. Feel free, to create your own
+<BR>
+linux-setup, you'll wish to netboot. As my current setup is definitely not linux anymore
+<BR>
+( I use my own init for my cluster, so the whole thing looks different from the very beginning ),
+<BR>
+I can't even give you a decent ls-Ral template. Sorry for that ;-)
+<BR>
+<P>Now, configure bootp for the correct System. Note, that the &quot;ha=xxxxxxxx&quot; needs to be changed
+<BR>
+to the MAC of your ethernet card - show device on SRM usually tells you that number. Also
+<BR>
+the IP-adress and netmask needs to be tuned to your network. The machine name cid1 should
+<BR>
+also be changed to what you have. My /etc/bootptab entry looks like this:
+<BR>
+<P>cid1\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:ha=0080AD86D284:rp=/home/colinet/cid1:\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:hd=/home/colinet/cid1:bf=vmlinux:\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:ip=192.168.164.2:sm=255.255.255.0:\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:td=/home/colinet/cid1
+<BR>
+<P>Now, make sure, bootpd is running ( start via /usr/sbin/bootpd ) and the tftp service is enabled
+<BR>
+and configured correctly in /etc/inetd.conf. My inetd.conf entry looks like this:
+<BR>
+<P>tftp           dgram   udp     wait    nobody  /usr/sbin/tcpd  /usr/sbin/in.tftpd /home/colinet
+<BR>
+<P>The path at the end of the line, is the directory matching all above settings. Also, as you can
+<BR>
+see, I'm running tftpd under the control of the tcp-wrapper, for security reasons. Since
+<BR>
+this is default on all serious linux-distros today, make sure, /etc/hosts.allow and /etc/hosts.deny
+<BR>
+are configured correctly.
+<BR>
+Now. setup the NFS-root for the client correctly. For that, my /etc/exports contains the
+<BR>
+following entry:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/home/colinet/cid1      cid1(rw,no_root_squash)
+<BR>
+<P>Make sure, NFS is configured correctly and the service is running on the server. As a
+<BR>
+security note, make sure, there is no whitespace between the hostname ( cid1 ) and the
+<BR>
+opening-bracket. The flag no_root_squash is necessary, in order to allow real UID=0
+<BR>
+access to the NFS-root for the client.
+<BR>
+Now, make sure, your client's fstab in /home/colinet/cid1/etc/fstab contains the correct
+<BR>
+filesystem setup. You should have at least:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;192.168.164.2:/home/colinet/cid1       /       nfs     rsize=8192,wsize=8192
+<BR>
+&nbsp;&nbsp;&nbsp;proc            /proc           proc    defaults                        0		0
+<BR>
+<P>You can tune the rsize/wsize settings to your preferences, your NIC's MTU and the like.
+<BR>
+the 8192 values work well for me. IIRC, 1024 is the default value for both, so these can
+<BR>
+be omitted.
+<BR>
+<P>Now, the smoke test ;-)
+<BR>
+Verify, all changes to config-files are correct on the server, as stated above. Make sure,
+<BR>
+bootp is running, inetd can start tftpd and NFS is running on the server.
+<BR>
+Boot the ( alpha-) client into SRM and enter the following:
+<BR>
+<P>boot -proto bootp ewa0 -flags &quot;nfsroot=192.168.164.10:/home/colinet/cid1&quot;
+<BR>
+<P>Of course, 192.168.164.10 needs to be changed to your server's IP address and the
+<BR>
+nfsroot-path needs to be changed according to your settings above.
+<BR>
+Besides, for testing if the bootpd/tftp stuff is configured correctly, you can just enter:
+<BR>
+<P>boot -proto bootp ewa0
+<BR>
+<P>That should load the kernel, which starts and bails out with the &quot;Kernel Panic: VFS: Unable to
+<BR>
+mount root on xx:yy&quot; message.
+<BR>
+<P>You should be fine now. If not, feel free to ask or drop me a mail.
+<BR>
+<P>Regards,
+<BR>
+Thomas Weyergraf
+<BR>
+<P><P><P><P><P><PRE>
+-- 
+Thomas Weyergraf                                                kirk@colinet.de
+My Favorite IA64 Opcode-guess ( see arch/ia64/lib/memset.S )
+&quot;br.ret.spnt.few&quot; - got back from getting beer, did not spend a lot.
+<P><P>_______________________________________________
+Axp-hardware mailing list
+Axp-hardware@lists.alphalinux.org
+<A HREF="http://lists.alphalinux.org/mailman/listinfo/axp-hardware">http://lists.alphalinux.org/mailman/listinfo/axp-hardware</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0007.shtml">duane ellis: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0005.shtml">duane ellis: "[Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0005.shtml">duane ellis: "[Axp-hardware] tftpboot alpha server 4/275"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0007.shtml">duane ellis: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0005.shtml">T. Weyergraf: "Re: [Axp-hardware] tftpboot alpha server 4/275"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Apr 10 10:35:29 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

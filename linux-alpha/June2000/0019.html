@@ -1,0 +1,314 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: load locked / store conditional</TITLE>
+<META NAME="Author" CONTENT="Pat O'Rourke (orourke@mclinux.com)">
+<META NAME="Subject" CONTENT="load locked / store conditional">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>load locked / store conditional</H1>
+<HR>
+<P>
+<!-- received="Thu Jun 22 10:48:45 2000" -->
+<!-- isoreceived="20000622174845" -->
+<!-- sent="Mon, 19 Jun 2000 15:49:44 -0400" -->
+<!-- isosent="20000619194944" -->
+<!-- name="Pat O'Rourke" -->
+<!-- email="orourke@mclinux.com" -->
+<!-- subject="load locked / store conditional" -->
+<!-- id="200006191949.PAA15978@orourke.lowell.mclinux.com" -->
+<STRONG>Subject: </STRONG>load locked / store conditional<BR>
+<STRONG>From: </STRONG>Pat O'Rourke (<EM>orourke@mclinux.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jun 19 2000 - 12:49:44 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#19">[ date ]</A>
+<A HREF="index.html#19">[ thread ]</A>
+<A HREF="subject.html#19">[ subject ]</A>
+<A HREF="author.html#19">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Harald Tveit Alvestrand: "Sudden halts on Linux 2.2.15"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+When DEBUG_SPINLOCK is turned off the size of a spinlock_t will decrease to
+<BR>
+4 bytes.  This results in the runqueue_lock (spinlock_t) and the tasklist_lock
+<BR>
+(rwlock_t) being allocated on the same cache line and results in a lot of
+<BR>
+contention for this single cache line.  The symptoms of the problem were that
+<BR>
+the machine (dual 667 mhz CPUs) would somtimes &quot;hang&quot; for several minutes
+<BR>
+during boot and occaisonally during shutdown as well.  After looking at several
+<BR>
+dumps of the machine in this state, I noticed it always involved one process
+<BR>
+doing a wait(2) for a zombie child which had exited.
+<BR>
+<P>The parent task was always in the following loop in the release() function:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_lock_irq(&amp;runqueue_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;has_cpu = p-&gt;has_cpu;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock_irq(&amp;runqueue_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while (has_cpu);
+<BR>
+<P>while the child was in various stages of disassociate_ctty(), but was always
+<BR>
+trying to lock / unlock the tasklist_lock.
+<BR>
+<P>The cause of the problem is that the parent's ldl_l / stl_c for the
+<BR>
+runqueue_lock was constantly interfering with the child's ldl_l / stl_c for the
+<BR>
+tasklist_lock.
+<BR>
+<P>A quick work around for this particular instance would be to simply ensure
+<BR>
+these locks do not land on the same cacheline by changing their declaration
+<BR>
+in sched.c as follows:
+<BR>
+<P>--- /sw/linux-2.3.99-pre9/kernel/sched.c        Tue May  2 19:49:58 2000
+<BR>
++++ sched.c     Fri Jun  9 12:51:54 2000
+<BR>
+@@ -60,8 +60,12 @@
+<BR>
+&nbsp;&nbsp;* The run-queue lock locks the parts that actually access
+<BR>
+&nbsp;&nbsp;* and change the run-queues, and have to be interrupt-safe.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-spinlock_t runqueue_lock = SPIN_LOCK_UNLOCKED;  /* second */
+<BR>
+-rwlock_t tasklist_lock = RW_LOCK_UNLOCKED;     /* third */
+<BR>
++/*
+<BR>
++ * These can be hot locks so put them on their own cache line, we don't
+<BR>
++ * want these in the same cacheline.
+<BR>
++ */
+<BR>
++__cacheline_aligned spinlock_t runqueue_lock = SPIN_LOCK_UNLOCKED;  /* second 
+<BR>
+*/
+<BR>
++__cacheline_aligned rwlock_t tasklist_lock = RW_LOCK_UNLOCKED; /* third */
+<BR>
+&nbsp;
+<BR>
+&nbsp;static LIST_HEAD(runqueue_head);
+<BR>
+&nbsp;
+<BR>
+You could argue these two locks warrant being on their own cache line just
+<BR>
+to avoid &quot;ping-ponging&quot; a single cache line around the system, but this does
+<BR>
+not prevent the same issue from occuring for a different set of locks.
+<BR>
+<P>Another approach is to modify the spinlock and read_lock macros so they will
+<BR>
+wait a random period of time if the store conditional fails.  The following
+<BR>
+patch shows one possible implementation.  With this code we will back off when
+<BR>
+the store conditional fails by waiting for the cycle counter to advance a
+<BR>
+certain amount.  The logic does not really effect the main line path and only
+<BR>
+happens when the store conditional fails, as opposed to the lock actually
+<BR>
+being unavailable.  To account for varying cycle frequencies we increase the
+<BR>
+backoff if the previous waiting period was insufficient.
+<BR>
+<P>All ldl_l / stl_c sequences are susceptible to the same error, but I held off
+<BR>
+changing those until I got some feedback on this approach.  Do you see any
+<BR>
+problems with it?  Is there a better solution?
+<BR>
+<P>Thanks,
+<BR>
+<P>Pat
+<BR>
+<P><PRE>
+-- 
+Patrick O'Rourke
+orourke@missioncriticallinux.com
+<P>P.S. This patch is based on linux-2.4.0-test1-ac21:
+<P>--- spinlock.h-orig	Mon Jun 19 14:06:09 2000
++++ spinlock.h	Mon Jun 19 14:04:05 2000
+@@ -7,6 +7,7 @@
+ 
+ #define DEBUG_SPINLOCK 1
+ #define DEBUG_RWLOCK 1
++#define	SPINLOCK_BACKOFF 12
+ 
+ /*
+  * Simple spin lock operations.  There are two variants, one clears IRQ's
+@@ -72,19 +73,29 @@
+ 	   of this object file's text section so as to perfect
+ 	   branch prediction.  */
+ 	__asm__ __volatile__(
++	&quot;       bis     $31,%3,$22\n&quot;
+ 	&quot;1:	ldl_l	%0,%1\n&quot;
+ 	&quot;	blbs	%0,2f\n&quot;
+ 	&quot;	or	%0,1,%0\n&quot;
+ 	&quot;	stl_c	%0,%1\n&quot;
+-	&quot;	beq	%0,2f\n&quot;
++	&quot;	beq	%0,3f\n&quot;
+ 	&quot;	mb\n&quot;
+ 	&quot;.subsection 2\n&quot;
+ 	&quot;2:	ldl	%0,%1\n&quot;
+ 	&quot;	blbs	%0,2b\n&quot;
+ 	&quot;	br	1b\n&quot;
++	&quot;3:     rpcc    $23\n&quot;
++	&quot;       srl     $23,$22,$23\n&quot;
++        &quot;4:     rpcc    %0\n&quot;
++        &quot;       srl     %0,$22,%0\n&quot;
++	&quot;       xor     $23,%0,%0\n&quot;
++        &quot;       blbc    %0,4b\n&quot;
++        &quot;       addq    $22,1,$22\n&quot;
++        &quot;       br      1b\n&quot;
+ 	&quot;.previous&quot;
+ 	: &quot;=r&quot; (tmp), &quot;=m&quot; (__dummy_lock(lock))
+-	: &quot;m&quot;(__dummy_lock(lock)));
++	: &quot;m&quot;(__dummy_lock(lock)), &quot;i&quot; (SPINLOCK_BACKOFF)
++	: &quot;$22&quot;, &quot;$23&quot;);
+ }
+ 
+ #define spin_trylock(lock) (!test_and_set_bit(0,(lock)))
+@@ -108,20 +119,29 @@
+ 	long regx;
+ 
+ 	__asm__ __volatile__(
++	&quot;	bis     $31,%3,$22\n&quot;
+ 	&quot;1:	ldl_l	%1,%0\n&quot;
+ 	&quot;	bne	%1,6f\n&quot;
+ 	&quot;	or	$31,1,%1\n&quot;
+ 	&quot;	stl_c	%1,%0\n&quot;
+-	&quot;	beq	%1,6f\n&quot;
++	&quot;	beq	%1,7f\n&quot;
+ 	&quot;	mb\n&quot;
+ 	&quot;.subsection 2\n&quot;
+ 	&quot;6:	ldl	%1,%0\n&quot;
+ 	&quot;	bne	%1,6b\n&quot;
+ 	&quot;	br	1b\n&quot;
++	&quot;7:	rpcc    $23\n&quot;
++	&quot;       srl     $23,$22,$23\n&quot;
++	&quot;8:	rpcc    %1\n&quot;
++        &quot;       srl     %1,$22,%1\n&quot;
++	&quot;	xor	$23,%1,%1\n&quot;
++        &quot;       blbc    %1,8b\n&quot;
++        &quot;       addq    $22,1,$22\n&quot;
++        &quot;       br      1b\n&quot;
+ 	&quot;.previous&quot;
+ 	: &quot;=m&quot; (__dummy_lock(lock)), &quot;=&amp;r&quot; (regx)
+-	: &quot;0&quot; (__dummy_lock(lock))
+-	);
++	: &quot;0&quot; (__dummy_lock(lock)), &quot;i&quot; (SPINLOCK_BACKOFF)
++	: &quot;$22&quot;, &quot;$23&quot;);
+ }
+ 
+ static inline void read_lock(rwlock_t * lock)
+@@ -129,20 +149,29 @@
+ 	long regx;
+ 
+ 	__asm__ __volatile__(
++	&quot;	bis     $31,%3,$22\n&quot;
+ 	&quot;1:	ldl_l	%1,%0\n&quot;
+ 	&quot;	blbs	%1,6f\n&quot;
+ 	&quot;	subl	%1,2,%1\n&quot;
+ 	&quot;	stl_c	%1,%0\n&quot;
+-	&quot;	beq	%1,6f\n&quot;
++	&quot;	beq	%1,7f\n&quot;
+ 	&quot;4:	mb\n&quot;
+ 	&quot;.subsection 2\n&quot;
+ 	&quot;6:	ldl	%1,%0\n&quot;
+ 	&quot;	blbs	%1,6b\n&quot;
+ 	&quot;	br	1b\n&quot;
++	&quot;7:	rpcc    $23\n&quot;
++	&quot;       srl     $23,$22,$23\n&quot;
++	&quot;8:	rpcc    %1\n&quot;
++        &quot;       srl     %1,$22,%1\n&quot;
++	&quot;	xor	$23,%1,%1\n&quot;
++        &quot;       blbc    %1,8b\n&quot;
++        &quot;       addq    $22,1,$22\n&quot;
++        &quot;       br      1b\n&quot;
+ 	&quot;.previous&quot;
+ 	: &quot;=m&quot; (__dummy_lock(lock)), &quot;=&amp;r&quot; (regx)
+-	: &quot;m&quot; (__dummy_lock(lock))
+-	);
++	: &quot;m&quot; (__dummy_lock(lock)), &quot;i&quot; (SPINLOCK_BACKOFF)
++	: &quot;$22&quot;, &quot;$23&quot;);
+ }
+ #endif /* DEBUG_RWLOCK */
+ 
+@@ -156,15 +185,24 @@
+ {
+ 	long regx;
+ 	__asm__ __volatile__(
++	&quot;	bis     $31,%3,$22\n&quot;
+ 	&quot;1:	ldl_l	%1,%0\n&quot;
+ 	&quot;	addl	%1,2,%1\n&quot;
+ 	&quot;	stl_c	%1,%0\n&quot;
+ 	&quot;	beq	%1,6f\n&quot;
+ 	&quot;.subsection 2\n&quot;
+-	&quot;6:	br	1b\n&quot;
++	&quot;6:	rpcc    $23\n&quot;
++	&quot;       srl     $23,$22,$23\n&quot;
++	&quot;7:	rpcc    %1\n&quot;
++        &quot;       srl     %1,$22,%1\n&quot;
++	&quot;	xor	$23,%1,%1\n&quot;
++        &quot;       blbc    %1,7b\n&quot;
++        &quot;       addq    $22,1,$22\n&quot;
++        &quot;       br      1b\n&quot;
+ 	&quot;.previous&quot;
+ 	: &quot;=m&quot; (__dummy_lock(lock)), &quot;=&amp;r&quot; (regx)
+-	: &quot;m&quot; (__dummy_lock(lock)));
++	: &quot;m&quot; (__dummy_lock(lock)), &quot;i&quot; (SPINLOCK_BACKOFF)
++	: &quot;$22&quot;, &quot;$23&quot;);
+ }
+ 
+ #endif /* _ALPHA_SPINLOCK_H */
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Harald Tveit Alvestrand: "Sudden halts on Linux 2.2.15"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0020.html">Steffen Persvold: "Re: load locked / store conditional"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Jul 01 2000 - 05:31:32 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

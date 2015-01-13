@@ -1,0 +1,155 @@
+<!-- received="Fri Jul 12 16:36:28 1996 " -->
+<!-- sent="Fri, 12 Jul 1996 22:32:33 +0000 (GMT)" -->
+<!-- name="Gerard Roudier" -->
+<!-- email="groudier@club-internet.fr" -->
+<!-- subject="Re: MMIO for new NCR810 driver?" -->
+<!-- id="9607122017.AA29154@olie.wvitcoe.wvnet.edu" -->
+<!-- inreplyto="199607120948.LAA11973@ceres.tat.physik.uni-tuebingen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: MMIO for new NCR810 driver?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: MMIO for new NCR810 driver?</h2>
+
+<b>Gerard Roudier</b> (<a href="mailto:groudier@club-internet.fr"><i>groudier@club-internet.fr</i></a>)<br>
+<i>Fri, 12 Jul 1996 22:32:33 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#34">[ date ]</a><a href="index.html#34">[ thread ]</a><a href="subject.html#34">[ subject ]</a><a href="author.html#34">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0035.html">David Mosberger-Tang: "Re: MMIO for new NCR810 driver?"</a>
+<li> <b>Previous message:</b> <a href="0033.html">velcro@pobox.com: "Re: questions on the PC164"</a>
+<li> <b>In reply to:</b> <a href="0022.html">Uncle George: "Re: Kernel panic: insl:...(was 3c509 &amp; axp linux)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello Harald,<br>
+<p>
+On Fri, 12 Jul 1996, Harald Koenig wrote:<br>
+<p>
+<i>&gt; &gt; I just look into io.h.</i><br>
+<i>&gt; &gt; I did not understand a lot all that stuff.</i><br>
+<i>&gt; &gt; Address ffffbc0..... seems weird (to an ignorant as I am about Alpha).</i><br>
+<i>&gt; &gt; Are you sure that __reab() is expecting addresses that have been remapped </i><br>
+<i>&gt; &gt; by vremap() ?</i><br>
+<i>&gt; </i><br>
+<i>&gt; no, these strange addresses are almost correct; this is the PAGE_OFFSET</i><br>
+<i>&gt; (asm-alpha/page.h) or IDENT_ADDR (asm-alpha/io.h) and part of the address </i><br>
+<i>&gt; for PCI/ISA bus mapping. from the Xserver sources I only know that the </i><br>
+<i>&gt; ISA/PCI bus is mapped to BUS_BASE / APECS_DENSE_MEM = 0xfffffc0300000000UL,</i><br>
+<i>&gt; so this really should be 0xfffffc0300000000 + 0x44000000 = 0xfffffc0344000000</i><br>
+<i>&gt; AFAIK.</i><br>
+<p>
+I have understand something like that too. I think that this address <br>
+calculation allows to acces the video memory directly, without calling <br>
+some readx() function. However, it seems that our virtual address <br>
+0xfffffe0000042000 has been processed by __readb() or __readw().<br>
+The result is something that donnot look like a valid address.<br>
+With i386 architecture we need to remap high physical addresses <br>
+corresponding to bus addresses in the kernel virtual space in order to be <br>
+able to do memory mapped IO from the kernel.<br>
+My opinion is that Alpha architecture does not need such recipe and that <br>
+the readx() functions are not expecting addresses with IDENT_ADDR offset.<br>
+<p>
+<i>&gt; or for kernel symbols:</i><br>
+<i>&gt; 	gdb /linux/vmlinux </i><br>
+<i>&gt; 	(gdb) x/i init</i><br>
+<i>&gt; 	0xfffffc0000310f98 &lt;init&gt;:              27bb0016        ldah    gp, 1441792(t12)</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; Perhaps we should use directly the bus base address (44000000).</i><br>
+<i>&gt; &gt; It is just an idea. I do not reply to the list because I am very probably </i><br>
+<i>&gt; &gt; wrong.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I've tried this too (one never knows;) but it really didn't work</i><br>
+<p>
+Well.<br>
+IMHO, mmio seems to be unnecessary under Alpha. io functions are <br>
+implemented with memory instructions and readb() and readw() is too <br>
+large and may decrease performances against inx() (x=b,w,l) functions.<br>
+ <br>
+I just try to find some code in the kernel tree which try to use readb() <br>
+or readl() from bus addresses &gt; 16 MB (our is 68 MB) and I did not found <br>
+anything.<br>
+Have readb() or readw() ever worked for addresses &gt; 16MB?<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; &gt; Have you some pointer to documentations about Alpha architecture?</i><br>
+<i>&gt; &gt; At the moment I am quite ignorant of that. I have to learn something </i><br>
+<i>&gt; &gt; about Alpha machines. I am very interested in such hardware.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I'd guess this should be all mentioned in </i><br>
+<i>&gt; </i><br>
+<i>&gt;         Alpha AXP Architecture Reference Manual</i><br>
+<i>&gt;         Second Edition</i><br>
+<i>&gt;         Digital Press/Butterworth-Heinemann</i><br>
+<i>&gt;         DEC order #: EY-T132E-DP</i><br>
+<i>&gt;         ISBN 1-55558-145-5</i><br>
+<i>&gt;         Library of Congress: QA76.9.A73A46</i><br>
+<p>
+Thanks, I will try to find this Manual.<br>
+<p>
+<i>&gt; but I don't have it (yet?).  so far I'm trying to avoid such problems</i><br>
+<i>&gt; or find some AXP guru (they are all on this list ;-) </i><br>
+<p>
+Seems they are very busy.<br>
+<p>
+<i>&gt;                                                       who knows/tells me.</i><br>
+<i>&gt; for the Xserver so far I only needed the bus base address, everything</i><br>
+<i>&gt; else is in user space and seems to work nicely...</i><br>
+<i>&gt; </i><br>
+<i>&gt; you can find some information in linux/include/asm-alpha/apecs.h (for my XL)</i><br>
+<i>&gt; and linux/include/asm-alpha/lca.h (for UDB/Multia) which define</i><br>
+<i>&gt; </i><br>
+<i>&gt; /linux/include/asm-alpha/apecs.h:#define APECS_DENSE_MEM        (IDENT_ADDR + 0x300000000UL)</i><br>
+<i>&gt; /linux/include/asm-alpha/lca.h:#define LCA_DENSE_MEM            (IDENT_ADDR + 0x300000000UL)</i><br>
+<p>
+readb() and readw() are implemented through sparce space (APECS_SPARSE_MEM).<br>
+<p>
+<i>&gt; &gt; &gt; ncr_attach: unit=0 chip=810 base=44000000, io_port=b400, irq=11</i><br>
+<i>&gt; &gt; &gt; ncr53c810-0: using memory mapped IO at virtual address  0xfffffe0000042000</i><br>
+<i>&gt; &gt; &gt; Unable to handle kernel paging request at virtual address ffffbc0200840080</i><br>
+<i>&gt; </i><br>
+<i>&gt; I don't understand why the kernel paging request address is much lower than</i><br>
+<i>&gt; the virt. MMIO address and even lower than PAGE_OFFSET or APECS_DENSE_MEM</i><br>
+<p>
+Look into apecs.h / readb() and you will understand what happened to your <br>
+virtual remapped address just before the fault.<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Harald</i><br>
+<p>
+         Gerard.<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0035.html">David Mosberger-Tang: "Re: MMIO for new NCR810 driver?"</a>
+<li> <b>Previous message:</b> <a href="0033.html">velcro@pobox.com: "Re: questions on the PC164"</a>
+<li> <b>In reply to:</b> <a href="0022.html">Uncle George: "Re: Kernel panic: insl:...(was 3c509 &amp; axp linux)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

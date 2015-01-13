@@ -1,0 +1,151 @@
+<!-- received="Tue May  7 00:10:00 1996 " -->
+<!-- sent="Tue, 7 May 96 00:10 PDT" -->
+<!-- name="Eric Smith" -->
+<!-- email="eric@goonsquad.spies.com" -->
+<!-- subject="Aarrgh!  (rpm misunderstanding)" -->
+<!-- id="m0uGgut-001UyKC@goonsquad.spies.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Aarrgh!  (rpm misunderstanding)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Aarrgh!  (rpm misunderstanding)</h2>
+
+<b>Eric Smith</b> (<a href="mailto:eric@goonsquad.spies.com"><i>eric@goonsquad.spies.com</i></a>)<br>
+<i>Tue, 7 May 96 00:10 PDT</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#87">[ date ]</a><a href="index.html#87">[ thread ]</a><a href="subject.html#87">[ subject ]</a><a href="author.html#87">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0088.html">Harald Koenig: "one more 32/64bit fix for XF86_S3"</a>
+<li> <b>Previous message:</b> <a href="0086.html">Noyan Dede: "Re: Performance gains"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0097.html">Erik Troan: "Re: Aarrgh! (rpm misunderstanding)"</a>
+<li> <b>Reply:</b> <a href="0097.html">Erik Troan: "Re: Aarrgh! (rpm misunderstanding)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I just lost all my carefully tuned Apache configuration files as the result<br>
+of a misunderstanding of how rpm works, so I thought I would describe my<br>
+experience in the hope of preventing others from learning the hard way.<br>
+<p>
+I'm running Red Hat AXP 2.1, using the standard apache-1.0.0-2.axp.rpm.<br>
+I'd carefully tweaked the various config files the way I liked them.  A few<br>
+weeks later I decided that I wanted to hack the apache source code to add a<br>
+minor feature.  So I FTP'd over a copy of apache-1.0.0-2.src.rpm.<br>
+<p>
+First I tried to do a query of the source rpm.  No dice.  I'd already<br>
+upgraded my rpm executable to version 2 because I had to install some<br>
+other version 2 rpm.  And rpm version 2 can't query version 1 rpms.  Sigh.<br>
+<p>
+So I did an "rpm --install apache-1.0.0-2.src.rpm".  It hung.  I let it run<br>
+for a while before I gave up.  Top showed that rpm was sucking CPU cycles as<br>
+fast as it could get them, but the cpio it had forked was sleeping.<br>
+<p>
+Fortunately this was easily fixed.  I upgraded to rpm-2.0.7-1.  I tried<br>
+to install the apache source rpm again, and it worked fine.<br>
+<p>
+Then I went looking for the sources.  Somehow I had gotten the misconception<br>
+that installing a source rpm would create a directory somewhere and get<br>
+everything ready so I could just type "make".  Not quite.  It just extracts<br>
+the .spec, .tar.gz, and .patch files.  Oh well.  There must be any easy<br>
+way to get the stuff ready to build, right?<br>
+<p>
+So I do an "rpm" to look at the options, and there are rpm --rebuild and<br>
+rpm --recompile.  I do an "rpm --help" to get more info.  It turns out that<br>
+--rebuild is used to go all the way from a source rpm to a brand-spanking-new<br>
+object rpm.  Not what I want.  It sounds like rpm --recompile is what I want.<br>
+<p>
+I type "rpm --recompile apache-1.0.0-2".  Doesn't work.  It seems that<br>
+the --recompile and --rebuild commands insist on installing the source rpm.<br>
+I guess it was pointless for me to do the "rpm --install" myself.<br>
+<p>
+I cd back to where i have the source rpm, and type<br>
+"rpm --recompile apache-1.0.0-2.src.rpm".  This seems to work fine.  Sure<br>
+enough, it makes a directory, extracts the sources, and does a make.  I'm<br>
+happy...<br>
+<p>
+Unfortunately, it doesn't stop there.  The make completes successfully, so<br>
+it does a make install, which proceeds to wipe out my old configuration<br>
+files.  I had no idea it was going to do a make install, or I never would<br>
+have invoked it.  To me, the word recompile doesn't imply install.  Most of<br>
+the time if I recompile something I want to test it before I install it for<br>
+general use.<br>
+<p>
+To add insult to injury, it then proceeds to rm -rf the directory it built<br>
+in.  And it deinstalls the source rpm.  So I still don't have sources to<br>
+modify.<br>
+<p>
+I'm sure that I must be going about this entirely the wrong way, but I'm not<br>
+sure what the preferred way is; so far my best guess is to use some variant of<br>
+rpm -b, although that seems to require the spec file, .tar.gz, and .patch<br>
+files, so it looks like I would have to do something like this:<br>
+	rpm --install apache-1.0.0-2.src.rpm<br>
+	rpm -bl /usr/src/redhat/SPECS/apache-1.0.0.spec<br>
+	cd /usr/src/redhat/BUILD/apache-1.0.0<br>
+        (repeat)<br>
+		(edit sources)<br>
+		rpm -bc --short-circuit /usr/src/redhat/SPECS/apache-1.0.0.spec<br>
+		(test the resulting executables)<br>
+        (until happy)<br>
+        rpm -bi --short circuit /usr/src/redhat/SPECS/apache-1.0.0.spec<br>
+which seems somewhat clunky at best.  Of course, if I look at the spec file I<br>
+may find that the compile and install phases simply do "make" and<br>
+"make install", in which case I can do that myself and avoid some typing.<br>
+<p>
+I had purchased an official copy of Red Hat 2.1 specifically to get the User's<br>
+Guide in the hope of learning how this rpm stuff works.  By my count, there<br>
+are seven pages explaining how to use rpm to install object rpm packages, and<br>
+twenty pages explaining how I can create my own new rpms, but not a single page<br>
+telling me how to do anything useful with a source rpm.<br>
+<p>
+Overall, I really like rpm, but there seem to be some rough edges, or at<br>
+least some holes in the documentation.<br>
+<p>
+The main lesson though is to keep backups of your configuration files.  Don't<br>
+assume that using rpm won't clobber them.<br>
+<p>
+So far I've been doing all this stuff as root, which is really dangerous.<br>
+I'm going to try creating a user "source" to do all this as in the future.<br>
+Of course, I'll have to su to root to do the install phase.<br>
+<p>
+If I'm going to be doing a lot of work with the "rpm -b" command in the<br>
+future, which seems likely, it would be nice to be able to set a default<br>
+rpm spec file in an environment variable such as DEF_RPM_SPEC.<br>
+<p>
+One of the things I've been thinking about doing is writing a script to<br>
+use the output of an "rpm -Va" and an "ls -R" to construct a file list to<br>
+pipe into tar.  I figure there's no point in my wasting time and tape backing<br>
+up files that came unmodified from rpms.  Or maybe someone out there has<br>
+already done this?<br>
+<p>
+Eric<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0088.html">Harald Koenig: "one more 32/64bit fix for XF86_S3"</a>
+<li> <b>Previous message:</b> <a href="0086.html">Noyan Dede: "Re: Performance gains"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0097.html">Erik Troan: "Re: Aarrgh! (rpm misunderstanding)"</a>
+<li> <b>Reply:</b> <a href="0097.html">Erik Troan: "Re: Aarrgh! (rpm misunderstanding)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

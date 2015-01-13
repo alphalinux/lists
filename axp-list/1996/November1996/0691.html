@@ -1,0 +1,356 @@
+<!-- received="Fri Nov 15 09:37:40 1996 " -->
+<!-- sent="Fri, 15 Nov 1996 15:26:03 +0100" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="Re: xcdroast-0.95a-axp-Patch" -->
+<!-- id="9611151526.ZM4387@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto="fabsoft@zarm.uni-bremen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: xcdroast-0.95a-axp-Patch</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: xcdroast-0.95a-axp-Patch</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 15 Nov 1996 15:26:03 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#691">[ date ]</a><a href="index.html#691">[ thread ]</a><a href="subject.html#691">[ subject ]</a><a href="author.html#691">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0692.html">Linus Torvalds: "Linux-2.1.10"</a>
+<li> <b>Previous message:</b> <a href="0690.html">geerten kuiper: "3.0.3 on Durango: some problems solved"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Nov 15, 12:11pm, Zarmfab Software Development wrote:<br>
+<p>
+<i>&gt; WARNING:</i><br>
+<i>&gt; </i><br>
+<i>&gt; cdwrite-2.0 seems to lockup my scsi driver ( ncr53c8xx-1.14c ) in the fixating stage, but imho</i><br>
+<i>&gt; that's not a problem of xcdroast or cdwrite. I'll try to investigate this and ask the author of </i><br>
+<i>&gt; the driver for help.</i><br>
+<i>&gt; </i><br>
+<p>
+oops, it was a problem of cdwrite, and therefore also of mycdwrite used in xcdroast.<br>
+<p>
+The mistake is to use the constant 100 as HZ in the computation of the timeout value .<br>
+AT the alpha, HZ is 1024, so the timeout was too short. We should use HZ from<br>
+asm/params.h to be portable.<br>
+ <br>
+This is my new patch:<br>
+<p>
+-- snip --<br>
+<p>
+diff -u -r -P xcdroast-0.95a/src/fdisk3.04.c xcdroast-0.95a-axp/src/fdisk3.04.c<br>
+--- xcdroast-0.95a/src/fdisk3.04.c	Sun May  5 20:13:24 1996<br>
++++ xcdroast-0.95a-axp/src/fdisk3.04.c	Thu Nov 14 14:05:25 1996<br>
+@@ -46,6 +46,7 @@<br>
+ #include &lt;linux/unistd.h&gt;	/* _syscall */<br>
+ #include &lt;linux/hdreg.h&gt;	/* HDIO_GETGEO */<br>
+ #include &lt;linux/fs.h&gt;		/* BLKGETSIZE */<br>
++#include &lt;unistd.h&gt;             /* lseek */<br>
+ <br>
+ #define SIZE(a)	(sizeof(a)/sizeof(a[0]))<br>
+ <br>
+@@ -123,6 +124,7 @@<br>
+  * know about the loff_t type.<br>
+  */<br>
+ <br>
++#ifndef __alpha<br>
+ static<br>
+ _syscall5(int,  _llseek,  uint,  fd, ulong, hi, ulong, lo,<br>
+        loff_t *, res, uint, wh);<br>
+@@ -147,6 +149,28 @@<br>
+     }<br>
+     return 1;<br>
+ }<br>
++#else<br>
++int<br>
++sseek(char *dev, unsigned int fd, unsigned long s) {<br>
++    __off_t in, out;<br>
++    in = ((__off_t) s &lt;&lt; 9);<br>
++<br>
++    if ((out=lseek (fd, in, SEEK_SET)) &lt; 0) {<br>
++	perror("lseek");<br>
++	error("seek error on %s - cannot seek to sector %lu\n", dev, s);<br>
++	return 0;<br>
++    }<br>
++<br>
++    if (in != out) {<br>
++	error("seek error: wanted 0x%016lx, got 0x%016lx\n",<br>
++	       (unsigned long)in,<br>
++	       (unsigned long)out);<br>
++	return 0;<br>
++    }<br>
++    return 1;<br>
++}<br>
++#endif<br>
++<br>
+ <br>
+ /*<br>
+  *  B. About sectors<br>
+diff -u -r -P xcdroast-0.95a/src/fixup_res.h xcdroast-0.95a-axp/src/fixup_res.h<br>
+--- xcdroast-0.95a/src/fixup_res.h	Thu Jan  1 01:00:00 1970<br>
++++ xcdroast-0.95a-axp/src/fixup_res.h	Fri Nov 15 11:29:51 1996<br>
+@@ -0,0 +1,35 @@<br>
++#include &lt;asm/resource.h&gt;<br>
++<br>
++#ifndef RLIMIT_CPU<br>
++#define RLIMIT_CPU __KERNEL_RLIMIT_CPU<br>
++#endif<br>
++#ifndef RLIMIT_FSIZE<br>
++#define RLIMIT_FSIZE __KERNEL_RLIMIT_FSIZE<br>
++#endif<br>
++#ifndef RLIMIT_DATA<br>
++#define RLIMIT_DATA __KERNEL_RLIMIT_DATA<br>
++#endif<br>
++#ifndef RLIMIT_STACK<br>
++#define RLIMIT_STACK __KERNEL_RLIMIT_STACK<br>
++#endif<br>
++#ifndef RLIMIT_CORE<br>
++#define RLIMIT_CORE __KERNEL_RLIMIT_CORE<br>
++#endif<br>
++#ifndef RLIMIT_RSS<br>
++#define RLIMIT_RSS __KERNEL_RLIMIT_RSS<br>
++#endif<br>
++#ifndef RLIMIT_NOFILE<br>
++#define RLIMIT_NOFILE __KERNEL_RLIMIT_NOFILE<br>
++#endif<br>
++#ifndef RLIMIT_AS<br>
++#define RLIMIT_AS __KERNEL_RLIMIT_AS<br>
++#endif<br>
++#ifndef RLIMIT_NPROC<br>
++#define RLIMIT_NPROC __KERNEL_RLIMIT_NPROC<br>
++#endif<br>
++#ifndef RLIMIT_MEMLOCK<br>
++#define RLIMIT_MEMLOCK __KERNEL_RLIMIT_MEMLOCK<br>
++#endif<br>
++#ifndef RLIM_NLIMITS<br>
++#define RLIM_NLIMITS __KERNEL_RLIM_NLIMITS<br>
++#endif<br>
+diff -u -r -P xcdroast-0.95a/src/getpartsize.c xcdroast-0.95a-axp/src/getpartsize.c<br>
+--- xcdroast-0.95a/src/getpartsize.c	Fri Nov  1 12:47:41 1996<br>
++++ xcdroast-0.95a-axp/src/getpartsize.c	Thu Nov 14 14:20:00 1996<br>
+@@ -6,6 +6,7 @@<br>
+ #include &lt;stdio.h&gt;<br>
+ #include &lt;fcntl.h&gt;<br>
+ #include &lt;linux/fs.h&gt;<br>
++#include &lt;string.h&gt;<br>
+ <br>
+ int getsize(char *dev) {<br>
+ int fd,size;<br>
+diff -u -r -P xcdroast-0.95a/src/isiso.c xcdroast-0.95a-axp/src/isiso.c<br>
+--- xcdroast-0.95a/src/isiso.c	Thu Mar 14 14:20:13 1996<br>
++++ xcdroast-0.95a-axp/src/isiso.c	Thu Nov 14 11:55:27 1996<br>
+@@ -12,6 +12,7 @@<br>
+ #include &lt;ctype.h&gt;<br>
+ #include &lt;unistd.h&gt;<br>
+ #include &lt;fcntl.h&gt;<br>
++#include &lt;string.h&gt;<br>
+ <br>
+ char buf[1024];<br>
+ char devname[80];<br>
+diff -u -r -P xcdroast-0.95a/src/isodetect.c xcdroast-0.95a-axp/src/isodetect.c<br>
+--- xcdroast-0.95a/src/isodetect.c	Thu Apr 18 23:59:05 1996<br>
++++ xcdroast-0.95a-axp/src/isodetect.c	Thu Nov 14 11:55:46 1996<br>
+@@ -14,6 +14,7 @@<br>
+ #include &lt;unistd.h&gt;<br>
+ #include &lt;fcntl.h&gt;<br>
+ #include &lt;termio.h&gt;<br>
++#include &lt;string.h&gt;<br>
+ <br>
+ char buf[1024];<br>
+ char devname[80];<br>
+diff -u -r -P xcdroast-0.95a/src/isoinfo.c xcdroast-0.95a-axp/src/isoinfo.c<br>
+--- xcdroast-0.95a/src/isoinfo.c	Sun May  5 13:51:52 1996<br>
++++ xcdroast-0.95a-axp/src/isoinfo.c	Thu Nov 14 12:07:12 1996<br>
+@@ -36,6 +36,7 @@<br>
+ #include &lt;stdio.h&gt;<br>
+ #include &lt;signal.h&gt;<br>
+ #include &lt;sys/stat.h&gt;<br>
++#include &lt;string.h&gt;<br>
+ <br>
+ #ifdef __svr4__<br>
+ #include &lt;stdlib.h&gt;<br>
+@@ -45,6 +46,11 @@<br>
+ /* extern int getopt (int __argc, char **__argv, char *__optstring); */<br>
+ #endif<br>
+ <br>
++#ifdef linux<br>
++#include &lt;stdlib.h&gt;<br>
++#include &lt;unistd.h&gt;<br>
++#endif<br>
++<br>
+ FILE * infile;<br>
+ int use_rock = 0;<br>
+ int do_listing = 0;<br>
+@@ -406,7 +412,7 @@<br>
+ 	    if( td != NULL ) <br>
+ 	      {<br>
+ 		while(td-&gt;next != NULL) td = td-&gt;next;<br>
+-		td-&gt;next = (struct todo *) malloc(sizeof(*td));<br>
++		td-&gt;next =  malloc(sizeof(*td));<br>
+ 		td = td-&gt;next;<br>
+ 	      }<br>
+ 	    else<br>
+diff -u -r -P xcdroast-0.95a/src/mkisofs-1.05/mkisofs.c xcdroast-0.95a-axp/src/mkisofs-1.05/mkisofs.c<br>
+--- xcdroast-0.95a/src/mkisofs-1.05/mkisofs.c	Tue May 14 21:42:29 1996<br>
++++ xcdroast-0.95a-axp/src/mkisofs-1.05/mkisofs.c	Thu Nov 14 14:24:49 1996<br>
+@@ -544,7 +544,7 @@<br>
+ int FDECL2(main, int, argc, char **, argv){<br>
+   char * outfile;<br>
+   struct directory_entry de;<br>
+-  unsigned int mem_start;<br>
++  unsigned long mem_start;<br>
+   struct stat statbuf;<br>
+   char * scan_tree;<br>
+   int c;<br>
+@@ -656,7 +656,7 @@<br>
+ 		}<br>
+ 	}<br>
+ #endif<br>
+-  mem_start = (unsigned int) sbrk(0);<br>
++  mem_start = (unsigned long) sbrk(0);<br>
+ <br>
+   if(verbose) fprintf(stderr,"%s\n", version_string);<br>
+   /* Now find the timezone offset */<br>
+@@ -761,8 +761,8 @@<br>
+ <br>
+   iso_write(discimage);<br>
+ <br>
+-  fprintf(stderr,"Max brk space used %x\n", <br>
+-	  ((unsigned int)sbrk(0)) - mem_start);<br>
++  fprintf(stderr,"Max brk space used %lx\n", <br>
++	  ((unsigned long)sbrk(0)) - mem_start);<br>
+   fprintf(stderr,"%d extents written (%d Mb)\n", last_extent, last_extent &gt;&gt; 9);<br>
+ #ifdef VMS<br>
+   return 1;<br>
+diff -u -r -P xcdroast-0.95a/src/mkisofs-1.05/write.c xcdroast-0.95a-axp/src/mkisofs-1.05/write.c<br>
+--- xcdroast-0.95a/src/mkisofs-1.05/write.c	Tue May 14 21:42:29 1996<br>
++++ xcdroast-0.95a-axp/src/mkisofs-1.05/write.c	Thu Nov 14 14:30:27 1996<br>
+@@ -600,7 +600,7 @@<br>
+ <br>
+   do{<br>
+     fix = 0;<br>
+-    qsort(&amp;pathlist[1], next_path_index-1, sizeof(struct directory *), compare_paths);<br>
++    qsort(&amp;pathlist[1], next_path_index-1, sizeof(struct directory *), (__compar_fn_t)compare_paths);<br>
+ <br>
+     for(j=1; j&lt;next_path_index; j++)<br>
+       if(pathlist[j]-&gt;path_index != j){<br>
+diff -u -r -P xcdroast-0.95a/src/mycdwrite.c xcdroast-0.95a-axp/src/mycdwrite.c<br>
+--- xcdroast-0.95a/src/mycdwrite.c	Mon Jul  8 19:50:59 1996<br>
++++ xcdroast-0.95a-axp/src/mycdwrite.c	Fri Nov 15 14:49:49 1996<br>
+@@ -38,12 +38,19 @@<br>
+ #include &lt;sys/file.h&gt;<br>
+ #include &lt;sys/errno.h&gt;<br>
+ #include &lt;sys/time.h&gt;<br>
++#ifdef __alpha<br>
++#include "fixup_res.h"<br>
++#endif<br>
+ #include &lt;sys/resource.h&gt;<br>
+ #include &lt;sys/stat.h&gt;<br>
+ #include &lt;sys/time.h&gt;<br>
+ #include &lt;sys/ioctl.h&gt;<br>
+ #include &lt;unistd.h&gt;<br>
+ #include &lt;limits.h&gt;<br>
++#include &lt;asm/param.h&gt;<br>
++#ifndef HZ<br>
++#define HZ __KERNEL_HZ<br>
++#endif<br>
+ <br>
+ #include &lt;linux/version.h&gt;<br>
+ #ifndef LINUX_VERSION_CODE	/* Very old kernel? */<br>
+@@ -966,7 +973,7 @@<br>
+    int reply_len;<br>
+    int speed_factor = 0;<br>
+    int dummy_write = 0;<br>
+-   unsigned long timeout = 10 * 60 * 100;<br>
++   unsigned long timeout = 10 * 60 * HZ;<br>
+ 				/* default timeout = 1 minute, but it */<br>
+ 				/* takes slightly longer than that to */<br>
+ 				/* write the leadin and leadout. (The */<br>
+diff -u -r -P xcdroast-0.95a/src/playcdda.c xcdroast-0.95a-axp/src/playcdda.c<br>
+--- xcdroast-0.95a/src/playcdda.c	Thu May  9 19:08:17 1996<br>
++++ xcdroast-0.95a-axp/src/playcdda.c	Thu Nov 14 11:49:55 1996<br>
+@@ -17,6 +17,7 @@<br>
+ #include &lt;strings.h&gt;<br>
+ #include &lt;linux/soundcard.h&gt;<br>
+ #include &lt;sys/stat.h&gt;<br>
++#include &lt;errno.h&gt;<br>
+ <br>
+ #define DEFAULT_DSP_SPEED 44100<br>
+ #define FRAMESIZE 2352       /* Framesize in CDR-Format */<br>
+diff -u -r -P xcdroast-0.95a/src/readcdda.c xcdroast-0.95a-axp/src/readcdda.c<br>
+--- xcdroast-0.95a/src/readcdda.c	Fri Nov  1 12:53:42 1996<br>
++++ xcdroast-0.95a-axp/src/readcdda.c	Thu Nov 14 11:49:03 1996<br>
+@@ -22,7 +22,8 @@<br>
+ #include &lt;scsi/sg.h&gt;<br>
+ #include &lt;getopt.h&gt;<br>
+ #include &lt;linux/soundcard.h&gt;<br>
+-#include &lt;linux/cdrom.h&gt;<br>
++#include &lt;errno.h&gt;<br>
++#include &lt;stdarg.h&gt;<br>
+ <br>
+ #define MAX_TRACKS 100		/* maximum of audio tracks */<br>
+ #define MAX_TOC_LENGTH 0x322	/* max. length of a TOC */<br>
+@@ -108,11 +109,14 @@<br>
+ <br>
+ /* report a fatal error, clean up and exit */<br>
+ <br>
+-void FatalError (char *szMessage, ...)<br>
++void FatalError (char *format, ...)<br>
+ {<br>
+-  	vprintf (szMessage, (char *)(&amp;szMessage + 1));<br>
+-  	CloseAll();<br>
+-	exit(1);<br>
++  va_list ap;<br>
++  va_start(ap,format);<br>
++  vprintf (format,ap);<br>
++  va_end(ap);<br>
++  CloseAll();<br>
++  exit(1);<br>
+ }<br>
+ <br>
+ -- snip --<br>
+<p>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0692.html">Linus Torvalds: "Linux-2.1.10"</a>
+<li> <b>Previous message:</b> <a href="0690.html">geerten kuiper: "3.0.3 on Durango: some problems solved"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

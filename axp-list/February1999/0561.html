@@ -1,0 +1,257 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: flush cache?</TITLE>
+<META NAME="Author" CONTENT="Bruce Ediger (bediger@teal.csn.net)">
+<META NAME="Subject" CONTENT="flush cache?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>flush cache?</H1>
+<HR>
+<P>
+<!-- received="Thu Feb 18 06:23:03 1999 PST" -->
+<!-- sent="Wed, 17 Feb 1999 23:21:39 -0700 (MST)" -->
+<!-- name="Bruce Ediger" -->
+<!-- email="bediger@teal.csn.net" -->
+<!-- subject="flush cache?" -->
+<!-- id="Pine.3.89.9902172335.A9577-c200000@teal.csn.net" -->
+<!-- inreplyto="Pine.LNX.4.04.9902152328510.474-100000@toshiba-179-24.nycap.rr.com" -->
+<STRONG>Bruce Ediger</STRONG> (<A HREF="mailto:bediger@teal.csn.net?subject=Re:%20flush%20cache?"><EM>bediger@teal.csn.net</EM></A>)<BR>
+<EM>Wed, 17 Feb 1999 23:21:39 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#561">[ date ]</A>
+<A HREF="index.html#561">[ thread ]</A>
+<A HREF="subject.html#561">[ subject ]</A>
+<A HREF="author.html#561">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0560.html">Ron Farrer: "Problem installing lesstif-mwm-0.87.1-2.alpha.rpm"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I have a rather bizarre little program I want to run under AlphaLinux
+<BR>
+(RH 5.0, kernel 2.0.30).  The program allocates some memory via malloc(),
+<BR>
+does a memcpy() of a function to that newly-allocated memory, then calls
+<BR>
+that newly-allocated memory via a function pointer.  That call causes
+<BR>
+signal 11 (SEGV) every single time.  I'm at a loss, since malloc()
+<BR>
+gives back memory on a divisible-by-8 address.  I've tried to make sure
+<BR>
+that the program page-aligns the memory, and that the program marks the
+<BR>
+memory PROT_READ|PROT_EXEC.
+<BR>
+<P>I think that maybe the program should get the CPU to do a cache flush.
+<BR>
+I found a man page for cacheflush(2), but apparently cacheflush(2)
+<BR>
+only works on MIPS processors.  I should probably write some embedded
+<BR>
+assembly, but I don't what instructions to embed.
+<BR>
+<P>Anybody got any ideas?  My Alpha is a 166 MHz 21064 UDB (VX-40).
+<BR>
+I attached the program in question.
+<BR>
+<PRE>
+-- 
+Everything leads to weariness - a weariness to great for words.  Our eyes
+can never see enough to be satisfied; our ears can never hear enough.
+<P><P>
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+
+/* $Id: cpup4.c,v 1.1 1999/02/18 05:45:03 bediger Exp bediger $ */
+
+typedef int (*fxptr)(
+		int, int, int (*)(const char *, ...),
+		void *,
+		void *(*)(void *, const void *, size_t),
+		void *(*)(size_t),
+		void (*)(void *),
+		size_t
+);
+
+char *signal_string(int sig);
+void  signal_handler(int sig);
+int   main(int ac, char **av);
+int copyup(
+		int i,
+		int j,
+		int (*xptr)(const char *, ...),
+		void *yptr,
+		void *(*bptr)(void *, const void *, size_t),
+		void *(*mptr)(size_t),
+		void (*ffptr)(void *),
+		size_t	size
+);
+void f1(void);
+void f2(void);
+
+/* return a string for the most common signals this program
+ * will generate.  Probably could replace this with strerror()
+ */
+char *
+signal_string(sig)
+		int sig;
+{
+		char *bpr = &quot;Don't know what signal&quot;;
+
+		switch (sig)
+		{
+		case SIGILL:
+				bpr = &quot;Illegal instruction&quot;;
+				break;
+		case SIGSEGV:
+				bpr = &quot;Segmentation violation&quot;;
+				break;
+		case SIGBUS:
+				bpr = &quot;Bus error&quot;;
+				break;
+		}
+
+		return bpr;
+}
+
+/* Use of fprintf() seems sketchy.  I think that signal_handler() doesn't
+ * need special compiler treatment like generating Position Independent
+ * Code.  It stays in one place, and the kernel knows that place.
+ */
+void
+signal_handler(int sig)
+{
+		(void)fprintf(
+				stderr,
+				&quot;%s: sig = 0x%x\n&quot;,
+				signal_string(sig),
+				sig
+		);
+
+		exit(99);
+}
+
+int
+main(int ac, char **av)
+{
+		int i, j;
+
+		/* check to see if cmd line has a number on it */
+		if (ac &lt; 2) {
+				printf(&quot;not enough arguments\n&quot;);
+				exit(99);
+		}
+		/* install 3 different signal handlers - avoid core dumps */
+		if (-1 == (i = (long)signal(SIGSEGV, signal_handler)))
+		{
+				perror(&quot;Installing SIGSEGV signal failed&quot;);
+				exit(33);
+		}
+		if (-1 == (i = (long)signal(SIGILL, signal_handler)))
+		{
+				perror(&quot;Installing SIGILL signal handler failed&quot;);
+				exit(33);
+		}
+		if (-1 == (i = (long)signal(SIGBUS, signal_handler)))
+		{
+				perror(&quot;Installing SIGBUS signal handler failed&quot;);
+				exit(33);
+		}
+
+		setbuf(stdout, NULL);
+
+		/*
+		 * print out addresses of original functions so there is something to
+		 * reference during recursive function copying and calling 
+		 */
+		printf(
+	   &quot;main = %p, copyup %p, memcpy %p, malloc %p, printf %p, free %p, size %ld\n&quot;,
+	   main, copyup, memcpy, malloc, printf, free, (size_t)f2 - (size_t)f1);
+
+		if ((i = atoi(*(av + 1))) &lt; 1) {
+				printf(&quot; i = %d, i must be &gt; 1\n&quot;, i);
+				exit(99);
+		}
+
+		printf(&quot; going for %d recursions\n&quot;, i);
+
+		j = copyup(1, i, printf, copyup, memcpy, malloc, free, (size_t)f2 - (size_t)f1);
+
+		printf(&quot;copyup at %p returned %d\n&quot;, copyup, j);
+
+
+		return 1;
+}
+
+void f1(void) {return;}
+
+int
+copyup(
+		int i, int j,
+		int   (*xptr)(const char *, ...),
+		void *yptr,
+		void *(*bptr)(void *, const void*, size_t),
+		void *(*mptr)(size_t),
+		void  (*ffptr)(void *),
+		size_t	 size
+)
+{
+		fxptr fptr;
+		int k;
+
+		if (i == j)
+		{
+				(*xptr)(&quot;function at %p got to %d'th copy\n&quot;, yptr, i);
+				return i;
+		} else
+				(*xptr)(&quot;function at %p, i = %d, j = %d\n&quot;, yptr, i, j);
+
+		if (!(fptr = (fxptr)(*mptr)(size)))
+		{
+				(*xptr)(&quot;ran out of memory allocating new function\n&quot;);
+				return -1;
+		}
+
+		(*bptr)(fptr, yptr, size);
+
+		k = (*fptr)(i + 1, j, xptr, (void *)fptr, bptr, mptr, ffptr, size);
+
+		(*xptr)(&quot;function at %p got %d back from function at %p\n&quot;,
+				yptr, k, fptr);
+
+		(*ffptr)(fptr);
+
+		return (k + 1);
+}
+
+void f2(void) {return;}
+
+N‹§²æìr¸›zÇ§uéšŠ[hkeŠËkz«ž²ÚÞv­r‰°º{.nÇ+‰·š²Ø^²æãyËC¢z-±éÝŠÛhkeŠËkyØZµÊ&amp;</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0560.html">Ron Farrer: "Problem installing lesstif-mwm-0.87.1-2.alpha.rpm"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Wed Feb 17 1999 - 23:00:07 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

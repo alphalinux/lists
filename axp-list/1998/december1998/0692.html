@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: 21164 speed</TITLE>
+<META NAME="Author" CONTENT="Matti Aarnio (matti.aarnio@sonera.fi)">
+<META NAME="Subject" CONTENT="Re: 21164 speed">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 21164 speed</H1>
+<HR>
+<P>
+<!-- received="Wed Dec 16 20:16:28 1998 PST" -->
+<!-- sent="Wed, 16 Dec 1998 20:10:45 +0200 (EET)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="Re: 21164 speed" -->
+<!-- id="19981216181046Z92281-18653+22@mea.tmt.tele.fi" -->
+<!-- inreplyto="19981216180850.D2290@zib.de" -->
+<STRONG>Matti Aarnio</STRONG> (<A HREF="mailto:matti.aarnio@sonera.fi?subject=Re:%2021164%20speed"><EM>matti.aarnio@sonera.fi</EM></A>)<BR>
+<EM>Wed, 16 Dec 1998 20:10:45 +0200 (EET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#692">[ date ]</A>
+<A HREF="index.html#692">[ thread ]</A>
+<A HREF="subject.html#692">[ subject ]</A>
+<A HREF="author.html#692">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0693.html">Calvin Coghlan: "Re: Cannot boot with second SCSI disk -Reply"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0691.html">Konrad Podloucky: "RE: nfs as module"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0683.html">Cornelius Creedon: "nfs as module"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt; Hello,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; does anybody know if the 21164 can get more than one result
+</EM><BR>
+<EM>&gt; per cycle ?
+</EM><BR>
+<EM>&gt; Is there a sequence of instructions like
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; addt $f0,$f1,$f2
+</EM><BR>
+<EM>&gt; addq $1,$2,$3
+</EM><BR>
+<EM>&gt; mult $f3,$f4,$f5
+</EM><BR>
+<EM>&gt; addq $4,$5,$6
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; that executes in less than 4 cycles ?
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No, in fact they take more -- FP multiplier has pipeline
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;latency of 8 cycles.  FP-add pipeline takes also 8 cycles.
+<BR>
+(archive digging --- dec21164pchwm.pdf found ...)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The 21164 has two parallel integer pipes and two parallel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;floating-point pipes, plus registerfile/memory load/store
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;processing, plus a few other gimmics.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ipipe0:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;add, log, shift, ld, st, imul, cmp, sext, cmov,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte, word, mvi
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ipipe1:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;add, log, br, cmp, cmov
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpipe0:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ld, st, add, div, fbr, fcmovs, fcpy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpipe1:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mul, fcmovs, fcpys
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For instruction issue slotting rules see the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;21164 Hardware Reference Manual.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For short, under optimal conditions you can issue up to 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;two integer, and two FP operations per each clock cycle.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;That is quite much indeed.  It even looks like you can
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;issue matrix kernel Multiply+Add pipelined instruction
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pair at full throttle of the system and thus calculate
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the matrix multiplies quite fast..  .. like one product
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;per every second clock cycle, if you can keep the MUL+ADD
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pipe full by doing preloads from memory to cache, and then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;doing final loads, and address index calculation in parallel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to the FP side processing.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;You will need also loop unrolling, and register resource
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rotating so that you don't force pipeline stalls at register
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;file accesses -- and allow processing pipeline delay!
+<BR>
+<P><EM>&gt; Regards,
+</EM><BR>
+<EM>&gt; Thorsten
+</EM><BR>
+<P>/Matti Aarnio &lt;<A HREF="mailto:matti.aarnio@sonera.fi?subject=Re:%2021164%20speed">matti.aarnio@sonera.fi</A>&gt;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%2021164%20speed">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%2021164%20speed">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0693.html">Calvin Coghlan: "Re: Cannot boot with second SCSI disk -Reply"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0691.html">Konrad Podloucky: "RE: nfs as module"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0683.html">Cornelius Creedon: "nfs as module"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Wed Dec 16 1998 - 13:00:19 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

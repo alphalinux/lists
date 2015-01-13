@@ -1,0 +1,1671 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> perfpatch1 - re-released.</H1> 
+	
+<!-- received="Wed Sep 06 21:13:13 2000" -->
+<!-- isoreceived="20000907041313" -->
+<!-- sent="Wed, 6 Sep 2000 16:55:46 -0400 " -->
+<!-- isosent="20000906205546" -->
+<!-- name="Rick Gorton" -->
+<!-- email="Rick.Gorton@alpha-processor.com" -->
+<!-- subject="perfpatch1 - re-released." -->
+<!-- id="051DFF3BBA73D3119A5800A0C95BD021642E19@barracuda.api-networks.com" -->
+<STRONG>Subject: </STRONG>perfpatch1 - re-released.<BR>
+<STRONG>From: </STRONG>Rick Gorton (<EM>Rick.Gorton@alpha-processor.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Sep  6 13:55:46 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#110">[ date ]</A>
+<A HREF="index.shtml#110">[ thread ]</A>
+<A HREF="subject.shtml#110">[ subject ]</A>
+<A HREF="author.shtml#110">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0111.shtml">Jeff Sturm: "Re: Bragging rights return?!?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0109.shtml">Steve Rogers: "Re: Bragging rights return?!?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here's a fixed version of the previous performance patch,
+<BR>
+and it supercedes the original (which was broken).  I also
+<BR>
+slighly re-wrote the code for clear_user to look further
+<BR>
+ahead to get better results from using the wh64 instruction.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Enjoy,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rick Gorton
+<BR>
+<P>-------------------------------------
+<BR>
+<P>This patch contains various diffs for alpha-specific (21264) performance
+<BR>
+critical routines (mostly assembly language) which have been hand-tuned.
+<BR>
+The starting point was the sources in the linux-2.4.0-test6 kernel (the
+<BR>
+routines
+<BR>
+themselves have been pretty stable for quite some time, so I believe it
+<BR>
+ought
+<BR>
+to be possible to apply these routines to earlier kernels verbatim).
+<BR>
+<P>This patch supercedes the previous copy of perfpatch1 (I found two bugs in
+<BR>
+the earlier version)
+<BR>
+<P>perfpatch1: diffs of the following files:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/Makefile
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/lib/Makefile
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/lib/checksum.c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/lib/clear_user.S
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/lib/copy_user.S
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arch/alpha/lib/csum_ipv6_magic.S
+<BR>
+<P>Since I'm not running ipv6, the csum_ipv6_magic code has not been tested,
+<BR>
+and I could use some help there...
+<BR>
+<P>Here's the performance data: Testing platform UP1000 @ 750 Mhz, 128Mb memory
+<BR>
+Since the primary wins from the above patch will occur from clear_user and
+<BR>
+copy_user changes, I decided to test in two ways:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) Do simultaneous 'make -j 8 boot' of the kernel (2.4.0-test6)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and 'make -j 8' of gcc-2.95.2.  Both started at the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;same time, more or less.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) 'make -j 8 boot' of the kernel (2.4.0-test6)
+<BR>
+<P>All builds done on a local disk, in the same spot, three times.
+<BR>
+<P>times are in the form Real/User/Sys as recorded by /usr/bin/time -p
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Test 1 - simultaneous builds		Test 2 - kernel only
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;----------------------------		--------------------
+<BR>
+Unpatched	gcc	+	kernel			kernel
+<BR>
+kernel times1312/506/259	940/205/129		257/206/34
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1273/488/243	930/208/122		253/206/32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1162/480/206	723/206/91		261/206/37
+<BR>
+Unpatched
+<BR>
+total system time	 708		342 = 1050		103
+<BR>
+<P>Patched	gcc	+	kernel			kernel
+<BR>
+kernel times1244/486/216	860/207/113		256/205/33
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1107/482/187	656/205/89		253/206/32
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1082/421/196	753/207/100		252/205/31
+<BR>
+<P>Patched
+<BR>
+total system time	 599		302 = 901		96
+<BR>
+<P>Speedup			1.18x		1.13x --&gt; 1.16x		1.07x
+<BR>
+<P>I think the difference in gains can be explained roughly as follows.  In the
+<BR>
+first
+<BR>
+load, there are a lot more processes being created (each compiler
+<BR>
+invocation),
+<BR>
+and a fair amount of swapping is happening.  clear_user gets invoked by the
+<BR>
+loader (to set up .bss) while copy_user happens in a bunch of different
+<BR>
+spots in
+<BR>
+the kernel.  I'm guessing, but I think these improvements may prove to be
+<BR>
+very
+<BR>
+useful for machines which create/invoke a lot of processes, such as web
+<BR>
+servers.
+<BR>
+<P>There will be more coming as I complete them.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Enjoy,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rick Gorton
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rick.gorton@alpha-processor.com
+<BR>
+<P>-------------------------------
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/Makefile
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/Makefile
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/Makefile	Wed Aug 23 13:05:41 2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/Makefile	Mon Jun 26 14:26:56 2000
+<BR>
+@@ -47,7 +47,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcpu_done := y
+<BR>
+&nbsp;&nbsp;&nbsp;endif
+<BR>
+&nbsp;&nbsp;&nbsp;ifeq ($(mcpu_done)$(CONFIG_ALPHA_NAUTILUS)$(have_mcpu_ev67),nyy)
+<BR>
+-    CFLAGS := $(CFLAGS) -mcpu=ev67 -Wa,-m21264
+<BR>
++    CFLAGS := $(CFLAGS) -mcpu=ev67
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mcpu_done := y
+<BR>
+&nbsp;&nbsp;&nbsp;endif
+<BR>
+&nbsp;&nbsp;&nbsp;ifeq ($(mcpu_done)$(CONFIG_ALPHA_EV4),ny)
+<BR>
+@@ -56,7 +56,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;endif
+<BR>
+&nbsp;&nbsp;&nbsp;ifeq ($(mcpu_done)$(CONFIG_ALPHA_EV6),ny)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ifeq ($(have_mcpu_ev6),y)
+<BR>
+-      CFLAGS := $(CFLAGS) -mcpu=ev6 -Wa,-m21264
+<BR>
++      CFLAGS := $(CFLAGS) -mcpu=ev6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ifeq ($(have_mcpu_pca56),y)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CFLAGS := $(CFLAGS) -mcpu=pca56
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/lib/Makefile
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/lib/Makefile
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/lib/Makefile	Fri Sep  1 07:43:39
+<BR>
+2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/lib/Makefile	Mon Jun 19 20:59:33
+<BR>
+2000
+<BR>
+@@ -3,9 +3,9 @@
+<BR>
+&nbsp;#
+<BR>
+&nbsp;
+<BR>
+&nbsp;.S.s:
+<BR>
+-	$(CC) -D__ASSEMBLY__ $(AFLAGS) $(CFLAGS) -E -o $*.s $&lt;
+<BR>
++	$(CC) -D__ASSEMBLY__ $(AFLAGS) -E -o $*.s $&lt;
+<BR>
+&nbsp;.S.o:
+<BR>
+-	$(CC) -D__ASSEMBLY__ $(AFLAGS) $(CFLAGS) -c -o $*.o $&lt;
+<BR>
++	$(CC) -D__ASSEMBLY__ $(AFLAGS) -c -o $*.o $&lt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;OBJS  = __divqu.o __remqu.o __divlu.o __remlu.o memset.o memcpy.o io.o \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;checksum.o csum_partial_copy.o strlen.o \
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/lib/checksum.c
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/lib/checksum.c
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/lib/checksum.c	Tue Aug 29 14:04:24
+<BR>
+2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/lib/checksum.c	Wed Apr 29 01:28:10
+<BR>
+1998
+<BR>
+@@ -3,10 +3,6 @@
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* This file contains network checksum routines that are better done
+<BR>
+&nbsp;&nbsp;* in an architecture-specific manner due to speed..
+<BR>
+- * Comments in other versions indicate that the algorithms are from RFC1071
+<BR>
+- *
+<BR>
+- * accellerated versions (and 21264 assembly versions ) contributed by
+<BR>
+- *	Rick Gorton	&lt;rick.gorton@alpha-processor.com&gt;
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;#include &lt;linux/string.h&gt;
+<BR>
+@@ -15,27 +11,15 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline unsigned short from64to16(unsigned long x)
+<BR>
+&nbsp;{
+<BR>
+-	/*
+<BR>
+-	 * using extract instructions is a bit more efficient
+<BR>
+-	 * than the original shift/bitmask version.
+<BR>
+-	 */
+<BR>
+-
+<BR>
+-    union {
+<BR>
+-	unsigned long	ul;
+<BR>
+-	unsigned int	ui[2];
+<BR>
+-	unsigned short	us[4];
+<BR>
+-	} in_v, tmp_v, out_v;
+<BR>
+-
+<BR>
+-    in_v.ul = x;
+<BR>
+-    tmp_v.ul = (unsigned long) in_v.ui[0] + (unsigned long) in_v.ui[1];
+<BR>
+-    out_v.ul = (unsigned long) tmp_v.us[0] + (unsigned long) tmp_v.us[1]
+<BR>
+-			+ (unsigned long) tmp_v.us[2];
+<BR>
+-	/*
+<BR>
+-	 * Since the bits of tmp_v.sh[3] are going to always be zero,
+<BR>
+-	 * we don't have to bother to add that in.
+<BR>
+-	 * Similarly, out_v.us[2] is always zero for the final add.
+<BR>
+-	 */
+<BR>
+-    return (out_v.us[0] + out_v.us[1]);
+<BR>
++	/* add up 32-bit words for 33 bits */
+<BR>
++	x = (x &amp; 0xffffffff) + (x &gt;&gt; 32);
+<BR>
++	/* add up 16-bit and 17-bit words for 17+c bits */
+<BR>
++	x = (x &amp; 0xffff) + (x &gt;&gt; 16);
+<BR>
++	/* add up 16-bit and 2-bit for 16+c bit */
+<BR>
++	x = (x &amp; 0xffff) + (x &gt;&gt; 16);
+<BR>
++	/* add up carry.. */
+<BR>
++	x = (x &amp; 0xffff) + (x &gt;&gt; 16);
+<BR>
++	return x;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/lib/clear_user.S
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/lib/clear_user.S
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/lib/clear_user.S	Wed Sep  6 15:36:09
+<BR>
+2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/lib/clear_user.S	Sat Apr 24 20:54:08
+<BR>
+1999
+<BR>
+@@ -1,7 +1,6 @@
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* arch/alpha/lib/clear_user.S
+<BR>
+&nbsp;&nbsp;* Contributed by Richard Henderson &lt;rth@tamu.edu&gt;
+<BR>
+- * 21264 code contributed by Rick Gorton &lt;rick.gorton@alpha-processor.com&gt;
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* Zero user space, handling exceptions as we go.
+<BR>
+&nbsp;&nbsp;*
+<BR>
+@@ -34,7 +33,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $31, $exception-99b($31); 	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.previous
+<BR>
+&nbsp;
+<BR>
+-#ifndef __alpha_ev6__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+@@ -114,201 +112,3 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret	$31, ($28), 1	# .. e1 :
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end __do_clear_user
+<BR>
+-
+<BR>
+-#else
+<BR>
+-/*
+<BR>
+- * Much of the information about 21264 scheduling/coding comes from:
+<BR>
+- *	Compiler Writer's Guide for the Alpha 21264
+<BR>
+- *	abbreviated as 'CWG' in other comments here
+<BR>
+- *
+<BR>
+ftp.digital.com/pub/Digital/info/semiconductor/literature/dsc-library.html
+<BR>
+- * Scheduling notation:
+<BR>
+- *	E	- either cluster
+<BR>
+- *	U	- upper subcluster; U0 - subcluster U0; U1 - subcluster U1
+<BR>
+- *	L	- lower subcluster; L0 - subcluster L0; L1 - subcluster L1
+<BR>
+- * Try not to change the actual algorithm if possible for consistency.
+<BR>
+- * Determining actual stalls (other than slotting) doesn't appear to be
+<BR>
+easy to do.
+<BR>
+- * From perusing the source code context where this routine is called, it
+<BR>
+is
+<BR>
+- * a fair assumption that significant fractions of entire pages are zeroed,
+<BR>
+so
+<BR>
+- * it's going to be worth the effort to hand-unroll a big loop, and use
+<BR>
+wh64.
+<BR>
+- * ASSUMPTION:
+<BR>
+- *	The believed purpose of only updating $0 after a store is that a
+<BR>
+signal
+<BR>
+- *	may come along during the execution of this chunk of code, and we
+<BR>
+don't
+<BR>
+- *	want to leave a hole (and we also want to avoid repeating lots of
+<BR>
+work)
+<BR>
+- */
+<BR>
+-
+<BR>
+-	.set noat
+<BR>
+-	.set noreorder
+<BR>
+-	.align 4
+<BR>
+-
+<BR>
+-	.globl __do_clear_user
+<BR>
+-	.ent __do_clear_user
+<BR>
+-	.frame	$30, 0, $28
+<BR>
+-	.prologue 0
+<BR>
+-
+<BR>
+-				# Pipeline info : Slotting &amp; Comments
+<BR>
+-__do_clear_user:
+<BR>
+-	ldgp	$29,0($27)	# we do exceptions -- we need the gp.
+<BR>
+-				# Macro instruction becomes ldah/lda
+<BR>
+-				# .. .. E  E	:
+<BR>
+-	and	$6, 7, $4	# .. E  .. ..	: find dest head
+<BR>
+misalignment
+<BR>
+-	beq	$0, $zerolength # U  .. .. ..	:  U L U L
+<BR>
+-
+<BR>
+-	addq	$0, $4, $1	# .. .. .. E	: bias counter
+<BR>
+-	and	$1, 7, $2	# .. .. E  ..	: number of misaligned bytes
+<BR>
+in tail
+<BR>
+-# Note - we never actually use $2, so this is a moot computation
+<BR>
+-# and we can rewrite this later...
+<BR>
+-	srl	$1, 3, $1	# .. E  .. ..	: number of quadwords to
+<BR>
+clear
+<BR>
+-	beq	$4, $headalign	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Head is not aligned.  Write (8 - $4) bytes to head of destination
+<BR>
+- * This means $6 is known to be misaligned
+<BR>
+- */
+<BR>
+-	EX( ldq_u $5, 0($6) )	# .. .. .. L	: load dst word to mask back
+<BR>
+in
+<BR>
+-	beq	$1, $onebyte	# .. .. U  ..	: sub-word store?
+<BR>
+-	mskql	$5, $6, $5	# .. U  .. ..	: take care of misaligned
+<BR>
+head
+<BR>
+-	addq	$6, 8, $6	# E  .. .. .. 	: L U U L
+<BR>
+-
+<BR>
+-	EX( stq_u $5, -8($6) )	# .. .. .. L	:
+<BR>
+-	subq	$1, 1, $1	# .. .. E  ..	:
+<BR>
+-	addq	$0, $4, $0	# .. E  .. ..	: bytes left -= 8 -
+<BR>
+misalignment
+<BR>
+-	subq	$0, 8, $0	# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	.align	4
+<BR>
+-/*
+<BR>
+- * (The .align directive ought to be a moot point)
+<BR>
+- * values upon initial entry to the loop
+<BR>
+- * $1 is number of quadwords to clear (zero is a valid value)
+<BR>
+- * $2 is number of trailing bytes (0..7) ($2 never used...)
+<BR>
+- * $6 is known to be aligned 0mod8
+<BR>
+- */
+<BR>
+-$headalign:
+<BR>
+-	subq	$1, 16, $4	# .. .. .. E	: If &lt; 16, we can not use
+<BR>
+the huge loop
+<BR>
+-	and	$6, 0x3f, $2	# .. .. E  ..	: Forward work for huge loop
+<BR>
+-	subq	$2, 0x40, $3	# .. E  .. ..	: bias counter (huge loop)
+<BR>
+-	blt	$4, $trailquad	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * We know that we're going to do at least 16 quads, which means we are
+<BR>
+- * going to be able to use the large block clear loop at least once.
+<BR>
+- * Figure out how many quads we need to clear before we are 0mod64 aligned
+<BR>
+- * so we can use the wh64 instruction.
+<BR>
+- */
+<BR>
+-
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	beq	$3, $bigalign	# U  .. .. ..	: U L U L : Aligned 0mod64
+<BR>
+-
+<BR>
+-$alignmod64:
+<BR>
+-	EX( stq_u $31, 0($6) )	# .. .. .. L
+<BR>
+-	addq	$3, 8, $3	# .. .. E  ..
+<BR>
+-	subq	$0, 8, $0	# .. E  .. ..
+<BR>
+-	nop			# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	subq	$1, 1, $1	# .. .. E  ..
+<BR>
+-	addq	$6, 8, $6	# .. E  .. ..
+<BR>
+-	blt	$3, $alignmod64	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-$bigalign:
+<BR>
+-/*
+<BR>
+- * $0 is the number of bytes left
+<BR>
+- * $1 is the number of quads left
+<BR>
+- * $6 is aligned 0mod64
+<BR>
+- * we know that we'll be taking a minimum of one trip through
+<BR>
+- * CWG Section 3.7.6: do not expect a sustained store rate of &gt; 1/cycle
+<BR>
+- * We are _not_ going to update $0 after every single store.  That
+<BR>
+- * would be silly, because there will be cross-cluster dependencies
+<BR>
+- * no matter how the code is scheduled.  By doing it in slightly
+<BR>
+- * staggered fashion, we can still do this loop in 5 fetches
+<BR>
+- * The worse case will be doing two extra quads in some future execution,
+<BR>
+- * in the event of an interrupted clear.
+<BR>
+- * Assumes the wh64 needs to be for 2 trips through the loop in the future
+<BR>
+- * The wh64 is issued on for the starting destination address for trip +2
+<BR>
+- * through the loop, and if there are less than two trips left, the target
+<BR>
+- * address will be for the current trip.
+<BR>
+- */
+<BR>
+-	nop			# E :
+<BR>
+-	nop			# E :
+<BR>
+-	nop			# E :
+<BR>
+-	bis	$6,$6,$3	# E : U L U L : Initial wh64 address is dest
+<BR>
+-	/* This might actually help for the current trip... */
+<BR>
+-
+<BR>
+-$do_wh64:
+<BR>
+-	wh64	($3)		# .. .. .. L1	: memory subsystem hint
+<BR>
+-	subq	$1, 16, $4	# .. .. E  ..	: Forward calculation -
+<BR>
+repeat the loop?
+<BR>
+-	EX( stq_u $31, 0($6) )	# .. L  .. ..
+<BR>
+-	subq	$0, 8, $0	# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	addq	$6, 128, $3	# E : Target address of wh64
+<BR>
+-	EX( stq_u $31, 8($6) )	# L :
+<BR>
+-	EX( stq_u $31, 16($6) )	# L :
+<BR>
+-	subq	$0, 16, $0	# E : U L L U
+<BR>
+-
+<BR>
+-	nop			# E :
+<BR>
+-	EX( stq_u $31, 24($6) )	# L :
+<BR>
+-	EX( stq_u $31, 32($6) )	# L :
+<BR>
+-	subq	$0, 168, $5	# E : U L L U : two trips through the loop
+<BR>
+left?
+<BR>
+-	/* 168 = 192 - 24, since we've already completed some stores */
+<BR>
+-
+<BR>
+-	subq	$0, 16, $0	# E :
+<BR>
+-	EX( stq_u $31, 40($6) )	# L :
+<BR>
+-	EX( stq_u $31, 48($6) )	# L :
+<BR>
+-	cmovlt	$5, $6, $3	# E : U L L U : Latency 2, extra mapping
+<BR>
+cycle
+<BR>
+-
+<BR>
+-	subq	$1, 8, $1	# E :
+<BR>
+-	subq	$0, 16, $0	# E :
+<BR>
+-	EX( stq_u $31, 56($6) )	# L :
+<BR>
+-	nop			# E : U L U L
+<BR>
+-
+<BR>
+-	nop			# E :
+<BR>
+-	subq	$0, 8, $0	# E :
+<BR>
+-	addq	$6, 64, $6	# E :
+<BR>
+-	bge	$4, $do_wh64	# U : U L U L
+<BR>
+-
+<BR>
+-$trailquad:
+<BR>
+-	# zero to 16 quadwords left to store, plus any trailing bytes
+<BR>
+-	# $1 is the number of quadwords left to go.
+<BR>
+-	# 
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	beq	$1, $trailbytes	# U  .. .. ..	: U L U L : Only 0..7 bytes
+<BR>
+to go
+<BR>
+-
+<BR>
+-$onequad:
+<BR>
+-	EX( stq_u $31, 0($6) )	# .. .. .. L
+<BR>
+-	subq	$1, 1, $1	# .. .. E  ..
+<BR>
+-	subq	$0, 8, $0	# .. E  .. ..
+<BR>
+-	nop			# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	addq	$6, 8, $6	# .. E  .. ..
+<BR>
+-	bgt	$1, $onequad	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	# We have an unknown number of bytes left to go.
+<BR>
+-$trailbytes:
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	beq	$0, $zerolength	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	# $0 contains the number of bytes left to copy (0..31)
+<BR>
+-	# so we will use $0 as the loop counter
+<BR>
+-	# We know for a fact that $0 &gt; 0 zero due to previous context
+<BR>
+-$onebyte:
+<BR>
+-	EX( stb $31, 0($6) )	# .. .. .. L
+<BR>
+-	subq	$0, 1, $0	# .. .. E  ..	:
+<BR>
+-	addq	$6, 1, $6	# .. E  .. ..	:
+<BR>
+-	bgt	$0, $onebyte	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-$zerolength:
+<BR>
+-$exception:			# Destination for exception recovery(?)
+<BR>
+-	nop			# .. .. .. E	:
+<BR>
+-	nop			# .. .. E  ..	:
+<BR>
+-	nop			# .. E  .. ..	:
+<BR>
+-	ret	$31, ($28), 1	# L0 .. .. ..	: L U L U
+<BR>
+-	.end __do_clear_user
+<BR>
+-
+<BR>
+-#endif
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/lib/copy_user.S
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/lib/copy_user.S
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/lib/copy_user.S	Wed Sep  6 15:36:03
+<BR>
+2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/lib/copy_user.S	Fri Apr 28 01:27:16
+<BR>
+2000
+<BR>
+@@ -1,9 +1,6 @@
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* arch/alpha/lib/copy_user.S
+<BR>
+&nbsp;&nbsp;*
+<BR>
+- * Contributed by ????
+<BR>
+- * 21264 code contributed by Rick Gorton &lt;rick.gorton@alpha-processor.com&gt;
+<BR>
+- *
+<BR>
+&nbsp;&nbsp;* Copy to/from user space, handling exceptions as we go..  This
+<BR>
+&nbsp;&nbsp;* isn't exactly pretty.
+<BR>
+&nbsp;&nbsp;*
+<BR>
+@@ -44,7 +41,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda $31, $exitout-99b($31);	\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.previous
+<BR>
+&nbsp;
+<BR>
+-#ifndef __alpha_ev6__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl __copy_user
+<BR>
+@@ -148,205 +144,3 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret $31,($28),1
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end __copy_user
+<BR>
+-
+<BR>
+-#else
+<BR>
+-/*
+<BR>
+- * Much of the information about 21264 scheduling/coding comes from:
+<BR>
+- *	Compiler Writer's Guide for the Alpha 21264
+<BR>
+- *	abbreviated as 'CWG' in other comments here
+<BR>
+- *
+<BR>
+ftp.digital.com/pub/Digital/info/semiconductor/literature/dsc-library.html
+<BR>
+- * Scheduling notation:
+<BR>
+- *	E	- either cluster
+<BR>
+- *	U	- upper subcluster; U0 - subcluster U0; U1 - subcluster U1
+<BR>
+- *	L	- lower subcluster; L0 - subcluster L0; L1 - subcluster L1
+<BR>
+- */
+<BR>
+-
+<BR>
+-	.set noat
+<BR>
+-	.align 4
+<BR>
+-	.globl __copy_user
+<BR>
+-	.ent __copy_user
+<BR>
+-				# Pipeline info: Slotting &amp; Comments
+<BR>
+-__copy_user:
+<BR>
+-	ldgp $29,0($27)		# we do exceptions -- we need the gp.
+<BR>
+-				# Macro instruction becomes ldah/lda
+<BR>
+-				# .. .. E  E
+<BR>
+-	.prologue 1
+<BR>
+-	subq $0, 32, $1		# .. E  .. ..	: Is this going to be a
+<BR>
+small copy?
+<BR>
+-	beq $0, $zerolength	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	and $6,7,$3		# .. .. .. E	: is leading dest
+<BR>
+misalignment
+<BR>
+-	ble $1, $onebyteloop	# .. .. U  ..	: 1st branch : small amount
+<BR>
+of data
+<BR>
+-	beq $3, $destaligned	# .. U  .. ..	: 2nd (one cycle fetcher
+<BR>
+stall)
+<BR>
+-	subq $3, 8, $3		# E  .. .. ..	: L U U L : trip counter
+<BR>
+-/*
+<BR>
+- * The fetcher stall also hides the 1 cycle cross-cluster stall for $3 (L
+<BR>
+--&gt; U)
+<BR>
+- * This loop aligns the destination a byte at a time
+<BR>
+- * We know we have at least one trip through this loop
+<BR>
+- */
+<BR>
+-$aligndest:
+<BR>
+-	EXI( ldbu $1,0($7) )	# .. .. .. L	: Keep loads separate from
+<BR>
+stores
+<BR>
+-	addq $6,1,$6		# .. .. E  ..	: Section 3.8 in the CWG
+<BR>
+-	addq $3,1,$3		# .. E  .. ..	:
+<BR>
+-	nop			# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * the -1 is to compensate for the inc($6) done in a previous quadpack
+<BR>
+- * which allows us zero dependencies within either quadpack in the loop
+<BR>
+- */
+<BR>
+-	EXO( stb $1,-1($6) )	# .. .. .. L	:
+<BR>
+-	addq $7,1,$7		# .. .. E  ..	: Section 3.8 in the CWG
+<BR>
+-	subq $0,1,$0		# .. E  .. ..	:
+<BR>
+-	bne $3, $aligndest	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * If we fell through into here, we have a minimum of 33 - 7 bytes
+<BR>
+- * If we arrived via branch, we have a minimum of 32 bytes
+<BR>
+- */
+<BR>
+-$destaligned:
+<BR>
+-	and $7,7,$1		# .. .. .. E	: Check _current_ source
+<BR>
+alignment
+<BR>
+-	bic $0,7,$4		# .. .. E  ..	: number bytes as a quadword
+<BR>
+loop
+<BR>
+-	EXI( ldq_u $3,0($7) )	# .. L  .. ..	: Forward fetch for
+<BR>
+fallthrough code
+<BR>
+-	beq $1,$quadaligned	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * In the worst case, we've just executed an ldq_u here from 0($7)
+<BR>
+- * and we'll repeat it once if we take the branch
+<BR>
+- */
+<BR>
+-
+<BR>
+-/* Misaligned quadword loop - not unrolled.  Leave it that way. */
+<BR>
+-$misquad:
+<BR>
+-	EXI( ldq_u $2,8($7) )	# .. .. .. L	:
+<BR>
+-	subq $4,8,$4		# .. .. E  ..	:
+<BR>
+-	extql $3,$7,$3		# .. U  .. ..	:
+<BR>
+-	extqh $2,$7,$1		# U  .. .. ..	: U U L L
+<BR>
+-
+<BR>
+-	bis $3,$1,$1		# .. .. .. E	:
+<BR>
+-	EXO( stq $1,0($6) )	# .. .. L  ..	:
+<BR>
+-	addq $7,8,$7		# .. E  .. ..	:
+<BR>
+-	subq $0,8,$0		# E  .. .. ..	: U L L U
+<BR>
+-
+<BR>
+-	addq $6,8,$6		# .. .. .. E	:
+<BR>
+-	bis $2,$2,$3		# .. .. E  ..	:
+<BR>
+-	nop			# .. E  .. ..	:
+<BR>
+-	bne $4,$misquad		# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	beq $0,$zerolength	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/* We know we have at least one trip through the byte loop */
+<BR>
+-	EXI ( ldbu $2,0($7) )	# .. .. .. L	: No loads in the same quad
+<BR>
+-	addq $6,1,$6		# .. .. E  ..	: as the store (Section 3.8
+<BR>
+in CWG)
+<BR>
+-	nop			# .. E  .. ..	:
+<BR>
+-	br $31, $dirtyentry	# L0 .. .. ..	: L U U L
+<BR>
+-/* Do the trailing byte loop load, then hop into the store part of the loop
+<BR>
+*/
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * A minimum of (33 - 7) bytes to do a quad at a time.
+<BR>
+- * Based upon the usage context, it's worth the effort to unroll this loop
+<BR>
+- * $0 - number of bytes to be moved
+<BR>
+- * $4 - number of bytes to move as quadwords
+<BR>
+- * $6 is current destination address
+<BR>
+- * $7 is current source address
+<BR>
+- */
+<BR>
+-$quadaligned:
+<BR>
+-	subq	$4, 32, $2	# .. .. .. E	: do not unroll for small
+<BR>
+stuff
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	blt	$2, $onequad	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * There is a significant assumption here that the source and destination
+<BR>
+- * addresses differ by more than 32 bytes.  In this particular case, a
+<BR>
+- * sparsity of registers further bounds this to be a minimum of 8 bytes.
+<BR>
+- * But if this isn't met, then the output result will be incorrect.
+<BR>
+- * Furthermore, due to a lack of available registers, we really can't
+<BR>
+- * unroll this to be an 8x loop (which would enable us to use the wh64
+<BR>
+- * instruction memory hint instruction).
+<BR>
+- */
+<BR>
+-$unroll4:
+<BR>
+-	EXI( ldq $1,0($7) )	# .. .. .. L
+<BR>
+-	EXI( ldq $2,8($7) )	# .. .. L  ..
+<BR>
+-	subq	$4,32,$4	# .. E  .. ..
+<BR>
+-	nop			# E  .. .. ..	: U U L L
+<BR>
+-
+<BR>
+-	addq	$7,16,$7	# .. .. .. E
+<BR>
+-	EXO( stq $1,0($6) )	# .. .. L  ..
+<BR>
+-	EXO( stq $2,8($6) )	# .. L  .. ..
+<BR>
+-	subq	$0,16,$0	# E  .. .. ..	: U L L U
+<BR>
+-
+<BR>
+-	addq	$6,16,$6	# .. .. .. E
+<BR>
+-	EXI( ldq $1,0($7) )	# .. .. L  ..
+<BR>
+-	EXI( ldq $2,8($7) )	# .. L  .. ..
+<BR>
+-	subq	$4, 32, $3	# E  .. .. ..	: U U L L : is there enough
+<BR>
+for another trip?
+<BR>
+-
+<BR>
+-	EXO( stq $1,0($6) )	# .. .. .. L
+<BR>
+-	EXO( stq $2,8($6) )	# .. .. L  ..
+<BR>
+-	subq	$0,16,$0	# .. E  .. ..
+<BR>
+-	addq	$7,16,$7	# E  .. .. ..	: U L L U
+<BR>
+-
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	addq	$6,16,$6	# .. E  .. ..
+<BR>
+-	bgt	$3,$unroll4	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-	nop
+<BR>
+-	nop
+<BR>
+-	nop
+<BR>
+-	beq	$4, $noquads
+<BR>
+-
+<BR>
+-$onequad:
+<BR>
+-	EXI( ldq $1,0($7) )
+<BR>
+-	subq	$4,8,$4
+<BR>
+-	addq	$7,8,$7
+<BR>
+-	nop
+<BR>
+-
+<BR>
+-	EXO( stq $1,0($6) )
+<BR>
+-	subq	$0,8,$0
+<BR>
+-	addq	$6,8,$6
+<BR>
+-	bne	$4,$onequad
+<BR>
+-
+<BR>
+-$noquads:
+<BR>
+-	nop
+<BR>
+-	nop
+<BR>
+-	nop
+<BR>
+-	beq $0,$zerolength
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * For small copies (or the tail of a larger copy), do a very simple byte
+<BR>
+loop.
+<BR>
+- * There's no point in doing a lot of complex alignment calculations to try
+<BR>
+to
+<BR>
+- * to quadword stuff for a small amount of data.
+<BR>
+- *	$0 - remaining number of bytes left to copy
+<BR>
+- *	$6 - current dest addr
+<BR>
+- *	$7 - current source addr
+<BR>
+- */
+<BR>
+-
+<BR>
+-$onebyteloop:
+<BR>
+-$exitin:
+<BR>
+-	EXI ( ldbu $2,0($7) )	# .. .. .. L	: No loads in the same quad
+<BR>
+-	addq $6,1,$6		# .. .. E  ..	: as the store (Section 3.8
+<BR>
+in CWG)
+<BR>
+-	nop			# .. E  .. ..	:
+<BR>
+-	nop			# E  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-$dirtyentry:
+<BR>
+-/*
+<BR>
+- * the -1 is to compensate for the inc($6) done in a previous quadpack
+<BR>
+- * which allows us zero dependencies within either quadpack in the loop
+<BR>
+- */
+<BR>
+-	EXO ( stb $2,-1($6) )	# .. .. .. L	:
+<BR>
+-	addq $7,1,$7		# .. .. E  ..	: quadpack as the load
+<BR>
+-	subq $0,1,$0		# .. E  .. ..	: change count _after_ copy
+<BR>
+-	bgt $0,$onebyteloop	# U  .. .. ..	: U L U L
+<BR>
+-
+<BR>
+-$zerolength:
+<BR>
+-$exception:			# Destination for exception recovery(?)
+<BR>
+-$exitout:
+<BR>
+-	nop			# .. .. .. E
+<BR>
+-	nop			# .. .. E  ..
+<BR>
+-	nop			# .. E  .. ..
+<BR>
+-	ret $31,($28),1		# L0 .. .. ..	: L U L U
+<BR>
+-
+<BR>
+-	.end __copy_user
+<BR>
+-
+<BR>
+-#endif
+<BR>
+diff -r -u linux-2.4.0-test6.new/arch/alpha/lib/csum_ipv6_magic.S
+<BR>
+linux-2.4.0-test6.ref/arch/alpha/lib/csum_ipv6_magic.S
+<BR>
+--- linux-2.4.0-test6.new/arch/alpha/lib/csum_ipv6_magic.S	Fri Sep  1
+<BR>
+07:55:06 2000
+<BR>
++++ linux-2.4.0-test6.ref/arch/alpha/lib/csum_ipv6_magic.S	Thu Feb 17
+<BR>
+12:18:46 2000
+<BR>
+@@ -1,7 +1,6 @@
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* arch/alpha/lib/csum_ipv6_magic.S
+<BR>
+&nbsp;&nbsp;* Contributed by Richard Henderson &lt;rth@tamu.edu&gt;
+<BR>
+- * 21264 version contributed by Rick Gorton
+<BR>
+&lt;rick.gorton@alpha-processor.com&gt;
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* unsigned short csum_ipv6_magic(struct in6_addr *saddr,
+<BR>
+&nbsp;&nbsp;*                                struct in6_addr *daddr,
+<BR>
+@@ -10,7 +9,6 @@
+<BR>
+&nbsp;&nbsp;*                                unsigned int csum);
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+-#ifndef __alpha_ev6__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl csum_ipv6_magic
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent csum_ipv6_magic
+<BR>
+@@ -92,123 +90,3 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret			# .. e1 :
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end csum_ipv6_magic
+<BR>
+-#else
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * Much of the information about 21264 scheduling/coding comes from:
+<BR>
+- *	Compiler Writer's Guide for the Alpha 21264
+<BR>
+- *	abbreviated as 'CWG' in other comments here
+<BR>
+- *
+<BR>
+ftp.digital.com/pub/Digital/info/semiconductor/literature/dsc-library.html
+<BR>
+- * Scheduling notation:
+<BR>
+- *	E	- either cluster
+<BR>
+- *	U	- upper subcluster; U0 - subcluster U0; U1 - subcluster U1
+<BR>
+- *	L	- lower subcluster; L0 - subcluster L0; L1 - subcluster L1
+<BR>
+- * Try not to change the actual algorithm if possible for consistency.
+<BR>
+- * Determining actual stalls (other than slotting) doesn't appear to be
+<BR>
+easy to do.
+<BR>
+- *
+<BR>
+- * unsigned short csum_ipv6_magic(struct in6_addr *saddr,
+<BR>
+- *                                struct in6_addr *daddr,
+<BR>
+- *                                __u32 len,
+<BR>
+- *                                unsigned short proto,
+<BR>
+- *                                unsigned int csum);
+<BR>
+- *
+<BR>
+- * Swap &lt;proto&gt; (takes form 0xaabb)
+<BR>
+- * Then shift it left by 48, so result is:
+<BR>
+- *	0xbbaa0000 00000000
+<BR>
+- * Then turn it back into a sign extended 32-bit item
+<BR>
+- *	0xbbaa0000
+<BR>
+- *
+<BR>
+- * Swap &lt;len&gt; (an unsigned int) using Mike Burrows' 7-instruction sequence
+<BR>
+- * (we can't hide the 3-cycle latency of the unpkbw in the 6-instruction
+<BR>
+sequence)
+<BR>
+- * Assume input takes form 0xAABBCCDD
+<BR>
+- *
+<BR>
+- * Finally, original 'folding' approach is to split the long into 4
+<BR>
+unsigned shorts
+<BR>
+- * add 4 ushorts, resulting in ushort/carry
+<BR>
+- * add carry bits + ushort --&gt; ushort
+<BR>
+- * add carry bits + ushort --&gt; ushort (in case the carry results in an
+<BR>
+overflow)
+<BR>
+- * Truncate to a ushort.  (took 13 instructions)
+<BR>
+- * From doing some testing, using the approach in checksum.c:from64to16()
+<BR>
+- * results in the same outcome:
+<BR>
+- * split into 2 uints, add those, generating a ulong
+<BR>
+- * add the 3 low ushorts together, generating a uint
+<BR>
+- * a final add of the 2 lower ushorts
+<BR>
+- * truncating the result.
+<BR>
+- */
+<BR>
+-
+<BR>
+-	.globl csum_ipv6_magic
+<BR>
+-	.align 4
+<BR>
+-	.ent csum_ipv6_magic
+<BR>
+-	.frame $30,0,$26,0
+<BR>
+-csum_ipv6_magic:
+<BR>
+-	.prologue 0
+<BR>
+-
+<BR>
+-	ldq	$0,0($16)	# L : Latency: 3
+<BR>
+-	inslh	$18,7,$4	# U : 0000000000AABBCC
+<BR>
+-	ldq	$1,8($16)	# L : Latency: 3
+<BR>
+-	sll	$19,8,$7	# U : U L U L : 0x00000000 00aabb00
+<BR>
+-
+<BR>
+-	zapnot	$20,15,$20	# U : zero extend incoming csum
+<BR>
+-	ldq	$2,0($17)	# L : Latency: 3
+<BR>
+-	sll	$19,24,$19	# U : U L L U : 0x000000aa bb000000
+<BR>
+-	inswl	$18,3,$18	# U : 000000CCDD000000
+<BR>
+-
+<BR>
+-	ldq	$3,8($17)	# L : Latency: 3
+<BR>
+-	bis	$18,$4,$18	# E : 000000CCDDAABBCC
+<BR>
+-	addl	$19,$7,$19	# E : &lt;sign bits&gt;bbaabb00
+<BR>
+-	nop			# E : U L U L
+<BR>
+-
+<BR>
+-	addq	$20,$0,$20	# E : begin summing the words
+<BR>
+-	srl	$18,16,$4	# U : 0000000000CCDDAA
+<BR>
+-	zap	$19,0x3,$19	# U : &lt;sign bits&gt;bbaa0000
+<BR>
+-	nop			# E : L U U L
+<BR>
+-
+<BR>
+-	cmpult	$20,$0,$0	# E :
+<BR>
+-	addq	$20,$1,$20	# E :
+<BR>
+-	zapnot	$18,0xa,$18	# U : 00000000DD00BB00
+<BR>
+-	zap	$4,0xa,$4	# U : U U L L : 0000000000CC00AA
+<BR>
+-
+<BR>
+-	or	$18,$4,$18	# E : 00000000DDCCBBAA
+<BR>
+-	nop			# E :
+<BR>
+-	cmpult	$20,$1,$1	# E :
+<BR>
+-	addq	$20,$2,$20	# E : U L U L
+<BR>
+-
+<BR>
+-	cmpult	$20,$2,$2	# E :
+<BR>
+-	addq	$20,$3,$20	# E :
+<BR>
+-	cmpult	$20,$3,$3	# E : (1 cycle stall on $20)
+<BR>
+-	addq	$20,$18,$20	# E : U L U L (1 cycle stall on $20)
+<BR>
+-
+<BR>
+-	cmpult	$20,$18,$18	# E :
+<BR>
+-	addq	$20,$19,$20	# E : (1 cycle stall on $20)
+<BR>
+-	addq	$0,$1,$0	# E : merge the carries back into the csum
+<BR>
+-	addq	$2,$3,$2	# E :
+<BR>
+-
+<BR>
+-	cmpult	$20,$19,$19	# E :
+<BR>
+-	addq	$18,$19,$18	# E : (1 cycle stall on $19)
+<BR>
+-	addq	$0,$2,$0	# E :
+<BR>
+-	addq	$20,$18,$20	# E : U L U L :
+<BR>
+-		/* (1 cycle stall on $18, 2 cycles on $20) */
+<BR>
+-
+<BR>
+-	addq	$0,$20,$0	# E :
+<BR>
+-	zapnot	$0,15,$1	# U : Start folding output (1 cycle stall on
+<BR>
+$0)
+<BR>
+-	nop			# E :
+<BR>
+-	srl	$0,32,$0	# U : U L U L : (1 cycle stall on $0)
+<BR>
+-
+<BR>
+-	addq	$1,$0,$1	# E : Finished generating ulong
+<BR>
+-	extwl	$1,2,$2		# U : ushort[1] (1 cycle stall on $1)
+<BR>
+-	zapnot	$1,3,$0		# U : ushort[0] (1 cycle stall on $1)
+<BR>
+-	extwl	$1,4,$1		# U : ushort[2] (1 cycle stall on $1)
+<BR>
+-
+<BR>
+-	addq	$0,$2,$0	# E
+<BR>
+-	addq	$0,$1,$3	# E : Finished generating uint
+<BR>
+-		/* (1 cycle stall on $0) */
+<BR>
+-	extwl	$3,2,$1		# U : ushort[1] (1 cycle stall on $3)
+<BR>
+-	nop			# E : L U L U
+<BR>
+-
+<BR>
+-	addq	$1,$3,$0	# E : Final carry
+<BR>
+-	not	$0,$4		# E : complement (1 cycle stall on $0)
+<BR>
+-	zapnot	$4,3,$0		# U : clear upper garbage bits
+<BR>
+-		/* (1 cycle stall on $4) */
+<BR>
+-	ret			# L0 : L U L U
+<BR>
+-
+<BR>
+-	.end csum_ipv6_magic
+<BR>
+-#endif
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0111.shtml">Jeff Sturm: "Re: Bragging rights return?!?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0109.shtml">Steve Rogers: "Re: Bragging rights return?!?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sun Oct  1 07:47:33 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

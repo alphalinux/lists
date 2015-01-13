@@ -1,0 +1,230 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Is NFS 64-bit on alpha ?</H1> 
+	
+<!-- received="Fri Mar 24 17:56:19 2000" -->
+<!-- isoreceived="20000325015619" -->
+<!-- sent="Fri, 24 Mar 2000 18:51:48 +0100" -->
+<!-- isosent="20000324175148" -->
+<!-- name="Christian Iseli" -->
+<!-- email="chris@ludwig-alpha.unil.ch" -->
+<!-- subject="Is NFS 64-bit on alpha ?" -->
+<!-- id="200003241751.SAA09726@ludwig-alpha.unil.ch" -->
+<STRONG>Subject: </STRONG>Is NFS 64-bit on alpha ?<BR>
+<STRONG>From: </STRONG>Christian Iseli (<EM>chris@ludwig-alpha.unil.ch</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Mar 24 09:51:48 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#521">[ date ]</A>
+<A HREF="index.shtml#521">[ thread ]</A>
+<A HREF="subject.shtml#521">[ subject ]</A>
+<A HREF="author.shtml#521">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0522.shtml">Robert Williams: "Re: looking for updated alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0520.shtml">Hoover, Tony: "RE: looking for updated alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0523.shtml">Peter Rival: "Re: Is NFS 64-bit on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi folks,
+<BR>
+<P>I have stumbled upon a troubling fact...
+<BR>
+<P>I have this large file, sitting on a Sun server:
+<BR>
+$ ls -l /db/embl/htg-re.seq 
+<BR>
+-rw-r--r--   1 chris    isrec    2419902330 Mar 24 18:06 /db/embl/htg-re.seq
+<BR>
+<P>I have this /db/embl NFS mounted on my alpha box:
+<BR>
+$ uname -a
+<BR>
+Linux ludwig-alpha 2.2.13ac1 #4 Tue Nov 2 15:10:02 CET 1999 alpha unknown
+<BR>
+<P>Seems I can't do anything with the file from the alpha (nor from any Linux 
+<BR>
+machine, for that matter):
+<BR>
+$ ls -l /db/embl/htg-re.seq 
+<BR>
+ls: /db/embl/htg-re.seq: File too large
+<BR>
+<P>I tried compiling the following code on the alpha:
+<BR>
+$ cat toto.c
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/stat.h&gt;
+<BR>
+#include &lt;fcntl.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+int
+<BR>
+main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;int fd = open(&quot;/db/embl/htg-re.seq&quot;, O_RDONLY);
+<BR>
+&nbsp;&nbsp;if (fd &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;perror(&quot;Failed&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return 1;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;close(fd);
+<BR>
+&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P>$ cc -O2 -mcpu=ev56 -D_FILE_OFFSET_BITS=64 -o to toto.c
+<BR>
+$ ./to
+<BR>
+Failed: File too large
+<BR>
+$ cc -S -O2 -mcpu=ev56 -D_FILE_OFFSET_BITS=64 toto.c
+<BR>
+alpha_chris$ cat toto.s
+<BR>
+&nbsp;.file 1 &quot;toto.c&quot;
+<BR>
+&nbsp;.set noat
+<BR>
+&nbsp;.set noreorder
+<BR>
+&nbsp;.arch ev56
+<BR>
+.section .rodata
+<BR>
+$LC0:
+<BR>
+&nbsp;.ascii &quot;/db/embl/htg-re.seq\0&quot;
+<BR>
+$LC1:
+<BR>
+&nbsp;.ascii &quot;Failed\0&quot;
+<BR>
+.text
+<BR>
+&nbsp;.align 5
+<BR>
+&nbsp;.globl main
+<BR>
+&nbsp;.ent main
+<BR>
+main:
+<BR>
+&nbsp;.frame $30,16,$26,0
+<BR>
+&nbsp;.mask 0x4000000,-16
+<BR>
+&nbsp;ldgp $29,0($27)
+<BR>
+$main..ng:
+<BR>
+&nbsp;lda $30,-16($30)
+<BR>
+&nbsp;lda $16,$LC0
+<BR>
+&nbsp;mov $31,$17
+<BR>
+&nbsp;stq $26,0($30)
+<BR>
+&nbsp;.prologue 1
+<BR>
+&nbsp;jsr $26,open64
+<BR>
+&nbsp;ldgp $29,0($26)
+<BR>
+&nbsp;blt $0,$L22
+<BR>
+&nbsp;mov $0,$16
+<BR>
+&nbsp;jsr $26,close
+<BR>
+&nbsp;ldgp $29,0($26)
+<BR>
+&nbsp;mov $31,$0
+<BR>
+&nbsp;br $31,$L23
+<BR>
+&nbsp;.align 4
+<BR>
+$L22:
+<BR>
+&nbsp;lda $16,$LC1
+<BR>
+&nbsp;jsr $26,perror
+<BR>
+&nbsp;ldgp $29,0($26)
+<BR>
+&nbsp;lda $0,1
+<BR>
+$L23:
+<BR>
+&nbsp;ldq $26,0($30)
+<BR>
+&nbsp;lda $30,16($30)
+<BR>
+&nbsp;ret $31,($26),1
+<BR>
+&nbsp;.end main
+<BR>
+&nbsp;.ident &quot;GCC: (GNU) 2.95.1 19990816 (release)&quot;
+<BR>
+<P>So it seems it calls the proper open64 thing...
+<BR>
+<P>Any words of advive ?
+<BR>
+<P>TIA,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Christian
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0522.shtml">Robert Williams: "Re: looking for updated alpha"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0520.shtml">Hoover, Tony: "RE: looking for updated alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0523.shtml">Peter Rival: "Re: Is NFS 64-bit on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:01 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

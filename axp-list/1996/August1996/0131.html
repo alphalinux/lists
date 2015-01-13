@@ -1,0 +1,133 @@
+<!-- received="Tue Aug  6 04:49:22 1996 " -->
+<!-- sent="Tue, 6 Aug 1996 10:46:04 GMT+100" -->
+<!-- name="Joachim Geiler" -->
+<!-- email="ACHIM@ninfo.htwm.de" -->
+<!-- subject="Re: network problems with alphastation 255" -->
+<!-- id="EA9EA443FF@ihsm1.mpi.htwm.de" -->
+<!-- inreplyto="network problems with alphastation 255" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: network problems with alphastation 255</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: network problems with alphastation 255</h2>
+
+<b>Joachim Geiler</b> (<a href="mailto:ACHIM@ninfo.htwm.de"><i>ACHIM@ninfo.htwm.de</i></a>)<br>
+<i>Tue, 6 Aug 1996 10:46:04 GMT+100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#131">[ date ]</a><a href="index.html#131">[ thread ]</a><a href="subject.html#131">[ subject ]</a><a href="author.html#131">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0132.html">Linus Torvalds: "Re: ftp? Why so tight?"</a>
+<li> <b>Previous message:</b> <a href="0130.html">Uncle George: "Re: 3com 3C509B Ethernet Controllers"</a>
+<li> <b>Maybe in reply to:</b> <a href="0100.html">Joachim Geiler: "network problems with alphastation 255"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; &gt;&gt;&gt; "Joachim Geiler" said:</i><br>
+<i>&gt; &gt; After installing redhat-linux 3.0.3 on an as255 I have problems to get</i><br>
+<i>&gt; &gt; networking up. I tried both the tulip and the de4x5 driver to use </i><br>
+<i>&gt; &gt; with the onboard 21040 ethernet controller. It seems there is </i><br>
+<i>&gt; &gt; something wrong with the PCI setup. While booting linux 2.0.10 the </i><br>
+<i>&gt; &gt; following messages are displayed:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; bios32.sio_fixup: weird, found device 1011:0002 in non-existent slot </i><br>
+<i>&gt; &gt; 14!!</i><br>
+<i>&gt; </i><br>
+<i>&gt; Yow! Never seen that one before!!! :-( </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; eth0: DE434/5 at b000 (PCI bus 0, device 14), h/w address </i><br>
+<i>&gt; &gt; 00:00:f8:22:25:c8 and requires IRQ10 (provided by PCI BIOS).</i><br>
+<i>&gt; &gt; de4x5.c: v0.43 96/6/21 <a href="mailto:davies@wanton.lkg.dec.com">davies@wanton.lkg.dec.com</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; Hmm, don't know where IRQ 10 came from, the earlier message indicated that</i><br>
+<i>&gt; the PCI config code didn't know how to allocate an IRQ for it... ???</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; The kernel is 2.0.10, for "avanti" and was compiled on this machine.</i><br>
+<i>&gt; </i><br>
+<i>&gt; OK, it looks as if the AS255 you've got is a new one, which has a slightly</i><br>
+<i>&gt; different motherboard/riser-card setup than earlier ones. The TULIP chip has</i><br>
+<i>&gt; been moved off the riser card onto the MB, and given a *new* PCI slot, which</i><br>
+<i>&gt; doesn't exist on the other platforms using the same PCI bus IRQ fixup code.</i><br>
+<p>
+This is our first alpha here, so I don't know if it is a new kind of <br>
+motherboard. On the mainboard are both SCSI and ethernet controller, <br>
+and an Analog Devices Sound Port chip.  On a riser card there are <br>
+three PCI and two ISA slots, one of them is a combined PCI/ISA. The <br>
+machine has only SRM firmware, Digital UNIX 3.2 is preinstalled. I <br>
+added a floppy drive and a 2nd hard drive to install linux.<br>
+<p>
+<i>&gt; I *think* (hope :-) the below fix will do the trick, but I've no hardware to</i><br>
+<i>&gt; check it out on. The word I got was that the TULIP will use PIRQ0, so, like</i><br>
+<i>&gt; the SCSI which is set for all PIRQ3 no matter the INTx pin, we set the TULIP</i><br>
+<i>&gt; "slot" to always choose PIRQ0.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Add the line indicated by the "+" to arch/alpha/kernel/bios32.c, sio_fixup():</i><br>
+<i>&gt; </i><br>
+<i>&gt;                 { 2,  2,  1,  0,  2}, /* idsel 13 KN25_PCI_SLOT2 */</i><br>
+<i>&gt; +               { 0,  0,  0,  0,  0}, /* idsel 14 AS255 TULIP */</i><br>
+<i>&gt; #endif</i><br>
+<i>&gt; </i><br>
+<i>&gt; Rebuild and try it out, let me know what happens...</i><br>
+<p>
+Done! It runs :-), thank You, Jay!:<br>
+ <br>
+Probing PCI hardware.<br>
+bios32.sio_fixup: weird, device 8086:0484 coming on slot 7 has no irq <br>
+line!!<br>
+<p>
+eth0: DE434/5 at b000 (PCI bus 0, device 14) h/w address <br>
+00:00:f8:22:25:c8,<br>
+     and requires IRQ15 (provided by PCI BIOS).<br>
+<p>
+/dev/pci:<br>
+<p>
+Bus 0, device 14, function 0:<br>
+  Ethernet controller: DEC DC21040 (rev 36). <br>
+  Medium devsel. Fast back-to-back capable. IRQ 15. Master Capable. <br>
+Latency=255.<br>
+  IO at 0xb000.<br>
+  <br>
+Again, thank You !<br>
+<p>
+<p>
+Joachim<br>
+<p>
+<a href="mailto:geiler@htwm.de">geiler@htwm.de</a><br>
+<a href="mailto:achim@htwm.de">achim@htwm.de</a><br>
+        <br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0132.html">Linus Torvalds: "Re: ftp? Why so tight?"</a>
+<li> <b>Previous message:</b> <a href="0130.html">Uncle George: "Re: 3com 3C509B Ethernet Controllers"</a>
+<li> <b>Maybe in reply to:</b> <a href="0100.html">Joachim Geiler: "network problems with alphastation 255"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,139 @@
+<!-- received="Wed Mar 25 11:10:00 1998 " -->
+<!-- sent="Wed, 25 Mar 1998 15:06:57 +0000" -->
+<!-- name="Dr. Miguel Avillez" -->
+<!-- email="pancho@galaxy.lca.uevora.pt" -->
+<!-- subject="Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution" -->
+<!-- id="199803251441.RAA28453@blinky.bfr.co.il" -->
+<!-- inreplyto="Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution</h2>
+
+<b>Dr. Miguel Avillez</b> (<a href="mailto:pancho@galaxy.lca.uevora.pt"><i>pancho@galaxy.lca.uevora.pt</i></a>)<br>
+<i>Wed, 25 Mar 1998 15:06:57 +0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#559">[ date ]</a><a href="index.html#559">[ thread ]</a><a href="subject.html#559">[ subject ]</a><a href="author.html#559">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0560.html">Jay.Estabrook@digital.com: "Re: Digital's Titanic site..."</a>
+<li> <b>Previous message:</b> <a href="0558.html">Alexander V. Mirgorodsky: "AlphaServer 800"</a>
+<li> <b>Maybe in reply to:</b> <a href="0557.html">Harvey J. Stein: "Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0562.html">Hugo van der Kooij: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<li> <b>Reply:</b> <a href="0562.html">Hugo van der Kooij: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<li> <b>Reply:</b> <a href="0580.html">Harvey J. Stein: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Harvey J. Stein wrote:<br>
+<p>
+<i>&gt; Has anyone built ssh (version 1.2.22) on the DEC alpha running Linux</i><br>
+<i>&gt; Redhat 5.0?  I'm getting some warnings when compiling, and then ssh</i><br>
+<i>&gt; seems to hang when invoked.  I made a change to eliminate one class of</i><br>
+<i>&gt; error, after which ssh seems to work, but I'm yet not sure how robust</i><br>
+<i>&gt; it will be.</i><br>
+<i>&gt;</i><br>
+<i>&gt; Firstly, I'm getting some warnings about args to __FD_ZERO, __FD_SET,</i><br>
+<i>&gt; ..., such as:</i><br>
+<i>&gt;</i><br>
+<i>&gt; clientloop.c:442: warning: passing arg 1 of `__FD_ZERO' from incompatible pointer type</i><br>
+<i>&gt;</i><br>
+<i>&gt;   The offending line is the FD_ZERO call in the following code:</i><br>
+<i>&gt;</i><br>
+<i>&gt;    void client_wait_until_can_do_something(fd_set *readset, fd_set *writeset)</i><br>
+<i>&gt;    {</i><br>
+<i>&gt;      /* Initialize select masks. */</i><br>
+<i>&gt;      FD_ZERO(readset);</i><br>
+<i>&gt;</i><br>
+<i>&gt; This looks fine to me, since the man page says the arg to FD_ZERO</i><br>
+<i>&gt; should be fd_set *set, so I'm guessing it's a header problem.  It</i><br>
+<i>&gt; doesn't seem to be an include problem because gcc -E shows that</i><br>
+<i>&gt; &lt;sys/time.h&gt;, &lt;sys/types.h&gt;, and &lt;unistd.h&gt; are included (as per the</i><br>
+<i>&gt; man page), although &lt;sys/types.h&gt; comes before &lt;sys/time.h&gt; in the</i><br>
+<i>&gt; source.</i><br>
+<i>&gt;</i><br>
+<i>&gt; I'm also getting:</i><br>
+<i>&gt;</i><br>
+<i>&gt;    randoms.c: In function `random_initialize':</i><br>
+<i>&gt;    randoms.c:89: warning: cast from pointer to integer of different size</i><br>
+<i>&gt;</i><br>
+<i>&gt; This perhaps isn't much of a problem because it looks like the code's</i><br>
+<i>&gt; just trying to generate a random seed, but it might be a problem that</i><br>
+<i>&gt; the random seed isn't as random as needed.  Is linux/alpha the only OS</i><br>
+<i>&gt; with 64 bit pointers on which they've tried to run the code?</i><br>
+<i>&gt;</i><br>
+<i>&gt; The third class of warning is:</i><br>
+<i>&gt;    set_str.c: In function `mpz_set_str':</i><br>
+<i>&gt;    set_str.c:103: warning: type mismatch in implicit declaration for built-in function `strlen'</i><br>
+<i>&gt;</i><br>
+<i>&gt; where the code looks like:</i><br>
+<i>&gt;</i><br>
+<i>&gt;    mpz_set_str (mpz_ptr x, const char *str, int base)</i><br>
+<i>&gt;    {</i><br>
+<i>&gt;      size_t str_size;</i><br>
+<i>&gt; &lt;snip&gt;</i><br>
+<i>&gt;</i><br>
+<i>&gt;      str_size = strlen (str - 1);</i><br>
+<i>&gt;</i><br>
+<i>&gt; The problem here seems to be that &lt;string.h&gt; isn't included (verified</i><br>
+<i>&gt; by gcc -E).  I added it to gmp.h &amp; at least fixed this one (but it'll</i><br>
+<i>&gt; have to be added in a more appropriate fashion to make it work on all</i><br>
+<i>&gt; platforms.</i><br>
+<i>&gt;</i><br>
+<i>&gt; After making this change ssh connects.  So it might be working at this</i><br>
+<i>&gt; point, but I'm still concerned about the warning regarding FD_*.</i><br>
+<i>&gt;</i><br>
+<i>&gt; Does anyone know what's wrong and what I might need to do to fix it?</i><br>
+<i>&gt;</i><br>
+<i>&gt; Thanks,</i><br>
+<i>&gt;</i><br>
+<i>&gt; Harvey J. Stein</i><br>
+<i>&gt; Berger Financial Research</i><br>
+<i>&gt; <a href="mailto:hjstein@bfr.co.il">hjstein@bfr.co.il</a></i><br>
+<i>&gt;</i><br>
+<i>&gt; --</i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<p>
+  why dont you get the ssh rpms for alpha?<br>
+<p>
+m.<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0560.html">Jay.Estabrook@digital.com: "Re: Digital's Titanic site..."</a>
+<li> <b>Previous message:</b> <a href="0558.html">Alexander V. Mirgorodsky: "AlphaServer 800"</a>
+<li> <b>Maybe in reply to:</b> <a href="0557.html">Harvey J. Stein: "Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0562.html">Hugo van der Kooij: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<li> <b>Reply:</b> <a href="0562.html">Hugo van der Kooij: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<li> <b>Reply:</b> <a href="0580.html">Harvey J. Stein: "Re: Building ssh on alpha Redhat 5.0 - problems &amp; 1 solution"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

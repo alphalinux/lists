@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Weird Compaq CCC / GCC interaction ?</H1> 
+	
+<!-- received="Tue Sep 26 11:52:58 2000" -->
+<!-- isoreceived="20000926185258" -->
+<!-- sent="Tue, 26 Sep 2000 11:12:52 +0100" -->
+<!-- isosent="20000926101252" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@snowball.ucd.ie" -->
+<!-- subject="Re: Weird Compaq CCC / GCC interaction ?" -->
+<!-- id="20000926111252.A17671@snowball.ucd.ie" -->
+<!-- inreplyto="010C86D15E4D1247B9A5DD312B7F5AA70BEC27@stegosaurus.bristol.quadrics.com" -->
+<STRONG>Subject: </STRONG>Re: Weird Compaq CCC / GCC interaction ?<BR>
+<STRONG>From: </STRONG>Nikita Schmidt (<EM>cetus@snowball.ucd.ie</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Sep 26 03:12:52 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#521">[ date ]</A>
+<A HREF="index.shtml#521">[ thread ]</A>
+<A HREF="subject.shtml#521">[ subject ]</A>
+<A HREF="author.shtml#521">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0522.shtml">alphaas@netcourrier.com: "Re: Fullscreen mode in mtv"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0519.shtml">David Addison: "Weird Compaq CCC / GCC interaction ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0530.shtml">Michal Jaegermann: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0519.shtml">Nikita Schmidt: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tuesday, 26 Sep, David Addison wrote:
+<BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; Anyone know what's wrong ... is this a bug with ccc or gcc ?
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+This looks like a bug in gcc - see below why.
+<BR>
+<P><EM>&gt; cat fn.c
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; unsigned int fn()
+</EM><BR>
+<EM>&gt; {
+</EM><BR>
+<EM>&gt;     return (0xc00fc00f);
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+[...]
+<BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; objdump -d fn_gcc.o 
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; fn_gcc.o:     file format elf64-alpha
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; Disassembly of section .text:
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; 0000000000000000 &lt;fn&gt;:
+</EM><BR>
+<EM>&gt;    0:   0f c0 1f 20     lda     v0,-16369(zero)
+</EM><BR>
+<EM>&gt;    4:   10 c0 00 24     ldah    v0,-16368(v0)
+</EM><BR>
+<EM>&gt;    8:   20 f6 01 48     zapnot  v0,0xf,v0
+</EM><BR>
+<EM>&gt;    c:   01 80 fa 6b     ret     zero,(ra),0x1
+</EM><BR>
+<EM>&gt;         ...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; objdump -d fn_ccc.o 
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; fn_ccc.o:     file format elf64-alpha
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; Disassembly of section .text:
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; 0000000000000000 &lt;fn&gt;:
+</EM><BR>
+<EM>&gt;    0:   10 c0 1f 24     ldah    v0,-16368(zero)
+</EM><BR>
+<EM>&gt;    4:   1f 04 ff 47     nop
+</EM><BR>
+<EM>&gt;    8:   0f c0 00 20     lda     v0,-16369(v0)
+</EM><BR>
+<EM>&gt;    c:   01 80 fa 6b     ret     zero,(ra),0x1
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; GCC is inserting a ZAPNOT instruction to zero the top 4-bytes - is this
+</EM><BR>
+<EM>&gt; correct ?
+</EM><BR>
+<P>According to the Calling Standard for Alpha Systems, Section 4.1.5 &quot;Unused
+<BR>
+Bits in Passed Data,&quot; both signed and unsigned ints should be passed
+<BR>
+sign-extended in registers.  Gcc is compatible with itself, but not with
+<BR>
+any other compiler which follows the documented conventions.  If gcc
+<BR>
+claims to be standards compliant, this is a bug; please submit a report.
+<BR>
+<P>Nikita
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0522.shtml">alphaas@netcourrier.com: "Re: Fullscreen mode in mtv"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0520.shtml">Andrei A. Dergatchev: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0519.shtml">David Addison: "Weird Compaq CCC / GCC interaction ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0530.shtml">Michal Jaegermann: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0519.shtml">Nikita Schmidt: "Re: Weird Compaq CCC / GCC interaction ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sun Oct  1 07:47:34 2000 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

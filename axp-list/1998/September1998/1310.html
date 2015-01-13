@@ -1,0 +1,121 @@
+<!-- received="Tue Oct  6 19:16:12 1998 " -->
+<!-- sent="Tue, 6 Oct 1998 18:09:17 -0400 (EDT)" -->
+<!-- name="Jeff Sturm" -->
+<!-- email="jsturm@gatecom.com" -->
+<!-- subject="Re: runaway klogd/syslogd happening now" -->
+<!-- id="19981006210317Z92260-463+14@mea.tmt.tele.fi" -->
+<!-- inreplyto="36195FC8.75B7E478@voicenet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: runaway klogd/syslogd happening now</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: runaway klogd/syslogd happening now</h2>
+
+<b>Jeff Sturm</b> (<a href="mailto:jsturm@gatecom.com"><i>jsturm@gatecom.com</i></a>)<br>
+<i>Tue, 6 Oct 1998 18:09:17 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1310">[ date ]</a><a href="index.html#1310">[ thread ]</a><a href="subject.html#1310">[ subject ]</a><a href="author.html#1310">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1311.html">Robb Romans: "Re: 2.1.x kernel problems"</a>
+<li> <b>Previous message:</b> <a href="1309.html">B. James Phillippe: "Floppy tape drive"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I've been following this discussion for awhile... I'm curious why there <br>
+hasn't been any discussion of the klogd source since it is so little.  My <br>
+SX has never experienced the klogd runaway so I can't easily debug the <br>
+problem, but a quick read through reveals problems in klogd.c:<br>
+<p>
+static void LogLine(char *ptr, int len)<br>
+{<br>
+    auto int idx = 0;<br>
+    static int index = 0;<br>
+    auto char *nl;<br>
+    static char line[LOG_LINE_LENGTH],<br>
+                eline[LOG_LINE_LENGTH];<br>
+<p>
+    ...<br>
+<p>
+    while (len) {<br>
+        nl = strpbrk(ptr, "\r\n"); /* Find first line terminator */<br>
+        if (nl) {<br>
+             ...<br>
+        }<br>
+        else<br>
+        {<br>
+            strncat(line, ptr, len);<br>
+            index += len;<br>
+            len = 0;<br>
+        }<br>
+    }<br>
+    return;<br>
+}<br>
+<p>
+Clearly there is a buffer overrun if the input buffer exceeds <br>
+LOG_LINE_LENGTH (1024 bytes).  Also the strpbrk call is dangerous, since <br>
+the input buffer may not be terminated.<br>
+<p>
+Fixing this in the kernel is a good idea, but klogd must be fixed too before<br>
+this happens again someday... (Why doesn't this bug affect Intel users?  <br>
+Have they never had a kernel that can generate /proc/kmsg messages longer <br>
+than 1024 bytes?)<br>
+<p>
+Is anybody patching this?  It can't be difficult, but I won't have a chance <br>
+until sometime tomorrow...<br>
+<p>
+Jeff<br>
+<p>
+On Mon, 5 Oct 1998, Uncle George wrote:<br>
+<i>&gt; actually its klogd that reads kern messages, like the one u posted.</i><br>
+<i>&gt; </i><br>
+<i>&gt; its probably better to fix the kern messages. after all, the 386 guys</i><br>
+<i>&gt; arent complaining are they?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Greg Lindahl wrote:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; &gt; [root@helix01 /root]# cat /proc/kmsg</i><br>
+<i>&gt; &gt; &gt; &lt;sc 49(140f3bc70,40,8)&gt;</i><br>
+<i>&gt; &gt;</i><br>
+<i>&gt; &gt; Hm, that's right, unimplemented system calls do not have newlines</i><br>
+<i>&gt; &gt; after them. So if there were enough, that would cause memory</i><br>
+<i>&gt; &gt; corruption downstream in syslogd.</i><br>
+<i>&gt; &gt;</i><br>
+<i>&gt; &gt; So let's make a patch for syslogd which inserts a newline if</i><br>
+<i>&gt; &gt; the buffer is growing too close to the limit.</i><br>
+<i>&gt; &gt;</i><br>
+<i>&gt; &gt; -- g</i><br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1311.html">Robb Romans: "Re: 2.1.x kernel problems"</a>
+<li> <b>Previous message:</b> <a href="1309.html">B. James Phillippe: "Floppy tape drive"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

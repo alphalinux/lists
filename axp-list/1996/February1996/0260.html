@@ -1,0 +1,163 @@
+<!-- received="Thu Feb 29 13:03:12 1996 " -->
+<!-- sent="Thu, 29 Feb 96 13:03:12 MET" -->
+<!-- name="Ka'plaagh  29-Feb-1996 1205 +0000" -->
+<!-- email="rusling@rdgeng.enet.dec.com" -->
+<!-- subject="patch for Milo-1.3.68 - fixes problems with 21066 based systems" -->
+<!-- id="199602291202.NAA06402@vbormc.vbo.dec.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>patch for Milo-1.3.68 - fixes problems with 21066 based systems</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>patch for Milo-1.3.68 - fixes problems with 21066 based systems</h2>
+
+<b>Ka'plaagh  29-Feb-1996 1205 +0000</b> (<a href="mailto:rusling@rdgeng.enet.dec.com"><i>rusling@rdgeng.enet.dec.com</i></a>)<br>
+<i>Thu, 29 Feb 96 13:03:12 MET</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#260">[ date ]</a><a href="index.html#260">[ thread ]</a><a href="subject.html#260">[ subject ]</a><a href="author.html#260">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0261.html">Craig Groeschel: "Re: time(1) incorrect (Re) ... times(3) strange; clock_t == long"</a>
+<li> <b>Previous message:</b> <a href="0259.html">froy@gr.osf.org: "time(1) incorrect (Re) ... times(3) strange; clock_t == long"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+All,<br>
+	oops, I goofed.  The milo-1.3.68 sources do not correctly<br>
+build for 21066 based systems.  The following patch can be applied<br>
+to fix this, but the 1.3.69 sources will be out later with this<br>
+fix in them.   The images in /test-images all work fine.<br>
+<p>
+Dave<br>
+<p>
+--------------<br>
+--- ./milo-1.3.68/Makefile	Tue Feb 27 18:30:03 1996<br>
++++ ./milo-1.3.69/Makefile	Thu Feb 29 11:54:48 1996<br>
+@@ -179,7 +179,7 @@<br>
+ .c.s:<br>
+ 	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) -S -o $*.s $&lt;<br>
+ .s.o:<br>
+-	$(AS) $(ASFLAGS) -o $*.o $&lt;<br>
++	$(AS) -o $*.o $&lt;<br>
+ .c.o:<br>
+ 	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) -c -o $*.o $&lt;<br>
+ .S.s:<br>
+@@ -301,13 +301,17 @@<br>
+ #	milo (a relocatable image that can be loaded by _anything_!<br>
+ # ----------------------------------------------------------------------------<br>
+ <br>
++micropal.i:	micropal.S<br>
++	$(CPP) $(DEFINES) $(INCLUDES) $&lt; &gt; micropal.i<br>
++<br>
++micropal.o:	micropal.i<br>
++	$(AS) $(ASFLAGS) -o micropal.o micropal.i<br>
++<br>
+ milo.compressed.s:	tools/data milo.compressed<br>
+ 	tools/data -v milo.compressed milo.compressed.s<br>
+ <br>
+ milo.compressed.o:	milo.compressed.s<br>
+ <br>
+-micropal.o:	micropal.S<br>
+-<br>
+ micropal.nh:	micropal.o<br>
+ 	tools/cstrip -va micropal.o micropal.nh<br>
+ <br>
+@@ -445,13 +449,6 @@<br>
+ 	$(NM) fmu | grep -v '\(compiled\)\|\(\.o$$\)\|\( a \)' | sort &gt; fmu.map<br>
+ 	quickstrip fmu fmu<br>
+ <br>
+-micropal.i:	micropal.S<br>
+-	$(CPP) $(DEFINES) $(INCLUDES) $&lt; &gt; micropal.i<br>
+-<br>
+-micropal.o:	micropal.i<br>
+-	$(AS) $(ASFLAGS) -o micropal.o micropal.i<br>
+-<br>
+-<br>
+ # ----------------------------------------------------------------------------<br>
+ #	The tools that we need to build the miniloader.<br>
+ # ----------------------------------------------------------------------------<br>
+@@ -474,7 +471,7 @@<br>
+ clean:<br>
+ 	rm -f $(ALL) *.nh *.map *.lis *.exe *.o flash_image.s *.gz  \<br>
+ 		mboot bootm *~ milo.exe milo.full* milo.compressed* \<br>
+-		*.stripped<br>
++		*.stripped *.i<br>
+ ifndef MINI_DIGITAL_BIOSEMU<br>
+ 	$(MAKE) -C x86 DEFINES="" X86LIB=$(X86LIB) clean<br>
+ endif<br>
+--- ./milo-1.3.68/micropal.S	Tue Feb 27 18:40:43 1996<br>
++++ ./milo-1.3.69/micropal.S	Thu Feb 29 11:54:21 1996<br>
+@@ -137,6 +137,10 @@<br>
+ #define DEBUG_APECS<br>
+ #endif /* DC21064 */<br>
+ <br>
++#ifdef DC21066<br>
++#define DEBUG_21066<br>
++#endif<br>
++<br>
+ #endif /* DEBUG */<br>
+ <br>
+ #ifdef DC21164<br>
+@@ -165,7 +169,15 @@<br>
+ #define WaitDelay	0x400<br>
+ #endif /* DEBUG_APECS */<br>
+ <br>
+-#if defined (DEBUG_ALCOR) || defined (DEBUG_APECS)<br>
++#ifdef DEBUG_21066<br>
++#define LEDPORT		0x80<br>
++#define IO_SHIFT 	5<br>
++#define PCI_SPARSE 	0x1C<br>
++#define BASE_SHIFT	28<br>
++#define WaitDelay	0x400<br>
++#endif /* DEBUG_APECS */<br>
++<br>
++#if defined (DEBUG_ALCOR) || defined (DEBUG_APECS) || defined(DEBUG_21066)<br>
+ #define LEDWRITE(value, reg1, reg2)			\<br>
+     lda		reg1, PCI_SPARSE($31);			\<br>
+     sll 	reg1, (BASE_SHIFT-IO_SHIFT), reg1;	\<br>
+@@ -501,7 +513,7 @@<br>
+ 	STALL<br>
+ 	STALL<br>
+ <br>
+-#ifdef DC21064<br>
++#if defined(DC21064) || defined(DC21066)<br>
+ 	mtpr	$31, flushIc		/* Flush the I-cache */<br>
+ 	mtpr	$31, xtbZap		/* Flush the TBs */<br>
+ #endif /* DC21064 */<br>
+@@ -541,7 +553,7 @@<br>
+ #endif<br>
+ <br>
+ <br>
+-#ifdef DC21064<br>
++#if defined(DC21064) || defined(DC21066)<br>
+ /*<br>
+ **	DC21064 PALcode entry point for DTB miss flow<br>
+ */<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0261.html">Craig Groeschel: "Re: time(1) incorrect (Re) ... times(3) strange; clock_t == long"</a>
+<li> <b>Previous message:</b> <a href="0259.html">froy@gr.osf.org: "time(1) incorrect (Re) ... times(3) strange; clock_t == long"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

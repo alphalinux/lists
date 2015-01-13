@@ -1,0 +1,210 @@
+<!-- received="Tue Mar 31 16:18:01 1998 " -->
+<!-- sent="Tue, 31 Mar 1998 12:17:39 -0500" -->
+<!-- name="Robert Williams" -->
+<!-- email="bob@bob.usuf2.usuhs.mil" -->
+<!-- subject="g77 broken in egcs-98032 on axp/Linux" -->
+<!-- id="Pine.ULT.3.91.980331090809.181e-100000@gunn.kednos.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>g77 broken in egcs-98032 on axp/Linux</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>g77 broken in egcs-98032 on axp/Linux</h2>
+
+<b>Robert Williams</b> (<a href="mailto:bob@bob.usuf2.usuhs.mil"><i>bob@bob.usuf2.usuhs.mil</i></a>)<br>
+<i>Tue, 31 Mar 1998 12:17:39 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#613">[ date ]</a><a href="index.html#613">[ thread ]</a><a href="subject.html#613">[ subject ]</a><a href="author.html#613">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0614.html">Dominik Kubla: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Previous message:</b> <a href="0612.html">Tom Linden: "Re: [off topic] DEC UNIX"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I'm looking for a little help to fix this bug in g77.<br>
+The following simple program segfaults because<br>
+(I think) the address of "Name", and perhaps other information,<br>
+is not getting passed.   (Just "Name" in the write statement also<br>
+bombs.)<br>
+I'm not quite sure how to proceed from here:<br>
+<p>
+      program junk<br>
+     character*10 Name<br>
+      Name = 'X'<br>
+        Write(6,1000) Name(1:1)<br>
+ 1000   Format(' Name = ',A)<br>
+      stop<br>
+      end<br>
+<p>
+<p>
+<p>
+<p>
+The traceback:<br>
+<p>
+Program received signal SIGSEGV, Segmentation fault.<br>
+0x120002754 in f_s (s=0x0, curloc=0) at fmt.c:95<br>
+Current language:  auto; currently c<br>
+(gdb) bt<br>
+#0  0x120002754 in f_s (s=0x0, curloc=0) at fmt.c:95<br>
+#1  0x120003088 in pars_f (s=0x0) at fmt.c:370<br>
+#2  0x120004568 in s_wsfe (a=0x120106f20) at wsfe.c:72<br>
+#3  0x12000115c in MAIN__ () at junk.f:5<br>
+#4  0x12000142c in main (argc=0, argv=0x0) at main.c:128<br>
+<p>
+wsfe.c fmt.c are source files in gcc/g77 (egcs).<br>
+<p>
+wsfe.c:<br>
+<p>
+    /*write sequential formatted external*/<br>
+    #include "f2c.h"<br>
+    #include "fio.h"<br>
+    #include "fmt.h"<br>
+    extern int f__hiwater;<br>
+<p>
+    #ifdef KR_headers<br>
+    x_putc(c)<br>
+    #else<br>
+    x_putc(int c)<br>
+    #endif<br>
+    {<br>
+            /* this uses \n as an indicator of record-end */<br>
+            if(c == '\n' &amp;&amp; f__recpos &lt; f__hiwater) {       /* fseek<br>
+calls fflush, a loss */<br>
+    #if ! defined (NON_UNIX_STDIO) &amp;&amp; ! defined (MISSING_FILE_ELEMS)<br>
+                    if(f__cf-&gt;_ptr + f__hiwater - f__recpos &lt;<br>
+buf_end(f__cf))<br>
+                            f__cf-&gt;_ptr += f__hiwater - f__recpos;<br>
+                    else<br>
+    #endif<br>
+                            (void) fseek(f__cf, (long)(f__hiwater -<br>
+f__recpos), SEEK_CUR);<br>
+            }<br>
+    #ifdef OMIT_BLANK_CC<br>
+            if (!f__recpos++ &amp;&amp; c == ' ')<br>
+                    return c;<br>
+    #else<br>
+            f__recpos++;<br>
+    #endif<br>
+            return putc(c,f__cf);<br>
+    }<br>
+    x_wSL(Void)<br>
+    {<br>
+            (*f__putn)('\n');<br>
+            f__recpos=0;<br>
+            f__cursor = 0;<br>
+            f__hiwater = 0;<br>
+            return(1);<br>
+    }<br>
+    xw_end(Void)<br>
+    {<br>
+            if(f__nonl == 0)<br>
+                    (*f__putn)('\n');<br>
+            f__hiwater = f__recpos = f__cursor = 0;<br>
+            return(0);<br>
+    }<br>
+    xw_rev(Void)<br>
+    {<br>
+            if(f__workdone) (*f__putn)('\n');<br>
+            f__hiwater = f__recpos = f__cursor = 0;<br>
+            return(f__workdone=0);<br>
+    }<br>
+<p>
+    #ifdef KR_headers<br>
+    integer s_wsfe(a) cilist *a;    /*start*/<br>
+    #else<br>
+    integer s_wsfe(cilist *a)       /*start*/<br>
+    #endif<br>
+    {       int n;<br>
+            if(f__init != 1) f_init();<br>
+            f__init = 3;<br>
+            if(n=c_sfe(a)) return(n);<br>
+            f__reading=0;<br>
+            f__sequential=1;<br>
+            f__formatted=1;<br>
+            f__external=1;<br>
+            f__elist=a;<br>
+            f__hiwater = f__cursor=f__recpos=0;<br>
+            f__nonl = 0;<br>
+            f__scale=0;<br>
+            f__fmtbuf=a-&gt;cifmt;<br>
+            f__curunit = &amp;f__units[a-&gt;ciunit];<br>
+            f__cf=f__curunit-&gt;ufd;<br>
+            if(pars_f(f__fmtbuf)&lt;0) err(a-&gt;cierr,100,"startio");<br>
+            f__putn= x_putc;<br>
+            f__doed= w_ed;<br>
+            f__doned= w_ned;<br>
+            f__doend=xw_end;<br>
+            f__dorevert=xw_rev;<br>
+            f__donewrec=x_wSL;<br>
+            fmt_bg();<br>
+            f__cplus=0;<br>
+            f__cblank=f__curunit-&gt;ublnk;<br>
+            if(f__curunit-&gt;uwrt != 1 &amp;&amp; f__nowwriting(f__curunit))<br>
+                    err(a-&gt;cierr,errno,"write start");<br>
+            return(0);<br>
+    }<br>
+<p>
+<p>
+<p>
+(gdb) print *a<br>
+$2 = {cierr = 25769803776, ciunit = 0, ciend = 4832915264, cifmt = 0x0,<br>
+cirec = 2334392246551446056}<br>
+<p>
+As you can see, cifmt (the address of the fortran X string) is zero.<br>
+I'm not sure how to get the information I need.<br>
+How is the address for the fortran string supposed to get to cifmt?<br>
+I've been "finding" and "grepping" the egcs source for some clues.<br>
+Stepping through instructions isn't revealing anything to me.<br>
+Can anyone help:<br>
+<p>
+Breakpoint 1, MAIN__ () at junk.f:5<br>
+Current language:  auto; currently fortran<br>
+(gdb) stepi<br>
+(gdb) stepi<br>
+(gdb) stepi<br>
+s_wsfe (a=0x1) at wsfe.c:57<br>
+Current language:  auto; currently c<br>
+(gdb) print *a<br>
+Cannot access memory at address 0x1.<br>
+<p>
+<p>
+<pre>
+--
+Bob Williams, <a href="http://bob.usuf2.usuhs.mil/">http://bob.usuf2.usuhs.mil/</a>
+<p>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0614.html">Dominik Kubla: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Previous message:</b> <a href="0612.html">Tom Linden: "Re: [off topic] DEC UNIX"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

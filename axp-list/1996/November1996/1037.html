@@ -1,0 +1,97 @@
+<!-- received="Sat Nov 23 19:10:21 1996 " -->
+<!-- sent="Sun, 24 Nov 1996 00:04:53 +0000 (GMT)" -->
+<!-- name="Philip Blundell" -->
+<!-- email="pjb27@cam.ac.uk" -->
+<!-- subject="Re: Compiling 2.1.13" -->
+<!-- id="9611231832.ZM15105@davros.bwh.com" -->
+<!-- inreplyto=""PQ53C2.0.7h3.sjtbo"@mail2.redhat.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Compiling 2.1.13</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Compiling 2.1.13</h2>
+
+<b>Philip Blundell</b> (<a href="mailto:pjb27@cam.ac.uk"><i>pjb27@cam.ac.uk</i></a>)<br>
+<i>Sun, 24 Nov 1996 00:04:53 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1037">[ date ]</a><a href="index.html#1037">[ thread ]</a><a href="subject.html#1037">[ subject ]</a><a href="author.html#1037">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1038.html">ted m rubin: "Re: Windows NT Compiler"</a>
+<li> <b>Previous message:</b> <a href="1036.html">Philip Blundell: "Re: Compiling 2.1.13"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sat, 23 Nov 1996, Scott Laird wrote:<br>
+<p>
+<i>&gt; 2.1.13 won't build with IPv6 on my UDB.  It comes much closer than</i><br>
+<i>&gt; either 2.1.11 or 2.1.12, but it dies in the end with undefined</i><br>
+<i>&gt; references to csum_ipv6_magic.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Of course, it's not that hard to work around, but it's still a pain.</i><br>
+<p>
+The undefined reference is because arch/alpha/lib/Makefile is still<br>
+broken.  You need to do something like this:<br>
+<p>
+--- Makefile~   Thu Nov 14 17:01:15 1996<br>
++++ Makefile    Thu Nov 14 16:59:30 1996<br>
+@@ -5,7 +5,7 @@<br>
+ OBJS  = __divqu.o __remqu.o __divlu.o __remlu.o memset.o memcpy.o io.o \<br>
+        checksum.o csum_partial_copy.o strlen.o \<br>
+        strcat.o strcpy.o strncat.o strncpy.o stxcpy.o stxncpy.o \<br>
+-       strchr.o strrchr.o \<br>
++       strchr.o strrchr.o csum_ipv6_magic.o \<br>
+        copy_user.o clear_user.o strncpy_from_user.o strlen_user.o<br>
+ <br>
+However, that may still not be a win, because the code in<br>
+csum_ipv6_magic.S seemed to be buggy last time I tried it, and it doesn't<br>
+_look_ like it's been fixed since.  In that case, the best thing to do is<br>
+to patch include/asm/checksum.h so that the special code doesn't get used:<br>
+<p>
+--- checksum.h~ Sun Nov 24 00:03:53 1996<br>
++++ checksum.h  Sat Nov 23 23:56:57 1996<br>
+@@ -66,7 +66,7 @@<br>
+        return ~sum;<br>
+ }<br>
+ <br>
+-#define _HAVE_ARCH_IPV6_CSUM<br>
++#undef _HAVE_ARCH_IPV6_CSUM<br>
+ extern unsigned short int csum_ipv6_magic(struct in6_addr *saddr,<br>
+                                           struct in6_addr *daddr,<br>
+                                           __u16 len,<br>
+<p>
+phil<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1038.html">ted m rubin: "Re: Windows NT Compiler"</a>
+<li> <b>Previous message:</b> <a href="1036.html">Philip Blundell: "Re: Compiling 2.1.13"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

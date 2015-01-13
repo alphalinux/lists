@@ -1,0 +1,121 @@
+<!-- received="Fri May  3 14:02:48 1996 " -->
+<!-- sent="Fri, 3 May 1996 14:02:48 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="more profiling questions..." -->
+<!-- id="9605031156.AA16729@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>more profiling questions...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>more profiling questions...</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 3 May 1996 14:02:48 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#30">[ date ]</a><a href="index.html#30">[ thread ]</a><a href="subject.html#30">[ subject ]</a><a href="author.html#30">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0031.html">netman@szem.szeg.matav.hu: "RedHat 3.0.3 for axp?"</a>
+<li> <b>Previous message:</b> <a href="0029.html">Kai Dupke: "Re: Commercial use of Linux on Alpha's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+since gprog didn't work that well I tried to do some program counter<br>
+profiling using profil()  which showed other problems in <br>
+libc-linux-0.40.2/sysdeps/linux/alpha/gmon/profil.c without debug<br>
+and non-alpha code:<br>
+<p>
+-------------------------------------------------------------------------------<br>
+static void<br>
+_profil_handler(long signr, long code, struct sigcontext_struct *scp)<br>
+{<br>
+        unsigned long pc, spot;<br>
+        unsigned long *ptr;<br>
+<p>
+        ptr=(&amp;scp)+2;<br>
+        scp=ptr;<br>
+        pc = scp-&gt;sc_pc - prof_offset;<br>
+        spot = (((prof_scale*(pc &gt;&gt; 16))&amp;0xffff)<br>
+                + ((prof_scale*(pc &amp; (0x10000 - 1))) &gt;&gt; 16)) &amp; ~1;<br>
+        if (spot &lt; prof_bufsiz)<br>
+                ++*((unsigned short *) (spot + prof_buf));<br>
+}<br>
+-------------------------------------------------------------------------------<br>
+<p>
+what's the reason for the<br>
+<p>
+        ptr=(&amp;scp)+2;<br>
+        scp=ptr;<br>
+<p>
+statements?  *without* this two lines I get the correct PC in scp-&gt;sc_pc.<br>
+<p>
+<p>
+and what's the reason for this spot function ? why isn't the user allowed<br>
+to get any finer resolution than 64k ?<br>
+<p>
+<p>
+looking into the profiling code I've looked for the alignment trap<br>
+for gprof startup code in monstartup (libc-linux-0.40.2/sysdeps/linux/alpha/gmon/gmon.c)<br>
+which looks like this:<br>
+<p>
+-------------------------------------------------------------------------------<br>
+    buffer = (void *) sbrk( monsize );<br>
+[ ... ]	<br>
+    sbuf = buffer;<br>
+    ssiz = monsize;<br>
+<p>
+    ( (struct phdr *) buffer ) -&gt; lpc = lowpc;   /* ALIGNMENT TRAP ! */<br>
+    ( (struct phdr *) buffer ) -&gt; hpc = highpc;  /* ALIGNMENT TRAP ! */<br>
+    ( (struct phdr *) buffer ) -&gt; ncnt = ssiz;<br>
+-------------------------------------------------------------------------------<br>
+<p>
+the alignment trap occur on the assignment of lpc and hpc which are 64bit<br>
+because for some reason sbrk() returns a 32bit-aligned value to "buffer".<br>
+<p>
+I've tried to get any non-8-byte aligned address from sbrk() with no success.<br>
+could this be an sbrk() problem ??<br>
+<p>
+<p>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0031.html">netman@szem.szeg.matav.hu: "RedHat 3.0.3 for axp?"</a>
+<li> <b>Previous message:</b> <a href="0029.html">Kai Dupke: "Re: Commercial use of Linux on Alpha's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

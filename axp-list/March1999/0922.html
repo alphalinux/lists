@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: &gt; 1GB on alpha. Patch to 1TB?</TITLE>
+<META NAME="Author" CONTENT="Jay.Estabrook@digital.com (Jay.Estabrook@digital.com)">
+<META NAME="Subject" CONTENT="Re: &gt; 1GB on alpha. Patch to 1TB?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: &gt; 1GB on alpha. Patch to 1TB?</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 16 05:14:19 1999 PST" -->
+<!-- sent="Tue, 16 Mar 1999 00:12:19 -0500" -->
+<!-- name="Jay.Estabrook@digital.com" -->
+<!-- email="Jay.Estabrook@digital.com" -->
+<!-- subject="Re: &gt; 1GB on alpha. Patch to 1TB?" -->
+<!-- id="199903160512.AAA03495@alpha1.estabrook.org" -->
+<!-- inreplyto="Pine.LNX.4.04.9903151801100.10420-100000@draal.physics.wisc.edu" -->
+<A HREF="mailto:Jay.Estabrook@digital.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?"><EM>Jay.Estabrook@digital.com</EM></A><BR>
+<EM>Tue, 16 Mar 1999 00:12:19 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#922">[ date ]</A>
+<A HREF="index.html#922">[ thread ]</A>
+<A HREF="subject.html#922">[ subject ]</A>
+<A HREF="author.html#922">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0923.html">Jay.Estabrook@digital.com: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0921.html">Eric Brown: "RE: 4  2.2.3 questions..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0809.html">Eric Brown: "4  2.2.3 questions..."</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt;&gt;&gt; Bob McElrath said:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I (the original poster) don't know if a scatter-gather solution is required
+</EM><BR>
+<EM>&gt; (it is supported by alpha hardware, I don't know about others).  It may be
+</EM><BR>
+<EM>&gt; possible to do it without scatter-gather support in hardware.
+</EM><BR>
+<P>On Alpha, a scatter-gather solution is the *only* way to allow all devices
+<BR>
+direct access to all of memory. Without it, one is forced to employ bounce
+<BR>
+buffers.
+<BR>
+<P><EM>&gt; On alpha scatter-gather is simply an address translation scheme that allows
+</EM><BR>
+<EM>&gt; small granularity (8kb).  I don't know how much kernel support beyond
+</EM><BR>
+<EM>&gt; bus_alloc/virt_to_bus/bus_dealloc would be required to implement bounce
+</EM><BR>
+<EM>&gt; buffers using the scatter-gather mappings.  Perhaps someone who understands
+</EM><BR>
+<EM>&gt; bounce buffers would care to comment?  (I'm still not sure what they are... )
+</EM><BR>
+<P>Bounce buffers are buffers in memory at locations that can be accessed
+<BR>
+directly by devices, in a system which has additional memory which CANNOT be
+<BR>
+directly accessed by those devices because of their addressing limitations.
+<BR>
+This has been most commonly encountered with &quot;true&quot; ISA devices, which have
+<BR>
+a memory address limitation of 16Mb (24 bits). In a machine which has more
+<BR>
+than 16Mb of memory, a device driver could allocate a buffer in the low 16Mb
+<BR>
+of the address space, do the device DMA to that buffer, and then copy the
+<BR>
+data out of that buffer to a memory location above 16Mb, hence the name
+<BR>
+&quot;bounce buffer&quot;.
+<BR>
+<P>And one would not use SG mapping to implement bounce buffers; SG mapping
+<BR>
+eliminates the need for bounce buffers.
+<BR>
+<P><EM>&gt; I wonder if it would be possible to take a poll of hardware owners to
+</EM><BR>
+<EM>&gt; determine which chipsets support scatter-gather.  I don't know if this is
+</EM><BR>
+<EM>&gt; part of the PCI spec, or a hack implemented by Digital and Sun.
+</EM><BR>
+<P>It is NOT part of the PCI spec; it is a platform specific feature, implemented
+<BR>
+(differently) on the ALPHA and SPARC, and probably others.
+<BR>
+<P><EM>&gt; Will Merced chipsets support scatter-gather?
+</EM><BR>
+<P>No idea, but this would prolly be covered by an NDA at this time, anyway... ;-}
+<BR>
+<P><EM>&gt; At any rate, a generic
+</EM><BR>
+<EM>&gt; bus_alloc/bus_dealloc should be able to hide whatever memory-&gt;bus remapping
+</EM><BR>
+<EM>&gt; the hardware supports...whether scatter-gather exists on all chipsets or
+</EM><BR>
+<EM>&gt; not.
+</EM><BR>
+<P>If correctly designed.
+<BR>
+<P><EM>&gt; Most importantly: if bounce buffers are required to access memory &gt;1GB from
+</EM><BR>
+<EM>&gt; PCI, can it be done with a simple bus_alloc/virt_to_bus/bus_dealloc?  Or
+</EM><BR>
+<EM>&gt; must we implement a more complex solution that can handle both cases?
+</EM><BR>
+<P>Well, let examine it...
+<BR>
+<P>Case 1: bus_alloc where direct access is possible without SG mapping, is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;simply the equivalent of virt_to_bus now. bus_dealloc is a no-op.
+<BR>
+<P>Case 2: bus_alloc where SG mapping must be used to directly access memory,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;returns the bus address (in the SG map) for the desired destination.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus_dealloc will release the SG mapping resources used.
+<BR>
+<P>Case 3: bus_alloc where bounce buffers are required, simply returns the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus address of an allocated bounce buffer. bus_dealloc would copy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the bounce buffer to the desired destination, and free the bounce
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;buffer.
+<BR>
+<P>A bit overly simplistic, but did I miss/overlook anything? Does this seem
+<BR>
+reasonable?
+<BR>
+<P>--Jay++
+<BR>
+<P>-------------------------------------------------------------------------------
+<BR>
+&nbsp;&nbsp;American Non Sequitur Society: we don't make sense, but we do like pizza...
+<BR>
+<P>Jay A Estabrook                            Alpha Motherboards - LINUX Project
+<BR>
+Compaq Computer Corporation                (508) 841-3241 or (DTN) 237-3241
+<BR>
+334 South Street, Shrewsbury, MA 01545     <A HREF="mailto:Jay.Estabrook@digital.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">Jay.Estabrook@digital.com</A>
+<BR>
+-------------------------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0923.html">Jay.Estabrook@digital.com: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0921.html">Eric Brown: "RE: 4  2.2.3 questions..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0809.html">Eric Brown: "4  2.2.3 questions..."</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Mar 15 1999 - 22:00:18 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

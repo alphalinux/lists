@@ -1,0 +1,273 @@
+<!-- received="Thu Oct 15 16:56:11 1998 " -->
+<!-- sent="Thu, 15 Oct 1998 21:54:50 +0200" -->
+<!-- name="Willem Boschman" -->
+<!-- email="wiz@xs4all.nl" -->
+<!-- subject="Re: XL300 2.1.123 clock" -->
+<!-- id="199810151950.VAA29956@smtp3.xs4all.nl" -->
+<!-- inreplyto="XL300 2.1.123 clock" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: XL300 2.1.123 clock</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: XL300 2.1.123 clock</h2>
+
+<b>Willem Boschman</b> (<a href="mailto:wiz@xs4all.nl"><i>wiz@xs4all.nl</i></a>)<br>
+<i>Thu, 15 Oct 1998 21:54:50 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1674">[ date ]</a><a href="index.html#1674">[ thread ]</a><a href="subject.html#1674">[ subject ]</a><a href="author.html#1674">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1675.html">Peter Rye: "Postgresql"</a>
+<li> <b>Previous message:</b> <a href="1673.html">Bryan Call: "3c905B Cyclone"</a>
+<li> <b>Maybe in reply to:</b> <a href="1069.html">Wes Nakamura: "XL300 2.1.123 clock"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; While experimenting with kernel 2.1.123, I noticed that my clock is now</i><br>
+<i>&gt; running quite a bit too fast.  I know that this is a common problem, but</i><br>
+<i>&gt; I didn't have the problem before trying out 2.1.123 (previously running</i><br>
+<i>&gt; 2.1.107).  I was looking over the gatekeeper ftp site for the various</i><br>
+<i>&gt; fixes suggested but I don't see anything that might work for my machine,</i><br>
+<i>&gt; which is an XL300.  Any pointers? </i><br>
+<i>&gt; </i><br>
+<i>&gt; thanks,</i><br>
+<i>&gt; -Wes.</i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+i've backed out some of the alpha changes in 2.1.121. i don't no why <br>
+but this seems to solve my clock problem, patch attached. now if <br>
+someone could explain to me why i would feel a lot better.<br>
+<p>
+-willem<br>
+<p>
+<p>
+--- linux/arch/alpha/kernel/setup.c.wiz	Thu Oct 15 16:09:39 1998<br>
++++ linux/arch/alpha/kernel/setup.c	Thu Oct 15 21:19:59 1998<br>
+@@ -20,6 +20,7 @@<br>
+ #include &lt;linux/tty.h&gt;<br>
+ #include &lt;linux/delay.h&gt;<br>
+ #include &lt;linux/config.h&gt;	/* CONFIG_ALPHA_LCA etc */<br>
++#include &lt;linux/ioport.h&gt;<br>
+ #include &lt;linux/mc146818rtc.h&gt;<br>
+ #include &lt;linux/console.h&gt;<br>
+ #include &lt;linux/errno.h&gt;<br>
+@@ -96,6 +97,69 @@<br>
+ 	orig_video_points: 16<br>
+ };<br>
+ <br>
++<br>
++/*<br>
++ * Initialize Programmable Interval Timers with standard values.  Some<br>
++ * drivers depend on them being initialized (e.g., joystick driver).<br>
++ */<br>
++<br>
++/* It is (normally) only counter 1 that presents config problems, so<br>
++   provide this support function to do the rest of the job.  */<br>
++<br>
++void inline<br>
++init_pit_rest(void)<br>
++{<br>
++	int x;<br>
++#if 0<br>
++	/* Leave refresh timer alone---nobody should depend on a<br>
++	   particular value anyway. */<br>
++	outb(0x54, 0x43);	/* counter 1: refresh timer */<br>
++	outb(0x18, 0x41);<br>
++#endif<br>
++<br>
++	outb(0xb6, 0x43);	/* counter 2: speaker */<br>
++	outb(0x31, 0x42);<br>
++	outb(0x13, 0x42);<br>
++<br>
++	if ((x = (CMOS_READ(RTC_FREQ_SELECT) &amp; 0x3f)) != 0x26) {<br>
++		printk("Setting RTC_FREQ to 1024 Hz (%x)\n", x);<br>
++		CMOS_WRITE(0x26, RTC_FREQ_SELECT);<br>
++	}<br>
++}<br>
++<br>
++#ifdef CONFIG_RTC<br>
++static inline void<br>
++rtc_init_pit (void)<br>
++{<br>
++	/* Setup interval timer if /dev/rtc is being used */<br>
++	outb(0x34, 0x43);		/* binary, mode 2, LSB/MSB, ch 0 */<br>
++	outb(LATCH &amp; 0xff, 0x40);	/* LSB */<br>
++	outb(LATCH &gt;&gt; 8, 0x40);		/* MSB */<br>
++	request_region(0x40, 0x20, "timer"); /* reserve pit */<br>
++<br>
++	init_pit_rest();<br>
++}<br>
++#endif<br>
++<br>
++void<br>
++generic_init_pit (void)<br>
++{<br>
++	outb(0x36, 0x43);	/* counter 0: system timer */<br>
++	outb(0x00, 0x40);<br>
++	outb(0x00, 0x40);<br>
++	request_region(RTC_PORT(0), 0x10, "timer"); /* reserve rtc */<br>
++<br>
++	init_pit_rest();<br>
++}<br>
++<br>
++/* This probably isn't Right, but it is what the old code did.  */<br>
++#if defined(CONFIG_RTC)<br>
++# define init_pit	rtc_init_pit<br>
++#else<br>
++# define init_pit	alpha_mv.init_pit<br>
++#endif<br>
++<br>
++<br>
+ /*<br>
+  * Declare all of the machine vectors.<br>
+  */<br>
+@@ -259,6 +323,9 @@<br>
+ 	   DMA windows and the like.  */<br>
+ 	if (alpha_mv.init_arch)<br>
+ 		alpha_mv.init_arch(memory_start_p, memory_end_p);<br>
++<br>
++	/* Initialize the timers.  */<br>
++	init_pit();<br>
+ <br>
+ 	/* <br>
+ 	 * Give us a default console.  TGA users will see nothing until<br>
+--- linux/arch/alpha/kernel/time.c.wiz	Thu Oct 15 16:09:39 1998<br>
++++ linux/arch/alpha/kernel/time.c	Thu Oct 15 17:08:03 1998<br>
+@@ -25,7 +25,7 @@<br>
+ #include &lt;linux/string.h&gt;<br>
+ #include &lt;linux/mm.h&gt;<br>
+ #include &lt;linux/delay.h&gt;<br>
+-#include &lt;linux/ioport.h&gt;<br>
++/* #include &lt;linux/ioport.h&gt; */<br>
+ <br>
+ #include &lt;asm/uaccess.h&gt;<br>
+ #include &lt;asm/io.h&gt;<br>
+@@ -42,6 +42,8 @@<br>
+ #define TIMER_IRQ 8  /* using rtc for timer */<br>
+ #endif<br>
+ <br>
++extern struct hwrpb_struct *hwrpb;<br>
++<br>
+ static int set_rtc_mmss(unsigned long);<br>
+ <br>
+ <br>
+@@ -157,69 +159,6 @@<br>
+ 	  )*60 + sec; /* finally seconds */<br>
+ }<br>
+ <br>
+-/*<br>
+- * Initialize Programmable Interval Timers with standard values.  Some<br>
+- * drivers depend on them being initialized (e.g., joystick driver).<br>
+- */<br>
+-<br>
+-/* It is (normally) only counter 1 that presents config problems, so<br>
+-   provide this support function to do the rest of the job.  */<br>
+-<br>
+-void inline<br>
+-init_pit_rest(void)<br>
+-{<br>
+-#if 0<br>
+-	/* Leave refresh timer alone---nobody should depend on a<br>
+-	   particular value anyway. */<br>
+-	outb(0x54, 0x43);	/* counter 1: refresh timer */<br>
+-	outb(0x18, 0x41);<br>
+-#endif<br>
+-<br>
+-	outb(0xb6, 0x43);	/* counter 2: speaker */<br>
+-	outb(0x31, 0x42);<br>
+-	outb(0x13, 0x42);<br>
+-}<br>
+-<br>
+-#ifdef CONFIG_RTC<br>
+-static inline void<br>
+-rtc_init_pit (void)<br>
+-{<br>
+-	/* Setup interval timer if /dev/rtc is being used */<br>
+-	outb(0x34, 0x43);		/* binary, mode 2, LSB/MSB, ch 0 */<br>
+-	outb(LATCH &amp; 0xff, 0x40);	/* LSB */<br>
+-	outb(LATCH &gt;&gt; 8, 0x40);		/* MSB */<br>
+-	request_region(0x40, 0x20, "timer"); /* reserve pit */<br>
+-<br>
+-	init_pit_rest();<br>
+-}<br>
+-#endif<br>
+-<br>
+-void<br>
+-generic_init_pit (void)<br>
+-{<br>
+-	int x;<br>
+-	if ((x = (CMOS_READ(RTC_FREQ_SELECT) &amp; 0x3f)) != 0x26) {<br>
+-		printk("Setting RTC_FREQ to 1024 Hz (%x)\n", x);<br>
+-		CMOS_WRITE(0x26, RTC_FREQ_SELECT);<br>
+-	}<br>
+-	request_region(RTC_PORT(0), 0x10, "timer"); /* reserve rtc */<br>
+-<br>
+-	/* Turn off the PIT.  */<br>
+-	outb(0x36, 0x43);	/* counter 0: system timer */<br>
+-	outb(0x00, 0x40);<br>
+-	outb(0x00, 0x40);<br>
+-<br>
+-	init_pit_rest();<br>
+-}<br>
+-<br>
+-/* This probably isn't Right, but it is what the old code did.  */<br>
+-#if defined(CONFIG_RTC)<br>
+-# define init_pit	rtc_init_pit<br>
+-#else<br>
+-# define init_pit	alpha_mv.init_pit<br>
+-#endif<br>
+-<br>
+-<br>
+ void<br>
+ time_init(void)<br>
+ {<br>
+@@ -230,7 +169,7 @@<br>
+ 	unsigned int year, mon, day, hour, min, sec, cc1, cc2;<br>
+ <br>
+ 	/* Initialize the timers.  */<br>
+-	init_pit();<br>
++	/* init_pit(); */<br>
+ <br>
+ 	/*<br>
+ 	 * The Linux interpretation of the CMOS clock register contents:<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1675.html">Peter Rye: "Postgresql"</a>
+<li> <b>Previous message:</b> <a href="1673.html">Bryan Call: "3c905B Cyclone"</a>
+<li> <b>Maybe in reply to:</b> <a href="1069.html">Wes Nakamura: "XL300 2.1.123 clock"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

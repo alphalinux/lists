@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: BUG kernel macro: copy_to_user</TITLE>
+<META NAME="Author" CONTENT="Andreas Krebs (krebs@qkal.sap-ag.de)">
+<META NAME="Subject" CONTENT="BUG kernel macro: copy_to_user">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>BUG kernel macro: copy_to_user</H1>
+<HR>
+<P>
+<!-- received="Thu Apr 08 07:53:28 1999 PDT" -->
+<!-- sent="Thu, 08 Apr 1999 09:52:30 +0200" -->
+<!-- name="Andreas Krebs" -->
+<!-- email="krebs@qkal.sap-ag.de" -->
+<!-- subject="BUG kernel macro: copy_to_user" -->
+<!-- id="199904080752.JAA0000007399@storm.qkal.sap-ag.de" -->
+<!-- inreplyto="" -->
+<STRONG>Andreas Krebs</STRONG> (<A HREF="mailto:krebs@qkal.sap-ag.de?subject=Re:%20BUG%20kernel%20macro:%20copy_to_user"><EM>krebs@qkal.sap-ag.de</EM></A>)<BR>
+<EM>Thu, 08 Apr 1999 09:52:30 +0200</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#208">[ date ]</A>
+<A HREF="index.html#208">[ thread ]</A>
+<A HREF="subject.html#208">[ subject ]</A>
+<A HREF="author.html#208">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0207.html">Iain Grant: "Linux Kernel 2.2.x and Takara platform"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+i think i found a serious bug in the __copy_tofrom_user macro define
+<BR>
+in include/asm-alpha/uaccess.h
+<BR>
+<P>i was trying to install isdn under alpha linux and noticed that some
+<BR>
+ioctls from isdnctrl failed without any reason, so i looked into the
+<BR>
+isdn_common.c code and notice that calls to copy_to_user failed.
+<BR>
+<P>all the calls that failed had in common that the size was NOT constant,
+<BR>
+in this case the call was as follows:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (copy_to_user((char *) arg, s, strlen(s) + 1)){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret = -EFAULT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret = 0;                                                                                   }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>i checked all addresses, ranges and the statement failed all the time
+<BR>
+until i changed strlen(s)+1 into a constant.
+<BR>
+<P>so i take a look at the copy_to_user macro and notice, that some
+<BR>
+registers are used direct. i think the strlen() command somehow messes
+<BR>
+up this registers and causes the following __access_ok to fail.
+<BR>
+so i changed the macro a bit, by moving the length calc to the top
+<BR>
+(the complete patch is attached below):
+<BR>
+<P>&nbsp;#define __copy_tofrom_user(to,from,n,v)                                            \
+<BR>
+&nbsp;({                                                                         \
+<BR>
+-       register long __tmp_len = (n);                                      \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register void * __cu_to __asm__(&quot;$6&quot;) = (to);                       \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register const void * __cu_from __asm__(&quot;$7&quot;) = (from);             \
+<BR>
+-       register long __cu_len __asm__(&quot;$0&quot;) = __tmp_len;                   \
+<BR>
++       register long __cu_len __asm__(&quot;$0&quot;) = (n);                         \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (__access_ok(((long)(v)),__cu_len,get_fs())) {                   \
+<BR>
+&nbsp;
+<BR>
+<P>this solved the problem and the isdnctrl ioctls now seem to work.
+<BR>
+<P>maybe someone how knows more about inline assembler should have a look.
+<BR>
+i think this can cause a lot of trouble not only with isdn but with other 
+<BR>
+drivers also. 
+<BR>
+<P>bye,
+<BR>
+Andreas
+<BR>
+<P><P>PS:
+<BR>
+my machine is a 164SX, the isdn card is a Eicon DIVA PCI. i experienced
+<BR>
+the problem with ALL 2.2.* kernels and both egcs 1.0.2 and 1.1.2. 
+<BR>
+the patch is against as 2.2.5-ac4 but should also work with other kernels.
+<BR>
+<P><P><P><!-- attachment="alpha-uaccess.patch.gz" -->
+<HR>
+<UL>
+<LI>application/x-gzip  attachment: <A HREF="alpha-uaccess.patch.gz">alpha-uaccess.patch.gz</A>
+</UL>
+<P>
+_____________________________________________________________________________
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Andreas S. Krebs
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CEC Karlsruhe, SAP AG, <A HREF="mailto:krebs@qkal.sap-ag.de?subject=Re:%20BUG%20kernel%20macro:%20copy_to_user">krebs@qkal.sap-ag.de</A>
+<BR>
+_____________________________________________________________________________
+<BR>
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20BUG%20kernel%20macro:%20copy_to_user">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20BUG%20kernel%20macro:%20copy_to_user">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0207.html">Iain Grant: "Linux Kernel 2.2.x and Takara platform"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Apr 08 1999 - 01:00:11 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

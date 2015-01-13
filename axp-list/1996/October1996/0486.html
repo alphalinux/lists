@@ -1,0 +1,132 @@
+<!-- received="Tue Oct 15 13:18:45 1996 " -->
+<!-- sent="Tue, 15 Oct 1996 20:14:51 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Linux-2.1.4.." -->
+<!-- id="199610151610.MAA14597@tav-linux.army.mil" -->
+<!-- inreplyto="Pine.LNX.3.91.961010180237.1289A-100000@linux.cs.Helsinki.FI" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Linux-2.1.4..</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Linux-2.1.4..</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Tue, 15 Oct 1996 20:14:51 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#486">[ date ]</a><a href="index.html#486">[ thread ]</a><a href="subject.html#486">[ subject ]</a><a href="author.html#486">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0487.html">Matthew X. Economou: "Dynamic linking question: neXtaw, Xaw, and Xaw3d"</a>
+<li> <b>Previous message:</b> <a href="0485.html">Al Potter: "Re: RedHat 4.0 bugs and XQuake misc."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0488.html">Michael Stiller: "Re: Linux-2.1.4.."</a>
+<li> <b>Maybe reply:</b> <a href="0488.html">Michael Stiller: "Re: Linux-2.1.4.."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Ok, I just made Linux-2.1.4 available. The patch is _huge_, as this kernel<br>
+renames some of the rather basic user access primitives due to the new<br>
+semantics of those primitives. <br>
+<p>
+This patch does:<br>
+ - mandatory locks as a mount option<br>
+ - 3c505 driver update<br>
+ - aha2940 driver update (yes, it should hopefully work)<br>
+ - BSD ncr driver update<br>
+ - in2000 driver update<br>
+ - FPU emulation should work again<br>
+ - user-space memory access update<br>
+<p>
+It's the last one which is the large one. The changes are essentially:<br>
+<p>
+  x = get_user(addr)	=&gt;	err = get_user(x,addr);<br>
+  put_user(x,addr)	=&gt;	err = put_user(x,addr);<br>
+  memcpy_fromfs(...)	=&gt;	bytes_left = copy_from_user(...);<br>
+  memcpy_tofs(...)	=&gt;	bytes_left = copy_to_user(...);<br>
+<p>
+Note especially "get_user()" - it actually has two return codes (one of which<br>
+is the first argument that gets changed: no pointer dereferencing, but done<br>
+with some rather ugly macros). Note how all of these now return a "status"<br>
+indication: the get/put functions return an error (0 for success, -EFAULT for<br>
+bad access), and the copy_xxx_user() functions return how many bytes they<br>
+_failed_ to copy (so again zero is a successful return). <br>
+<p>
+Now, the _really_ interesting thing is that none of the above need the old<br>
+"verify_area()" call any more, as they do all the area verification on their<br>
+own. Less chance of missing address verification that way.. Also, the new<br>
+address verification is a lot less expensive than the old scheme was. <br>
+<p>
+NOTE NOTE NOTE! I have done all the conversions that _I_ personally need to<br>
+get it to compile and work on both alpha and x86, and it certainly helps<br>
+performance on some benchmarks. HOWEVER, I haven't compiled everything, and I<br>
+might have missed a few places, so if 2.1.4 doesn't compile for you, please<br>
+just report it and if possible you can try to fix it with the above mapping<br>
+in mind.<br>
+<p>
+ALSO, this is not the final optimized version yet: <br>
+<p>
+ - there are some functions that essentially think that user accesses are<br>
+   "cheap". They do loops like this: <br>
+<p>
+	while (count) {<br>
+		count--;<br>
+		put_user(0,buff++);<br>
+	}<br>
+<p>
+   The above is pretty bad for performance (it wasn't very good before <br>
+   either, but now it's even worse), because now we have the small<br>
+   verification overhead for _each_ byte.  The overhead is not very high, but<br>
+   it's there.  So the process creation benchmark performance is down until<br>
+   the above gets fixed (one of the places doing things like that is<br>
+   "execve()" and the ELF loader). Todo: use "set_user(buf, 0, len)" <br>
+   instead. <br>
+<p>
+ - I changed _some_ of the code to take advantage of the new setup, but most<br>
+   of it has been only minimally changed to make it work.  As such, a lot of<br>
+   "verify_area()" calls still exist, and the code isn't very optimal.<br>
+<p>
+ - Some of the user access functions aren't optimized yet (the user memory<br>
+   copy functions do not optimize constant length area accesses etc). <br>
+<p>
+Now, the above makes it sound like 2.1.4 is a slow kernel. It isn't. It's<br>
+just that there are still some things to optimize before we see the _real_<br>
+performance increase from this all. Any comments and patches are welcome<br>
+(I've essentially spent the last 5 days getting it all to work the way I<br>
+wanted, I haven't really bothered about optimizations yet). <br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0487.html">Matthew X. Economou: "Dynamic linking question: neXtaw, Xaw, and Xaw3d"</a>
+<li> <b>Previous message:</b> <a href="0485.html">Al Potter: "Re: RedHat 4.0 bugs and XQuake misc."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0488.html">Michael Stiller: "Re: Linux-2.1.4.."</a>
+<li> <b>Maybe reply:</b> <a href="0488.html">Michael Stiller: "Re: Linux-2.1.4.."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

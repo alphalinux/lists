@@ -1,0 +1,115 @@
+<!-- received="Tue Jul 15 23:12:35 1997 " -->
+<!-- sent="Tue, 15 Jul 1997 22:59:53 -0400 (EDT)" -->
+<!-- name="Craig Burley" -->
+<!-- email="burley@gnu.ai.mit.edu" -->
+<!-- subject="Re: RH4.2 fort77 bug" -->
+<!-- id="199707160259.WAA12007@churchy.gnu.ai.mit.edu" -->
+<!-- inreplyto="RH4.2 fort77 bug" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: RH4.2 fort77 bug</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: RH4.2 fort77 bug</h2>
+
+<b>Craig Burley</b> (<a href="mailto:burley@gnu.ai.mit.edu"><i>burley@gnu.ai.mit.edu</i></a>)<br>
+<i>Tue, 15 Jul 1997 22:59:53 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#373">[ date ]</a><a href="index.html#373">[ thread ]</a><a href="subject.html#373">[ subject ]</a><a href="author.html#373">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<li> <b>Previous message:</b> <a href="0372.html">Rick Windham: "Maybe a little off topic...RPM Question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<li> <b>Reply:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;As I noted, the problem is in the GCC code generator.</i><br>
+<i>&gt;</i><br>
+<i>&gt;In "proc.c" of f2c/src the following code appears:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	else if ( ISINT(nelt-&gt;headblock.vtype) &amp;&amp; nelt-&gt;constblock.Const.ci &lt;= 0</i><br>
+<i>&gt;		|| nelt-&gt;constblock.Const.cd[0] &lt;= 0 )</i><br>
+<i>&gt;			dclerr("nonpositive dimension", q);</i><br>
+<i>&gt;</i><br>
+<i>&gt;And this "should" not evaluate the floating point "nelt-&gt;constblock.Const.cd[0]"</i><br>
+<i>&gt;(which is an invalid number, its a union with ints and longs, etc)</i><br>
+<p>
+I don't see enough evidence here to blame gcc.  Are you saying<br>
+the `nelt-&gt;constblock.Const.cd[0] &lt;= 0' subexpression is evaluated<br>
+even `ISINT(nelt-&gt;headblock.vtype) &amp;&amp; nelt-&gt;constblock.Const.ci &lt;= 0'<br>
+evaluates to a non-zero result??  That's the only way I could see<br>
+blaming gcc, since `A &amp;&amp; B || C' is equivalent to `(A &amp;&amp; B) || C',<br>
+which in turn is equivalent to `if (A &amp;&amp; B) 1; if (C) 1; else 0;',<br>
+using `1' and `0' as short-hand notation for the return value (a la<br>
+gcc's statement expressions).<br>
+<p>
+Looks like a simple f2c/src coding bug to me.  One that is not<br>
+an unusual sort of bug, since it's not unlike how people misword<br>
+things using English.<br>
+<p>
+<i>&gt;I changed it to:</i><br>
+<i>&gt;</i><br>
+[...]<br>
+<i>&gt;	else if ( ISINT(theVtype) &amp;&amp; nelt-&gt;constblock.Const.ci &lt;= 0 )</i><br>
+<i>&gt;		dclerr("nonpositive dimension", q);</i><br>
+<i>&gt;	else if (!ISINT(theVtype) &amp;&amp; nelt-&gt;constblock.Const.cd[0] &lt;= 0.0 )</i><br>
+<i>&gt;		dclerr("nonpositive dimension", q);</i><br>
+<i>&gt;</i><br>
+<i>&gt;And this takes care of that problem.  There are some other problems of</i><br>
+<i>&gt;this sort occurring as well, so I have a few more changes coming I guess.</i><br>
+<p>
+I think you made essentially the correct fix, though the wrong<br>
+diagnosis regarding gcc.  Note that another fix, perhaps a bit closer<br>
+to the original (wrong) code, is:<br>
+<p>
+  ... if (ISINT(nelt-&gt;headblock.vtype)<br>
+	  ? nelt-&gt;constblock.Const.ci &lt;= 0<br>
+	  : nelt-&gt;constblock.Const.cd[0] &lt;= 0) ...<br>
+<p>
+That clarifies that the test of ISINT governs whether the .ci or<br>
+.cd field is compared to 0.  You might find it easier using<br>
+the above style if you find other cases of incorrect tests involving<br>
+ISINT like the one you already found, since the above style doesn't<br>
+require any new statements or temp variables.<br>
+<p>
+Please make sure you send these patches to the f2c maintainer,<br>
+&lt;<a href="mailto:dmg@bell-lab.com">dmg@bell-lab.com</a>&gt; last I checked!<br>
+<p>
+        tq vm, (burley)<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<li> <b>Previous message:</b> <a href="0372.html">Rick Windham: "Maybe a little off topic...RPM Question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<li> <b>Reply:</b> <a href="0374.html">Greg Woodbury: "Re: RH4.2 fort77 bug"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

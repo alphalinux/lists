@@ -1,0 +1,117 @@
+<!-- received="Tue Oct 29 20:08:43 1996 " -->
+<!-- sent="Tue, 29 Oct 1996 16:57:20 -0800" -->
+<!-- name="Tom Quinn" -->
+<!-- email="trq@hermes.astro.washington.edu" -->
+<!-- subject="bug in xdr_double() on alpha" -->
+<!-- id="199610300057.QAA19660@hermes.astro.washington.edu" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>bug in xdr_double() on alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>bug in xdr_double() on alpha</h2>
+
+<b>Tom Quinn</b> (<a href="mailto:trq@hermes.astro.washington.edu"><i>trq@hermes.astro.washington.edu</i></a>)<br>
+<i>Tue, 29 Oct 1996 16:57:20 -0800</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1275">[ date ]</a><a href="index.html#1275">[ thread ]</a><a href="subject.html#1275">[ subject ]</a><a href="author.html#1275">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1276.html">Andreas Johansson: "Re: joe on Redhat 4.0"</a>
+<li> <b>Previous message:</b> <a href="1274.html">Tom Hume: "joe on Redhat 4.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+The following code demonstrates a bug in xdr_double() on an alpha pc164<br>
+running RedHat 4.0 Linux.<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+<p>
+#include &lt;rpc/types.h&gt;<br>
+#include &lt;rpc/xdr.h&gt;<br>
+<p>
+<p>
+int<br>
+main()<br>
+{<br>
+	double d = 1.0;<br>
+	XDR xdrs;<br>
+<p>
+	xdrstdio_create(&amp;xdrs, stdout, XDR_ENCODE);<br>
+<p>
+	xdr_double(&amp;xdrs, &amp;d);<br>
+	xdr_destroy(&amp;xdrs);<br>
+	return 0;<br>
+}<br>
+<p>
+When compiled with gcc version 2.7.2 and linked with libc-1.93, and<br>
+run with a command:<br>
+a.out &gt; tst.out<br>
+tst.out contains, according to od -t x4 tst.out:<br>
+0000000 00000000 00000001<br>
+<p>
+It SHOULD contain:<br>
+0000000 3ff00000 00000000<br>
+<p>
+The version string in the library is the following:<br>
+<p>
+GNU C Library alpha release version 1.93, by Roland McGrath et al.<br>
+Compiled by GNU CC version 2.7.2.<br>
+Copyright (C) 1992, 93, 94, 95, 96 Free Software Foundation, Inc.<br>
+This is free software; see the source for copying conditions.<br>
+There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A<br>
+PARTICULAR PURPOSE.<br>
+Report bugs to &lt;<a href="mailto:bug-glibc@gnu.ai.mit.edu">bug-glibc@gnu.ai.mit.edu</a>&gt;.<br>
+<p>
+Looking at sunrpc/xdr_float.c, it appears there are two problems:<br>
+<p>
+1) The code assumes that sizeof(long) == sizeof(double)/2.  For the<br>
+alpha, sizeof(long) == sizeof(double).<br>
+<p>
+2) Even if an int were used instead of a long, the second word of a<br>
+double needs to be written before the first word.  That is the<br>
+statement:<br>
+	return (XDR_PUTLONG(xdrs, lp++) &amp;&amp; XDR_PUTLONG(xdrs, lp));<br>
+needs to read something like:<br>
+	return (XDR_PUTLONG(xdrs, lp+1) &amp;&amp; XDR_PUTLONG(xdrs, lp++));<br>
+A similar change needs to be made to the DECODE statement:<br>
+                return (XDR_GETLONG(xdrs, lp++) &amp;&amp; XDR_GETLONG(xdrs, lp));<br>
+<p>
+<pre>
+-- 
+Tom Quinn	Astronomy, University of Washington
+Internet:	<a href="mailto:trq@astro.washington.edu">trq@astro.washington.edu</a>
+Phone:		206-685-9009
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1276.html">Andreas Johansson: "Re: joe on Redhat 4.0"</a>
+<li> <b>Previous message:</b> <a href="1274.html">Tom Hume: "joe on Redhat 4.0"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

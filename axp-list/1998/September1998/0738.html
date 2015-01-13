@@ -1,0 +1,128 @@
+<!-- received="Fri Sep 25 07:25:39 1998 " -->
+<!-- sent="Fri, 25 Sep 1998 12:18:51 +0200 (SAST)" -->
+<!-- name="Charl Botha" -->
+<!-- email="cpbotha@sun.ac.za" -->
+<!-- subject="Re: imake/xmkmf on rh5.1 alpha, egcs1.1b" -->
+<!-- id="199809250431.AAA24866@alpha1.estabrook.org" -->
+<!-- inreplyto="199809241546.JAA11620@ellpspace.math.ualberta.ca" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: imake/xmkmf on rh5.1 alpha, egcs1.1b</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: imake/xmkmf on rh5.1 alpha, egcs1.1b</h2>
+
+<b>Charl Botha</b> (<a href="mailto:cpbotha@sun.ac.za"><i>cpbotha@sun.ac.za</i></a>)<br>
+<i>Fri, 25 Sep 1998 12:18:51 +0200 (SAST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#738">[ date ]</a><a href="index.html#738">[ thread ]</a><a href="subject.html#738">[ subject ]</a><a href="author.html#738">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0739.html">Charl Botha: "Re: imake/xmkmf on rh5.1 alpha, egcs1.1b"</a>
+<li> <b>Previous message:</b> <a href="0737.html">Eric Ding: "Re: more good Linux news!"</a>
+<li> <b>In reply to:</b> <a href="0709.html">Michal Jaegermann: "Re: imake/xmkmf on rh5.1 alpha, egcs1.1b"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Thu, 24 Sep 1998, Michal Jaegermann wrote:<br>
+<i>&gt; Jeff Sturm wrote:</i><br>
+<i>&gt; &gt; On Thu, 24 Sep 1998, Jochen Kuepper wrote:</i><br>
+<i>&gt; &gt; &gt; IIRC, only X11 needs /lib/cpp.</i><br>
+<i>&gt; &gt; OK, that's fine for systems with gcc, what about the others?</i><br>
+<i>&gt; &gt; There have been many packages which depend on /lib/cpp, not many are </i><br>
+<i>&gt; &gt; still around (PostgreSQL still does, IIRC).</i><br>
+<i>&gt; AFAIK having /lib/cpp as a link to on of copies of a preprocessor</i><br>
+<i>&gt; which I happen to have around (one with every C compiler :-) serves</i><br>
+<i>&gt; the goal admirably.  If this link does not exist then, for example,</i><br>
+<i>&gt; you will not see your host name in xdm login window.  If you have</i><br>
+<i>&gt; some macros or defines in your ~/.Xdefaults they will be not</i><br>
+<i>&gt; preprocessed (this seems to be buggy in places anyway and you can</i><br>
+<i>&gt; force an explicit preprocessor with options to xrdb); and so on,</i><br>
+<i>&gt; and so on....</i><br>
+<i>&gt; </i><br>
+<i>&gt; I indeed noticed that this link vanished, for some reason or another,</i><br>
+<i>&gt; on one of my Intel boxes after a Red Hat update.  Maybe this was the</i><br>
+<i>&gt; problem Charles orignally had with xmkmf and vnc sources?  Honestly,</i><br>
+<i>&gt; I used xmkmf on Alpha on multiple occasions, not only for vnc, and never</i><br>
+<i>&gt; noticed troubles he described.  '/lib/cpp' is not a script calling</i><br>
+<i>&gt; 'gcc -E' on any of boxes I have around.</i><br>
+&lt;snip&gt;<br>
+<i>&gt; A trivial 'gcc -E $1', or even 'gcc -E $@',  ***will not*** do!!</i><br>
+<i>&gt; Various programs expect, for example, that '-traditional' flag</i><br>
+<i>&gt; is present.  With simple '#define THIS' only this does not matter.  If</i><br>
+<i>&gt; something plays more complicated preprocessor games and you forgot</i><br>
+<i>&gt; to pass that flag, or maybe another, you will be for nasty surprises.</i><br>
+<i>&gt; Calls to cpp may be hidden inside of programs and you may not even</i><br>
+<i>&gt; be aware of them.  'xdm' provides an example.</i><br>
+<p>
+I ran into that whilst trying to write a script to replace /lib/cpp.<br>
+Michal is right, it's not trivial.  I *did* have /lib/cpp as a link to cpp<br>
+itself (of egcs-1.1b).  The problem is, just that cpp doesn't have many of<br>
+the necessary internal defines, such as the ones used for indicating the<br>
+present architecture;  this is why xmkmf didn't work, there were no<br>
+architecture flags.<br>
+<p>
+When one replaces /lib/cpp with a trivial script calling gcc -E, all the<br>
+necessary flags are there, but other problems pop up.  First, some<br>
+applications call cpp and utilise it via standard input.  Default<br>
+behaviour of the true cpp when called without parameters is to accept<br>
+input from stdin, whilst gcc -E bombs with an error message when no other<br>
+parameters are specified.  I coded up a quick script which checks for no<br>
+parameters and then rather invokes "gcc -E -" which does the trick.<br>
+<p>
+The second problem is that some programs, e.g. xdm and WindowMaker, use<br>
+/lib/cpp to parse configuration files.  "gcc -E" works on files with the<br>
+expected .{c,cc,C,h} (and others) extensions, but when passed a file with<br>
+an unknown extension, also does not work, but rather exits with an error<br>
+message.<br>
+<p>
+This problem will have to be looked into somewhat more...<br>
+<p>
+Best regards,<br>
+Charl<br>
+<p>
+---------------------------------------------------------------------------<br>
+Charl Botha<br>
+<p>
+E-Mail <a href="mailto:cpbotha@sun.ac.za">cpbotha@sun.ac.za</a><br>
+<p>
+Image Processing and Pattern Recognition<br>
+Digital Signal Processing Group &lt;<a href="http://dsp.ee.sun.ac.za">http://dsp.ee.sun.ac.za</a>&gt;<br>
+Department of Electronic Engineering<br>
+University of Stellenbosch<br>
+South Africa<br>
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0739.html">Charl Botha: "Re: imake/xmkmf on rh5.1 alpha, egcs1.1b"</a>
+<li> <b>Previous message:</b> <a href="0737.html">Eric Ding: "Re: more good Linux news!"</a>
+<li> <b>In reply to:</b> <a href="0709.html">Michal Jaegermann: "Re: imake/xmkmf on rh5.1 alpha, egcs1.1b"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

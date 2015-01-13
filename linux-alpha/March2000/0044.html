@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 15:05:18 2000" -->
+<!-- isoreceived="20000313230518" -->
+<!-- sent="Mon, 13 Mar 2000 14:00:24 +0100 (CET)" -->
+<!-- isosent="20000313130024" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131346200.2069-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.21.0003091133380.430-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 05:00:24 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#44">[ date ]</A>
+<A HREF="index.html#44">[ thread ]</A>
+<A HREF="subject.html#44">[ subject ]</A>
+<A HREF="author.html#44">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0043.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0043.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0066.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0043.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 9 Mar 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt; &gt;&gt; Having said this, i now do agree that doing a preemptible kernel (which
+</EM><BR>
+<EM>&gt; &gt;&gt; the Linux SMP kernel could become with a small amount of work) is a
+</EM><BR>
+<EM>&gt; &gt;&gt; superior solution to this, wrt. latencies.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Ingo, how do you plan to handle the by-hand locks? You can trivially
+</EM><BR>
+<EM>&gt; forbid rescheduling as soon as you have a spin_lock() held, but how do you
+</EM><BR>
+<EM>&gt; handle code that uses a spinlock to serialize the accesses to a lock?
+</EM><BR>
+<P>well, such code has to be fixed/changed. There are other (i believe
+<BR>
+nastier) cases as well: rescheduling processes holding critical
+<BR>
+semaphores. All the lock inversion scenarios pop up full force in a
+<BR>
+preemptible kernel :-)
+<BR>
+<P><EM>&gt; And since most of the stuff needs some kind of serialization it also mean
+</EM><BR>
+<EM>&gt; for most of syscalls you are going to reschedule in the ret_from_syscall
+</EM><BR>
+<EM>&gt; stage anyway as now.
+</EM><BR>
+<P>yep - a preemptible kernel does impact performance, no doubt about it. But
+<BR>
+the real cost is in the UP kernel: spinlocks are not a no-op with
+<BR>
+preemtible kernels anymore. (this can be helped with, but it's still
+<BR>
+additional code)
+<BR>
+<P><EM>&gt; I think one of the only interesting places for the preemtable kernel is
+</EM><BR>
+<EM>&gt; copy user stuff that will effectivly be rescheduled as soon as it's
+</EM><BR>
+<EM>&gt; necessary.
+</EM><BR>
+<P>i'm not sure. Basically we have moved away from unbound copies, so i doubt
+<BR>
+any code in the kernel does more than a 64k copy at once to/from
+<BR>
+user-space. The typical copy is not bigger than 4k. So an explicit
+<BR>
+preemption point does help.
+<BR>
+<P>A 'fully preemtive' kernel is almost certainly a loss for typical systems,
+<BR>
+but it's quite useful for RT applications. (it might also be useful for
+<BR>
+interactive applications, although we are pretty good already with the
+<BR>
+lowlatency-patch.)
+<BR>
+<P><EM>&gt; But now by thinking at that stuff I have an idea! Why instead of making
+</EM><BR>
+<EM>&gt; the kernel preemtable we take the other way around? So why instead of
+</EM><BR>
+<EM>&gt; having to forbid scheduling in locked regions, we don't simply allow
+</EM><BR>
+<EM>&gt; rescheduling in some piece of code that we know that will benefit by the
+</EM><BR>
+<EM>&gt; preemtable thing?
+</EM><BR>
+<P>this is way too ugly and non-generic. You are completely missing the
+<BR>
+point. uaccess.h latencies are _not_ the problem.
+<BR>
+<P><EM>&gt; That's all. Then we'll have copu_user preemtable with a few lines of
+</EM><BR>
+<EM>&gt; changes. I'll try that immediatly :).
+</EM><BR>
+<P>Andrea, please think first and do not duplicate work done by others. A
+<BR>
+preemtive kernel is _not_ an issue unless you are into RT applications
+<BR>
+which need 100 usec-type latencies. A current kernel's interactive
+<BR>
+performance is already good enough to never show up in interactive
+<BR>
+applications. Those few multimedia applications which need 0.5ms-ish
+<BR>
+latencies are helped by the lowlatency patch.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0043.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0043.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0066.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0043.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

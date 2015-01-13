@@ -1,0 +1,140 @@
+<!-- received="Mon Mar 25 15:43:10 1996 " -->
+<!-- sent="Mon, 25 Mar 1996 15:43:10 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="[davidm@azstarnet.com: Re: gcc-2.7.1 bug]" -->
+<!-- id="199603252243.PAA32288@koala.azstarnet.com" -->
+<!-- inreplyto="Re: gcc-2.7.1 bug]" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>[davidm@azstarnet.com: Re: gcc-2.7.1 bug]</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>[davidm@azstarnet.com: Re: gcc-2.7.1 bug]</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Mon, 25 Mar 1996 15:43:10 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#240">[ date ]</a><a href="index.html#240">[ thread ]</a><a href="subject.html#240">[ subject ]</a><a href="author.html#240">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0241.html">Erik Troan: "Re: gcc-2.7.1 bug"</a>
+<li> <b>Previous message:</b> <a href="0239.html">David Mosberger-Tang: "gcc-2.7.1 bug"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here is a detailed description (and a small test program that<br>
+reproduces the problem) of the gcc bug I mentioned earlier today.<br>
+Richard Kenner determined that the latest gcc still has this problem.<br>
+It's apparently due to a bug in `combine' (not the instruction<br>
+scheduler as I guessed).  Since Richard won't be able to fix it<br>
+immediately, I thought I'd forward this to the mailing lists so people<br>
+know what exactly goes wrong.  Of course, if somebody could find a<br>
+fix, I'm sure Richard wouldn't mind receiving a patch either... :-)<br>
+<p>
+	--david<br>
+<p>
+------- Start of forwarded message -------<br>
+Return-Path: davidm<br>
+Date: Mon, 25 Mar 1996 13:01:18 -0700<br>
+From: David Mosberger-Tang &lt;<a href="mailto:davidm@azstarnet.com">davidm@azstarnet.com</a>&gt;<br>
+To: <a href="mailto:kenner@vlsi1.ultra.nyu.edu">kenner@vlsi1.ultra.nyu.edu</a>, davidm<br>
+In-reply-to: &lt;<a href="mailto:9603251224.AA13984@vlsi1.ultra.nyu.edu">9603251224.AA13984@vlsi1.ultra.nyu.edu</a>&gt;<br>
+	(<a href="mailto:kenner@vlsi1.ultra.nyu.edu">kenner@vlsi1.ultra.nyu.edu</a>)<br>
+Subject: Re: gcc-2.7.1 bug<br>
+<p>
+Just ran into another bug.  This time it's a code generation bug (it<br>
+looks like the instruction scheduler is overly aggressive).  Given<br>
+the code:<br>
+<p>
+long<br>
+XGetRGBColormaps (dpy, w, stdcmap, count, property)<br>
+    void *dpy;<br>
+    long w;<br>
+    long **stdcmap;<br>
+    int *count;<br>
+    long property;<br>
+{<br>
+    long *data = 0;<br>
+    int actual_format;<br>
+    unsigned long nitems;<br>
+    unsigned long actual_type, leftover;<br>
+<p>
+    if (XGetWindowProperty (dpy, w, property, 0L, 1000000L, 0,<br>
+			    27, &amp;actual_type, &amp;actual_format,<br>
+			    &amp;nitems, &amp;leftover, (unsigned char **)&amp;data)<br>
+	!= 0)<br>
+      return 0;<br>
+    return 1;<br>
+}<br>
+<p>
+If I translate this with gcc-2.7.1 with options -O2 -S, I get:<br>
+<p>
+        .align 3<br>
+        .globl XGetRGBColormaps<br>
+        .ent XGetRGBColormaps<br>
+XGetRGBColormaps:<br>
+        ldgp $29,0($27)<br>
+XGetRGBColormaps..ng:<br>
+        lda $30,-112($30)<br>
+        .frame $30,112,$26,0<br>
+        stq $26,48($30)<br>
+        .mask 0x4000000,-64<br>
+        .prologue 1<br>
+        lda $20,16960		# &lt;--------- overwrites a4<br>
+        bis $31,27,$1<br>
+        addq $30,72,$2<br>
+        addq $30,80,$3<br>
+        stq $31,96($30)<br>
+        addq $30,88,$4<br>
+        stq $1,0($30)<br>
+        addq $30,96,$1<br>
+        addq $30,64,$5<br>
+        stq $5,8($30)<br>
+        bis $31,$31,$19<br>
+        stq $2,16($30)<br>
+        bis $31,$31,$21<br>
+        stq $3,24($30)<br>
+        bis $20,$20,$18		# &lt;- attempt to move old value of a4 into a2<br>
+        stq $4,32($30)<br>
+        ldah $20,15($20)	# &lt;- finish loading constant 100000L into a4<br>
+        stq $1,40($30)<br>
+        jsr $26,XGetWindowProperty<br>
+<p>
+So it looks like the "lda $20,16960" instruction incorrectly got moved<br>
+before the instruction that moves a4 into a2.<br>
+<p>
+Correct code is generated if -O is used.<br>
+<p>
+Can you reproduce this?<br>
+<p>
+	--david<br>
+<p>
+------- End of forwarded message -------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0241.html">Erik Troan: "Re: gcc-2.7.1 bug"</a>
+<li> <b>Previous message:</b> <a href="0239.html">David Mosberger-Tang: "gcc-2.7.1 bug"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

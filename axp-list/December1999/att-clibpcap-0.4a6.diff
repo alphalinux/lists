@@ -1,0 +1,93 @@
+--- gencode.c.orig	Tue Dec  7 13:22:26 1999
++++ gencode.c	Tue Dec  7 13:23:09 1999
+@@ -158,7 +158,7 @@
+ 	int k, size;
+ 
+ 	/* XXX Round up to nearest long. */
+-	n = (n + sizeof(long) - 1) & ~(sizeof(long) - 1);
++	n = (n + sizeof(int) - 1) & ~(sizeof(int) - 1);
+ 
+ 	cp = &chunks[cur_chunk];
+ 	if (n > cp->n_left) {
+@@ -966,7 +966,7 @@
+ #endif
+ 	case Q_IGRP:
+ 		b0 =  gen_linktype(ETHERTYPE_IP);
+-		b1 = gen_cmp(off_nl + 9, BPF_B, (long)IPPROTO_IGRP);
++		b1 = gen_cmp(off_nl + 9, BPF_B, (int)IPPROTO_IGRP);
+ 		gen_and(b0, b1);
+ 		break;
+ 
+--- pcap-int.h.orig	Tue Dec  7 13:20:20 1999
++++ pcap-int.h	Tue Dec  7 13:21:23 1999
+@@ -53,11 +53,11 @@
+ 	struct pcap_stat stat;
+ 	/*XXX*/
+ 	int use_bpf;
+-	u_long	TotPkts;	/* can't oflow for 79 hrs on ether */
+-	u_long	TotAccepted;	/* count accepted by filter */
+-	u_long	TotDrops;	/* count of dropped packets */
+-	long	TotMissed;	/* missed by i/f during this run */
+-	long	OrigMissed;	/* missed by i/f before this run */
++	u_int	TotPkts;	/* can't oflow for 79 hrs on ether */
++	u_int	TotAccepted;	/* count accepted by filter */
++	u_int	TotDrops;	/* count of dropped packets */
++	int	TotMissed;	/* missed by i/f during this run */
++	int	OrigMissed;	/* missed by i/f before this run */
+ #ifdef linux
+ 	int pad;
+ 	int skip;
+--- pcap-linux.c.orig	Wed Dec  8 09:03:24 1999
++++ pcap-linux.c	Wed Dec  8 09:46:42 1999
+@@ -73,6 +73,7 @@
+ 	register u_char *bp;
+ 	struct sockaddr from;
+ 	int fromlen;
++	struct timeval tmpts;
+ 
+ 	bp = p->buffer + p->offset;
+ 	bufsize = p->bufsize;
+@@ -124,11 +125,13 @@
+ 
+ 		++p->md.stat.ps_recv;
+ 		/* Get timestamp */
+-		if (ioctl(p->fd, SIOCGSTAMP, &h.ts) < 0) {
++		if (ioctl(p->fd, SIOCGSTAMP, &tmpts) < 0) {
+ 			sprintf(p->errbuf, "SIOCGSTAMP: %s",
+ 			    pcap_strerror(errno));
+ 			return (-1);
+ 		}
++		h.ts.tv_sec = (int)tmpts.tv_sec;
++		h.ts.tv_usec = (int)tmpts.tv_usec;
+ 		h.len = cc;
+ 		h.caplen = caplen;
+ 		(*callback)(user, &h, bp);
+--- pcap-pf.c.orig	Tue Dec  7 13:24:36 1999
++++ pcap-pf.c	Tue Dec  7 13:25:11 1999
+@@ -131,7 +131,7 @@
+ 			return (-1);
+ 		}
+ #ifdef LBL_ALIGN
+-		if ((long)bp & 3) {
++		if ((int)bp & 3) {
+ 			sp = &stamp;
+ 			memcpy((char *)sp, (char *)bp, sizeof(*sp));
+ 		} else
+--- pcap.h.orig	Wed Dec  8 09:03:17 1999
++++ pcap.h	Wed Dec  8 09:12:42 1999
+@@ -81,8 +81,13 @@
+  * This gets around the problem of different headers for different
+  * packet interfaces.
+  */
++struct mytimeval {
++	int tv_sec;
++	int tv_usec;
++};
++
+ struct pcap_pkthdr {
+-	struct timeval ts;	/* time stamp */
++	struct mytimeval ts;	/* time stamp */
+ 	bpf_u_int32 caplen;	/* length of portion present */
+ 	bpf_u_int32 len;	/* length this packet (off wire) */
+ };
+

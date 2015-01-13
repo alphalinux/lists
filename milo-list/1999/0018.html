@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Milo List: Milo 2.2 - things are becoming generic.</TITLE>
+<META NAME="Author" CONTENT="Stefan Reinauer (stepan@suse.de)">
+<META NAME="Subject" CONTENT="Milo 2.2 - things are becoming generic.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Milo 2.2 - things are becoming generic.</H1>
+<HR>
+<P>
+<!-- received="Wed Sep 08 12:58:21 1999" -->
+<!-- isoreceived="19990908195821" -->
+<!-- sent="Wed, 8 Sep 1999 16:18:51 +0200 (MEST)" -->
+<!-- isosent="19990908141851" -->
+<!-- name="Stefan Reinauer" -->
+<!-- email="stepan@suse.de" -->
+<!-- subject="Milo 2.2 - things are becoming generic." -->
+<!-- id="Pine.LNX.4.10.9909081335050.27353-100000@Wotan.suse.de" -->
+<STRONG>Subject: </STRONG>Milo 2.2 - things are becoming generic.<BR>
+<STRONG>From: </STRONG>Stefan Reinauer (<EM>stepan@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Sep 08 1999 - 07:18:51 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#18">[ date ]</A>
+<A HREF="index.html#18">[ thread ]</A>
+<A HREF="subject.html#18">[ subject ]</A>
+<A HREF="author.html#18">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0019.html">Stefan Reinauer: "Milo 2.2 - continued."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0017.html">Stefan Reinauer: "Milo-2.2 :-)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi...
+<BR>
+<P>I want to generalize milo in 2 steps:
+<BR>
+<P>1. Make a platform dependant milo link against a generic kernel. This
+<BR>
+&nbsp;&nbsp;&nbsp;means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+<BR>
+&nbsp;&nbsp;&nbsp;Makefile and this selects the correct palcode and dependencies in the
+<BR>
+&nbsp;&nbsp;&nbsp;different source files as well as the hard coded hwrpb.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;To do this, I need to initialize the hwrpb and alpha_mv before I do
+<BR>
+&nbsp;&nbsp;&nbsp;any I/O. Afaik, this means we have no possibility to do any output on
+<BR>
+&nbsp;&nbsp;&nbsp;vga/serial in the stub and relocation code. Or should we put
+<BR>
+&nbsp;&nbsp;&nbsp;initialisation of the hwrpb just that early so we keep the possibility
+<BR>
+&nbsp;&nbsp;&nbsp;to debug this code more easily?
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Is it really neccessary to run the floppy_init_hack() *that* early? In
+<BR>
+&nbsp;&nbsp;&nbsp;my opinion this is something that should logically be called from
+<BR>
+&nbsp;&nbsp;&nbsp;within devices.c
+<BR>
+<P>&nbsp;&nbsp;&nbsp;I take from the AARM, that the wrfen PALcode enables the FPU. Why isn't
+<BR>
+&nbsp;&nbsp;&nbsp;this done on Ruffians in __main() of boot_main.c? If it is not really
+<BR>
+&nbsp;&nbsp;&nbsp;needed, can we through it out for all machine types?
+<BR>
+<P>&nbsp;&nbsp;&nbsp;As far as I can see, the only critical files containing #ifdefs on 
+<BR>
+&nbsp;&nbsp;&nbsp;specific alpha hardware are at the moment cpu.c, boot_main.c,
+<BR>
+&nbsp;&nbsp;&nbsp;relocate.c, stub_main.c and of course hwrpb.c
+<BR>
+<P>2. I don't know much about the ARC stuff, but is it somehow possible to
+<BR>
+&nbsp;&nbsp;&nbsp;determine via ARC, which board/machine is used? I know there's no
+<BR>
+&nbsp;&nbsp;&nbsp;hwrpb, but at least the AlphaBIOS prints out the machine's &quot;name&quot; so 
+<BR>
+&nbsp;&nbsp;&nbsp;it must know it, hardcoded or not. The most stupid thing I can imagine
+<BR>
+&nbsp;&nbsp;&nbsp;right now is having ldmilo/linload or milo calculating checksums over
+<BR>
+&nbsp;&nbsp;&nbsp;the firmware or even reading some strings of the firmware directly. In
+<BR>
+&nbsp;&nbsp;&nbsp;any case, this is neither an elegant way nor is it really secure,
+<BR>
+&nbsp;&nbsp;&nbsp;because after a firmware update, milo might not be able to boot up a
+<BR>
+&nbsp;&nbsp;&nbsp;box again.. I would love to have a function to give ldmilo a) the name
+<BR>
+&nbsp;&nbsp;&nbsp;of the milo to load and possibly the machine type, too.
+<BR>
+&nbsp;&nbsp;&nbsp;What we could *maybe* do is get the machine type via an ARC environment
+<BR>
+&nbsp;&nbsp;&nbsp;variable.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;In the linload Sources I found that the last line executed is (or
+<BR>
+&nbsp;&nbsp;&nbsp;should be) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JumpToPal(Linux_Entry);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;As far as I can see, this doesn't really swap the PALcode, but only
+<BR>
+&nbsp;&nbsp;&nbsp;jumps into the milo head.S. Otherwise the PALcode gets swapped twice,
+<BR>
+&nbsp;&nbsp;&nbsp;since milo does this again. (This wouldn't really make sense in my
+<BR>
+&nbsp;&nbsp;&nbsp;opinion)
+<BR>
+<P><P>Now I have some other things:
+<BR>
+<P>* MILO license. MILO itself is under a free Digital license, the kernel
+<BR>
+&nbsp;&nbsp;which is linked against milo ist GPL, so I guess the result has to be
+<BR>
+&nbsp;&nbsp;GPL again. Am I wrong? I just don't want to run into problems here.
+<BR>
+<P>* Future of ARC/AlphaBIOS/ARCS Bios. Now after Compaq seems to have the NT
+<BR>
+&nbsp;&nbsp;development section freed from their unlucky fate, there's noone who
+<BR>
+&nbsp;&nbsp;really needs anything but SRM anymore. It might still be interesting to
+<BR>
+&nbsp;&nbsp;continue MILO development to get it flashed into Deskstation ARCS
+<BR>
+&nbsp;&nbsp;based boxes to get all the modern graphics adapters to work in these
+<BR>
+&nbsp;&nbsp;nice boxes without running into trouble with Deskstations totally broken
+<BR>
+&nbsp;&nbsp;BIOS emulation which isn't even worked on anymore, according to several
+<BR>
+&nbsp;&nbsp;people, including deskstation employees themselves.
+<BR>
+<P>&nbsp;&nbsp;Is there any chance that SRM will be ported to machines currently only
+<BR>
+&nbsp;&nbsp;running with deskstation firmware?
+<BR>
+<P><P>Please *do* heavily comment on my thoughts.
+<BR>
+<P>Regards,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;Stefan.
+<BR>
+<P><PRE>
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         		       Alpha Powered
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0019.html">Stefan Reinauer: "Milo 2.2 - continued."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0017.html">Stefan Reinauer: "Milo-2.2 :-)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0020.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

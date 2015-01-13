@@ -1,0 +1,304 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/</TITLE>
+<META NAME="Author" CONTENT=" ()">
+<META NAME="Subject" CONTENT="Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S</H1>
+<HR>
+<P>
+<!-- received="Thu Jul 27 21:53:46 2000" -->
+<!-- isoreceived="20000728045346" -->
+<!-- sent="Tue, 25 Jul 2000 18:30:13 +0400" -->
+<!-- isosent="20000725143013" -->
+<!-- subject="Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S" -->
+<!-- id="20000725183013.A9734@jurassic.park.msu.ru" -->
+<!-- inreplyto="200007241305.JAA04503@orourke.lowell.mclinux.com" -->
+<STRONG>Subject: </STRONG>Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S<BR>
+<EM></EM><BR>
+<STRONG>Date: </STRONG>Tue Jul 25 2000 - 07:30:13 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#26">[ date ]</A>
+<A HREF="index.html#26">[ thread ]</A>
+<A HREF="subject.html#26">[ subject ]</A>
+<A HREF="author.html#26">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0027.html">: "generic 2.4.0 fix"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0025.html">: "Time granularity"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0024.html">: "[PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0024.html">: "Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, Jul 24, 2000 at 09:05:10AM -0400, Pat O'Rourke wrote:
+<BR>
+<EM>&gt; the offset of the task_struct's ptrace field as 104, or right after the
+</EM><BR>
+<EM>&gt; 'processor' field.  This appears incorrect because the 'ptrace' field is
+</EM><BR>
+<EM>&gt; actually after 'need_resched'.  This patch will adjust the definition of
+</EM><BR>
+<EM>&gt; TASK_PTRACE accordingly.
+</EM><BR>
+<P>Damn. Thanks.
+<BR>
+So the `ptrace' field was silently moved since test1-ac...
+<BR>
+<P><EM>&gt; +#define TASK_PTRACE            48
+</EM><BR>
+<EM>&gt;  #define TASK_PROCESSOR         100
+</EM><BR>
+<EM>&gt; -#define TASK_PTRACE            104
+</EM><BR>
+<P>I think we should better fix the asm_offsets stuff, just to
+<BR>
+prevent such a mess in future.
+<BR>
+<P>Ivan.
+<BR>
+<P>diff -urN 240t5p4/arch/alpha/kernel/Makefile linux/arch/alpha/kernel/Makefile
+<BR>
+--- 240t5p4/arch/alpha/kernel/Makefile	Sun Jun 25 14:24:10 2000
+<BR>
++++ linux/arch/alpha/kernel/Makefile	Tue Jul 25 13:16:41 2000
+<BR>
+@@ -140,7 +140,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;O_OBJS	+= $(L_TARGET)
+<BR>
+&nbsp;
+<BR>
+-all: kernel.o head.o
+<BR>
++all: asm_offsets kernel.o head.o
+<BR>
+&nbsp;
+<BR>
+&nbsp;asm_offsets: check_asm
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;./check_asm &gt; $(TOPDIR)/include/asm-alpha/asm_offsets.h
+<BR>
+@@ -150,5 +150,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;clean::
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rm -f check_asm
+<BR>
++	rm -f $(TOPDIR)/include/asm-alpha/asm_offsets.h
+<BR>
+&nbsp;
+<BR>
+&nbsp;include $(TOPDIR)/Rules.make
+<BR>
+diff -urN 240t5p4/arch/alpha/kernel/check_asm.c linux/arch/alpha/kernel/check_asm.c
+<BR>
+--- 240t5p4/arch/alpha/kernel/check_asm.c	Sun Nov 28 02:42:54 1999
+<BR>
++++ linux/arch/alpha/kernel/check_asm.c	Tue Jul 25 12:38:39 2000
+<BR>
+@@ -19,6 +19,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(long)offsetof(struct task_struct, exec_domain));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;#define TASK_NEED_RESCHED %ld\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(long)offsetof(struct task_struct, need_resched));
+<BR>
++	printf(&quot;#define TASK_PTRACE %ld\n&quot;,
+<BR>
++	       (long)offsetof(struct task_struct, ptrace));
+<BR>
++	printf(&quot;#define TASK_PROCESSOR %ld\n&quot;,
+<BR>
++	       (long)offsetof(struct task_struct, processor));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;#define TASK_SIZE %ld\n&quot;, sizeof(struct task_struct));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;#define STACK_SIZE %ld\n&quot;, sizeof(union task_union));
+<BR>
+&nbsp;
+<BR>
+@@ -26,6 +30,9 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(long)offsetof(struct alpha_machine_vector, hae_cache));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;#define HAE_REG %ld\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(long)offsetof(struct alpha_machine_vector, hae_register));
+<BR>
++
+<BR>
++	printf(&quot;#define PT_PTRACED 0x%08x\n&quot;, PT_PTRACED);
+<BR>
++	printf(&quot;#define CLONE_VM 0x%08x\n&quot;, CLONE_VM);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;#endif /* __ASM_OFFSETS_H__ */\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+diff -urN 240t5p4/arch/alpha/kernel/entry.S linux/arch/alpha/kernel/entry.S
+<BR>
+--- 240t5p4/arch/alpha/kernel/entry.S	Sun Jun 25 14:24:10 2000
+<BR>
++++ linux/arch/alpha/kernel/entry.S	Tue Jul 25 12:38:14 2000
+<BR>
+@@ -6,42 +6,18 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
++#include &lt;asm/asm_offsets.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define SIGCHLD 20
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define NR_SYSCALLS 377
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+- * These offsets must match with alpha_mv in &lt;asm/machvec.h&gt;.
+<BR>
+- */
+<BR>
+-#define HAE_CACHE	0
+<BR>
+-#define HAE_REG		8
+<BR>
+-
+<BR>
+-/*
+<BR>
+&nbsp;&nbsp;* stack offsets
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;#define SP_OFF		184
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define SWITCH_STACK_SIZE 320
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * task structure offsets
+<BR>
+- */
+<BR>
+-#define TASK_STATE		0
+<BR>
+-#define TASK_FLAGS		8
+<BR>
+-#define TASK_SIGPENDING		16
+<BR>
+-#define TASK_ADDR_LIMIT		24	
+<BR>
+-#define TASK_EXEC_DOMAIN	32
+<BR>
+-#define TASK_NEED_RESCHED	40
+<BR>
+-#define TASK_PROCESSOR		100
+<BR>
+-#define TASK_PTRACE		104
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * task flags (must match include/linux/sched.h):
+<BR>
+- */
+<BR>
+-#define	PT_PTRACED	0x00000001
+<BR>
+-
+<BR>
+-#define CLONE_VM        0x00000100 
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* This defines the normal kernel pt-regs layout.
+<BR>
+diff -urN 240t5p4/include/asm-alpha/asm_offsets.h linux/include/asm-alpha/asm_offsets.h
+<BR>
+--- 240t5p4/include/asm-alpha/asm_offsets.h	Mon Oct 12 22:40:12 1998
+<BR>
++++ linux/include/asm-alpha/asm_offsets.h	Thu Jan  1 03:00:00 1970
+<BR>
+@@ -1,13 +0,0 @@
+<BR>
+-#ifndef __ASM_OFFSETS_H__
+<BR>
+-#define __ASM_OFFSETS_H__
+<BR>
+-#define TASK_STATE 0
+<BR>
+-#define TASK_FLAGS 8
+<BR>
+-#define TASK_SIGPENDING 16
+<BR>
+-#define TASK_ADDR_LIMIT 24
+<BR>
+-#define TASK_EXEC_DOMAIN 32
+<BR>
+-#define TASK_NEED_RESCHED 40
+<BR>
+-#define TASK_SIZE 1096
+<BR>
+-#define STACK_SIZE 16384
+<BR>
+-#define HAE_CACHE 0
+<BR>
+-#define HAE_REG 8
+<BR>
+-#endif /* __ASM_OFFSETS_H__ */
+<BR>
+&nbsp;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0027.html">: "generic 2.4.0 fix"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0025.html">: "Time granularity"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0024.html">: "[PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0024.html">: "Re: [PATCH] TASK_PTRACE in arch/alpha/kernel/entry.S"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:15 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,130 @@
+<!-- received="Tue Jun 30 19:26:14 1998 " -->
+<!-- sent="Sat, 9 May 1998 16:11:21 +0200 (MET DST)" -->
+<!-- name="Maciej W. Rozycki" -->
+<!-- email="macro@ds2.pg.gda.pl" -->
+<!-- subject="ld from binutils 2.9.1 mislinks Alpha kernel?" -->
+<!-- id="199806301843.OAA32005@linux03.hlo.dec.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>ld from binutils 2.9.1 mislinks Alpha kernel?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>ld from binutils 2.9.1 mislinks Alpha kernel?</h2>
+
+<b>Maciej W. Rozycki</b> (<a href="mailto:macro@ds2.pg.gda.pl"><i>macro@ds2.pg.gda.pl</i></a>)<br>
+<i>Sat, 9 May 1998 16:11:21 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#491">[ date ]</a><a href="index.html#491">[ thread ]</a><a href="subject.html#491">[ subject ]</a><a href="author.html#491">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0492.html">Jeff DeMaagd: "Re: Iomega Jaz on UDB?"</a>
+<li> <b>Previous message:</b> <a href="0490.html">Jay.Estabrook@digital.com: "Re: Default Redhat kernel configuration?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+ It seems that on an Alpha for some reasons ld 2.9.1 links vmlinux<br>
+differently from what ld 2.8.1.0.15 used to do.  It sets the PT_LOAD<br>
+segment such that it does not include ELF file and program headers:<br>
+<p>
+$ ld -V<br>
+GNU ld version 2.9.1 (with BFD 2.9.1)<br>
+  Supported emulations:<br>
+   elf64alpha<br>
+   alpha<br>
+$ objdump -p vmlinux<br>
+<p>
+vmlinux-2.9.1:     file format elf64-alpha<br>
+<p>
+Program Header:<br>
+    LOAD off    0x0000000000010000 vaddr 0xfffffc0000310000 paddr<br>
+0xfffffc0000310000 align 2**16<br>
+         filesz 0x000000000011ba28 memsz 0x0000000000145e24 flags rwx<br>
+<p>
+versus:<br>
+<p>
+$ ld -V<br>
+GNU ld version cygnus-2.8.1 (with BFD linux-2.8.1.0.15)<br>
+  Supported emulations:<br>
+   elf64alpha<br>
+   alpha<br>
+$ objdump -p vmlinux<br>
+<p>
+vmlinux-2.8.1.0.15:     file format elf64-alpha<br>
+<p>
+Program Header:<br>
+    LOAD off    0x0000000000000000 vaddr 0xfffffc0000300000 paddr<br>
+0xfffffc0000300000 align 2**20<br>
+         filesz 0x000000000012ba28 memsz 0x0000000000155e24 flags rwx<br>
+<p>
+ Both ELF images seem to be equivalent wrt kernel text start address but<br>
+the former one prevents aboot from loading the kernel (it insists on the<br>
+segment start address being within the first fs block of uncompressed<br>
+vmlinux).<br>
+<p>
+ I am not sure whether the change of ld behaviour is intentional, but just<br>
+in case a patch follows which allows vmlinux created with binutils 2.9.1<br>
+to be booted by aboot. <br>
+<p>
+  Maciej<br>
+<p>
+<pre>
+--
++  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
++--------------------------------------------------------------+
++        e-mail: <a href="mailto:macro@ds2.pg.gda.pl">macro@ds2.pg.gda.pl</a>, PGP key available        +
+<p>
+diff -u --recursive --new-file linux-2.1.100.macro/arch/alpha/vmlinux.lds linux-2.1.100/arch/alpha/vmlinux.lds
+--- linux-2.1.100.macro/arch/alpha/vmlinux.lds	Wed May 14 07:41:00 1997
++++ linux-2.1.100/arch/alpha/vmlinux.lds	Sat May  9 15:10:00 1998
+@@ -1,10 +1,14 @@
+ OUTPUT_FORMAT("elf64-alpha")
+ ENTRY(__start)
++PHDRS
++{
++   load PT_LOAD FILEHDR PHDRS;
++}
+ SECTIONS
+ {
+    . = 0xfffffc0000310000;
+    _text = .;
+-   .text : { *(.text) }
++   .text : { *(.text) } :load
+    .text2 : { *(.text2) }
+    _etext = .;
+ 
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0492.html">Jeff DeMaagd: "Re: Iomega Jaz on UDB?"</a>
+<li> <b>Previous message:</b> <a href="0490.html">Jay.Estabrook@digital.com: "Re: Default Redhat kernel configuration?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

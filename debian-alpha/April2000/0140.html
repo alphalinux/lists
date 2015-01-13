@@ -1,0 +1,341 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Bug#63188: [PATCH] db: fix and enable spinlo</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@linuxcare.com)">
+<META NAME="Subject" CONTENT="Bug#63188: [PATCH] db: fix and enable spinlocks (and thus DB_THREAD) on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Bug#63188: [PATCH] db: fix and enable spinlocks (and thus DB_THREAD) on Alpha</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 28 04:03:03 2000" -->
+<!-- isoreceived="20000428110303" -->
+<!-- sent="27 Apr 2000 23:15:13 -0400" -->
+<!-- isosent="20000428031513" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@linuxcare.com" -->
+<!-- subject="Bug#63188: [PATCH] db: fix and enable spinlocks (and thus DB_THREAD) on Alpha" -->
+<!-- id="878zxygblq.fsf@tarwebok.thepuffingroup.com" -->
+<STRONG>Subject: </STRONG>Bug#63188: [PATCH] db: fix and enable spinlocks (and thus DB_THREAD) on Alpha<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@linuxcare.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 27 2000 - 20:15:13 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#140">[ date ]</A>
+<A HREF="index.html#140">[ thread ]</A>
+<A HREF="subject.html#140">[ subject ]</A>
+<A HREF="author.html#140">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0141.html">David Huggins-Daines: "Bug#63183: Doh!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0139.html">David Huggins-Daines: "Bug#63183: [PATCH] 'struct dynamic' is actually ELF32 specific, breaks ldconfig"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Package: libdb2
+<BR>
+Version: 2.4.14-2.7.7.1.0
+<BR>
+Severity: important
+<BR>
+<P>Hi,
+<BR>
+<P>DB *has* an implementation of spinlocks for Alpha (needed for thread
+<BR>
+support, which is used by openldap - slapd will not work without
+<BR>
+this!), but it is old, doesn't compile, and isn't actually turned on
+<BR>
+in the build (it lives in mutex/ARCHIVE).
+<BR>
+<P>Here's one that is new, does compile, and is turned on.  Please
+<BR>
+forward it to the upstream authors if necessary.
+<BR>
+<P>I've set this to important because, like I said, openldapd won't work
+<BR>
+(or won't work correctly) without it.  I've Cc:'ed to debian-alpha for
+<BR>
+verification, so you might want to await comment from there as my
+<BR>
+assembly programming skills are still somewhat shaky...
+<BR>
+<P>diff -urN --exclude=tags --exclude=configure --exclude=config.h.in db-2.4.14/dist/acconfig.h db-2.4.14-fixed/dist/acconfig.h
+<BR>
+--- db-2.4.14/dist/acconfig.h	Thu Apr 27 10:07:06 2000
+<BR>
++++ db-2.4.14-fixed/dist/acconfig.h	Thu Apr 27 10:00:39 2000
+<BR>
+@@ -38,6 +38,9 @@
+<BR>
+&nbsp;/* Define if you want to use x86/gcc assembly spinlocks. */
+<BR>
+&nbsp;#undef HAVE_ASSEM_X86_GCC
+<BR>
+&nbsp;
+<BR>
++/* Define if you want to use alpha/gcc assembly spinlocks. */
+<BR>
++#undef HAVE_ASSEM_ALPHA_GCC
+<BR>
++
+<BR>
+&nbsp;/* Define if you have the AIX _check_lock spinlocks. */
+<BR>
+&nbsp;#undef HAVE_FUNC_AIX
+<BR>
+&nbsp;
+<BR>
+diff -urN --exclude=tags --exclude=configure --exclude=config.h.in db-2.4.14/dist/config.hin db-2.4.14-fixed/dist/config.hin
+<BR>
+--- db-2.4.14/dist/config.hin	Thu Apr 27 10:07:06 2000
+<BR>
++++ db-2.4.14-fixed/dist/config.hin	Thu Apr 27 10:00:39 2000
+<BR>
+@@ -64,6 +64,9 @@
+<BR>
+&nbsp;/* Define if you want to use x86/gcc assembly spinlocks. */
+<BR>
+&nbsp;#undef HAVE_ASSEM_X86_GCC
+<BR>
+&nbsp;
+<BR>
++/* Define if you want to use alpha/gcc assembly spinlocks. */
+<BR>
++#undef HAVE_ASSEM_ALPHA_GCC
+<BR>
++
+<BR>
+&nbsp;/* Define if you have the AIX _check_lock spinlocks. */
+<BR>
+&nbsp;#undef HAVE_FUNC_AIX
+<BR>
+&nbsp;
+<BR>
+diff -urN --exclude=tags --exclude=configure --exclude=config.h.in db-2.4.14/dist/configure.in db-2.4.14-fixed/dist/configure.in
+<BR>
+--- db-2.4.14/dist/configure.in	Thu Apr 27 10:07:06 2000
+<BR>
++++ db-2.4.14-fixed/dist/configure.in	Thu Apr 27 10:00:39 2000
+<BR>
+@@ -384,6 +384,17 @@
+<BR>
+&nbsp;exit(1);}], [db_cv_spinlocks=x86/gcc])
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
++dnl alpha/gcc: BSD/OS, FreeBSD, NetBSD, Linux
+<BR>
++if test &quot;$db_cv_spinlocks&quot; = no; then
+<BR>
++AC_TRY_RUN([main(){
+<BR>
++#if defined(__alpha__)
+<BR>
++#if defined(__GNUC__)
+<BR>
++exit(0);
+<BR>
++#endif
+<BR>
++#endif
+<BR>
++exit(1);}], [db_cv_spinlocks=alpha/gcc])
+<BR>
++fi
+<BR>
++
+<BR>
+&nbsp;dnl: uts/cc: UTS
+<BR>
+&nbsp;if test &quot;$db_cv_spinlocks&quot; = no; then
+<BR>
+&nbsp;AC_TRY_RUN([main(){
+<BR>
+@@ -477,6 +488,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AC_DEFINE(HAVE_ASSEM_X86_GCC)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mutex_align=&quot;1&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_line1=&quot;typedef unsigned char tsl_t;&quot;;;
+<BR>
++alpha/gcc)
+<BR>
++	AC_DEFINE(HAVE_ASSEM_ALPHA_GCC)
+<BR>
++	mutex_align=&quot;16&quot;
+<BR>
++	spin_line1=&quot;typedef unsigned long tsl_t;&quot;;;
+<BR>
+&nbsp;*)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mutex_align=&quot;1&quot;;;
+<BR>
+&nbsp;esac
+<BR>
+diff -urN --exclude=tags --exclude=configure --exclude=config.h.in db-2.4.14/mutex/alpha.gcc db-2.4.14-fixed/mutex/alpha.gcc
+<BR>
+--- db-2.4.14/mutex/alpha.gcc	Wed Dec 31 19:00:00 1969
+<BR>
++++ db-2.4.14-fixed/mutex/alpha.gcc	Thu Apr 27 10:15:06 2000
+<BR>
+@@ -0,0 +1,46 @@
+<BR>
++ /* Alpha inline assembly locking primitives, by David Huggins-Daines
+<BR>
++    &lt;dhd@linuxcare.com&gt;.
+<BR>
++ 
+<BR>
++    Note: we must align the lock to 16 bytes, because that is the
+<BR>
++    minimum granularity of the lock_flag.  It is theoretically possible
+<BR>
++    for the locked range to be much, much larger than this (from
+<BR>
++    a cache line up to an entire page!) but we should be OK.
+<BR>
++ 
+<BR>
++    The 'mb' instructions guarantee that all access to the structure
+<BR>
++    protected by this lock is done between the acquisition and release
+<BR>
++    of the lock.
+<BR>
++ 
+<BR>
++    The spaghetti mess of branches is an attempt to not break branch
+<BR>
++    prediction, as recommended by the Architecture Reference Manual.
+<BR>
++    If we knew the extent of the protected section we could do it more
+<BR>
++    optimally.  The kernel solves this by moving the failure cases to
+<BR>
++    a separate ELF section, but I don't know if that will work here. */
+<BR>
++ 
+<BR>
++ #define TSL_SET(tsl) ({				\
+<BR>
++ 	register tsl_t *__l = (tsl);			\
+<BR>
++ 	unsigned long __r = 0;				\
+<BR>
++ 	asm volatile(&quot;					\n\
+<BR>
++ 0:				#$start:		\n\
+<BR>
++ 	ldq_l	%0,%3		# ldq_l __r,__l		\n\
+<BR>
++ 	blbs	%2,3f		# blbs  __r,$fail	\n\
+<BR>
++ 	bis	$31,1,%0	# mov   1,__r		\n\
+<BR>
++ 	stq_c	%2,%1		# stq_c __r,__l		\n\
+<BR>
++ 	beq	%2,2f		# beq   __r,$again	\n\
+<BR>
++ 1:				#$success:		\n\
+<BR>
++ 	mb			# mb			\n\
+<BR>
++ 	br	$31,4f		# br $done		\n\
+<BR>
++ 2:				#$again:		\n\
+<BR>
++ 	br	$31,0b		# br $start		\n\
+<BR>
++ 3:				#$fail:			\n\
+<BR>
++ 	bis	$31,$31,%0	# mov   0,__r		\n\
+<BR>
++ 4:				#$done:			\n\
+<BR>
++ 	&quot; : &quot;=r&quot; (__r), &quot;=m&quot; (*__l)			\
+<BR>
++ 	  : &quot;0&quot; (__r), &quot;1&quot; (*__l) : &quot;memory&quot;);		\
+<BR>
++ 	__r; })
+<BR>
++ 
+<BR>
++ #define TSL_UNSET(tsl) ({			\
+<BR>
++ 	asm volatile(&quot;				\n\
+<BR>
++ 	mb					\n\
+<BR>
++ 	stq	$31,%0&quot;				\
+<BR>
++ 	: &quot;=m&quot; (*(tsl)) :: &quot;memory&quot;);})
+<BR>
++ #define TSL_INIT(tsl) TSL_UNSET(tsl)
+<BR>
+diff -urN --exclude=tags --exclude=configure --exclude=config.h.in db-2.4.14/mutex/mutex.c db-2.4.14-fixed/mutex/mutex.c
+<BR>
+--- db-2.4.14/mutex/mutex.c	Thu Apr 27 10:07:06 2000
+<BR>
++++ db-2.4.14-fixed/mutex/mutex.c	Thu Apr 27 10:00:39 2000
+<BR>
+@@ -110,6 +110,10 @@
+<BR>
+&nbsp;#include &quot;x86.gcc&quot;
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++#ifdef HAVE_ASSEM_ALPHA_GCC
+<BR>
++#include &quot;alpha.gcc&quot;
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;#ifdef WIN16
+<BR>
+&nbsp;/* Win16 spinlocks are simple because we cannot possibly be preempted. */
+<BR>
+&nbsp;#define	TSL_INIT(tsl)
+<BR>
+<P><P><PRE>
+-- 
+David Huggins-Daines, GNU/Linux Consultant, Linuxcare, Inc.
+613.223.0225 mobile
+dhd@linuxcare.com, <A HREF="http://www.linuxcare.com/">http://www.linuxcare.com/</A>
+Linuxcare. Support for the revolution.
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0141.html">David Huggins-Daines: "Bug#63183: Doh!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0139.html">David Huggins-Daines: "Bug#63183: [PATCH] 'struct dynamic' is actually ELF32 specific, breaks ldconfig"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:05 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

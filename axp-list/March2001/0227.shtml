@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Interesting SCSI Performance Problems</H1> 
+	
+<!-- received="Fri Mar 16 21:58:04 2001" -->
+<!-- isoreceived="20010317055804" -->
+<!-- sent="Fri, 16 Mar 2001 16:42:48 -0500 (EST)" -->
+<!-- isosent="20010316214248" -->
+<!-- name="T. Daniel Crawford" -->
+<!-- email="crawdad@vt.edu" -->
+<!-- subject="Interesting SCSI Performance Problems" -->
+<!-- id="Pine.LNX.4.30.0103161638330.20862-100000@orion.chem.vt.edu" -->
+<STRONG>Subject: </STRONG>Interesting SCSI Performance Problems<BR>
+<STRONG>From: </STRONG>T. Daniel Crawford (<EM>crawdad@vt.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Mar 16 13:42:48 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#227">[ date ]</A>
+<A HREF="index.shtml#227">[ thread ]</A>
+<A HREF="subject.shtml#227">[ subject ]</A>
+<A HREF="author.shtml#227">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0228.shtml">Peter Watkinson: "RHCE"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0226.shtml">Michal Jaegermann: "Re: tru64-compat requirements"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0232.shtml">KirkE@paccessglobal.com: "RE: Interesting SCSI Performance Problems"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Dear Alpha Linux Users,
+<BR>
+<P>I have several Compaq XP-1000 workstations which I use for computationally
+<BR>
+intensive scientific calculations, which involve large amounts of memory
+<BR>
+and disk space.  Recently, after encountering substantial I/O performance
+<BR>
+problems on my systems, I ran a series of I/O tests to examine SCSI disk
+<BR>
+performance and found what appear to be host adapter/disk negotiation
+<BR>
+problems on boot-up.  I'm bringing this to the attention of the members of
+<BR>
+this list in order to get some feedback or perhaps to bring the problem
+<BR>
+to the attention of those who can come up with more elegant fixes than
+<BR>
+my workarounds.
+<BR>
+<P>On each of my workstations I have three 18 GB Ultra 160 SCSI disks, but,
+<BR>
+unfortunately the on-board host adapter is a Qlogic ISP1020 Ultra Wide SCSI
+<BR>
+that is capable of only 40 MB/s transfer rates.  I wrote a little test
+<BR>
+program to simply write a 2.4 GB file to disk, including the appropriate
+<BR>
+fdatasync() to isolate hardware problems from buffering.  My timing with
+<BR>
+the ISP1020 controller: a whopping 9 MB/s sustained transfer rate.
+<BR>
+<P>So, I ordered a Symbios Ultra2 SCSI controller which can get 80 MB/s just
+<BR>
+to see the speed difference.  I connected my scratch drives to the new
+<BR>
+controller and things improved substantially --- but still I could get
+<BR>
+only 34 MB/s.  I examined the logs carefully and found that the Symbios
+<BR>
+adapter and the disks were negotiating only a 40 MB/s transfer rate!  A good
+<BR>
+friend suggested that maybe the host adapter was trying to negotiate with
+<BR>
+the disks before they'd completely spun up.  So, I recompiled my kernel
+<BR>
+(2.4.1) to use the Symbios driver (sym53c8xx) as a module.  I then rebooted,
+<BR>
+inserted the Symbios module, and, as expected, the disks returned only 34
+<BR>
+MB/s transfer.  I then rmmod the driver and reinserted it immediately with
+<BR>
+no reboot so that the disks wouldn't spin down.  The host negaotiated an
+<BR>
+80 MB/s transfer rate with the disks (according to the logs) and my I/O
+<BR>
+test program reported a 74 MB/s transfer rate.  Amazing.
+<BR>
+<P>As a final test of this little phenomenon, I went to another of my XP-1000's
+<BR>
+with the pitiful Qlogic ISP1020 card.  On initial cold boot, I get the
+<BR>
+expected 9 MB/s transfer rate.  If I simply warm boot the machine and
+<BR>
+immediately re-run my I/O test, I get 16-17 MB/s.  This is better, but
+<BR>
+still less than half what the Qlogic card should be capable of.  I then
+<BR>
+looked through the qlogicisp.c driver code in the 2.4.2 kernel and played
+<BR>
+with default settings.  I found that if I recompiled the code to grab its
+<BR>
+defaults from the card's NVRAM, then I could get a 34 MB/s transfer rate
+<BR>
+out of the Qlogic card, but if I used the compiled-in defaults, I could
+<BR>
+get 17 MB/s at best.
+<BR>
+<P>In summary:
+<BR>
+<P>(1) It seems likely that the initial negotiation between the host adapater
+<BR>
+(both the Qlogic and Symbios cards) and the disks has problems, and that
+<BR>
+performance is greatly improved (doubled, in fact) simply by rebooting the
+<BR>
+machine.  This occurs with both Qlogic ISP1020 and Symbios host adapters
+<BR>
+with my Compaq Ultra 160 drives.
+<BR>
+<P>(2) The defaults for the Qlogic ISP1020 host adapter (which appears to be
+<BR>
+standard on the XP-1000 motherboard) would seem to result in only 20 MB/s
+<BR>
+transfers rather than the expected 40 MB/s with that Ultra Wide card.
+<BR>
+<P>Any comments you might have on these phenomena would be greatly
+<BR>
+appreciated.
+<BR>
+<P>-Daniel
+<BR>
+<P><PRE>
+-- 
+T. Daniel Crawford                           Department of Chemistry
+crawdad@vt.edu                                    Virginia Tech
+www.chem.vt.edu/chem-dept/crawford    Voice: 540-231-7760  FAX: 540-231-3255
+<P><P><P>_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0228.shtml">Peter Watkinson: "RHCE"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0226.shtml">Michal Jaegermann: "Re: tru64-compat requirements"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0232.shtml">KirkE@paccessglobal.com: "RE: Interesting SCSI Performance Problems"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Apr 10 10:35:32 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

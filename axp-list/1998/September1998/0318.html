@@ -1,0 +1,109 @@
+<!-- received="Wed Sep 16 04:18:12 1998 " -->
+<!-- sent="Wed, 16 Sep 1998 00:14:28 -0700 (PDT)" -->
+<!-- name="B. James Phillippe" -->
+<!-- email="bryan@terran.org" -->
+<!-- subject="Mistakes in glibc-2.0.7 includes" -->
+<!-- id="199809152303.RAA00411@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Mistakes in glibc-2.0.7 includes</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Mistakes in glibc-2.0.7 includes</h2>
+
+<b>B. James Phillippe</b> (<a href="mailto:bryan@terran.org"><i>bryan@terran.org</i></a>)<br>
+<i>Wed, 16 Sep 1998 00:14:28 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#318">[ date ]</a><a href="index.html#318">[ thread ]</a><a href="subject.html#318">[ subject ]</a><a href="author.html#318">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0319.html">Simon Kenyon: "Re: ANNOUNCE: JAVA jdk116 for ALPHA"</a>
+<li> <b>Previous message:</b> <a href="0317.html">Jonathan Vafai: "Re: ANNOUNCE: JAVA jdk116 for ALPHA"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0369.html">Rui-Tao Dong ~{6-HpLN~}: "Re: Mistakes in glibc-2.0.7 includes"</a>
+<li> <b>Reply:</b> <a href="0369.html">Rui-Tao Dong ~{6-HpLN~}: "Re: Mistakes in glibc-2.0.7 includes"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello,<br>
+<p>
+	I posted this information quite a while back but never got any<br>
+response.  I'd like to know what other folks think about this, if anyone<br>
+can please comment.<br>
+<p>
+The problem is that some files in the glibc includes specify fixed-size<br>
+variables (u_int32_t, u_int16_t, etc) in places where natural-size<br>
+variables are required.  In particular, &lt;netinet/ip_fw.h&gt; specifies struct<br>
+ip_fw as such:<br>
+<p>
+struct ip_fw {<br>
+  ...<br>
+  u_int16_t fw_nsp, fw_ndp;    /* N'of src ports and # of dst ports */<br>
+  ...<br>
+  u_int32_t fw_pcnt, fw_bcnt;    /* Packet and byte counters */<br>
+  ...<br>
+};<br>
+<p>
+fw_nsp and fw_ndp show a proper usage of fixed-size variables, afterall, a<br>
+port number is specified to be 16 bits.  However, the variables fw_pcnt and<br>
+fw_bcnt are an explicit 32 bits.  The problem is subtle..  These same<br>
+values in the Linux kernel are specified as "unsigned long".  On x86,<br>
+u_int32_t and unsigned long coincidentally happen to be the same size, and<br>
+the bug is masked.  However, on Alpha (and presumably UltraSparc) unsigned<br>
+long is 64 bits.  Now the bug is apparent, because when networking tools<br>
+use the include from the glibc headers, the struct ip_fw has the wrong<br>
+size.  This can cause syscalls such as setsockopt() to fail -EINVAL.<br>
+<p>
+The suggestion is to make variables which do not clearly require an<br>
+explicit size to use a natural size.  In the case I point out here, there<br>
+is no logical reason I can see to force a counter variable to a specific<br>
+number of bits.  Why limit architectures that are capable of better?<br>
+<p>
+FWIW, this little bugger is the cause of the "ifpwadm does not work" on<br>
+RedHat-5.1 and several unaligned accesses in various other networking tools<br>
+(several in net-tools).  I suspect a similar problem with tcpdump also, but<br>
+have not yet investigated further.<br>
+<p>
+thanks,<br>
+-bp<br>
+<pre>
+--
+B. James Phillippe &lt;<a href="mailto:bryan@terran.org">bryan@terran.org</a>&gt;
+Linux Software Engineer, WGTI.
+<a href="http://earth.terran.org/~bryan">http://earth.terran.org/~bryan</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0319.html">Simon Kenyon: "Re: ANNOUNCE: JAVA jdk116 for ALPHA"</a>
+<li> <b>Previous message:</b> <a href="0317.html">Jonathan Vafai: "Re: ANNOUNCE: JAVA jdk116 for ALPHA"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0369.html">Rui-Tao Dong ~{6-HpLN~}: "Re: Mistakes in glibc-2.0.7 includes"</a>
+<li> <b>Reply:</b> <a href="0369.html">Rui-Tao Dong ~{6-HpLN~}: "Re: Mistakes in glibc-2.0.7 includes"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

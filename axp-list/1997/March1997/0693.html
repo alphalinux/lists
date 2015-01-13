@@ -1,0 +1,125 @@
+<!-- received="Mon Mar 24 14:32:24 1997 " -->
+<!-- sent="Mon, 24 Mar 1997 14:04:22 -0500 (EST)" -->
+<!-- name="Jim Nance" -->
+<!-- email="jlnance@avanticorp.com" -->
+<!-- subject="more cc and gcc" -->
+<!-- id="9703241904.AA13267@halfpint.rtp.avanticorp.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>more cc and gcc</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>more cc and gcc</h2>
+
+<b>Jim Nance</b> (<a href="mailto:jlnance@avanticorp.com"><i>jlnance@avanticorp.com</i></a>)<br>
+<i>Mon, 24 Mar 1997 14:04:22 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#693">[ date ]</a><a href="index.html#693">[ thread ]</a><a href="subject.html#693">[ subject ]</a><a href="author.html#693">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0694.html">Randy Chapman: "Re: HotJava"</a>
+<li> <b>Previous message:</b> <a href="0692.html">Brandon Long: "Re: ssh on linux-alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello all,<br>
+<p>
+I am sorry it has taken me so long to respond to the feedback I received in<br>
+response to my last post where I compared the code produced by cc and gcc on<br>
+the alpha.  My father passed away the morning after I posted it, and I spent<br>
+the rest of the week in Wilmington, NC with my mother.<br>
+<p>
+Since my last message I have learned several important things from postings<br>
+to axp-list, which I would like to comment on here.  If you dont remember<br>
+my original message, take a look at:<br>
+<p>
+	    <a href="http://www.acs.uncwil.edu/~jlnance/mmul/index.html">http://www.acs.uncwil.edu/~jlnance/mmul/index.html</a><br>
+<p>
+1) gcc does not do loop unrolling without the -funroll-loops flag<br>
+<p>
+When I learned this I assumed that this was at the root of my problems,<br>
+especially after someone else reported that the 4x4 case ran 4 times<br>
+faster with the -funroll-loops flag on a PPro processor.  Unfortunately,<br>
+while the -funroll-loops flag helps, it does not help a lot, certainly<br>
+not enough to make it competitive with cc.  Given that it helps so much<br>
+on the PPro, it seems like an alpha specific problem.  Does the PPro do<br>
+out of order instruction execution?<br>
+<p>
+2) The 4x4 case runs much faster if the sum is accumulated into a temporary<br>
+   variable.<br>
+<p>
+For a more complete description of this see:<br>
+<p>
+<a href="http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0588.html">http://www.redhat.com/support/mailing-lists/archives/axp-list/1997-March/0588.html</a><br>
+<p>
+To me this seems like another optimizer problem.  When I wrote the code I<br>
+put the temporary 4x4 matrices on the stack so that the compiler would know<br>
+that it could optimize them w/o having to worry about any aliasing problems<br>
+or things like that.  If accumulating the sum into a temporary variable will<br>
+speed things up, I would expect the compiler to figure this out and do it.<br>
+<p>
+3) It seems that my method of timing things was non-portable.<br>
+<p>
+I have rewritten my program to use gettimeofday(), which is hopefully more<br>
+portable.  Someone also requested run times for smaller matrices that would<br>
+fit inside a 1M cache.  Here are the new results.  These were run under<br>
+Digital Unix on an AlphaStation 500/500 (8M cache) running Digital Unix 4.0.<br>
+The binaries are statically linked, so they should run under any version<br>
+of Linux/Alpha that has a.out support.  The binaries were compiled as:<br>
+<p>
+cc -non_shared -newc -std1 -fast simple.c -o mmul.cc<br>
+gcc -static -funroll-loops -O3 simple.c -o mmul.gccO3<br>
+<p>
+Time to square 1000x1000 matrix 2 times:<br>
+cc	136.883789    44.124023    50.171875 <br>
+gcc	185.990235    52.113281   104.900391<br>
+<p>
+Time to square 400x400 matrix 3 times:<br>
+cc	 8.157226     2.879883     4.245118 <br>
+gcc	11.041015     3.520508     9.496093<br>
+<p>
+Time to square 200x200 matrix 24 times:<br>
+cc	5.155273     2.146484     3.970704 <br>
+gcc	7.411132     2.407227     9.121094<br>
+<p>
+Again, I am supplying this data not because I want to complain about gcc,<br>
+which I have in general found to be an excellent program, but because this<br>
+test program is simple enough that it may be useful for people interested<br>
+in optimizing gcc.  If you are interested in getting the new source or<br>
+precompiled binaries, take a look at <br>
+<p>
+	<a href="http://www.acs.uncwil.edu/~jlnance/mmul/update/index.html">http://www.acs.uncwil.edu/~jlnance/mmul/update/index.html</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0694.html">Randy Chapman: "Re: HotJava"</a>
+<li> <b>Previous message:</b> <a href="0692.html">Brandon Long: "Re: ssh on linux-alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

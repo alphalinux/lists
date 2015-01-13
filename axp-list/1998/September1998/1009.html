@@ -1,0 +1,117 @@
+<!-- received="Wed Sep 30 12:04:30 1998 " -->
+<!-- sent="Wed, 30 Sep 1998 17:55:08 +0300 (EEST)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="screen at Linux/Alpha blows up, unless..." -->
+<!-- id="19980930145521Z92253-460+1@mea.tmt.tele.fi" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>screen at Linux/Alpha blows up, unless...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>screen at Linux/Alpha blows up, unless...</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@sonera.fi"><i>matti.aarnio@sonera.fi</i></a>)<br>
+<i>Wed, 30 Sep 1998 17:55:08 +0300 (EEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1009">[ date ]</a><a href="index.html#1009">[ thread ]</a><a href="subject.html#1009">[ subject ]</a><a href="author.html#1009">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1010.html">Bob McElrath: "Re: redhat RPM &amp; bin license."</a>
+<li> <b>Previous message:</b> <a href="1008.html">Jeff Sturm: "Re: Java with RMI on Alpha?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+resent with corrected address to axp-list ...<br>
+( Subject:  screen at Linux/Alpha blows up, unless... )<br>
+( To:  <a href="mailto:screen@uni-erlangen.de">screen@uni-erlangen.de</a>, axp-linux@redhat.com )<br>
+<p>
+Hello,<br>
+<p>
+	At RedHat 5.1 there is screen version 3.7.4 along with<br>
+	two patches from 3.6.2 era with (mainly) PTY related<br>
+	fixes to support Linux.<br>
+<p>
+	When autoconfiguring that into GLIBC 2.0 system the result<br>
+	gets one thing wrong -- perhaps source-code should be altered ?<br>
+	Namely, the source tries to use its own  xvsnprintf() routine<br>
+	which has some  "xva_list"  argument list definition.<br>
+<p>
+	Unfortunately that "xva_list" does not match the real "va_list"<br>
+	as used in the system, and thus sometimes the result is apparent<br>
+	corruption of the stack-frame with seeminly innocent usage:<br>
+<p>
+	Call:	Msg(..., "foomsg %s", strptr);<br>
+<p>
+	The "strptr" value appears to be truncated into 32-bits, and<br>
+	as such its value is the high 32-bits of the 64-bit "fmt"<br>
+	pointer...  NULL, that is.<br>
+<p>
+	Naturally the screen gets a SIGSEGV from that, and all the hell<br>
+	has broken loose.<br>
+<p>
+	The sad part is, the ./configure  run has detected that the<br>
+	system has  vsnprintf()  and has set:<br>
+		HAS_VSNPRINTF<br>
+	variable into  config.h  file.<br>
+	However, that condition variable is only tested if another<br>
+	variable is set, namely:<br>
+		USEVARARGS<br>
+	which isn't set..   Manually setting that after the configuration<br>
+	run was complete did produce sane and working program which<br>
+	reported "Bell at screen N" when I was at some other screen.<br>
+	So it can be coerced to behave like it does at ia32 machines<br>
+	with otherwise same environment.<br>
+<p>
+	Another issue is that the system does not appear to do<br>
+	test for "getcwd", and uses 'os.h' to rely on "-DSYSV"<br>
+	definition to tell when to cast that fine supported and<br>
+	well working routine into deprecated  getwd()  version.<br>
+<p>
+<p>
+	How to fix these ?<br>
+	At ZMailer I use following tests in  configure.in,  and<br>
+	related output values in my  config.h(.in):<br>
+<p>
+		AC_CHECK_HEADERS(varargs.h stdarg.h)<br>
+		AC_CHECK_FUNCS(getcwd)<br>
+<p>
+	My code there then sees if 'HAVE_STDARG_H' is defined, and<br>
+	acts according to it (modulo __STDC__.)  If that is not found,<br>
+	my code falls back to assume 'HAVE_VARARGS_H'.<br>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@sonera.fi">matti.aarnio@sonera.fi</a>&gt;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1010.html">Bob McElrath: "Re: redhat RPM &amp; bin license."</a>
+<li> <b>Previous message:</b> <a href="1008.html">Jeff Sturm: "Re: Java with RMI on Alpha?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: gcc -O2 on alpha miscompiles ifupdown?</TITLE>
+<META NAME="Author" CONTENT="Anthony Towns (aj@azure.humbug.org.au)">
+<META NAME="Subject" CONTENT="gcc -O2 on alpha miscompiles ifupdown?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>gcc -O2 on alpha miscompiles ifupdown?</H1>
+<HR>
+<P>
+<!-- received="Fri Jan 05 15:46:00 2001" -->
+<!-- isoreceived="20010105234600" -->
+<!-- sent="Thu, 4 Jan 2001 13:34:17 +1000" -->
+<!-- isosent="20010104033417" -->
+<!-- name="Anthony Towns" -->
+<!-- email="aj@azure.humbug.org.au" -->
+<!-- subject="gcc -O2 on alpha miscompiles ifupdown?" -->
+<!-- id="20010104133417.C1258@azure.humbug.org.au" -->
+<STRONG>Subject: </STRONG>gcc -O2 on alpha miscompiles ifupdown?<BR>
+<STRONG>From: </STRONG>Anthony Towns (<EM>aj@azure.humbug.org.au</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jan 03 2001 - 19:34:17 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#0">[ date ]</A>
+<A HREF="index.html#0">[ thread ]</A>
+<A HREF="subject.html#0">[ subject ]</A>
+<A HREF="author.html#0">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0001.html">Branden Robinson: "XFree86 4.0.2 status"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.html">Ron Farrer: "Re: gcc -O2 on alpha miscompiles ifupdown?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+(Please Cc me, I'm not on the debian-alpha list)
+<BR>
+<P>Hello world,
+<BR>
+<P>Like the subject says; if I build ifupdown (0.6.4-1) on alpha with -O2
+<BR>
+it breaks, if I build it with -O0, it's fine. With -O2, trying to trace
+<BR>
+what's going on with gdb doesn't seem to work (it jumps all over the
+<BR>
+place, fairly meaninglessly).
+<BR>
+<P>In theory, ifupdown should just be a fairly normal ANSI C program. Most
+<BR>
+of the data structures aren't too complicated, and at worse there are
+<BR>
+a few function pointers. I think everything's fully typed, and there
+<BR>
+shouldn't be any weird casting. There was some buggy realloc's in the
+<BR>
+past (reallocing 4 bytes, instead of 4*sizeof(obj) bytes, mainly),
+<BR>
+but I believe they're all gone.
+<BR>
+<P>The buggy behaviour can probably be duplicated with:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$ cat interfaces.tst
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auto lo
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iface lo inet loopback
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auto eth0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iface eth0 inet static
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address 10.254.0.104
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;network 10.254.0.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;broadcast 10.254.0.255
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gateway 10.254.0.254
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auto eth2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iface eth2 inet static
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address 192.168.115.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auto eth3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iface eth3 inet static
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address 192.168.116.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auto eth4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iface eth4 inet static
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address 192.168.117.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$ ./ifup -nv -i interfaces.tst -a
+<BR>
+<P>It'll give a list of the commands it'd execute to bring all five
+<BR>
+interfaces up if it's working, some fairly nonsensical error if not.
+<BR>
+<P>Cheers,
+<BR>
+aj
+<BR>
+<P><PRE>
+-- 
+Anthony Towns &lt;aj@humbug.org.au&gt; &lt;<A HREF="http://azure.humbug.org.au/~aj/">http://azure.humbug.org.au/~aj/</A>&gt;
+I don't speak for anyone save myself. GPG signed mail preferred.
+<P>     ``Thanks to all avid pokers out there''
+                       -- linux.conf.au, 17-20 January 2001
+<P><P></PRE>
+<HR>
+<UL>
+<LI>application/pgp-signature attachment: <A HREF="att-bin0L9gINZ">stored</A>
+</UL>
+<!-- attachment="att-bin0L9gINZ" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0001.html">Branden Robinson: "XFree86 4.0.2 status"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0003.html">Ron Farrer: "Re: gcc -O2 on alpha miscompiles ifupdown?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:54:59 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

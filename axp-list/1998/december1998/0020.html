@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Unable to load interpreter // VM thrashing or har</TITLE>
+<META NAME="Author" CONTENT="Bob McElrath (mcelrath@draal.physics.wisc.edu)">
+<META NAME="Subject" CONTENT="Re: Unable to load interpreter // VM thrashing or hardware ???">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Unable to load interpreter // VM thrashing or hardware ???</H1>
+<HR>
+<P>
+<!-- received="Tue Dec 01 17:56:27 1998 PST" -->
+<!-- sent="Tue, 1 Dec 1998 11:56:01 -0600 (EST)" -->
+<!-- name="Bob McElrath" -->
+<!-- email="mcelrath@draal.physics.wisc.edu" -->
+<!-- subject="Re: Unable to load interpreter // VM thrashing or hardware ???" -->
+<!-- id="Pine.LNX.4.04.9812011135080.28732-100000@draal.physics.wisc.edu" -->
+<!-- inreplyto="199812011726.SAA30844@beta.mdy.univie.ac.at" -->
+<STRONG>Bob McElrath</STRONG> (<A HREF="mailto:mcelrath@draal.physics.wisc.edu?subject=Re:%20Unable%20to%20load%20interpreter%20//%20VM%20thrashing%20or%20hardware%20???"><EM>mcelrath@draal.physics.wisc.edu</EM></A>)<BR>
+<EM>Tue, 1 Dec 1998 11:56:01 -0600 (EST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#20">[ date ]</A>
+<A HREF="index.html#20">[ thread ]</A>
+<A HREF="subject.html#20">[ subject ]</A>
+<A HREF="author.html#20">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0021.html">Greg Lindahl: "Re: Unable to load interpreter // VM thrashing or hardware ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0019.html">Maurice Hilarius: "RE: Is XL300 or EBP41-AN any good?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 1 Dec 1998, Stefan Boresch wrote:
+<BR>
+<P><EM>&gt; I hope that I am not going on everyone's nerves, but the sudden
+</EM><BR>
+<EM>&gt; instabilities of my two Alpha LXs frustrate me. I thought that I
+</EM><BR>
+<EM>&gt; have yet another hardware problem, but now I start to doubt this.
+</EM><BR>
+<EM>&gt; And from some posts to the initial thread, it seems that I am
+</EM><BR>
+<EM>&gt; not the only one having these problems.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; First, thanks for the replies received so far; at least, I understand
+</EM><BR>
+<EM>&gt; now that the error message indicates insufficient
+</EM><BR>
+<EM>&gt; memory.  However, I don't understand how the VM system gets in
+</EM><BR>
+<EM>&gt; this state, so I'd like to discern between possible hardware and
+</EM><BR>
+<EM>&gt; software reasons.  Some observations:
+</EM><BR>
+<P>How many iterations of this program does it usually require to fail?  I'm
+<BR>
+reluctant to run it for too long since it fills up all of RAM and brings my
+<BR>
+machine to a crawl...  However, it passed the first time through.  (still
+<BR>
+running...I'll let you know if it fails)
+<BR>
+<P><EM>&gt; (1) The problem (reproducible for me with the code given at the end
+</EM><BR>
+<EM>&gt; of this mail) shows up with both the RH 5.1 provided milo and 2.0.35
+</EM><BR>
+<EM>&gt; source, as well as with the Oct 10, 1998 milo, pristine 2.0.35 sources
+</EM><BR>
+<EM>&gt; plus the alpha-2.0.35-0.2 patches by Jay.
+</EM><BR>
+<P>I highly doubt this has anything to do with your MILO.
+<BR>
+<P><EM>&gt; (2) The problem appears with the default /proc/sys/kernel/{file-max,
+</EM><BR>
+<EM>&gt; inode-max}, as well as with file-max=2048 and inode-max=8192.  Further,
+</EM><BR>
+<EM>&gt; why would that affect anything with respect to 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (3) The old panacea of setenv MEMORY_SIZE 252 doesn't help either
+</EM><BR>
+<P>What does this have to do with problems of a 256MB malloc?
+<BR>
+<P>BTW these are in /proc/sys/fs on my system (2.1.129 kernel).  And they are:
+<BR>
+(1)&lt;(1)&lt;mcelrath@draal:/var/log&gt; cat /proc/sys/fs/file-max 
+<BR>
+4096
+<BR>
+(0)&lt;(0)&lt;mcelrath@draal:/var/log&gt; cat /proc/sys/fs/inode-max 
+<BR>
+8192
+<BR>
+<P><EM>&gt; (4) Watching a bit with free, shows an interesting pattern:  For
+</EM><BR>
+<EM>&gt; several iterations in the test (4-5), the free amount of virtual
+</EM><BR>
+<EM>&gt; memory is where I expect it to be, well &gt; 100MB (for my machine,
+</EM><BR>
+<EM>&gt; details follow with the source code). Suddenly, in the fifth or sixth
+</EM><BR>
+<EM>&gt; iteration, the virtual memory falls rapidly to 0; obviously, this
+</EM><BR>
+<EM>&gt; is when the problem occurs.
+</EM><BR>
+<P>Watching with top, I can see that during your &quot;Testing...&quot; phase the swap
+<BR>
+increases dramatically.  On my machine it goes up to ~300MB.  During
+<BR>
+&quot;Filling...&quot; it drops to ~128MB.  I have about 50MB of other apps running at
+<BR>
+the same time.  I don't know why it would use 300MB of swap, but if you only
+<BR>
+have 2x136M, this is clearly where your problem lies.  (I have 512MB swap --
+<BR>
+most people recommend to have twice as much swap as you have RAM).
+<BR>
+<P><EM>&gt; (5) The same testcase (adjusted for memory sizes) runs for hours on
+</EM><BR>
+<EM>&gt; both an UX(!) (kernel compiled from pristine 2.0.35 plus alpha-patches
+</EM><BR>
+<EM>&gt; plus the 2.0.35-0.1 alpha patches by Jay, plus a fairly recent ldmilo
+</EM><BR>
+<EM>&gt; + pal-codes by Jay, plus a larger value of SHMMAX in shmparam.h, some
+</EM><BR>
+<EM>&gt; black magic at least at some point necessary for the UX) and an Intel
+</EM><BR>
+<EM>&gt; machine after a default RH 5.2 installation.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (6) As I said earlier, I suspected initially hardware problems, since one
+</EM><BR>
+<EM>&gt; of the afflicted machines had a number of problems in the past.  However, the
+</EM><BR>
+<EM>&gt; second machine has been running perfectly for several weeks, only that we
+</EM><BR>
+<EM>&gt; now have an application that apparently leads to heavy paging.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It would be great if someone were willing to try whether he/she can
+</EM><BR>
+<EM>&gt; reproduce the problem on a similar configuration.  For me, the problem
+</EM><BR>
+<EM>&gt; shows up within an hour; provided one kills the test-executable by
+</EM><BR>
+<EM>&gt; Ctrl-C fairly quickly, the systems recover or can at least be shut
+</EM><BR>
+<EM>&gt; down cleanly.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; My systems are both LX 533MHz, 256MB RAM, 2 x 136512k swap space (I
+</EM><BR>
+<EM>&gt; thought on an Alpha with a page size of 8k this was fine?), Adaptec
+</EM><BR>
+<EM>&gt; 2940U/UW, respectively.  Both run RH 5.1, and normally a kernel 
+</EM><BR>
+<EM>&gt; compiled from the RH provided 2.0.35 sources.  I remember hearing
+</EM><BR>
+<EM>&gt; rumours that there are definitely problems on large memory machines
+</EM><BR>
+<EM>&gt; &gt;= 512M (both LX/UX); could anyone more knowledgeable comment on
+</EM><BR>
+<EM>&gt; those issues?
+</EM><BR>
+<P>I have an LX 533MHz, 256MB RAM, 512MB swap space, BusLogic BT-958
+<BR>
+(UltraWide, with IBM Ultrastar disk), RH 5.1 install, but kernel 2.1.129.
+<BR>
+<P><EM>&gt; Well, finally, here is the test case (with slight modifications 
+</EM><BR>
+<EM>&gt; identical to code from D.Gilbert posted here several months ago):
+</EM><BR>
+<EM>&gt; The SIZE variable is chosen for my RAM size, i.e. I enforce 
+</EM><BR>
+<EM>&gt; swapping: this same test runs happily with SIZE being set to 240*256*..
+</EM><BR>
+<EM>&gt; which on an empty machine seems to fit in RAM.
+</EM><BR>
+<P>&lt;code omitted&gt;
+<BR>
+<P>-- Bob
+<BR>
+<P>Bob McElrath (<A HREF="mailto:mcelrath@draal.physics.wisc.edu?subject=Re:%20Unable%20to%20load%20interpreter%20//%20VM%20thrashing%20or%20hardware%20???">mcelrath@draal.physics.wisc.edu</A>) Univ. of Wisconsin at Madison
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Unable%20to%20load%20interpreter%20//%20VM%20thrashing%20or%20hardware%20???">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Unable%20to%20load%20interpreter%20//%20VM%20thrashing%20or%20hardware%20???">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0021.html">Greg Lindahl: "Re: Unable to load interpreter // VM thrashing or hardware ???"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0019.html">Maurice Hilarius: "RE: Is XL300 or EBP41-AN any good?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Dec 01 1998 - 15:17:15 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

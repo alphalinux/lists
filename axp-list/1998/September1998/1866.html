@@ -1,0 +1,118 @@
+<!-- received="Tue Oct 20 10:53:34 1998 " -->
+<!-- sent="Tue, 20 Oct 1998 15:47:37 +0200 (CEST)" -->
+<!-- name="Herbert Riedel" -->
+<!-- email="hvr@hvrlab.ml.org" -->
+<!-- subject="Re: DU binaries and /sbin/loader (argv[0] problem?)" -->
+<!-- id="13868.32374.553367.438108@pan.persimmon.co.uk" -->
+<!-- inreplyto="13868.32374.553367.438108@pan.persimmon.co.uk" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: DU binaries and /sbin/loader (argv[0] problem?)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: DU binaries and /sbin/loader (argv[0] problem?)</h2>
+
+<b>Herbert Riedel</b> (<a href="mailto:hvr@hvrlab.ml.org"><i>hvr@hvrlab.ml.org</i></a>)<br>
+<i>Tue, 20 Oct 1998 15:47:37 +0200 (CEST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1866">[ date ]</a><a href="index.html#1866">[ thread ]</a><a href="subject.html#1866">[ subject ]</a><a href="author.html#1866">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1867.html">Herbert Riedel: "Re: 164sx (cooling?) problem"</a>
+<li> <b>Previous message:</b> <a href="1865.html">Aideen McConville: "DU binaries and /sbin/loader (argv[0] problem?)"</a>
+<li> <b>In reply to:</b> <a href="1868.html">RHS Linux User: "Milo in Flash rom"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 20 Oct 1998, Aideen McConville wrote:<br>
+<p>
+<i>&gt; I've tried running some 3.2 DU binaries under RH 5.1 (both 2.0.34 and</i><br>
+<i>&gt; 2.0.35 kernels) and don't know what to do about the "/sbin/loader</i><br>
+<i>&gt; being passed as argv[0]" problem.</i><br>
+<p>
+<i>&gt; --- exec.c      Tue Jan 20 17:57:24 1998</i><br>
+<i>&gt; +++ exec.c~     Tue Dec  2 18:35:05 1997</i><br>
+<i>&gt; @@ -654,7 +654,7 @@</i><br>
+<i>&gt;                 dput(bprm-&gt;dentry);</i><br>
+<i>&gt;                 bprm-&gt;dentry = NULL;</i><br>
+<i>&gt;                 remove_arg_zero(bprm);</i><br>
+<i>&gt; -               bprm-&gt;p = copy_strings(1, &amp;bprm-&gt;filename, bprm-&gt;page, bprm-&gt;p, 2);</i><br>
+<i>&gt; +               bprm-&gt;p = copy_strings(1, dynloader, bprm-&gt;page, bprm-&gt;p, 2);</i><br>
+<i>&gt;                 bprm-&gt;argc++;</i><br>
+<i>&gt;                 bprm-&gt;loader = bprm-&gt;p;</i><br>
+<i>&gt;                 dentry = open_namei(dynloader[0], 0, 0);</i><br>
+ <br>
+<i>&gt; This worked for xemacs but sent communicator into a loop at startup.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Is there any other fix?</i><br>
+Well... one night I was quite annoyed by that argv0 bug that I dared to do<br>
+fix it myself :)<br>
+<p>
+<p>
+--- exec.c-dist Sat Oct 10 12:31:27 1998<br>
++++ exec.c      Mon Oct 12 01:43:12 1998<br>
+@@ -761,9 +761,11 @@<br>
+ <br>
+                dput(bprm-&gt;dentry);<br>
+                bprm-&gt;dentry = NULL;<br>
+-               remove_arg_zero(bprm);<br>
+-               bprm-&gt;p = copy_strings(1, dynloader, bprm-&gt;page, bprm-&gt;p,<br>
+2);<br>
+-               bprm-&gt;argc++;<br>
++/* test by HVR<br>
++ *             remove_arg_zero(bprm);<br>
++ *             bprm-&gt;p = copy_strings(1, dynloader, bprm-&gt;page, bprm-&gt;p,<br>
+2);<br>
++ */            bprm-&gt;argc++;<br>
++               bprm-&gt;argc--;<br>
+                bprm-&gt;loader = bprm-&gt;p;<br>
+                dentry = open_namei(dynloader[0], 0, 0);<br>
+                retval = PTR_ERR(dentry);<br>
+<p>
+<p>
+Well... I don't know exactly what bprm-&gt;loader is needed for... actually I<br>
+didn't notice any problems with it being pointed to argv0 ...<br>
+<p>
+maybe someone can enlighten me on that? :)<br>
+<p>
+<pre>
+--
+"The idea that Bill Gates has appeared like a knight in shining armour to
+lead all customers out of a mire of  technological chaos neatly ignores the
+fact that it was he who, by peddling second-rate technology, led them into
+it in the first place." - Douglas Adams, on Windows '95.
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1867.html">Herbert Riedel: "Re: 164sx (cooling?) problem"</a>
+<li> <b>Previous message:</b> <a href="1865.html">Aideen McConville: "DU binaries and /sbin/loader (argv[0] problem?)"</a>
+<li> <b>In reply to:</b> <a href="1868.html">RHS Linux User: "Milo in Flash rom"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

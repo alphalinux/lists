@@ -1,0 +1,258 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.99-3 axp combo patch</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: 2.3.99-3 axp combo patch">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.99-3 axp combo patch</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 30 16:08:19 2000" -->
+<!-- isoreceived="20000331000819" -->
+<!-- sent="Thu, 30 Mar 2000 02:17:19 +0200 (CEST)" -->
+<!-- isosent="20000330001719" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: 2.3.99-3 axp combo patch" -->
+<!-- id="Pine.LNX.4.21.0003300212580.907-100000@alpha.random" -->
+<!-- inreplyto="20000329091552.A1958@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: 2.3.99-3 axp combo patch<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 29 2000 - 16:17:19 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#161">[ date ]</A>
+<A HREF="index.html#161">[ thread ]</A>
+<A HREF="subject.html#161">[ subject ]</A>
+<A HREF="author.html#161">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0162.html">David Huggins-Daines: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0160.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0152.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0172.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0152.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 29 Mar 2000, Richard Henderson wrote:
+<BR>
+<P><EM>&gt;The only reason you were able to move anything at all is that
+</EM><BR>
+<EM>&gt;you were using bootpfile.[..]
+</EM><BR>
+<P>Oh btw (talking about bootpfile), I recently noticed that bootpfile is
+<BR>
+broken since via bootpfile nobody clears the bss and we rely on the bss to
+<BR>
+be clear all over the kernel. To fix that instead of adding still more
+<BR>
+assembler all over the place I removed the assembler from the x86 point
+<BR>
+and I am doing now that in the common code so nobody can forget about that
+<BR>
+anymore. Patch against 2.2.15pre16:
+<BR>
+<P>diff -urN 2.2.14/arch/alpha/vmlinux.lds bss/arch/alpha/vmlinux.lds
+<BR>
+--- 2.2.14/arch/alpha/vmlinux.lds	Mon Jan 17 16:44:33 2000
+<BR>
++++ bss/arch/alpha/vmlinux.lds	Thu Mar 30 01:35:21 2000
+<BR>
+@@ -39,9 +39,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;.got : { *(.got) }
+<BR>
+&nbsp;&nbsp;&nbsp;.sdata : { *(.sdata) }
+<BR>
+&nbsp;&nbsp;&nbsp;_edata = .;
+<BR>
+-  _bss = .;
+<BR>
++
+<BR>
++  __bss_start = .;
+<BR>
+&nbsp;&nbsp;&nbsp;.sbss : { *(.sbss) *(.scommon) }
+<BR>
+&nbsp;&nbsp;&nbsp;.bss : { *(.bss) *(COMMON) }
+<BR>
++  __bss_stop = .;
+<BR>
+&nbsp;&nbsp;&nbsp;_end = .;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;.mdebug 0 : { *(.mdebug) }
+<BR>
+diff -urN 2.2.14/arch/i386/kernel/head.S bss/arch/i386/kernel/head.S
+<BR>
+--- 2.2.14/arch/i386/kernel/head.S	Mon Jan 17 16:44:33 2000
+<BR>
++++ bss/arch/i386/kernel/head.S	Thu Mar 30 01:37:31 2000
+<BR>
+@@ -83,22 +83,12 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;orw  %bx,%bx
+<BR>
+-	jz  1f				/* Initial CPU cleans BSS */
+<BR>
++	jz  1f				/* Initial CPU setup the system */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pushl $0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;popfl
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jmp checkCPUtype
+<BR>
+&nbsp;1:
+<BR>
+&nbsp;#endif __SMP__
+<BR>
+-/*
+<BR>
+- * Clear BSS first so that there are no surprises...
+<BR>
+- */
+<BR>
+-	xorl %eax,%eax
+<BR>
+-	movl $ SYMBOL_NAME(__bss_start),%edi
+<BR>
+-	movl $ SYMBOL_NAME(_end),%ecx
+<BR>
+-	subl %edi,%ecx
+<BR>
+-	cld
+<BR>
+-	rep
+<BR>
+-	stosb
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* start system 32-bit setup. We need to re-do some of the things done
+<BR>
+&nbsp;&nbsp;* in 16-bit mode for the &quot;real&quot; operations.
+<BR>
+diff -urN 2.2.14/arch/i386/vmlinux.lds.S bss/arch/i386/vmlinux.lds.S
+<BR>
+--- 2.2.14/arch/i386/vmlinux.lds.S	Mon Jan 17 16:44:33 2000
+<BR>
++++ bss/arch/i386/vmlinux.lds.S	Thu Mar 30 01:35:01 2000
+<BR>
+@@ -56,6 +56,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;.bss : {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(.bss)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++  __bss_stop = .;
+<BR>
+&nbsp;&nbsp;&nbsp;_end = . ;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* Stabs debugging sections.  */
+<BR>
+diff -urN 2.2.14/init/main.c bss/init/main.c
+<BR>
+--- 2.2.14/init/main.c	Wed Jan  5 14:16:56 2000
+<BR>
++++ bss/init/main.c	Thu Mar 30 01:35:47 2000
+<BR>
+@@ -1203,6 +1203,13 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void initialize_secondary(void);
+<BR>
+&nbsp;
+<BR>
++static void __init clear_bss(void)
+<BR>
++{
+<BR>
++	extern char * __bss_start, __bss_stop;
+<BR>
++	memset(__bss_start, 0,
+<BR>
++	       (unsigned long) __bss_stop - (unsigned long) __bss_start);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;*	Activate the first processor.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+@@ -1210,9 +1217,13 @@
+<BR>
+&nbsp;asmlinkage void __init start_kernel(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char * command_line;
+<BR>
+-
+<BR>
+&nbsp;#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static int boot_cpu = 1;
+<BR>
++#endif
+<BR>
++
+<BR>
++	clear_bss();
+<BR>
++
+<BR>
++#ifdef __SMP__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* &quot;current&quot; has been set up, we need to load it now */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!boot_cpu)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;initialize_secondary();
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0162.html">David Huggins-Daines: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0160.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0152.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0172.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0152.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

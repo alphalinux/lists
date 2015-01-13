@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Interrupts &amp;&amp; Rawhide...</H1> 
+	
+<!-- received="Sun Mar 11 20:05:21 2001" -->
+<!-- isoreceived="20010312040521" -->
+<!-- sent="Sun, 11 Mar 2001 11:42:52 -0800 (PST)" -->
+<!-- isosent="20010311194252" -->
+<!-- name="Matthew Jacob" -->
+<!-- email="mjacob@feral.com" -->
+<!-- subject="Interrupts &amp;&amp; Rawhide..." -->
+<!-- id="Pine.LNX.4.21.0103111126400.29879-100000@zeppo.feral.com" -->
+<!-- inreplyto="200102062014.AA08342@polaris.mro.cpqcorp.net" -->
+<STRONG>Subject: </STRONG>Interrupts && Rawhide...<BR>
+<STRONG>From: </STRONG>Matthew Jacob (<EM>mjacob@feral.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Mar 11 11:42:52 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#83">[ date ]</A>
+<A HREF="index.shtml#83">[ thread ]</A>
+<A HREF="subject.shtml#83">[ subject ]</A>
+<A HREF="author.shtml#83">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.shtml">kingmiro: "Re: Trouble installing 7.0 on PWS 500a: still more info"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.shtml">Don Russell: "Re: Trouble installing 7.0 on PWS 500a: still more info"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+We had a problem in FreeBSD-alpha with not being able to dismiss interrupts
+<BR>
+correctly at interrupt time (ithreads need to passivate interrupts w/o
+<BR>
+actually talking to the hardware involved as they'll then get rescheduled and
+<BR>
+run like all ithreads).
+<BR>
+<P>Compaq was helpful in suggesting a fix for this - which worked for FreeBSD.
+<BR>
+<P>I've now taken the same h/w (4-way 2-hose system) and I'd been having a
+<BR>
+heckuva time getting 2.4.2 running on it- it would hang trying to access
+<BR>
+something on the 2nd hose....Applying the following patches seems to have
+<BR>
+helped but I haven't figured out yet why...
+<BR>
+<P>But I did notice that the fix for dismissing a pending interrupt when
+<BR>
+disabling an IRQ is missing in Linux- might be of some use....
+<BR>
+<P><P>diff -u linux.orig/arch/alpha/kernel/core_mcpcia.c linux/arch/alpha/kernel/core_mcpcia.c
+<BR>
+--- linux.orig/arch/alpha/kernel/core_mcpcia.c	Wed Jun 21 22:30:59 2000
+<BR>
++++ linux/arch/alpha/kernel/core_mcpcia.c	Sun Mar 11 10:14:02 2001
+<BR>
+@@ -43,6 +43,8 @@
+<BR>
+&nbsp;# define DBG_CFG(args)
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++spinlock_t rawhide_confspace_lock = SPIN_LOCK_UNLOCKED;
+<BR>
++
+<BR>
+&nbsp;#define MCPCIA_MAX_HOSES 4
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+@@ -95,8 +97,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long mid = MCPCIA_HOSE2MID(hose-&gt;index);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int stat0, value, temp, cpu;
+<BR>
+&nbsp;
+<BR>
+-	cpu = smp_processor_id();
+<BR>
+&nbsp;
+<BR>
++	spin_lock(&amp;rawhide_confspace_lock);
+<BR>
++
+<BR>
++	cpu = smp_processor_id();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__save_and_cli(flags);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_CFG((&quot;conf_read(addr=0x%lx, type1=%d, hose=%d)\n&quot;,
+<BR>
+@@ -132,6 +136,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_CFG((&quot;conf_read(): finished\n&quot;));
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__restore_flags(flags);
+<BR>
++	spin_unlock(&amp;rawhide_confspace_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return value;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -143,6 +148,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long mid = MCPCIA_HOSE2MID(hose-&gt;index);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int stat0, temp, cpu;
+<BR>
+&nbsp;
+<BR>
++	spin_lock(&amp;rawhide_confspace_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpu = smp_processor_id();
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__save_and_cli(flags);	/* avoid getting hit by machine check */
+<BR>
+@@ -168,6 +174,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_CFG((&quot;conf_write(): finished\n&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__restore_flags(flags);
+<BR>
++	spin_unlock(&amp;rawhide_confspace_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int
+<BR>
+diff -u linux.orig/arch/alpha/kernel/sys_rawhide.c linux/arch/alpha/kernel/sys_rawhide.c
+<BR>
+--- linux.orig/arch/alpha/kernel/sys_rawhide.c	Fri Oct 27 10:55:01 2000
+<BR>
++++ linux/arch/alpha/kernel/sys_rawhide.c	Sun Mar 11 10:11:37 2001
+<BR>
+@@ -49,6 +49,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)MCPCIA_INT_MASK0(MCPCIA_HOSE2MID(hose)) = mask;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(vuip)MCPCIA_INT_MASK0(MCPCIA_HOSE2MID(hose));
+<BR>
++
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void 
+<BR>
+@@ -80,6 +81,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask = cached_irq_masks[hose] &amp;= ~(1 &lt;&lt; irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask |= hose_irq_masks[hose];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rawhide_update_irq_hw(hose, mask);
+<BR>
++	*(vuip)MCPCIA_INT_REQ(MCPCIA_HOSE2MID(hose)) = 1 &lt;&lt; irq;
+<BR>
++	mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spin_unlock(&amp;rawhide_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0084.shtml">kingmiro: "Re: Trouble installing 7.0 on PWS 500a: still more info"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0082.shtml">Don Russell: "Re: Trouble installing 7.0 on PWS 500a: still more info"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Apr 10 10:35:31 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

@@ -1,0 +1,138 @@
+<!-- received="Wed Jun 18 13:30:21 1997 " -->
+<!-- sent="Wed, 18 Jun 1997 19:18:39 +0200" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="Red Hat 4.2 installation woes" -->
+<!-- id="199706181543.LAA31518@edifax.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Red Hat 4.2 installation woes</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Red Hat 4.2 installation woes</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Wed, 18 Jun 1997 19:18:39 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#549">[ date ]</a><a href="index.html#549">[ thread ]</a><a href="subject.html#549">[ subject ]</a><a href="author.html#549">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0550.html">Harald Koenig: "how to disable the TGA chip in UDB166 ?"</a>
+<li> <b>Previous message:</b> <a href="0548.html">Harald Koenig: "MILO problem..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+upgrading to RH 4.2 showed some problems:<br>
+<p>
+trying to upgrade the XL266 from CDROM was a major pain, because<br>
+the TOSHIBA XM-5301 cdrom drive needs ~5+ seconds to "initiate"<br>
+after a SCSI bus reset.  as a result it was not yet ready<br>
+when the kernel tried to mount the root fs from CD and it died.<br>
+<p>
+here are the SCSI messages for normal startup:<br>
+<p>
+	ncr53c8xx: at PCI bus 0, device 6, function 0<br>
+	ncr53c8xx: unit=0 chip=810 rev=0x1 base=0x51000000, io_port=0xb400, irq=11<br>
+	ncr53c810-0: restart (scsi reset).<br>
+	scsi0 : ncr53c8xx - revision 1.18d<br>
+	scsi : 1 host.<br>
+	  Vendor: DEC       Model: RZ26L    (C) DEC  Rev: 442D<br>
+	  Type:   Direct-Access                      ANSI SCSI revision: 02<br>
+	Detected scsi disk sda at scsi0, channel 0, id 0, lun 0<br>
+	  Vendor: SGI       Model: IBM  0662 S08     Rev: 1S11<br>
+	  Type:   Direct-Access                      ANSI SCSI revision: 02<br>
+	Detected scsi disk sdb at scsi0, channel 0, id 2, lun 0<br>
+	  Vendor: TOSHIBA   Model: CD-ROM XM-5301TA  Rev: 0925<br>
+	  Type:   CD-ROM                             ANSI SCSI revision: 02<br>
+	Detected scsi CD-ROM sr0 at scsi0, channel 0, id 5, lun 0<br>
+	scsi : detected 1 SCSI cdrom 2 SCSI disks total.<br>
+	ncr53c810-0-&lt;0,0&gt;: FAST SCSI-2 10.0 MB/s (100 ns, offset 8)<br>
+	SCSI device sda: hdwr sector= 512 bytes. Sectors= 2050860 [1001 MB] [1.0 GB]<br>
+	ncr53c810-0-&lt;2,0&gt;: FAST SCSI-2 10.0 MB/s (100 ns, offset 8)<br>
+	SCSI device sdb: hdwr sector= 512 bytes. Sectors= 1221088 [596 MB] [0.6 GB]<br>
+<p>
+my first try was first only to load and initialize MILO (using "ls sda2")<br>
+and then power off/on the 2nd harddisk (sdb: SGI/IBM) because this disk<br>
+doesn't spin up at power on but only after the SCSI bus reset, so there <br>
+is enough time for the CDROM drive to settle, too.<br>
+<p>
+this idea looked ok and I managed to start the installation "2nd stage"<br>
+from CDROM, but when I selected "Upgrade" the system died a few seconds<br>
+after displaying "looking for packages to be upgraded" or similar<br>
+(two times I got a "Signal 11" and "regular shutdown",  a few more times<br>
+the system just froze).  I never managed to get any further.<br>
+accessing the 2nd disk from VC#2 was problem, so this doesn't seem to be<br>
+the real problem.<br>
+<p>
+my final solution was to load my own 2.0.30 kernel image from harddisk<br>
+which was already using ncr53c8xx driver release 1.18d. this ncr driver<br>
+release allows to specify the time to wait after scsi bus reset <br>
+with boot command line option "ncr53c8xx=settle:10".<br>
+please put the config files, which you've used to build your release kernel images,<br>
+on the CDROM too. this way it's much easier to build a new kernel image<br>
+which is identical/compatible to your installation tools to add some minor<br>
+changes or bug fixes only.<br>
+<p>
+it was nasty that the first boot attempt failed again, because the install tool<br>
+couln't find /vmlinux.gz on the CDROM (which it doesn't tell me, just talked<br>
+about boot_image environment var. or bootline option).<br>
+copying the kernel image to /kernels/xl.gz on harddisk avoided this<br>
+and I finally managed to upgrade. ufff.<br>
+<p>
+upgrade process went smooth and fast, but after reboot I had to see<br>
+that tons of timestamps (creation, modification and last access) are <br>
+way in the future (June 2017) because of the ARC clock stuff :-((<br>
+fixing all those timestamps for files, links, directories, devices etc.<br>
+without clobbering the correct ones was a major pain and really could<br>
+have been avoided very easily...<br>
+<p>
+<p>
+Harald<br>
+<p>
+PS: please send replies also to "Cc: koenig..." since I've been dropped off<br>
+this list again.  I'm just trying to re-subscribe but...<br>
+thanks!<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0550.html">Harald Koenig: "how to disable the TGA chip in UDB166 ?"</a>
+<li> <b>Previous message:</b> <a href="0548.html">Harald Koenig: "MILO problem..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

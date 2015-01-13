@@ -1,0 +1,884 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: 2.2.2 axp semaphore update</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="2.2.2 axp semaphore update">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.2.2 axp semaphore update</H1>
+<HR>
+<P>
+<!-- received="Thu Feb 25 07:03:16 1999 PST" -->
+<!-- sent="Wed, 24 Feb 1999 23:07:04 -0800" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="2.2.2 axp semaphore update" -->
+<!-- id="19990224230704.A1790@twiddle.net" -->
+<!-- inreplyto="" -->
+<STRONG>Richard Henderson</STRONG> (<A HREF="mailto:rth@twiddle.net?subject=Re:%202.2.2%20axp%20semaphore%20update"><EM>rth@twiddle.net</EM></A>)<BR>
+<EM>Wed, 24 Feb 1999 23:07:04 -0800</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#772">[ date ]</A>
+<A HREF="index.html#772">[ thread ]</A>
+<A HREF="subject.html#772">[ subject ]</A>
+<A HREF="author.html#772">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0771.html">Mike: "Re: Multia Hard Drive Selection"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This seems to dtrt.  I'd appreciate a second or nth set of 
+<BR>
+eyes go over it.
+<BR>
+<P><P>r~
+<BR>
+<P><P>
+diff -rupN 2.2.2/include/asm-alpha/semaphore-helper.h 2.2.2-axp/include/asm-alpha/semaphore-helper.h
+<BR>
+--- 2.2.2/include/asm-alpha/semaphore-helper.h	Wed Dec 31 16:00:00 1969
+<BR>
++++ 2.2.2-axp/include/asm-alpha/semaphore-helper.h	Wed Feb 24 10:00:05 1999
+<BR>
+@@ -0,0 +1,122 @@
+<BR>
++#ifndef _ALPHA_SEMAPHORE_HELPER_H
+<BR>
++#define _ALPHA_SEMAPHORE_HELPER_H
+<BR>
++
+<BR>
++/*
+<BR>
++ * SMP- and interrupt-safe semaphores helper functions.
+<BR>
++ *
+<BR>
++ * (C) Copyright 1996 Linus Torvalds
+<BR>
++ * (C) Copyright 1999 Richard Henderson
+<BR>
++ */
+<BR>
++
+<BR>
++/*
+<BR>
++ * These two _must_ execute atomically wrt each other.
+<BR>
++ *
+<BR>
++ * This is trivially done with load_locked/store_cond,
+<BR>
++ * which we have.  Let the rest of the losers suck eggs.
+<BR>
++ */
+<BR>
++
+<BR>
++static inline void
+<BR>
++wake_one_more(struct semaphore * sem)
+<BR>
++{
+<BR>
++	atomic_inc(&amp;sem-&gt;waking);
+<BR>
++}
+<BR>
++
+<BR>
++static inline int
+<BR>
++waking_non_zero(struct semaphore *sem)
+<BR>
++{
+<BR>
++	long ret, tmp;
+<BR>
++
+<BR>
++	/* An atomic conditional decrement.  */
+<BR>
++	__asm__ __volatile__(
+<BR>
++		&quot;1:	ldl_l	%1,%2\n&quot;
+<BR>
++		&quot;	blt	%1,2f\n&quot;
+<BR>
++		&quot;	subl	%1,1,%0\n&quot;
+<BR>
++		&quot;	stl_c	%0,%2\n&quot;
+<BR>
++		&quot;	beq	%0,3f\n&quot;
+<BR>
++		&quot;2:\n&quot;
+<BR>
++		&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
++		&quot;3:	br	1b\n&quot;
+<BR>
++		&quot;.previous&quot;
+<BR>
++		: &quot;=r&quot;(ret), &quot;=r&quot;(tmp), &quot;=m&quot;(__atomic_fool_gcc(&amp;sem-&gt;waking))
+<BR>
++		: &quot;0&quot;(0));
+<BR>
++
+<BR>
++	return ret &gt; 0;
+<BR>
++}
+<BR>
++
+<BR>
++
+<BR>
++/*
+<BR>
++ * waking_non_zero_interruptible:
+<BR>
++ *	1	got the lock
+<BR>
++ *	0	go to sleep
+<BR>
++ *	-EINTR	interrupted
+<BR>
++ *
+<BR>
++ * We must undo the sem-&gt;count down_interruptible increment
+<BR>
++ * simultaneously and atomicly with the sem-&gt;waking adjustment,
+<BR>
++ * otherwise we can race with wake_one_more.
+<BR>
++ *
+<BR>
++ * This is accomplished by doing a 64-bit ll/sc on the 2 32-bit words.
+<BR>
++ */
+<BR>
++
+<BR>
++static inline int
+<BR>
++waking_non_zero_interruptible(struct semaphore *sem, struct task_struct *tsk)
+<BR>
++{
+<BR>
++	long ret, tmp, tmp2, tmp3;
+<BR>
++
+<BR>
++	/* &quot;Equivalent&quot; C.  Note that we have to do this all without
+<BR>
++	   (taken) branches in order to be a valid ll/sc sequence.
+<BR>
++
+<BR>
++	   do {
+<BR>
++	       tmp = ldq_l;
+<BR>
++	       ret = 0;
+<BR>
++	       if (tmp &gt;= 0) {
+<BR>
++	           tmp += 0xffffffff00000000;
+<BR>
++	           ret = 1;
+<BR>
++	       }
+<BR>
++	       else if (pending) {
+<BR>
++	           tmp += 1;
+<BR>
++	           ret = -EINTR;
+<BR>
++	       }
+<BR>
++	       else {
+<BR>
++		   break;	// ideally.  we don't actually break 
+<BR>
++		   		// since this is a predicate we don't
+<BR>
++				// have, and is more trouble to build
+<BR>
++				// than to elide the noop stq_c.
+<BR>
++	       }
+<BR>
++	       tmp = stq_c = tmp;
+<BR>
++	   } while (tmp == 0);
+<BR>
++	*/
+<BR>
++
+<BR>
++	__asm__ __volatile__(
+<BR>
++		&quot;1:	ldq_l	%1,%4\n&quot;
+<BR>
++		&quot;	lda	%0,0\n&quot;
+<BR>
++		&quot;	addq	%1,1,%2\n&quot;
+<BR>
++		&quot;	ldah	%3,0x8000(%1)\n&quot;
+<BR>
++		&quot;	cmovne	%5,%6,%0\n&quot;
+<BR>
++		&quot;	ldah	%3,0x8000(%3)\n&quot;
+<BR>
++		&quot;	cmovge	%1,1,%0\n&quot;
+<BR>
++		&quot;	cmovne	%5,%2,%1\n&quot;
+<BR>
++		&quot;	cmovge	%2,%3,%1\n&quot;
+<BR>
++		&quot;	stq_c	%1,%4\n&quot;
+<BR>
++		&quot;	beq	%1,3f\n&quot;
+<BR>
++		&quot;2:\n&quot;
+<BR>
++		&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
++		&quot;3:	br	1b\n&quot;
+<BR>
++		&quot;.previous&quot;
+<BR>
++		: &quot;=&amp;r&quot;(ret), &quot;=&amp;r&quot;(tmp), &quot;=&amp;r&quot;(tmp2), &quot;=&amp;r&quot;(tmp3), &quot;=m&quot;(*sem)
+<BR>
++		: &quot;r&quot;(signal_pending(tsk)), &quot;r&quot;(-EINTR));
+<BR>
++
+<BR>
++	return ret;
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
++ * waking_non_zero_trylock is unused.  we do everything in 
+<BR>
++ * down_trylock and let non-ll/sc hosts bounce around.
+<BR>
++ */
+<BR>
++
+<BR>
++static inline int
+<BR>
++waking_non_zero_trylock(struct semaphore *sem)
+<BR>
++{
+<BR>
++	return 0;
+<BR>
++}
+<BR>
++
+<BR>
++#endif
+<BR>
+diff -rupN 2.2.2/include/asm-alpha/semaphore.h 2.2.2-axp/include/asm-alpha/semaphore.h
+<BR>
+--- 2.2.2/include/asm-alpha/semaphore.h	Wed Jan 20 16:06:34 1999
+<BR>
++++ 2.2.2-axp/include/asm-alpha/semaphore.h	Wed Feb 24 10:02:31 1999
+<BR>
+@@ -5,123 +5,38 @@
+<BR>
+&nbsp;&nbsp;* SMP- and interrupt-safe semaphores..
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* (C) Copyright 1996 Linus Torvalds
+<BR>
++ * (C) Copyright 1996 Richard Henderson
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/current.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;#include &lt;asm/atomic.h&gt;
+<BR>
+&nbsp;
+<BR>
+-/*
+<BR>
+- * Semaphores are recursive: we allow the holder process to recursively do
+<BR>
+- * down() operations on a semaphore that the process already owns. In order
+<BR>
+- * to do that, we need to keep a semaphore-local copy of the owner and the
+<BR>
+- * &quot;depth of ownership&quot;.
+<BR>
+- *
+<BR>
+- * NOTE! Nasty memory ordering rules:
+<BR>
+- *  - &quot;owner&quot; and &quot;owner_count&quot; may only be modified once you hold the lock.
+<BR>
+- *  - &quot;owner_count&quot; must be written _after_ modifying owner, and must be
+<BR>
+- *  read _before_ reading owner. There must be appropriate write and read
+<BR>
+- *  barriers to enforce this.
+<BR>
+- */
+<BR>
+-
+<BR>
+&nbsp;struct semaphore {
+<BR>
++	/* Careful, inline assembly knows about the position of these two.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_t count;
+<BR>
+-	atomic_t waking;
+<BR>
+-	struct task_struct *owner;
+<BR>
+-	long owner_depth;
+<BR>
+-	struct wait_queue * wait;
+<BR>
++	atomic_t waking;		/* biased by -1 */
+<BR>
++	struct wait_queue *wait;
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define MUTEX ((struct semaphore) \
+<BR>
+- { ATOMIC_INIT(1), ATOMIC_INIT(0), NULL, 0, NULL })
+<BR>
++ { ATOMIC_INIT(1), ATOMIC_INIT(-1), NULL })
+<BR>
+&nbsp;#define MUTEX_LOCKED ((struct semaphore) \
+<BR>
+- { ATOMIC_INIT(0), ATOMIC_INIT(0), NULL, 1, NULL })
+<BR>
++ { ATOMIC_INIT(0), ATOMIC_INIT(-1), NULL })
+<BR>
+&nbsp;
+<BR>
+-#define semaphore_owner(sem)	((sem)-&gt;owner)
+<BR>
+&nbsp;#define sema_init(sem, val)	atomic_set(&amp;((sem)-&gt;count), val)
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void __down(struct semaphore * sem);
+<BR>
+&nbsp;extern int  __down_interruptible(struct semaphore * sem);
+<BR>
++extern int  __down_trylock(struct semaphore * sem);
+<BR>
+&nbsp;extern void __up(struct semaphore * sem);
+<BR>
+&nbsp;
+<BR>
+-/* All three have custom assembly linkages.  */
+<BR>
++/* All have custom assembly linkages.  */
+<BR>
+&nbsp;extern void __down_failed(struct semaphore * sem);
+<BR>
+&nbsp;extern void __down_failed_interruptible(struct semaphore * sem);
+<BR>
++extern void __down_failed_trylock(struct semaphore * sem);
+<BR>
+&nbsp;extern void __up_wakeup(struct semaphore * sem);
+<BR>
+&nbsp;
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * These two _must_ execute atomically wrt each other.
+<BR>
+- *
+<BR>
+- * This is trivially done with load_locked/store_cond,
+<BR>
+- * which we have.  Let the rest of the losers suck eggs.
+<BR>
+- *
+<BR>
+- * Tricky bits --
+<BR>
+- *
+<BR>
+- * (1) One task does two downs, no other contention
+<BR>
+- *	initial state:
+<BR>
+- *		count = 1, waking = 0, depth = undef;
+<BR>
+- *	down(&amp;sem)
+<BR>
+- *		count = 0, waking = 0, depth = 1;
+<BR>
+- *	down(&amp;sem)
+<BR>
+- *		atomic dec and test sends us to waking_non_zero via __down
+<BR>
+- *			count = -1, waking = 0;
+<BR>
+- *		conditional atomic dec on waking discovers no free slots
+<BR>
+- *			count = -1, waking = 0;
+<BR>
+- *		test for owner succeeeds and we return ok.
+<BR>
+- *			count = -1, waking = 0, depth = 2;
+<BR>
+- *	up(&amp;sem)
+<BR>
+- *		dec depth
+<BR>
+- *			count = -1, waking = 0, depth = 1;
+<BR>
+- *		atomic inc and test sends us to slow path
+<BR>
+- *			count = 0, waking = 0, depth = 1;
+<BR>
+- *		notice !(depth &lt; 0) and don't call __up.
+<BR>
+- *	up(&amp;sem)
+<BR>
+- *		dec depth
+<BR>
+- *			count = 0, waking = 0, depth = 0;
+<BR>
+- *		atomic inc and test succeeds.
+<BR>
+- *			count = 1, waking = 0, depth = 0;
+<BR>
+- */
+<BR>
+-
+<BR>
+-static inline void wake_one_more(struct semaphore * sem)
+<BR>
+-{
+<BR>
+-	atomic_inc(&amp;sem-&gt;waking);
+<BR>
+-}
+<BR>
+-
+<BR>
+-static inline int waking_non_zero(struct semaphore *sem,
+<BR>
+-				  struct task_struct *tsk)
+<BR>
+-{
+<BR>
+-	long owner_depth;
+<BR>
+-	int ret, tmp;
+<BR>
+-
+<BR>
+-	owner_depth = sem-&gt;owner_depth;
+<BR>
+-	
+<BR>
+-	/* Atomic decrement, iff the value is &gt; 0.  */
+<BR>
+-	__asm__ __volatile__(
+<BR>
+-	&quot;1:	ldl_l	%1,%2\n&quot;
+<BR>
+-	&quot;	ble	%1,2f\n&quot;
+<BR>
+-	&quot;	subl	%1,1,%0\n&quot;
+<BR>
+-	&quot;	stl_c	%0,%2\n&quot;
+<BR>
+-	&quot;	beq	%0,3f\n&quot;
+<BR>
+-	&quot;2:	mb\n&quot;
+<BR>
+-	&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+-	&quot;3:	br	1b\n&quot;
+<BR>
+-	&quot;.previous&quot;
+<BR>
+-	: &quot;=r&quot;(ret), &quot;=r&quot;(tmp), &quot;=m&quot;(__atomic_fool_gcc(&amp;sem-&gt;waking))
+<BR>
+-	: &quot;0&quot;(0));
+<BR>
+-
+<BR>
+-	ret |= ((owner_depth != 0) &amp; (sem-&gt;owner == tsk));
+<BR>
+-	if (ret) {
+<BR>
+-		sem-&gt;owner = tsk;
+<BR>
+-		wmb();
+<BR>
+-		/* Don't use the old value, which is stale in the
+<BR>
+-		   !owner case.  */
+<BR>
+-		sem-&gt;owner_depth++;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	return ret;
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Whee.  Hidden out of line code is fun.  The contention cases are
+<BR>
+&nbsp;&nbsp;* handled out of line in kernel/sched.c; arch/alpha/lib/semaphore.S
+<BR>
+@@ -140,27 +55,21 @@ extern inline void down(struct semaphore
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down operation */\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%3\n&quot;
+<BR>
++		&quot;1:	ldl_l	$27,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	subl	$27,1,$27\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mov	$27,$28\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	stl_c	$28,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	$28,2f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	blt	$27,3f\n&quot;
+<BR>
+-		/* Got the semaphore no contention.  Set owner and depth.  */
+<BR>
+-		&quot;	stq	$8,%1\n&quot;
+<BR>
+-		&quot;	lda	$28,1\n&quot;
+<BR>
+-		&quot;	wmb\n&quot;
+<BR>
+-		&quot;	stq	$28,%2\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:	mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%3\n&quot;
+<BR>
++		&quot;3:	lda	$24,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	jsr	$28,__down_failed\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: &quot;=m&quot;(sem-&gt;count), &quot;=m&quot;(sem-&gt;owner), &quot;=m&quot;(sem-&gt;owner_depth)
+<BR>
+-		: &quot;m&quot;(sem-&gt;count)
+<BR>
++		: : &quot;m&quot;(sem-&gt;count)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;$24&quot;, &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+@@ -175,34 +84,79 @@ extern inline int down_interruptible(str
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore down interruptible operation */\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%4\n&quot;
+<BR>
++		&quot;1:	ldl_l	$27,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	subl	$27,1,$27\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mov	$27,$28\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	stl_c	$28,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	beq	$28,2f\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	blt	$27,3f\n&quot;
+<BR>
+-		/* Got the semaphore no contention.  Set owner and depth.  */
+<BR>
+-		&quot;	stq	$8,%2\n&quot;
+<BR>
+-		&quot;	lda	$28,1\n&quot;
+<BR>
+-		&quot;	wmb\n&quot;
+<BR>
+-		&quot;	stq	$28,%3\n&quot;
+<BR>
+-		&quot;	mov	$31,$24\n&quot;
+<BR>
++		&quot;	mov	$31,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:	mb\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%4\n&quot;
+<BR>
++		&quot;3:	lda	$24,%1\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	jsr	$28,__down_failed_interruptible\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: &quot;=r&quot;(ret), &quot;=m&quot;(sem-&gt;count), &quot;=m&quot;(sem-&gt;owner),
+<BR>
+-		  &quot;=m&quot;(sem-&gt;owner_depth)
+<BR>
++		: &quot;=r&quot;(ret)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;m&quot;(sem-&gt;count)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return ret;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * down_trylock returns 0 on success, 1 if we failed to get the lock.
+<BR>
++ *
+<BR>
++ * We must manipulate count and waking simultaneously and atomically.
+<BR>
++ * Do this by using ll/sc on the pair of 32-bit words.
+<BR>
++ */
+<BR>
++
+<BR>
++extern inline int down_trylock(struct semaphore * sem)
+<BR>
++{
+<BR>
++	long ret, tmp, tmp2;
+<BR>
++
+<BR>
++	/* &quot;Equivalent&quot; C.  Note that we have to do this all without
+<BR>
++	   (taken) branches in order to be a valid ll/sc sequence.
+<BR>
++
+<BR>
++	   do {
+<BR>
++	       tmp = ldq_l;
+<BR>
++	       ret = 0;
+<BR>
++	       tmp -= 1;
+<BR>
++	       if ((int)tmp &lt; 0)		// count
+<BR>
++	           break;
+<BR>
++	       if ((long)tmp &lt; 0)		// waking
+<BR>
++	           break;
+<BR>
++	       tmp += 0xffffffff00000000;
+<BR>
++	       ret = 1;
+<BR>
++	       tmp = stq_c = tmp;
+<BR>
++	   } while (tmp == 0);
+<BR>
++	*/
+<BR>
++
+<BR>
++	__asm__ __volatile__(
+<BR>
++		&quot;1:	ldq_l	%1,%3\n&quot;
+<BR>
++		&quot;	lda	%0,0\n&quot;
+<BR>
++		&quot;	subl	%1,1,%2\n&quot;
+<BR>
++		&quot;	subq	%1,1,%1\n&quot;
+<BR>
++		&quot;	blt	%2,2f\n&quot;
+<BR>
++		&quot;	blt	%1,2f\n&quot;
+<BR>
++		&quot;	ldah	%1,0x8000(%1)\n&quot;
+<BR>
++		&quot;	ldah	%1,0x8000(%1)\n&quot;
+<BR>
++		&quot;	lda	%0,1\n&quot;
+<BR>
++		&quot;	stq_c	%1,%3\n&quot;
+<BR>
++		&quot;	beq	%1,3f\n&quot;
+<BR>
++		&quot;2:	mb\n&quot;
+<BR>
++		&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
++		&quot;3:	br	1b\n&quot;
+<BR>
++		&quot;.previous&quot;
+<BR>
++		: &quot;=&amp;r&quot;(ret), &quot;=&amp;r&quot;(tmp), &quot;=&amp;r&quot;(tmp2)
+<BR>
++		: &quot;m&quot;(*sem)
+<BR>
++		: &quot;memory&quot;);
+<BR>
++
+<BR>
++	return ret;
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;extern inline void up(struct semaphore * sem)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Given that we have to use particular hard registers to 
+<BR>
+@@ -216,7 +170,7 @@ extern inline void up(struct semaphore *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__ (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;/* semaphore up operation */\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mb\n&quot;
+<BR>
+-		&quot;1:	ldl_l	$27,%1\n&quot;
+<BR>
++		&quot;1:	ldl_l	$27,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	addl	$27,1,$27\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	mov	$27,$28\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	stl_c	$28,%0\n&quot;
+<BR>
+@@ -226,14 +180,12 @@ extern inline void up(struct semaphore *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;4:\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.section .text2,\&quot;ax\&quot;\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;2:	br	1b\n&quot;
+<BR>
+-		&quot;3:	lda	$24,%1\n&quot;
+<BR>
+-		&quot;	bgt	%2,4b\n&quot;
+<BR>
++		&quot;3:	lda	$24,%0\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	jsr	$28,__up_wakeup\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	ldgp	$29,0($28)\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;	br	4b\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;.previous&quot;
+<BR>
+-		: &quot;=m&quot;(sem-&gt;count)
+<BR>
+-		: &quot;m&quot;(sem-&gt;count), &quot;r&quot;(--sem-&gt;owner_depth)
+<BR>
++		: : &quot;m&quot;(sem-&gt;count)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: &quot;$24&quot;, &quot;$27&quot;, &quot;$28&quot;, &quot;memory&quot;);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%202.2.2%20axp%20semaphore%20update">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%202.2.2%20axp%20semaphore%20update">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0771.html">Mike: "Re: Multia Hard Drive Selection"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Feb 25 1999 - 00:00:39 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

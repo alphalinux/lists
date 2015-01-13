@@ -1,0 +1,40 @@
+diff -Naur linux/arch/alpha/kernel/entry.S ../t/arch/alpha/kernel/entry.S
+--- linux/arch/alpha/kernel/entry.S     Wed May  3 20:16:30 2000
++++ ../t/arch/alpha/kernel/entry.S      Tue Jan 23 02:56:27 2001
+@@ -272,7 +272,7 @@
+        stq     $26,0($30)
+        stq     $19,8($30)
+        .prologue 1
+-       jsr     $26,do_execve
++       jsr     $26,___kernel_execve
+        bne     $0,1f           /* error! */
+        ldq     $30,8($30)
+        br      $31,ret_from_sys_call
+diff -Naur linux/arch/alpha/kernel/process.c ../t/arch/alpha/kernel/process.c
+--- linux/arch/alpha/kernel/process.c   Wed May  3 20:16:30 2000
++++ ../t/arch/alpha/kernel/process.c    Tue Jan 23 02:58:59 2001
+@@ -463,3 +463,24 @@
+        unlock_kernel();
+        return error;
+ }
++
++/*
++ * execve() system call for in kernel use.
++ * Two(user and kernel) execve() have quite different call path and 
++ * following function is to put lock_kernel() and unlock_kernel() in kernel execve(). 
++ * You could put them in unistd.h but you will have to modify many files to 
++ * clear compile error - soohoon.lee@api-networks.com. 
++*/
++asmlinkage int ___kernel_execve(char *filename, char **argp, char **envp,
++       struct pt_regs *regs)
++{
++       int error;
++
++       lock_kernel();
++
++       error = do_execve(filename, argp, envp, regs);
++
++       unlock_kernel();
++
++       return error;
++}

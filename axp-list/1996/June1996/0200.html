@@ -1,0 +1,105 @@
+<!-- received="Mon Jun 17 09:39:55 1996 " -->
+<!-- sent="Mon, 17 Jun 1996 09:39:55 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="Re: ioperm() and iopl()" -->
+<!-- id="199606171639.JAA27270@koala.azstarnet.com" -->
+<!-- inreplyto="ioperm() and iopl()" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ioperm() and iopl()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ioperm() and iopl()</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Mon, 17 Jun 1996 09:39:55 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#200">[ date ]</a><a href="index.html#200">[ thread ]</a><a href="subject.html#200">[ subject ]</a><a href="author.html#200">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0201.html">David Mosberger-Tang: "Re: procps-1.01 patches"</a>
+<li> <b>Previous message:</b> <a href="0199.html">David Mosberger-Tang: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>Maybe in reply to:</b> <a href="0191.html">Martin Ostermann: "ioperm() and iopl()"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0214.html">Martin Ostermann: "Re: ioperm() and iopl()"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt;&gt;&gt; On Mon, 17 Jun 1996 13:23:48 +0200, Martin Ostermann &lt;<a href="mailto:ost@comnets.rwth-aachen.de">ost@comnets.rwth-aachen.de</a>&gt; said:</i><br>
+<p>
+  Martin&gt; Ioperm() and iopl() seem to be sytem calls on any Linux<br>
+  Martin&gt; platform, except for Alpha. What's the reason for this?<br>
+<p>
+Well, Alpha != x86 is the reason.  In particular, the Alpha doesn't<br>
+have ioperm or iopl-equivalent instructions.  On the Alpha, all I/O is<br>
+done through memory-mapped I/O (and there are good reasons for this).<br>
+It certainly would be possible to make them syscalls, but this would<br>
+mean that all port reads/writes (inb/outb etc) would _also_ have to be<br>
+syscalls.  I don't think anybody would like that performance-wise.<br>
+For this reason, ioperm() and iopl() are emulation routines in the<br>
+library that simply mmap() the appropriate portion of the kernel<br>
+address space, so port I/O can be done in user-level space.<br>
+<p>
+BTW: If you say that "all other architecture have iopl() as a<br>
+syscall"--- well, yes, sort of.  Here is what the MIPS has:<br>
+<p>
+asmlinkage int sys_iopl(long ebx,long ecx,long edx,<br>
+             long esi, long edi, long ebp, long eax, long ds,<br>
+             long es, long fs, long gs, long orig_eax,<br>
+             long eip,long cs,long eflags,long esp,long ss)<br>
+{<br>
+        return -ENOSYS;<br>
+}<br>
+<p>
+Not particularly useful, is it? ;-) In other words: ioperm() and<br>
+iopl() are non-portable and should be avoided whenever possible.  It<br>
+just so happens that the Alpha PCs have an I/O system that looks<br>
+identical to an x86 PC, which makes it easy to implement a meaningful<br>
+iopl() and ioperm() in user-level.<br>
+<p>
+  Martin&gt; When I use iopl() in an app, I'll get an runtime error,<br>
+  Martin&gt; somewhat like "Couldn't determine system type -- Maybe<br>
+  Martin&gt; /etc/alpha_io_system symlink is missing". Well, it is<br>
+  Martin&gt; missing, but where is it supposed to point to? I don't have<br>
+  Martin&gt; libc sources hanging around to look it up, so it would be<br>
+  Martin&gt; neat if somebody could help me.<br>
+<p>
+What does "cat /proc/cpuinfo" show?  I think you have a Jensen, so<br>
+there should be a line like this:<br>
+<p>
+	system type             : Jensen<br>
+<p>
+If not, you can force the right system type with:<br>
+<p>
+	ln -s Jensen /etc/alpha_io_system<br>
+<p>
+  --david<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0201.html">David Mosberger-Tang: "Re: procps-1.01 patches"</a>
+<li> <b>Previous message:</b> <a href="0199.html">David Mosberger-Tang: "Re: string.h, strlen(), warnings from gcc"</a>
+<li> <b>Maybe in reply to:</b> <a href="0191.html">Martin Ostermann: "ioperm() and iopl()"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0214.html">Martin Ostermann: "Re: ioperm() and iopl()"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

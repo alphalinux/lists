@@ -1,0 +1,111 @@
+<!-- received="Fri Oct 25 18:03:11 1996 " -->
+<!-- sent="Fri, 25 Oct 1996 22:55:08 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="bad alignment for ncompress-4.2.4-6.axp.rpm" -->
+<!-- id="m0vGtHZ-0001jGC@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="mail -s unsubscribe axp-list-request@redhat.1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>bad alignment for ncompress-4.2.4-6.axp.rpm</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>bad alignment for ncompress-4.2.4-6.axp.rpm</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Fri, 25 Oct 1996 22:55:08 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1073">[ date ]</a><a href="index.html#1073">[ thread ]</a><a href="subject.html#1073">[ subject ]</a><a href="author.html#1073">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1074.html">Harald Koenig: "bash can't resize terminal size"</a>
+<li> <b>Previous message:</b> <a href="1072.html">jestabro@amt.tay1.dec.com: "Re: Where do I get linload.exe?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+bsd compress in ncompress-4.2.4-6.axp.rpm is compiled with wrong options<br>
+and generates an unaligned access trap for *every* byte which is output!<br>
+one possible fix without changing the Makefile would be<br>
+<p>
+-------------------------------------------------------------------------------<br>
+--- SPECS/ncompress-4.2.4.spec~	Wed Aug 14 17:44:23 1996<br>
++++ SPECS/ncompress-4.2.4.spec	Fri Oct 25 22:39:09 1996<br>
+@@ -28,7 +28,7 @@<br>
+ %endif<br>
+ <br>
+ %ifarch axp<br>
+-make "RPM_OPT_FLAGS=$RPM_OPT_FLAGS -DNO_ALLIGN=0" ENDIAN=4321<br>
++make "RPM_OPT_FLAGS=$RPM_OPT_FLAGS" ENDIAN=4321 'options= -DDIRENT=1 -DSYSDIR=1 -DUTIME_H=1 -DUSERMEM=800000 -DREGISTERS=20 -DIBUFSIZ=1024 -DOBUFSIZ=1024 -DBYTEORDER=$(ENDIAN) -DNOALLIGN=0'<br>
+ %endif<br>
+ <br>
+ %install<br>
+-------------------------------------------------------------------------------<br>
+<p>
+but maybe it's better to patch the makefile to get this right ?<br>
+note that you've misspelled NOALLIGN (is NO_ALLIGN in your spec file)<br>
+but fixing the typo doesn't work, it's overridden by the "options" varaible...<br>
+<p>
+example of the performace impact on this (XL266, Linux-2.0.22)<br>
+compressing the X server (original size 5164194) :<br>
+<p>
+	# cat /usr/bin/X11/X | time compress.fixed  | wc<br>
+	3.35user 0.19system 0:04.19elapsed 84%CPU<br>
+	  15003   79006 2547805<br>
+<p>
+	# grep user /proc/cpuinfo <br>
+	user unaligned acc      : 2770836 (pc=120003b4c,va=120246717)<br>
+<p>
+	# cat /usr/bin/X11/X | time compress.broken  | wc<br>
+	4.54user 6.97system 0:12.05elapsed 95%CPU<br>
+	  15003   79006 2547805<br>
+<p>
+	# grep user /proc/cpuinfo <br>
+	user unaligned acc      : 5314468 (pc=120003b4c,va=120246717)<br>
+<p>
+so 2.5M traps took ~1 user and ~7 system cpu secs  <br>
+giving ~320k traps per cpu-sec <br>
+<p>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1074.html">Harald Koenig: "bash can't resize terminal size"</a>
+<li> <b>Previous message:</b> <a href="1072.html">jestabro@amt.tay1.dec.com: "Re: Where do I get linload.exe?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

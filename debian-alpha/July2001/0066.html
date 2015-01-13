@@ -1,0 +1,240 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: sym53x8xx.c</TITLE>
+<META NAME="Author" CONTENT="Peter Petrakis (peter.petrakis@api-networks.com)">
+<META NAME="Subject" CONTENT="Re: sym53x8xx.c">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: sym53x8xx.c</H1>
+<HR>
+<P>
+<!-- received="Wed Jul 18 21:49:59 2001" -->
+<!-- isoreceived="20010719044959" -->
+<!-- sent="Wed, 18 Jul 2001 16:19:15 -0400" -->
+<!-- isosent="20010718201915" -->
+<!-- name="Peter Petrakis" -->
+<!-- email="peter.petrakis@api-networks.com" -->
+<!-- subject="Re: sym53x8xx.c" -->
+<!-- id="3B55EF43.201288A2@api-networks.com" -->
+<!-- inreplyto="Pine.LNX.3.96.1010718142349.14505A-100000@master.debian.org" -->
+<STRONG>Subject: </STRONG>Re: sym53x8xx.c<BR>
+<STRONG>From: </STRONG>Peter Petrakis (<EM>peter.petrakis@api-networks.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jul 18 2001 - 13:19:15 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#66">[ date ]</A>
+<A HREF="index.html#66">[ thread ]</A>
+<A HREF="subject.html#66">[ subject ]</A>
+<A HREF="author.html#66">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0067.html">Michael Stroucken: "Re: sym53x8xx.c"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0065.html">Michael Stroucken: "sym53x8xx.c"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0065.html">Michael Stroucken: "sym53x8xx.c"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0067.html">Michael Stroucken: "Re: sym53x8xx.c"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0065.html">Peter Petrakis: "Re: sym53x8xx.c"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+You're not the only one. I'm seeing the same thing on 2.2.19 in the same
+<BR>
+place.
+<BR>
+Here's the oops, which I forced. 
+<BR>
+<P>&nbsp;
+<BR>
+Scheduling in interrupt
+<BR>
+Unable to handle kernel paging request at virtual address
+<BR>
+0000000000000000
+<BR>
+CPU 0 top(695): Oops 1
+<BR>
+pc = [&lt;fffffc000032281c&gt;]  ra = [&lt;fffffc0000322814&gt;]  ps = 0000
+<BR>
+v0 = 0000000000000018  t0 = 0000000000000001  t1 = 0000000000000020
+<BR>
+t2 = fffffd01fc000000  t3 = 000000000000000d  t4 = 0000000000000000
+<BR>
+t5 = 00000000000003f8  t6 = 00000000000f3ffd  t7 = fffffc003cc7c000
+<BR>
+s0 = fffffc003cc7c000  s1 = 0000000000000007  s2 = fffffc0000563e98
+<BR>
+s3 = 0000000000000000  s4 = fffffc003cc7c000  s5 = fffffc003cc7c600
+<BR>
+s6 = fffffc003cc7f808  a0 = fffffc0000563f40  a1 = 0000000000000021
+<BR>
+a2 = 0000000000000018  a3 = 0000000000000008  a4 = fffffc0000532000
+<BR>
+a5 = fffffc0000564dec  t8 = fffffc00005484e8  t9 = 0000000000000018
+<BR>
+t10= 0000000000004240  t11= fffffc0000516f78  pv = fffffc000031df20
+<BR>
+at = 000000000000000d  gp = fffffc000055bef0  sp = fffffc003cc7f808
+<BR>
+Code:
+<BR>
+&nbsp;c3fffee3  br .-1136
+<BR>
+&nbsp;a61dcd98  ldq a0,-12904(gp)
+<BR>
+&nbsp;a77da278  ldq pv,-23944(gp)
+<BR>
+&nbsp;6b5b52b3  jsr ra,(pv)
+<BR>
+&nbsp;27ba0024  ldah gp,36(ra)
+<BR>
+&nbsp;23bd96dc  lda gp,-26916(gp)
+<BR>
+*b3ff0000  stl zero,0(zero)
+<BR>
+&nbsp;45ef041e  or s6,s6,sp
+<BR>
+Trace: 32da20 311970 489a58 31f2c4 3105fc 489a58 48825c 31df20 488268
+<BR>
+489a58
+<BR>
+486660 48b208 317214 31cd2c 3174f8 310d30 456a50 456024 31dc80 456034
+<BR>
+323e60
+<BR>
+455ea0 32ef4c 310ed4 382728 31df20 38270c 3501c8 383114 38324c 344dd8
+<BR>
+310d18
+<BR>
+&nbsp;...
+<BR>
+die_if_kernel recursion detected.
+<BR>
+read_write.c:41 spinlock stuck in bonnie++ at fffffc0000344b98(1) owner
+<BR>
+top at fffffc0000344cf8(0) read_write.c:41
+<BR>
+...
+<BR>
+...
+<BR>
+<P><P>Which leads back to the schedule() function in kernel/sched.c ... Falls
+<BR>
+all the way through to the last case which explictly sets address 0 to
+<BR>
+zero.
+<BR>
+<P>Add this code in place of the assert in the symbios file so force an
+<BR>
+oops.
+<BR>
+<P>/* assert(k != -1); */
+<BR>
+if (!k != -1) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void *lr = __builtin_return_address(0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_CRIT &quot;kernel abort from %p!  BOMBED AGAIN\n&quot;,lr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;panic(&quot;K == -1, FAIL&quot;);
+<BR>
+}
+<BR>
+<P><P>Also. Is your machine SMP? If so is your RTC disabled? 
+<BR>
+I suspect this case occurs when the SCSI bus is saturated and a reset
+<BR>
+is then  produced. Actually one happend on the machine as I was
+<BR>
+unzipping 
+<BR>
+the 2.4.6 kernel but it did not get to my panic code... Could be a
+<BR>
+timing
+<BR>
+issue... 
+<BR>
+<P>Peter
+<BR>
+<P>Michael Stroucken wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         I can consistently cause a kernel panic on my box with a 53c875
+</EM><BR>
+<EM>&gt; based Tekram card running 2.4.6 now. This card has a hard drive and a cd
+</EM><BR>
+<EM>&gt; burner attached.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         Whenever I do a full blank of a disk, I get the following panic:-
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; sym53c8xx-abort: pid=0 serial_number=39514 serial_number_at_timeout=39514
+</EM><BR>
+<EM>&gt; kernel panic: assertion &quot;k&quot;!=-1 failed: file &quot;sym53c8xx.c&quot; line 10170
+</EM><BR>
+<EM>&gt; In interrupt handler - not syncing
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         Anyone else have this problem?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Greetings,
+</EM><BR>
+<EM>&gt; Michael.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &quot;I'm not just a server, but I'm also a client.&quot;         Debian GNU/Linux
+</EM><BR>
+<EM>&gt; Michael Stroucken       stroucki@debian.org      Is your penguin 64 bit?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; --
+</EM><BR>
+<EM>&gt; To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+</EM><BR>
+<EM>&gt; with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</EM><BR>
+<P><PRE>
+-- 
+Peter Petrakis
+Customer Support Engineer
+API Networks
+www.api-networks.com
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0067.html">Michael Stroucken: "Re: sym53x8xx.c"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0065.html">Michael Stroucken: "sym53x8xx.c"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0065.html">Michael Stroucken: "sym53x8xx.c"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0067.html">Michael Stroucken: "Re: sym53x8xx.c"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0065.html">Peter Petrakis: "Re: sym53x8xx.c"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Aug 01 2001 - 06:11:43 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

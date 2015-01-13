@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Roman Zippel (zippel@fh-brandenburg.de)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 01 13:35:56 2000" -->
+<!-- isoreceived="20000301213556" -->
+<!-- sent="Wed, 1 Mar 2000 10:29:41 +0100 (MET)" -->
+<!-- isosent="20000301092941" -->
+<!-- name="Roman Zippel" -->
+<!-- email="zippel@fh-brandenburg.de" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.GSO.4.10.10003010945470.23864-100000@zeus.fh-brandenburg.de" -->
+<!-- inreplyto="Pine.LNX.4.10.10002291156220.3750-100000@penguin.transmeta.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Roman Zippel (<EM>zippel@fh-brandenburg.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 01 2000 - 01:29:41 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#178">[ date ]</A>
+<A HREF="index.html#178">[ thread ]</A>
+<A HREF="subject.html#178">[ subject ]</A>
+<A HREF="author.html#178">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0179.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0177.html">Richard Henderson: "2.3.49 axp ptrace icache flush"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0179.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0175.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P><EM>&gt; Many architectures do not have atomicity guarantees in SMP: you may end up
+</EM><BR>
+<EM>&gt; getting the same interrupt twice on two CPU's. The spinlock handles that
+</EM><BR>
+<EM>&gt; case too.
+</EM><BR>
+<P>I have an idea for a recursive spinlock, that I want to try, basically
+<BR>
+it looks:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (lock) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (lock != current) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (lock)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lock = current;
+<BR>
+<P>This has to be done of course atomically, so that I need the cmpxchg
+<BR>
+instruction here. But it offers a very nice and cheap way for drivers to
+<BR>
+make them smp safe if they not totally screwed up (so that they even
+<BR>
+need for UP interrupts disabled).
+<BR>
+<P><EM>&gt; Feel free to try it.  It was discussed, but it's not trivial to do
+</EM><BR>
+<EM>&gt; correctly. You get the IRQ_PENDING problem even more clearly (ie it
+</EM><BR>
+<EM>&gt; becomes a problem even with well-designed interrupt controllers).
+</EM><BR>
+<P>Let's say I try something for 2.5, I even can test it on a SMP system (I
+<BR>
+only have to get the backup running before :) ).
+<BR>
+Anyway, my main concern is that a generic interrupt handling would put
+<BR>
+some synchronisation requirements on architectures, that don't really need
+<BR>
+them. E.g. on most m68k system you can jump straight to the interrupt 
+<BR>
+handler, although we don't need to worry about SMP, but we also wouldn't
+<BR>
+need to worry about reentrancy, if interrupt handler weren't allowed to
+<BR>
+play with the interrupt context.
+<BR>
+<P>bye, Roman
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0179.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0177.html">Richard Henderson: "2.3.49 axp ptrace icache flush"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0175.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0179.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0175.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

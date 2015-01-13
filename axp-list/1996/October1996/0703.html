@@ -1,0 +1,88 @@
+<!-- received="Fri Oct 18 03:45:32 1996 " -->
+<!-- sent="Fri, 18 Oct 1996 02:34:29 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="199610180734.CAA09133@atheist.tamu.edu" -->
+<!-- inreplyto="Pine.LNX.3.91.961018075100.23966E-100000@linux.cs.Helsinki.FI" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Fri, 18 Oct 1996 02:34:29 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#703">[ date ]</a><a href="index.html#703">[ thread ]</a><a href="subject.html#703">[ subject ]</a><a href="author.html#703">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0704.html">Oleg Shein #2: "Re: Video card for Mikasa"</a>
+<li> <b>Previous message:</b> <a href="0702.html">David A Rusling: "Re: Many Milo's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; In fact, you do NOT want to zero-terminate the string, and in fact you may</i><br>
+<i>&gt; not even want to return an error for this case. Your approach is the logical</i><br>
+<i>&gt; one, especially when you look at "get_name()", but there are some other uses</i><br>
+<i>&gt; for this function that make another return value a better choice. </i><br>
+<p>
+Agreed.  This is changed in the bits I'll be sending you momentarily.<br>
+<p>
+<i>&gt; NOTE! I'm not sure that this is necessarily the right approach. For various</i><br>
+<i>&gt; reasons it may be that for execve() we'd be better off with a</i><br>
+<i>&gt; "strlen_from_user()" + "memcpy_from_user()", because we have to know the</i><br>
+<i>&gt; length anyway before we know where to copy the string. I have no strong</i><br>
+<i>&gt; opinion one way or the other on this, I just know that we definitely do not</i><br>
+<i>&gt; want to do it one byte at a time. Especially not on an alpha. </i><br>
+<p>
+The real pain in the ass here is that the current code starts putting <br>
+bits at the top of the page and works down.  It is much more natural<br>
+to start at the bottom of the page and work up.  <br>
+<p>
+At first blush it seems like the thing to do is to copy the strings <br>
+beginning from the beginning rather than the end and afterward either<br>
+use memmove to shift the whole lot en masse to the top of the page (or<br>
+allocate a temporary extra page and use memcpy).  In this way we only<br>
+have to examine the characters once in strncpy_from_user, though we<br>
+still need to touch memory twice. <br>
+<p>
+Unfortunately, it seems as if the alternative to touching memory twice<br>
+is wasting the balance of a page for every process.  Given that most<br>
+programs have a relatively small argv+envp, this is not happy making.<br>
+<p>
+<p>
+r~<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0704.html">Oleg Shein #2: "Re: Video card for Mikasa"</a>
+<li> <b>Previous message:</b> <a href="0702.html">David A Rusling: "Re: Many Milo's"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

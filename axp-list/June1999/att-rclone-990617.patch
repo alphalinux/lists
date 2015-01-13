@@ -1,0 +1,369 @@
+diff -r -C3 clone-990617/src/action/action_harvest.c clone-990617.alpha/src/action/action_harvest.c
+*** clone-990617/src/action/action_harvest.c	Wed Jun 16 17:04:21 1999
+--- clone-990617.alpha/src/action/action_harvest.c	Fri Jun 18 08:46:03 1999
+***************
+*** 242,249 ****
+      y=unit->Command.Data.Move.DY;
+      destu=WoodDepositOnMap(x,y);
+      if( !destu || MapDistanceToUnit(unit->X,unit->Y,destu)!=1 ) {
+!       DebugLevel2("WOOD-DEPOSIT NOT REACHED %d=%d,%d ? %d\n"
+! 		  ,destu-UnitsPool,x,y
+  		  ,MapDistanceToUnit(unit->X,unit->Y,destu));
+  	unit->Command.Action=UnitActionStill;
+  	unit->SubAction=0;
+--- 242,249 ----
+      y=unit->Command.Data.Move.DY;
+      destu=WoodDepositOnMap(x,y);
+      if( !destu || MapDistanceToUnit(unit->X,unit->Y,destu)!=1 ) {
+!       DebugLevel2("WOOD-DEPOSIT NOT REACHED %ld=%d,%d ? %d\n"
+! 		  ,(unsigned long)(destu-UnitsPool),x,y
+  		  ,MapDistanceToUnit(unit->X,unit->Y,destu));
+  	unit->Command.Action=UnitActionStill;
+  	unit->SubAction=0;
+diff -r -C3 clone-990617/src/action/action_minegold.c clone-990617.alpha/src/action/action_minegold.c
+*** clone-990617/src/action/action_minegold.c	Wed Jun 16 17:04:21 1999
+--- clone-990617.alpha/src/action/action_minegold.c	Fri Jun 18 08:46:53 1999
+***************
+*** 248,255 ****
+  	    destu=GoldDepositOnMap(x,y);
+  	    if( !destu || MapDistanceToUnit(unit->X,unit->Y,destu)!=1 ) {
+  		if( ++unit->SubAction==69 ) {
+! 		    DebugLevel2("GOLD-DEPOSIT NOT REACHED %d=%d,%d ? %d\n"
+! 			,destu-UnitsPool,x,y
+  			,MapDistanceToUnit(unit->X,unit->Y,destu));
+  		    unit->Command.Action=UnitActionStill;
+  		    unit->SubAction=0;
+--- 248,255 ----
+  	    destu=GoldDepositOnMap(x,y);
+  	    if( !destu || MapDistanceToUnit(unit->X,unit->Y,destu)!=1 ) {
+  		if( ++unit->SubAction==69 ) {
+! 		    DebugLevel2("GOLD-DEPOSIT NOT REACHED %ld=%d,%d ? %d\n"
+! 			,(unsigned long)(destu-UnitsPool),x,y
+  			,MapDistanceToUnit(unit->X,unit->Y,destu));
+  		    unit->Command.Action=UnitActionStill;
+  		    unit->SubAction=0;
+diff -r -C3 clone-990617/src/clone/construct.c clone-990617.alpha/src/clone/construct.c
+*** clone-990617/src/clone/construct.c	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/clone/construct.c	Fri Jun 18 08:40:05 1999
+***************
+*** 9,14 ****
+--- 9,15 ----
+  */
+  
+  #include <stdio.h>
++ #include <stdlib.h>
+  #include <string.h>
+  
+  #include "clone.h"
+diff -r -C3 clone-990617/src/clone/image.c clone-990617.alpha/src/clone/image.c
+*** clone-990617/src/clone/image.c	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/clone/image.c	Fri Jun 18 08:40:23 1999
+***************
+*** 9,14 ****
+--- 9,15 ----
+  */
+  
+  #include <stdio.h>
++ #include <stdlib.h>
+  #include <string.h>
+  
+  #include "clone.h"
+diff -r -C3 clone-990617/src/clone/pud.c clone-990617.alpha/src/clone/pud.c
+*** clone-990617/src/clone/pud.c	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/clone/pud.c	Fri Jun 18 08:37:04 1999
+***************
+*** 16,21 ****
+--- 16,22 ----
+  
+  #include <stdio.h>
+  #include <stdlib.h>
++ #include <string.h>
+  
+  #include "clone.h"
+  #include "video.h"
+diff -r -C3 clone-990617/src/clone/unit.c clone-990617.alpha/src/clone/unit.c
+*** clone-990617/src/clone/unit.c	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/clone/unit.c	Fri Jun 18 09:11:28 1999
+***************
+*** 1905,1917 ****
+  /**
+  **	Generate a unit reference, a printable unique string for unit.
+  */
+  local char* UnitReference(Unit* unit)
+  {
+!     char* ref;
+  
+!     ref=malloc(10);
+!     sprintf(ref,"U%08X",(int)unit);
+!     return ref;
+  }
+  
+  /**
+--- 1905,1936 ----
+  /**
+  **	Generate a unit reference, a printable unique string for unit.
+  */
++ /* this has been reworked to allow for 64 bit machines */
+  local char* UnitReference(Unit* unit)
+  {
+!   char* ref;
+  
+! 	switch (sizeof(void*))
+! 	{
+! #ifndef __alpha__
+! 		case 2:
+! 			/* 16 bit */
+!       ref=malloc(6);
+!       sprintf(ref,"U%04X",(int)unit);
+! 			break;
+! 		case 4:
+! 			/* 32 bit */
+!       ref=malloc(10);
+!       sprintf(ref,"U%08X",(int)unit);
+! 			break;
+! #endif
+! 		case 8:
+! 			/* 64 bit */
+!       ref=malloc(18);
+!       sprintf(ref,"U%016lX",(long)unit);
+! 			break;
+!   }
+! 	return ref;
+  }
+  
+  /**
+diff -r -C3 clone-990617/src/clone/unitcache.c clone-990617.alpha/src/clone/unitcache.c
+*** clone-990617/src/clone/unitcache.c	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/clone/unitcache.c	Fri Jun 18 08:39:21 1999
+***************
+*** 665,671 ****
+  	    // FIXME: the error isn't here!
+  	    if( !leaf->Value->Type ) {
+  		DebugLevel0("Error UNIT %8p %08X %d,%d\n",leaf->Value
+! 			,leaf->Value-UnitsPool,leaf->Value->X,leaf->Value->Y);
+  		DebugLevel0("Removed unit in cache %d,%d!!!!\n",x,y);
+  		leaf=leaf->Next;
+  		continue;
+--- 665,671 ----
+  	    // FIXME: the error isn't here!
+  	    if( !leaf->Value->Type ) {
+  		DebugLevel0("Error UNIT %8p %08X %d,%d\n",leaf->Value
+! 			,(unsigned int)(leaf->Value-UnitsPool),leaf->Value->X,leaf->Value->Y);
+  		DebugLevel0("Removed unit in cache %d,%d!!!!\n",x,y);
+  		leaf=leaf->Next;
+  		continue;
+diff -r -C3 clone-990617/src/include/interface.h clone-990617.alpha/src/include/interface.h
+*** clone-990617/src/include/interface.h	Wed Jun 16 17:04:18 1999
+--- clone-990617.alpha/src/include/interface.h	Fri Jun 18 08:59:51 1999
+***************
+*** 62,68 ****
+  struct ButtonAction {
+      int		Icon;			/// icon to display
+      enum _button_cmd_ Action;		/// command on button press
+!     int		Value;			/// extra value for command
+      int		Key;			/// keyboard hotkey
+      char*	Text;			/// tip text
+  };
+--- 62,68 ----
+  struct ButtonAction {
+      int		Icon;			/// icon to display
+      enum _button_cmd_ Action;		/// command on button press
+!     long		Value;			/// extra value for command 
+      int		Key;			/// keyboard hotkey
+      char*	Text;			/// tip text
+  };
+diff -r -C3 clone-990617/src/include/rdtsc.h clone-990617.alpha/src/include/rdtsc.h
+*** clone-990617/src/include/rdtsc.h	Wed Jun 16 17:04:19 1999
+--- clone-990617.alpha/src/include/rdtsc.h	Fri Jun 18 08:23:47 1999
+***************
+*** 12,21 ****
+  
+  #include <sys/types.h>			// for u_int64_t
+  
+- #if !defined(i386) || !defined(__i386__)
+- #error "Need an x86 processor for this"
+- #endif
+- 
+  /**
+  **      Read the tsc (time-stamp counter) register of the processor.
+  **
+--- 12,17 ----
+***************
+*** 23,33 ****
+--- 19,39 ----
+  */
+  static __inline u_int64_t rdtsc(void)
+  {
++ #ifdef __i386__
+      u_int64_t rv;
+  
+      __asm __volatile(".byte 0x0f, 0x31" : "=A" (rv));
+  
+      return rv;
++ #else
++ #ifdef __alpha__
++         unsigned int x;
++         __asm__ __volatile__ ( "rpcc %0" : "=r" (x) );
++         return x;
++ #else
++ #error "Need an x86 or alpha processor for this"
++ #endif
++ #endif
+  }
+  
+  //@}
+diff -r -C3 clone-990617/src/map/minimap.c clone-990617.alpha/src/map/minimap.c
+*** clone-990617/src/map/minimap.c	Wed Jun 16 17:04:20 1999
+--- clone-990617.alpha/src/map/minimap.c	Fri Jun 18 08:42:59 1999
+***************
+*** 16,21 ****
+--- 16,22 ----
+  
+  #include <stdio.h>
+  #include <stdlib.h>
++ #include <string.h>
+  
+  #include "clone.h"
+  #include "video.h"
+diff -r -C3 clone-990617/src/map/tileset.c clone-990617.alpha/src/map/tileset.c
+*** clone-990617/src/map/tileset.c	Wed Jun 16 17:04:20 1999
+--- clone-990617.alpha/src/map/tileset.c	Fri Jun 18 08:43:03 1999
+***************
+*** 12,17 ****
+--- 12,18 ----
+  
+  #include <stdio.h>
+  #include <stdlib.h>
++ #include <string.h>
+  
+  #include "clone.h"
+  #include "tileset.h"
+diff -r -C3 clone-990617/src/ui/botpanel.c clone-990617.alpha/src/ui/botpanel.c
+*** clone-990617/src/ui/botpanel.c	Wed Jun 16 17:04:21 1999
+--- clone-990617.alpha/src/ui/botpanel.c	Fri Jun 18 09:01:01 1999
+***************
+*** 129,135 ****
+  	"~HARVEST LUMBER/MINE GOLD"},
+      { -1 },
+      { IconBuildBasic,		B_Button,
+! 				(int)PeasantBuildBasicButtons,		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+--- 129,135 ----
+  	"~HARVEST LUMBER/MINE GOLD"},
+      { -1 },
+      { IconBuildBasic,		B_Button,
+! 				((long)((void*)PeasantBuildBasicButtons)),		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+***************
+*** 148,154 ****
+      { IconReturnGoodsPeasant,	B_Return,	0,			'g',
+  	"RETURN WITH ~GOODS"},
+      { IconBuildBasic,		B_Button,
+! 				(int)PeasantBuildBasicButtons,		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+--- 148,154 ----
+      { IconReturnGoodsPeasant,	B_Return,	0,			'g',
+  	"RETURN WITH ~GOODS"},
+      { IconBuildBasic,		B_Button,
+! 				((long)((void*)PeasantBuildBasicButtons)),		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+***************
+*** 200,206 ****
+  	"~HARVEST LUMBER/MINE GOLD"},
+      { -1 },
+      { IconBuildBasic,		B_Button,
+! 				(int)PeonBuildBasicButtons,		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+--- 200,206 ----
+  	"~HARVEST LUMBER/MINE GOLD"},
+      { -1 },
+      { IconBuildBasic,		B_Button,
+! 				((long)((void*)PeonBuildBasicButtons)),		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+***************
+*** 219,225 ****
+      { IconReturnGoodsPeon,	B_Return,	0,			'g',
+  	"RETURN WITH ~GOODS"},
+      { IconBuildBasic,		B_Button,
+! 				(int)PeonBuildBasicButtons,		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+--- 219,225 ----
+      { IconReturnGoodsPeon,	B_Return,	0,			'g',
+  	"RETURN WITH ~GOODS"},
+      { IconBuildBasic,		B_Button,
+! 				((long)((void*)PeonBuildBasicButtons)),		'b',
+  	"~BUILD BASIC STRUCTURE"},
+      { -1 },
+      { -1 }
+diff -r -C3 clone-990617/src/unit/unittype.c clone-990617.alpha/src/unit/unittype.c
+*** clone-990617/src/unit/unittype.c	Wed Jun 16 17:04:20 1999
+--- clone-990617.alpha/src/unit/unittype.c	Fri Jun 18 08:44:37 1999
+***************
+*** 11,16 ****
+--- 11,17 ----
+  //@{
+  
+  #include <stdio.h>
++ #include <stdlib.h>
+  #include <string.h>
+  #include <ctype.h>
+  
+***************
+*** 722,728 ****
+  	if( BIT(31,v) )	DebugLevel0("Unused bit 31 used in %d\n",i);
+  #undef BIT
+      }
+!     DebugLevel0("\tUDTA used %d bytes\n",udta-start);
+  }
+  
+  /**
+--- 723,729 ----
+  	if( BIT(31,v) )	DebugLevel0("Unused bit 31 used in %d\n",i);
+  #undef BIT
+      }
+!     DebugLevel0("\tUDTA used %ld bytes\n",udta-start);
+  }
+  
+  /**
+diff -r -C3 clone-990617/src/video/X11.c clone-990617.alpha/src/video/X11.c
+*** clone-990617/src/video/X11.c	Wed Jun 16 17:04:22 1999
+--- clone-990617.alpha/src/video/X11.c	Fri Jun 18 09:03:37 1999
+***************
+*** 19,24 ****
+--- 19,26 ----
+  #include <X11/keysym.h>
+  
+  #include <stdio.h>
++ #include <stdlib.h>
++ #include <string.h>
+  #include <signal.h>
+  #include <sys/time.h>
+  #include <sys/types.h>
+diff -r -C3 clone-990617/src/video/video.c clone-990617.alpha/src/video/video.c
+*** clone-990617/src/video/video.c	Wed Jun 16 17:04:22 1999
+--- clone-990617.alpha/src/video/video.c	Fri Jun 18 09:09:41 1999
+***************
+*** 10,15 ****
+--- 10,16 ----
+  
+  #include <stdio.h>
+  #include <stdlib.h>
++ #include <string.h>
+  
+  #include "clone.h"
+  #include "video.h"
+

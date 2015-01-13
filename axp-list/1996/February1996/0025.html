@@ -1,0 +1,137 @@
+<!-- received="Tue Feb  6 14:02:22 1996 " -->
+<!-- sent="Tue, 06 Feb 96 14:02:22 -0500" -->
+<!-- name="Jay Estabrook - Alpha Migration Tools - LINUX Project" -->
+<!-- email="jestabro@brillig.amt.tay1.dec.com" -->
+<!-- subject="Re: Sound v.s. Ethernet on AlphaStation 250? (fwd)" -->
+<!-- id="9602061902.AA09868@brillig.amt.tay1.dec.com" -->
+<!-- inreplyto="9602061824.AA05316@ives.amt.tay1.dec.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Sound v.s. Ethernet on AlphaStation 250? (fwd)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Sound v.s. Ethernet on AlphaStation 250? (fwd)</h2>
+
+<b>Jay Estabrook - Alpha Migration Tools - LINUX Project</b> (<a href="mailto:jestabro@brillig.amt.tay1.dec.com"><i>jestabro@brillig.amt.tay1.dec.com</i></a>)<br>
+<i>Tue, 06 Feb 96 14:02:22 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#25">[ date ]</a><a href="index.html#25">[ thread ]</a><a href="subject.html#25">[ subject ]</a><a href="author.html#25">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0026.html">Craig Groeschel: "Re: Woo-hoo, X on an AlphaStation 400"</a>
+<li> <b>Previous message:</b> <a href="0024.html">Ka'plaagh  06-Feb-1996 1911 +0000: "RE: 128 MB in eb164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Date: Mon, 5 Feb 96 23:46:39 -0800</i><br>
+<i>&gt; Subject: Sound v.s. Ethernet on AlphaStation 250?</i><br>
+<i>&gt; From: David Paul Zimmerman &lt;<a href="mailto:dpz@apple.com">dpz@apple.com</a>&gt;</i><br>
+<i>&gt; To: "Alpha Linux @ RedHat" &lt;axp-list@redhat.com&gt;</i><br>
+<i>&gt; </i><br>
+<i>&gt; Folks,</i><br>
+<i>&gt; </i><br>
+<i>&gt; I'm getting this strange condition on my AlphaStation 250, which has two </i><br>
+<i>&gt; de4x5 Ethernet interfaces, one PCI (eth0) and one built-in (eth1).  eth1 </i><br>
+<i>&gt; works peachy keen.  eth0 is recognized on boot and ifconfig'ed just fine, </i><br>
+<i>&gt; but I never hear boo through it. The most obvious clue that I see is that </i><br>
+<i>&gt; the de4x5 driver is trying to attach eth0 to interrupt 9, where the </i><br>
+<i>&gt; AlphaStation 250 sound card is apparently already squatting.  In this </i><br>
+<i>&gt; scenario, I don't actually have sound support compiled into the kernel </i><br>
+<i>&gt; (1.3.57 + Alpha &amp; TGA patches).</i><br>
+<i>&gt; </i><br>
+<i>&gt; 1st question:  has anyone already dealt with this successfully?</i><br>
+<p>
+Yes, and no... :-)<br>
+<p>
+You're prolly right in guessing that the IRQ of the sound card may be<br>
+conflicting with that of the DE435; IRQ 9 seems to be popular for sound<br>
+cards in general, but it's also one of the 4 IRQ's (10,11, and 15 are the<br>
+others) used for PCI devices if present, and set by the PCI BIOS init code.<br>
+<p>
+If you are booting LINUX from ARC via MILO, you could change the kernel's<br>
+setup of the IRQ's assigned to the PCI slots in arch/alpha/kernel/bios32.c<br>
+fixup code (ie in the code that inits the PIRQ registers).<br>
+<p>
+The PCI "slot" that the TGA is in may currently be setup in the PIRQs with<br>
+IRQ 15, for example; simply switch whatever the TGA slot's IRQ for IRQ 9 in<br>
+the PIRQ setup code, thus giving the DE435 the non-conflicting IRQ, as the<br>
+TGA doesn't use its IRQ anyway.<br>
+<p>
+There's currently no interrupt sharing capability on the Alpha side of LINUX,<br>
+so that can't be entertained as a solution.<br>
+<p>
+BTW, the AS250 is a *nice* box, quite fast from all I've heard... :-)<br>
+<p>
+ <br>
+<i>&gt; So, I'm thinking perhaps I need to compile in a driver for the sound </i><br>
+<i>&gt; card, so that the interrupt will be allocated by it, and the PCI de4x5 </i><br>
+<i>&gt; will then go squat on a different interrupt.  It isn't 100% clear to me, </i><br>
+<i>&gt; however, what particular incantation I should configure for the 250's </i><br>
+<i>&gt; sound card.  It has an OPL YMF262-M, so I'm choosing OPL 2/3 support, and </i><br>
+<i>&gt; it has a Crystal CS4231A-KL, so I'm choosing Microsoft Sound System </i><br>
+<i>&gt; support.  However upon trying that, the system hangs during kernel boot </i><br>
+<i>&gt; -- apparently upon trying to probe the sound device:</i><br>
+<i>&gt; </i><br>
+<i>&gt;         Sound initialization started</i><br>
+<i>&gt;         snd24 &lt;MS Sound System (CS4231A)&gt;</i><br>
+<i>&gt; </i><br>
+<i>&gt; and then an eerie quiet.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 2nd question:  has anyone already dealt with this successfully?</i><br>
+<p>
+<i>&gt;From the config file, MSS_DMA was set to 0; if this card is at all like the</i><br>
+"card" built into the MULTIA/UDB, it will use DMA 3. And note that the MULTIA<br>
+"card" is hardwired to the adress/IRQ/DMA, ie there's no registers for setting<br>
+them as on a normal MSS. Now, this may be incorrect info for the card in the<br>
+AS250, so your mileage may vary. If your card *has* those registers, it should<br>
+be settable to avoid IRQ 9, by choosing some other IRQ that's free.<br>
+<p>
+Also, I know nothing about the OPL2/3 thingy, perhaps try configuring it out,<br>
+ie just the MSS, for starters...<br>
+<p>
+Actually, from the chip names you give above, I believe what you have is<br>
+a true superset of the degenerate MSS in the MULTIA/UDB, so you prolly have<br>
+more flexibility than the latter.<br>
+<p>
+Do you have any machine and/or soundcard specs for this beastie? If not, I<br>
+may know someone who is at least familiar with it enough to confirm/deny our<br>
+suspicions...<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools<br>
+Mailstop: TAY1-2                        (DTN) 227-4202<br>
+Digital Equipment Corp.                 (external) (508) 952-4202<br>
+151 Taylor Street                       enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0026.html">Craig Groeschel: "Re: Woo-hoo, X on an AlphaStation 400"</a>
+<li> <b>Previous message:</b> <a href="0024.html">Ka'plaagh  06-Feb-1996 1911 +0000: "RE: 128 MB in eb164"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

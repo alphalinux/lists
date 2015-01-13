@@ -1,0 +1,135 @@
+<!-- received="Mon Oct  7 12:48:41 1996 " -->
+<!-- sent="Sat, 05 Oct 1996 17:07:14 +0500" -->
+<!-- name="jestabro@amt.tay1.dec.com" -->
+<!-- email="jestabro@amt.tay1.dec.com" -->
+<!-- subject="Re: multi-boot options" -->
+<!-- id="199610052107.RAA01469@alpha0.estabrook.org" -->
+<!-- inreplyto="Pine.LNX.3.94.961005151004.387A-100000@sullivan.bentley.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: multi-boot options</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: multi-boot options</h2>
+
+<a href="mailto:jestabro@amt.tay1.dec.com"><i>jestabro@amt.tay1.dec.com</i></a><br>
+<i>Sat, 05 Oct 1996 17:07:14 +0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#182">[ date ]</a><a href="index.html#182">[ thread ]</a><a href="subject.html#182">[ subject ]</a><a href="author.html#182">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0183.html">Erik Troan: "Re: Red Hat 4.0 install using minlabel"</a>
+<li> <b>Previous message:</b> <a href="0181.html">Kari Davidsson: "rembrant"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt; Mark Hamstra said:</i><br>
+<i>&gt; Toto, we're not in Kansas anymore...</i><br>
+<i>&gt; </i><br>
+<i>&gt; Help!  I just got this new Alphastation 255 dropped on my desk, and I'm</i><br>
+<i>&gt; having trouble figuring out how to set it up: this is just a wee bit</i><br>
+<i>&gt; different than my Intel boxes ;-) I'm supposed to be doing primarily  NT</i><br>
+<i>&gt; development work on it, so getting NT working conveniently is my first</i><br>
+<i>&gt; priority.  But there's no way I'm going to let NT have a 4GB drive all to</i><br>
+<i>&gt; itself! </i><br>
+<i>&gt; </i><br>
+<i>&gt; Presently the machine has the factory-installed Digital Unix and SRM on it</i><br>
+<i>&gt; --not completely configured yet, but it's there taking up a little over</i><br>
+<i>&gt; 1GB.  I wouldn't mind keeping that as is, but it's not a crippling loss if</i><br>
+<i>&gt; I have to get rid of it, either.  Of course what I really want is to get</i><br>
+<i>&gt; Red Hat 4.0 running on this box and to be able to easily reboot into at</i><br>
+<i>&gt; least NT (and preferably Digital Unix as well.)</i><br>
+<i>&gt; </i><br>
+<i>&gt; So: SRM, ARC, AlphaBios, Milo, Flash, aboot, fdisk, minlabel, dislabel,</i><br>
+<i>&gt; ...ummm... somebody please help me sort this all out.</i><br>
+<p>
+OK, slow down, don't panic, help is here... :-)<br>
+<p>
+If this is a real new AS255, and it *has* SRM/Digital UNIX, it probably won't<br>
+have AlphaBIOS in FLASH ROM also, if it's one of the new so-called half-FLASH<br>
+machines. In that case, you'll have to install AlphaBIOS when you wish to run<br>
+NT.<br>
+<p>
+On the other hand, we currently can't boot LINUX from AlphaBIOS on that box<br>
+(from ARC we can), so if SRM is there, you're set for running LINUX *now*.<br>
+<p>
+On gatekeeper.dec.com, find: pub/DEC/Linux-Alpha/Kernels/as255-srm.img.gz,<br>
+which is a compressed floppy image containing "aboot" and vmlinux.gz, built<br>
+specifically for booting/ruuning under SRM console on an AS255.<br>
+<p>
+[I believe the kernel was built to support both TGA and VGA, but I could be<br>
+wrong, and it may only be one or the other. Let me know if you have a<br>
+problem with this. ]<br>
+<p>
+Do:<br>
+<p>
+	gunzip as255-srm.img.gz<br>
+	dd if=as255-srm.img of=/dev/fd0H1440 bs=10240<br>
+<p>
+to make the floppy, then, under SRM, say:<br>
+<p>
+<i>    &gt;&gt;&gt; boot dva0 -file vmlinux.gz -flags "load_ramdisk=1 root=/dev/fd0"</i><br>
+<p>
+and it should boot up for the start of installation via RAMdisk.<br>
+<p>
+Note that to continue using SRM for booting, you need to use "minlabel"<br>
+to create the partition table, and install "aboot" on that disk. To use<br>
+ARC you need to use "fdisk" and allocate a small DOS partition to hold MILO.<br>
+Consult the SRM Booting FAQ on: <a href="http://www.azstarnet.com/~axplinux/srm.html/">http://www.azstarnet.com/~axplinux/srm.html/</a><br>
+for all the gory details.<br>
+<p>
+Important note: if you are converting a "minlabel" (BSD or Digital UNIX)<br>
+style partitioned disk to "fdisk" (DOS or NT) style, be sure to wipe out<br>
+the first few sectors on the disk via "dd if=/dev/zero of=/dev/sda count=4",<br>
+as "fdisk" doesn't automatically wipe out the "minlabel" partition table<br>
+(whereas "minlabel" will wipe out an "fdisk" one). Failure to do this can<br>
+lead to VERY confusing behavior during installation, even causing unexpected<br>
+reboots.<br>
+<p>
+Good luck, let me know how you make out.<br>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools - LINUX Project<br>
+Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202<br>
+151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0183.html">Erik Troan: "Re: Red Hat 4.0 install using minlabel"</a>
+<li> <b>Previous message:</b> <a href="0181.html">Kari Davidsson: "rembrant"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

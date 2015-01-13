@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: tbia() on DEC 3000 question</TITLE>
+<META NAME="Author" CONTENT="Craig P Prescott (prescott@phys.ufl.edu)">
+<META NAME="Subject" CONTENT="Re: tbia() on DEC 3000 question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: tbia() on DEC 3000 question</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 19 20:01:37 1999" -->
+<!-- isoreceived="19990820030137" -->
+<!-- sent="Thu, 19 Aug 1999 14:45:43 -0400" -->
+<!-- isosent="19990819184543" -->
+<!-- name="Craig P Prescott" -->
+<!-- email="prescott@phys.ufl.edu" -->
+<!-- subject="Re: tbia() on DEC 3000 question" -->
+<!-- id="199908191845.OAA02750@neptune.phys.ufl.edu" -->
+<!-- inreplyto="19990818164932.C15520@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: tbia() on DEC 3000 question<BR>
+<STRONG>From: </STRONG>Craig P Prescott (<EM>prescott@phys.ufl.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 19 1999 - 11:45:43 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#454">[ date ]</A>
+<A HREF="index.html#454">[ thread ]</A>
+<A HREF="subject.html#454">[ subject ]</A>
+<A HREF="author.html#454">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0455.html">Praveen Srinivasan: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0453.html">Dr. David Gilbert: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0442.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0458.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0442.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello, Richard;
+<BR>
+<P>*Thank you* for your explicit explanation of what happens in
+<BR>
+paging_init()!  This is very useful to me, as I am clearly lacking
+<BR>
+much knowledge of how everything works.
+<BR>
+<P>On Wed, 18 Aug 1999 16:49:32 -0700, Richard Henderson wrote:
+<BR>
+<EM>&gt; On Wed, Aug 18, 1999 at 05:36:45AM -0400, Craig P Prescott wrote:
+</EM><BR>
+<EM>&gt; &gt; I'm sure I'm doing something silly...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I don't think you are.  This _should_ just all work.  Since it
+</EM><BR>
+<P>Ummm... I'm note sure how to break it to you...
+<BR>
+<P><EM>&gt; &gt; I had sprinkled some srm_printk (is this ok to do??) calls around (I am
+</EM><BR>
+<EM>&gt; &gt; working from a serial console), and just prior to paging_init() 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Yes.  You can't call srm_printk after that tbia above. 
+</EM><BR>
+<P>Ermm...  This has been the problem the whole time.  I had done this:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srm_printk(&quot;Going to tbia()...\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tbia();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srm_printk(&quot;returning from paging_init().\n&quot;);
+<BR>
+<P>(*embarrassment*).  Initially, I had srm_printk's everywhere, in order
+<BR>
+to get some feedback prior to console_init.
+<BR>
+<P>But now, after removing all the srm_printk() calls after that tbia(),
+<BR>
+no more DBLE MCHK.  THe boot attempt now hangs - and whenever I hit
+<BR>
+the halt button, no matter how long I wait, I get
+<BR>
+<P>?01 EXT HALT
+<BR>
+&nbsp;&nbsp;PC= FFFFFC00.00318FCC PSL= 00000000.00000007
+<BR>
+<P>Now, I look into System.map
+<BR>
+<P>&lt;snip&gt;
+<BR>
+fffffc0000318f60 T time_init
+<BR>
+fffffc00003193e0 T do_gettimeofday
+<BR>
+&lt;/snip&gt;
+<BR>
+<P>so I am sitting someplace in time_init!  Ok - I am back at it.
+<BR>
+<P>So just to make sure - there is no way to get feedback from the kernel
+<BR>
+between the tbia() in paging_init() and console_init()?  If so, I
+<BR>
+guess I just try to get past various hangs and machine checks as they
+<BR>
+come up by checking System.map to see where the problems were.  Is
+<BR>
+there a better way?
+<BR>
+<P><EM>&gt; How much documentation are you working with here?  Or are you
+</EM><BR>
+<EM>&gt; just winging it?  I know NetBSD works on the 3000; you might
+</EM><BR>
+<EM>&gt; compare our vm startup code with theirs.
+</EM><BR>
+<P>here's most of the docs I have
+<BR>
+<P>* Alpha Architecture Reference Manual (1st edition)
+<BR>
+* DEC 3000 300/400/500/600/700/800/900 AXP Models System Programmer's Manual
+<BR>
+* David Rusling's &quot;The Linux Kernel&quot;
+<BR>
+* All the Turbochannel docs I could find...
+<BR>
+&nbsp;&nbsp;* Turbochannel Hardware Specification
+<BR>
+&nbsp;&nbsp;* Turbochannel Firmware Specification
+<BR>
+&nbsp;&nbsp;* Turbochannel System Parameters
+<BR>
+&nbsp;&nbsp;* Turbochannel Interface ASIC Functional Specification
+<BR>
+&nbsp;&nbsp;* PMAG-BA Turbochannel Color Framebuffer Functional Specification
+<BR>
+&nbsp;&nbsp;* PMAD-AA Turbochannel Ethernet Module Functional Specification
+<BR>
+&nbsp;&nbsp;* PMAZ-AA Turbochannel SCSI Module Functional Specification
+<BR>
+<P>as well as the docs for the Zilog serial communications port, the
+<BR>
+NCR 53c94 SCSI controller, the AMD 7990 Lance ethernet, and the AMD
+<BR>
+79C30A for the ISDN.
+<BR>
+<P>I also have some docs on the more recent Alpha hardware to help see
+<BR>
+how the already-working code works...
+<BR>
+<P>I read through a bunch of it, and it is just *a lot*...  The DEC 3000
+<BR>
+300/400/500/600/700/800/900 AXP Models System Programmer's Manual
+<BR>
+(that's a mounthful) seems choked with information - I'm sure I'll be
+<BR>
+relying on it soon.
+<BR>
+<P>I've browsed a bit through the NetBSD alpha sources - funny, should
+<BR>
+have done that sooner, though I probably would've made the same
+<BR>
+mistake anyway (they have a comment near their tbia call which says
+<BR>
+&quot;NO OUTPUT ALLOWED UNTIL FURTHER NOTICE&quot;).  I am sure their sources
+<BR>
+will be *very* useful, too, and not just for the vm code.
+<BR>
+<P>Of course, if anyone has docs which may be useful and I've not listed,
+<BR>
+I'd love to hear about them. 
+<BR>
+<P>So far, though, I haven't done too much.  I've added &quot;pelican&quot; and
+<BR>
+&quot;flamingo&quot; machine vectors, made the makefile and config.in mods,
+<BR>
+etc., and imported some of the turbochannel stuff from the Decstation
+<BR>
+port.  A lot of stuff is just dummied out in what I have done, 'cuz
+<BR>
+I'm not sure what to put there yet (PCI stuff, for example).
+<BR>
+<P>Many Thanks,
+<BR>
+Craig
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0455.html">Praveen Srinivasan: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0453.html">Dr. David Gilbert: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0442.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0458.html">Richard Henderson: "Re: tbia() on DEC 3000 question"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0442.html">Craig P Prescott: "Re: tbia() on DEC 3000 question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

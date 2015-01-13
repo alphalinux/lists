@@ -1,0 +1,174 @@
+<!-- received="Sun May 11 20:02:27 1997 " -->
+<!-- sent="Sun, 11 May 1997 19:59:31 -0400 (EDT)" -->
+<!-- name="Paul B. Brown" -->
+<!-- email="pbrown@btc.btechnet.com" -->
+<!-- subject="SCSI Disk Partition - Revisited" -->
+<!-- id="3.0.1.32.19970511163326.006bba00@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Pine.LNX.3.95.970511123259.20701B-100000@btc.btechnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>SCSI Disk Partition - Revisited</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>SCSI Disk Partition - Revisited</h2>
+
+<b>Paul B. Brown</b> (<a href="mailto:pbrown@btc.btechnet.com"><i>pbrown@btc.btechnet.com</i></a>)<br>
+<i>Sun, 11 May 1997 19:59:31 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#391">[ date ]</a><a href="index.html#391">[ thread ]</a><a href="subject.html#391">[ subject ]</a><a href="author.html#391">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0392.html">Rick Windham: "linux.cf and HAS_WCTYPE"</a>
+<li> <b>Previous message:</b> <a href="0390.html">Maurice W. Hilarius: "Re: Diamond Stealth clone"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Gang,<br>
+<p>
+I want to thank all the people who responded to my question about<br>
+Heads/Cylinders/Sectors on a Maxtor 7345S running in a UDB.<br>
+<p>
+If anyone is interested: H/C/S = 71/863/11<br>
+<p>
+I figured it out after having read the pertinent parts of the SCSI-HOWTO<br>
+and the Large Disks Mini-HOWTO.  If anyone else wants to figure out what<br>
+H/C/S to use on a SCSI disk under Linux, simply cut out the program below,<br>
+update the DISK_SIZE parameter to the size in bytes of the formatted disk,<br>
+compile it and run it.  It will give you what you need.  Odviously, there<br>
+is no warrantee/garrantee expressed or implied that this program will<br>
+even work.  Yada, yada, yada . . . You know the drill . . . .<br>
+<p>
+Anyway, thanks again all . . . .<br>
+<p>
+Paul<br>
+<p>
+-- CUT HERE --<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+<p>
+/******************************************************************************<br>
+ *<br>
+ * Source Code: calc_hcs.c<br>
+ *<br>
+ * Compile/Link Statement: gcc -o calc_hcs calc_hcs.c<br>
+ *<br>
+ * Run Statement: calc_hcs<br>
+ *<br>
+ * Description: This program will calculate the heads/cylinders/sectors on<br>
+ *              a Linux SCSI drive.  Simply change the define statement<br>
+ *              below, DISK_SIZE, specifying the size, in bytes, of the<br>
+ *              formatted SCSI drive, compile it, run it, and your done!<br>
+ *              Any Future version will need to be updated based on the<br>
+ *              info given in the SCSI HOWTO and the Large Disks<br>
+ *              Mini-HOWTO.<br>
+ *<br>
+ * History:<br>
+ *<br>
+ * Who          Date    Comment<br>
+ * -----------  ------  ---------------------------------------------------<br>
+ * Paul Brown   970511  Initial version 0.1b<br>
+ *<br>
+ ******************************************************************************/<br>
+<p>
+/*<br>
+ * Change this setting when you wish to calculate a new drive.  It should be<br>
+ * the size of the formatted drive in bytes.<br>
+ */<br>
+#define DISK_SIZE (long) 345090000      /* Maxtor 7345S - 342 MB */<br>
+<p>
+/*<br>
+ * Standard setting - DO NOT TOUCH<br>
+ */<br>
+#define BYTES_PER_SECTOR (long) 512<br>
+<p>
+/*<br>
+ * These settings are right out of the SCSI HOWTO.  These are the max settings<br>
+ * Linux will understand for SCSI drives.  With these settings you cannot have<br>
+ * a SCSI drive more than 8 formatted Gigabytes in size.  Bummer!<br>
+ */<br>
+#define MAX_HEADS     (long)  256<br>
+#define MAX_CYLINDERS (long) 1024<br>
+#define MAX_SECTORS   (long)   63<br>
+<p>
+main() {<br>
+   long disk_size;<br>
+   long cur_guess;<br>
+   long heads;<br>
+   long cylinders;<br>
+   long sectors;<br>
+   long best_heads;<br>
+   long best_cylinders = (long) 0;<br>
+   long best_sectors = (long) 0;<br>
+   long best_guess = (long) 0;<br>
+<p>
+   best_guess = disk_size = DISK_SIZE / BYTES_PER_SECTOR;<br>
+<p>
+   for (heads = (long) 1; heads &lt;= MAX_HEADS; heads++) {<br>
+      for (cylinders = (long) 1; cylinders &lt;= MAX_CYLINDERS; cylinders++) {<br>
+         for (sectors = (long) 1; sectors &lt;= MAX_SECTORS; sectors++) {<br>
+            cur_guess = disk_size - (heads * cylinders * sectors);<br>
+<p>
+            if (cur_guess &lt; (long) 0) break;<br>
+<p>
+            if (cur_guess == (long) 0)<br>
+               printf("DIRECT HIT -&gt; %ld/%ld/%ld (heads/cylinders/sectors)\n",<br>
+                       heads, cylinders, sectors);<br>
+<p>
+            if (cur_guess &lt; best_guess) {<br>
+               best_heads     = heads;<br>
+               best_cylinders = cylinders;<br>
+               best_sectors   = sectors;<br>
+               best_guess     = cur_guess;<br>
+            }<br>
+         }<br>
+      }<br>
+   }<br>
+/*<br>
+ * I pick the first direct hit to be the best guess because I have a preference<br>
+ * for the lowest number of heads.  Just a quirk of mine . . . . ;-&gt;<br>
+ */<br>
+   printf("BEST GUESS -&gt; %ld/%ld/%ld (heads/cylinders/sectors)\n",<br>
+           best_heads, best_cylinders, best_sectors);<br>
+<p>
+   exit(0);<br>
+}<br>
+<p>
+-- CUT HERE --<br>
+<p>
+---------------------------------------------------------------------------<br>
+Paul B. Brown                          "Sailing is a state of mind . . . ."<br>
+<a href="mailto:pbrown@btechnet.com">pbrown@btechnet.com</a>                    Unix Systems Administration<br>
+---------------------------------------------------------------------------<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0392.html">Rick Windham: "linux.cf and HAS_WCTYPE"</a>
+<li> <b>Previous message:</b> <a href="0390.html">Maurice W. Hilarius: "Re: Diamond Stealth clone"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

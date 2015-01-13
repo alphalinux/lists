@@ -1,0 +1,189 @@
+<!-- received="Fri Dec  5 20:58:10 1997 " -->
+<!-- sent="Sat, 6 Dec 1997 02:57:09 +0100 (MET)" -->
+<!-- name="Andreas Johansson" -->
+<!-- email="ajo@wopr.campus.luth.se" -->
+<!-- subject="Re: Sources for audio-related programs" -->
+<!-- id="199712051358.HAA24034@dfw-ix13.ix.netcom.com" -->
+<!-- inreplyto="Pine.LNX.3.96.971206022114.239A-100000@octavia.wopr" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Sources for audio-related programs</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Sources for audio-related programs</h2>
+
+<b>Andreas Johansson</b> (<a href="mailto:ajo@wopr.campus.luth.se"><i>ajo@wopr.campus.luth.se</i></a>)<br>
+<i>Sat, 6 Dec 1997 02:57:09 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#189">[ date ]</a><a href="index.html#189">[ thread ]</a><a href="subject.html#189">[ subject ]</a><a href="author.html#189">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0190.html">Jay.Estabrook@digital.com: "New alpha-patches and MILO sources"</a>
+<li> <b>Previous message:</b> <a href="0188.html">Michael J. Logan: "RH5.0/axp hang on install reboot - minor bug found"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sat, 6 Dec 1997, Joakim Roubert wrote:<br>
+<p>
+<i>&gt; Hi!</i><br>
+<i>&gt; </i><br>
+<i>&gt; I'm searching for the following sources that will compile for Alpha-Linux:</i><br>
+<i>&gt; </i><br>
+<i>&gt; splay	- or similar</i><br>
+<p>
+mpg123-0.59k compiles right out of box I think. I made Makefile entries<br>
+for Linux-alpha, and I have also changed mpg123.c so that it will set<br>
+higher priority on the player if mpg123 is suid root. I also have a<br>
+default buffer of 1024k. Just skip the mpg123.c patch if you don't want<br>
+any of these features.<br>
+<p>
+Here's my diff:<br>
+---------------------------------- snip ----------------------------------<br>
+diff -urN --exclude *.[osS] --exclude DEADJOE --exclude PROFILE --exclude jukebox --exclude jukebox-1.06-dir mpg123-0.59k/Makefile mpg123-0.59k-alpha/Makefile<br>
+--- mpg123-0.59k/Makefile	Sun Jul 13 08:44:41 1997<br>
++++ mpg123-0.59k-alpha/Makefile	Sat Dec  6 02:35:30 1997<br>
+@@ -20,6 +20,7 @@<br>
+ 	@echo "You must specify the system which you want to compile for:"<br>
+ 	@echo ""<br>
+ 	@echo "make linux           Linux"<br>
++	@echo "make linux-alpha     Linux/alpha"<br>
+ 	@echo "make freebsd         FreeBSD"<br>
+ 	@echo "make solaris         Solaris 2.x (tested: 2.5 and 2.5.1) using SparcWorks cc"<br>
+ 	@echo "make solaris-gcc     Solaris 2.x using GNU cc (somewhat slower)"<br>
+@@ -51,6 +52,14 @@<br>
+             -finline-functions -ffast-math' \<br>
+         mpg123<br>
+ <br>
++linux-alpha-profile:<br>
++	$(MAKE) OBJECTS='decode_i386.o dct64_i386.o' \<br>
++        CC=gcc LDFLAGS='-pg -static' \<br>
++        CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 -pg\<br>
++            -funroll-all-loops \<br>
++            -finline-functions -ffast-math' \<br>
++        mpg123<br>
++<br>
+ linux:<br>
+ 	$(MAKE) CC=gcc LDFLAGS= \<br>
+ 		OBJECTS='decode_i386.o dct64_i386.o getbits.o' \<br>
+@@ -59,11 +68,27 @@<br>
+ 			-finline-functions -ffast-math' \<br>
+ 		mpg123<br>
+ <br>
++linux-alpha:<br>
++	$(MAKE) CC=gcc LDFLAGS= \<br>
++		OBJECTS='decode_i386.o dct64_i386.o' \<br>
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 \<br>
++			-funroll-all-loops \<br>
++			-finline-functions -ffast-math' \<br>
++		mpg123<br>
++<br>
+ linux-sajber:<br>
+ 	$(MAKE) CC=gcc LDFLAGS= \<br>
+-		OBJECTS='decode_i386.o dct64_i386.o getbits.o control.o' \<br>
++		OBJECTS='decode_i386.o dct64_i386.o getbits.s control.o' \<br>
+ 		CFLAGS='-DFRONTEND -DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -Wall -O2 -m486\<br>
+ 			-fomit-frame-pointer -funroll-all-loops \<br>
++			-finline-functions -ffast-math' \<br>
++		sajberplay<br>
++<br>
++linux-alpha-sajber:<br>
++	$(MAKE) CC=gcc LDFLAGS= \<br>
++		OBJECTS='decode_i386.o dct64_i386.o control.o' \<br>
++		CFLAGS='-DFRONTEND -DREAL_IS_FLOAT -DLINUX -Wall -O2\<br>
++			-funroll-all-loops \<br>
+ 			-finline-functions -ffast-math' \<br>
+ 		sajberplay<br>
+ <br>
+diff -urN --exclude *.[osS] --exclude DEADJOE --exclude PROFILE --exclude jukebox --exclude jukebox-1.06-dir mpg123-0.59k/mpg123.c mpg123-0.59k-alpha/mpg123.c<br>
+--- mpg123-0.59k/mpg123.c	Sun Jul 13 09:03:29 1997<br>
++++ mpg123-0.59k-alpha/mpg123.c	Fri Oct 31 22:38:01 1997<br>
+@@ -12,7 +12,7 @@<br>
+ #include &lt;sys/time.h&gt;<br>
+ #include &lt;sys/resource.h&gt;<br>
+ <br>
+-/* #define SET_PRIO */<br>
++#define SET_PRIO<br>
+ <br>
+ #include "mpg123.h"<br>
+ #include "getlopt.h"<br>
+@@ -46,7 +46,7 @@<br>
+ int force_frequency = -1;<br>
+ long numframes = -1;<br>
+ long startFrame= 0;<br>
+-int usebuffer  = 0;<br>
++int usebuffer  = 1024;<br>
+ int frontend_type = 0;<br>
+ int remote     = 0;<br>
+ int buffer_fd[2];<br>
+---------------------------------- snip ----------------------------------<br>
+<p>
+There is also a binary at:<br>
+<p>
+<a href="ftp://wopr.campus.luth.se/pub/axp/mpg123-0.59k">ftp://wopr.campus.luth.se/pub/axp/mpg123-0.59k</a><br>
+<p>
+<i>&gt; cdp	- or similar</i><br>
+<p>
+Haven't looked at cdp, but I know cdplay works (noninteractive version of<br>
+cdp), atleast in mustang.<br>
+<p>
+I have xplaycd working with a small patch to the multimedia rpm.<br>
+(uninitialized variable in the McTools library).<br>
+<p>
+<a href="ftp://wopr.campus.luth.se/pub/glibc-2.0.3/diffs/multimedia">ftp://wopr.campus.luth.se/pub/glibc-2.0.3/diffs/multimedia</a>*<br>
+<p>
+Unpack the multimedia rpm, put the two patches in /usr/src/redhat/SOURCES<br>
+and overwrite the /usr/src/redhat/SPECS/multimedia-2.1.spec file with my<br>
+version. This should do the trick (I hope).<br>
+<p>
+<i>&gt; aumixer	- or similar</i><br>
+<p>
+The Red Hat aumix works in my console (though not in xterm since they use<br>
+a lot of noniso chars). Again, I'm using the mustang distrib.<br>
+<p>
+<i>&gt; /Jokke tmw.</i><br>
+<p>
+Hope you find some answers there.<br>
+<p>
+/Andreas<br>
+<pre>
+--
+<p>
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+: E-mail: <a href="mailto:ajo@wopr.campus.luth.se">ajo@wopr.campus.luth.se</a>                                       :
+: S-mail: Andreas Johansson, Karhusvagen 5  6:618, 977 54 Lulea, SWEDEN :
+:     Have you had your dose of 261.62 BogoMIPS today? - Run Alpha!     :
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0190.html">Jay.Estabrook@digital.com: "New alpha-patches and MILO sources"</a>
+<li> <b>Previous message:</b> <a href="0188.html">Michael J. Logan: "RH5.0/axp hang on install reboot - minor bug found"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

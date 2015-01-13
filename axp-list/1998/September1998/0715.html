@@ -1,0 +1,192 @@
+<!-- received="Thu Sep 24 16:40:34 1998 " -->
+<!-- sent="Thu, 24 Sep 1998 21:10:47 +0200" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="Re: Another bug in strace-3.1" -->
+<!-- id="98092416070800.24452@fury.bio.dfo.ca" -->
+<!-- inreplyto="9809231748.AA00702@bathurst" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Another bug in strace-3.1</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Another bug in strace-3.1</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Thu, 24 Sep 1998 21:10:47 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#715">[ date ]</a><a href="index.html#715">[ thread ]</a><a href="subject.html#715">[ subject ]</a><a href="author.html#715">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0716.html">Stephen J. Gaudet: "more good Linux news!"</a>
+<li> <b>Previous message:</b> <a href="0714.html">Paul Chapman: "Matlab with DU libs?"</a>
+<li> <b>In reply to:</b> <a href="0704.html">Armin Ollig: "Re: RedHat5.1 on UX4 Motherboard"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0718.html">Jiann-Ming Su: "Re: Matlab with DU libs?"</a>
+<li> <b>Reply:</b> <a href="0718.html">Jiann-Ming Su: "Re: Matlab with DU libs?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, Sep 23, 1998 at 06:48:19PM +0100, Richard Black wrote:<br>
+<i>&gt; Many thanks to Thomas for his patches, though I have looked on ftp.redhat.com </i><br>
+<i>&gt; and can only find strace-3.1-5.</i><br>
+<p>
+this sucks. strace-3.1-7 is on my PowerTools CD, but I couldn't find it on<br>
+ftp.redhat.com either. There are more newer SRPMS on the PowerTools CD, which<br>
+are _not_ on ftp.redhat.com:-(<br>
+<p>
+<i>&gt; Here is another problem -- the fstat (and related) calls appear to report </i><br>
+<i>&gt; something wrong i.e. neither the contents of the stat buffer before the call, </i><br>
+<i>&gt; nor the contents after the call.  This happens on *both* intel and alpha.</i><br>
+<p>
+that's a mismatch between kernel structures and glibc structures. Below is<br>
+a fix this problem.<br>
+<p>
+I've uploaded a SRPM, a Intel RPM and an Alpha RPM of the fixed strace. <br>
+You can find them in<br>
+<p>
+<a href="ftp://ftp.franken.de/pub/people/tsbogend/strace/strace-3.1-9.*.rpm">ftp://ftp.franken.de/pub/people/tsbogend/strace/strace-3.1-9.*.rpm</a><br>
+<p>
+Thomas.<br>
+<p>
+diff -ru strace-3.1-orig/file.c strace-3.1/file.c<br>
+--- strace-3.1-orig/file.c	Thu Sep 24 12:15:39 1998<br>
++++ strace-3.1/file.c	Thu Sep 24 20:54:43 1998<br>
+@@ -413,8 +413,9 @@<br>
+ }<br>
+ #endif<br>
+ <br>
+-#ifdef LINUXSPARC<br>
++#ifdef LINUX<br>
+ /* Ugly, bug GLIBC makes this necessary. */<br>
++#ifdef LINUXSPARC<br>
+ struct kernel_stat<br>
+ {<br>
+     unsigned short int st_dev;<br>
+@@ -437,13 +438,59 @@<br>
+     unsigned long int __unused5;<br>
+ };<br>
+ #endif<br>
++#ifdef ALPHA<br>
++struct kernel_stat<br>
++{<br>
++    unsigned int    st_dev;<br>
++    unsigned int    st_ino;<br>
++    unsigned int    st_mode;<br>
++    unsigned int    st_nlink;<br>
++    unsigned int    st_uid;<br>
++    unsigned int    st_gid;<br>
++    unsigned int    st_rdev;<br>
++    long            st_size;<br>
++    unsigned long   st_atime;<br>
++    unsigned long   st_mtime;<br>
++    unsigned long   st_ctime;<br>
++    unsigned int    st_blksize;<br>
++    int             st_blocks;<br>
++    unsigned int    st_flags;<br>
++    unsigned int    st_gen;<br>
++};<br>
++#endif<br>
++#ifdef I386<br>
++struct kernel_stat<br>
++{<br>
++    unsigned short st_dev;<br>
++    unsigned short __pad1;<br>
++    unsigned long st_ino;<br>
++    unsigned short st_mode;<br>
++    unsigned short st_nlink;<br>
++    unsigned short st_uid;<br>
++    unsigned short st_gid;<br>
++    unsigned short st_rdev;<br>
++    unsigned short __pad2;<br>
++    unsigned long  st_size;<br>
++    unsigned long  st_blksize;<br>
++    unsigned long  st_blocks;<br>
++    unsigned long  st_atime;<br>
++    unsigned long  __unused1;<br>
++    unsigned long  st_mtime;<br>
++    unsigned long  __unused2;<br>
++    unsigned long  st_ctime;<br>
++    unsigned long  __unused3;<br>
++    unsigned long  __unused4;<br>
++    unsigned long  __unused5;<br>
++};<br>
++#endif<br>
++#endif<br>
+ <br>
+ static void<br>
+ printstat(tcp, addr)<br>
+ struct tcb *tcp;<br>
+-int addr;<br>
++long addr;<br>
+ {<br>
+-#ifdef LINUXSPARC<br>
++#ifdef LINUX<br>
+ 	struct kernel_stat statbuf;<br>
+ #else<br>
+ 	struct stat statbuf;<br>
+@@ -460,7 +506,7 @@<br>
+ 		return;<br>
+ 	}<br>
+ 	if (syserror(tcp) || !verbose(tcp)) {<br>
+-		tprintf("%#x", addr);<br>
++		tprintf("%#lx", addr);<br>
+ 		return;<br>
+ 	}<br>
+ 	if (umove(tcp, addr, &amp;statbuf) &lt; 0) {<br>
+diff -ru strace-3.1-orig/linux/alpha/syscallent.h strace-3.1/linux/alpha/syscallent.h<br>
+--- strace-3.1-orig/linux/alpha/syscallent.h	Thu Sep 24 12:15:39 1998<br>
++++ strace-3.1/linux/alpha/syscallent.h	Thu Sep 24 12:21:35 1998<br>
+@@ -119,8 +119,8 @@<br>
+ 	{ 2,	0,	sys_sethostname,	"sethostname"	}, /* 88 */<br>
+ 	{ 0,	0,	sys_getdtablesize,	"getdtablesize"	}, /* 89 */<br>
+ 	{ 2,	0,	sys_dup2,		"dup2"		}, /* 90 */<br>
+-	{ 2,	0,	sys_fstat,		"fstat"		}, /* 91 */<br>
+-	{ 3,	0,	sys_fcntl,		"fcntl"		}, /* 92 */<br>
++	{ 2,	TF,	sys_fstat,		"fstat"		}, /* 91 */<br>
++	{ 3,	TF,	sys_fcntl,		"fcntl"		}, /* 92 */<br>
+ 	{ 5,	0,	sys_select,		"select"	}, /* 93 */<br>
+ 	{ 5,	0,	printargs,		"SYS_94"	}, /* 94 */<br>
+ 	{ 1,	0,	sys_fsync,		"fsync"		}, /* 95 */<br>
+<p>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0716.html">Stephen J. Gaudet: "more good Linux news!"</a>
+<li> <b>Previous message:</b> <a href="0714.html">Paul Chapman: "Matlab with DU libs?"</a>
+<li> <b>In reply to:</b> <a href="0704.html">Armin Ollig: "Re: RedHat5.1 on UX4 Motherboard"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0718.html">Jiann-Ming Su: "Re: Matlab with DU libs?"</a>
+<li> <b>Reply:</b> <a href="0718.html">Jiann-Ming Su: "Re: Matlab with DU libs?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,168 @@
+<!-- received="Wed Apr  2 06:30:17 1997 " -->
+<!-- sent="Wed, 2 Apr 1997 12:26:12 +0100 (BST)" -->
+<!-- name="Philip Blundell" -->
+<!-- email="pjb27@cam.ac.uk" -->
+<!-- subject="Re: Diald for Alpha" -->
+<!-- id="199704021103.GAA16921@avalon.harvard.edu" -->
+<!-- inreplyto="01BC3ECB.478AE760@orion" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Diald for Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Diald for Alpha</h2>
+
+<b>Philip Blundell</b> (<a href="mailto:pjb27@cam.ac.uk"><i>pjb27@cam.ac.uk</i></a>)<br>
+<i>Wed, 2 Apr 1997 12:26:12 +0100 (BST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#72">[ date ]</a><a href="index.html#72">[ thread ]</a><a href="subject.html#72">[ subject ]</a><a href="author.html#72">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0073.html">Jester: "(no subject)"</a>
+<li> <b>Previous message:</b> <a href="0071.html">Erik Evensen: "Re: g77 and error message on console"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 1 Apr 1997, Miguel A. Rivera wrote:<br>
+<p>
+<i>&gt; Has anyone ported the diald daemon to alpha? I was playing</i><br>
+<i>&gt; around with the code in my UDB but after a really clean</i><br>
+<i>&gt; compilation the code core dumps on me.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I am running RedHat 4.1 using an UDB 166.</i><br>
+<p>
+The stock diald does fclose(NULL), which causes a core dump.  Here are<br>
+some patches I sent to Eric to improve the compatibility between diald<br>
+0.16 and glibc - see if they help.  I haven't actually tested this on the<br>
+Alpha, but it works on my PC with glibc.<br>
+<p>
+phil<br>
+<p>
+diff -u --recursive clean/diald-0.16/diald.c ./diald-0.16/diald.c<br>
+--- clean/diald-0.16/diald.c	Thu Dec 19 20:42:41 1996<br>
++++ ./diald-0.16/diald.c	Tue Mar 25 00:18:46 1997<br>
+@@ -164,7 +164,7 @@<br>
+ {<br>
+     int pid;<br>
+     FILE *fp;<br>
+-    if (daemon) {<br>
++    if (daemon_flag) {<br>
+         close(0);<br>
+         close(1);<br>
+         close(2);<br>
+diff -u --recursive clean/diald-0.16/diald.h ./diald-0.16/diald.h<br>
+--- clean/diald-0.16/diald.h	Sun Dec 15 18:29:21 1996<br>
++++ ./diald-0.16/diald.h	Tue Mar 25 00:29:17 1997<br>
+@@ -36,17 +36,27 @@<br>
+ */<br>
+ #include &lt;netinet/in.h&gt;<br>
+ /* #include &lt;asm/byteorder.h&gt; */<br>
+-#include &lt;linux/tcp.h&gt;<br>
+-#include &lt;linux/udp.h&gt;<br>
+-#include &lt;linux/icmp.h&gt;<br>
+ /* Shut up gcc about a redefinition that is harmless */<br>
+ #undef LITTLE_ENDIAN<br>
++#ifndef __GLIBC__<br>
+ #include &lt;linux/ip.h&gt;<br>
+ #include &lt;linux/in.h&gt;<br>
++#include &lt;linux/udp.h&gt;<br>
++#include &lt;linux/tcp.h&gt;<br>
++#include &lt;linux/icmp.h&gt;<br>
++#else<br>
++#include &lt;netinet/ip.h&gt;<br>
++#include &lt;netinet/udp.h&gt;<br>
++#include &lt;netinet/tcp.h&gt;<br>
++#endif<br>
+ #include &lt;arpa/inet.h&gt;<br>
+ /* Hmm. Should there be a netinet pointer to these??? */<br>
++#ifndef __GLIBC__ <br>
+ #include &lt;linux/if_ether.h&gt;<br>
+ #include &lt;linux/if_slip.h&gt;<br>
++#else<br>
++#include &lt;net/ethernet.h&gt;<br>
++#endif<br>
+ <br>
+ #include &lt;linux/version.h&gt;<br>
+ /* This only exists in kernels &gt;= 1.3.75 */<br>
+@@ -224,7 +234,7 @@<br>
+ int modem;<br>
+ int rotate_devices;<br>
+ int crtscts;<br>
+-int daemon;<br>
++int daemon_flag;<br>
+ int dynamic_addrs;<br>
+ int dynamic_mode;<br>
+ int slip_encap;<br>
+diff -u --recursive clean/diald-0.16/options.c ./diald-0.16/options.c<br>
+--- clean/diald-0.16/options.c	Sat Dec 21 07:17:21 1996<br>
++++ ./diald-0.16/options.c	Tue Mar 25 00:53:38 1997<br>
+@@ -53,7 +53,7 @@<br>
+ int debug = 0;<br>
+ int modem = 0;<br>
+ int crtscts = 0;<br>
+-int daemon = 1;<br>
++int daemon_flag = 1;<br>
+ int slip_encap = 0;<br>
+ int lock_dev = 0;<br>
+ int default_route = 0;<br>
+@@ -103,7 +103,7 @@<br>
+     {"mode","[ppp|slip|cslip|slip6|cslip6|aslip|dev]",1,0,set_mode},<br>
+ /* Debugging options */<br>
+     {"debug","&lt;debugmask&gt;",1,&amp;debug,set_int},<br>
+-    {"-daemon","",0,&amp;daemon,clear_flag},<br>
++    {"-daemon","",0,&amp;daemon_flag,clear_flag},<br>
+ /* general options */<br>
+     {"accounting-log","&lt;f&gt;",1,&amp;acctlog,set_str},<br>
+     {"pidfile","&lt;f&gt;",1,&amp;pidlog,set_str},<br>
+@@ -219,7 +219,7 @@<br>
+     debug = 0;<br>
+     modem = 0;<br>
+     crtscts = 0;<br>
+-    daemon = 1;<br>
++    daemon_flag = 1;<br>
+     slip_encap = 0;<br>
+     lock_dev = 0;<br>
+     default_route = 0;<br>
+@@ -560,7 +560,7 @@<br>
+     if (acctlog &amp;&amp; (acctfp = fopen(acctlog,"a")) == NULL)<br>
+ 	syslog(LOG_ERR,"Can't open accounting log file %s: %m",acctlog);<br>
+     else<br>
+-	fclose(acctfp);<br>
++        if (acctfp) fclose(acctfp);<br>
+     <br>
+     if (flag) exit(1);<br>
+ }<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0073.html">Jester: "(no subject)"</a>
+<li> <b>Previous message:</b> <a href="0071.html">Erik Evensen: "Re: g77 and error message on console"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

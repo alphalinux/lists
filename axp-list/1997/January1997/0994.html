@@ -1,0 +1,337 @@
+<!-- received="Fri Jan 31 15:53:21 1997 " -->
+<!-- sent="Fri, 31 Jan 97 15:45:33 -0500" -->
+<!-- name="Harold H.Youngren" -->
+<!-- email="guppy@maine.com" -->
+<!-- subject="Re: compiler efficency (primarily f2c question)" -->
+<!-- id="9701312045.AA01510@maine.com" -->
+<!-- inreplyto="compiler efficency (primarily f2c question)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiler efficency (primarily f2c question)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiler efficency (primarily f2c question)</h2>
+
+<b>Harold H.Youngren</b> (<a href="mailto:guppy@maine.com"><i>guppy@maine.com</i></a>)<br>
+<i>Fri, 31 Jan 97 15:45:33 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#994">[ date ]</a><a href="index.html#994">[ thread ]</a><a href="subject.html#994">[ subject ]</a><a href="author.html#994">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0995.html">Paul Wouters: "Re: glibc-2.0 for axp"</a>
+<li> <b>Previous message:</b> <a href="0993.html">Richard Henderson: "Re: scheme for Linux/AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I saw a reference in this fortran compiler related thread a couple of days ago  <br>
+to f2c on Linux/Alpha.<br>
+<p>
+The comment was made that INTEGERS in the f2c-translated code were too long  <br>
+(ie. long int vs. int).   I had run into this a couple of months ago and had  <br>
+been corresponding with David Gay at ATT (f2c guy) about this. All the basic  <br>
+data types for f2c are declared in f2c.h.  David sent me this modified f2c.h  <br>
+file (at end of this message) that has the typedefs changed for the 64 bit  <br>
+Alpha.  I have tried to recompile f2c using this and get some of the usual  <br>
+Alpha pointer/integer warnings but the resulting f2c sort-of works -&gt; I run  <br>
+into problems with some parameter statements and with translating to ANSI C  <br>
+(the -A switch).   Interestingly, although the new f2c does not really work on  <br>
+the Linux/Alpha it does work fine under DEC OSF, perhaps there are some compile  <br>
+options I am missing (I used the stock makefile, and the one from the RH rpm).   <br>
+I would be interested if someone else can get this to work.  You might try the  <br>
+enclosed f2c.h file...<br>
+<p>
+By the way, I have benchmarked the DEC f77 pretty extensively on matrix  <br>
+operations and get about 2.5X to 3X the performance of f2c/DEC cc code.  Those  <br>
+DEC guys sure know how to get performance out of their chip!<br>
+<p>
+<p>
+Hal Y.<br>
+<p>
+/* f2c.h  --  Standard Fortran to C header file, adjusted for int = 32 bits,  <br>
+long = 64 bits (e.g., DEC Alpha, IRIX 6.2) */<br>
+<p>
+/**  barf  [ba:rf]  2.  "He suggested using FORTRAN, and everybody barfed."<br>
+<p>
+	- From The Shogakukan DICTIONARY OF NEW ENGLISH (Second edition) */<br>
+<p>
+#ifndef F2C_INCLUDE<br>
+#define F2C_INCLUDE<br>
+<p>
+typedef int integer;<br>
+typedef unsigned int uinteger;<br>
+typedef char *address;<br>
+typedef short int shortint;<br>
+typedef float real;<br>
+typedef double doublereal;<br>
+typedef struct { real r, i; } complex;<br>
+typedef struct { doublereal r, i; } doublecomplex;<br>
+typedef int logical;<br>
+typedef short int shortlogical;<br>
+typedef char logical1;<br>
+typedef char integer1;<br>
+#if 0	/* Adjust for integer*8. */<br>
+typedef long longint;		/* system-dependent */<br>
+typedef unsigned long ulongint;	/* system-dependent */<br>
+#define qbit_clear(a,b)	((a) &amp; ~((ulongint)1 &lt;&lt; (b)))<br>
+#define qbit_set(a,b)	((a) |  ((ulongint)1 &lt;&lt; (b)))<br>
+#endif<br>
+<p>
+#define TRUE_ (1)<br>
+#define FALSE_ (0)<br>
+<p>
+/* Extern is for use with -E */<br>
+#ifndef Extern<br>
+#define Extern extern<br>
+#endif<br>
+<p>
+/* I/O stuff */<br>
+<p>
+#ifdef f2c_i2<br>
+/* for -i2 */<br>
+typedef short flag;<br>
+typedef short ftnlen;<br>
+typedef short ftnint;<br>
+#else<br>
+typedef int flag;<br>
+typedef int ftnlen;<br>
+typedef int ftnint;<br>
+#endif<br>
+<p>
+/*external read, write*/<br>
+typedef struct<br>
+{	flag cierr;<br>
+	ftnint ciunit;<br>
+	flag ciend;<br>
+	char *cifmt;<br>
+	ftnint cirec;<br>
+} cilist;<br>
+<p>
+/*internal read, write*/<br>
+typedef struct<br>
+{	flag icierr;<br>
+	char *iciunit;<br>
+	flag iciend;<br>
+	char *icifmt;<br>
+	ftnint icirlen;<br>
+	ftnint icirnum;<br>
+} icilist;<br>
+<p>
+/*open*/<br>
+typedef struct<br>
+{	flag oerr;<br>
+	ftnint ounit;<br>
+	char *ofnm;<br>
+	ftnlen ofnmlen;<br>
+	char *osta;<br>
+	char *oacc;<br>
+	char *ofm;<br>
+	ftnint orl;<br>
+	char *oblnk;<br>
+} olist;<br>
+<p>
+/*close*/<br>
+typedef struct<br>
+{	flag cerr;<br>
+	ftnint cunit;<br>
+	char *csta;<br>
+} cllist;<br>
+<p>
+/*rewind, backspace, endfile*/<br>
+typedef struct<br>
+{	flag aerr;<br>
+	ftnint aunit;<br>
+} alist;<br>
+<p>
+/* inquire */<br>
+typedef struct<br>
+{	flag inerr;<br>
+	ftnint inunit;<br>
+	char *infile;<br>
+	ftnlen infilen;<br>
+	ftnint	*inex;	/*parameters in standard's order*/<br>
+	ftnint	*inopen;<br>
+	ftnint	*innum;<br>
+	ftnint	*innamed;<br>
+	char	*inname;<br>
+	ftnlen	innamlen;<br>
+	char	*inacc;<br>
+	ftnlen	inacclen;<br>
+	char	*inseq;<br>
+	ftnlen	inseqlen;<br>
+	char 	*indir;<br>
+	ftnlen	indirlen;<br>
+	char	*infmt;<br>
+	ftnlen	infmtlen;<br>
+	char	*inform;<br>
+	ftnint	informlen;<br>
+	char	*inunf;<br>
+	ftnlen	inunflen;<br>
+	ftnint	*inrecl;<br>
+	ftnint	*innrec;<br>
+	char	*inblank;<br>
+	ftnlen	inblanklen;<br>
+} inlist;<br>
+<p>
+#define VOID void<br>
+<p>
+union Multitype {	/* for multiple entry points */<br>
+	integer1 g;<br>
+	shortint h;<br>
+	integer i;<br>
+	/* longint j; */<br>
+	real r;<br>
+	doublereal d;<br>
+	complex c;<br>
+	doublecomplex z;<br>
+	};<br>
+<p>
+typedef union Multitype Multitype;<br>
+<p>
+/*typedef long int Long;*/	/* No longer used; formerly in Namelist */<br>
+<p>
+struct Vardesc {	/* for Namelist */<br>
+	char *name;<br>
+	char *addr;<br>
+	ftnlen *dims;<br>
+	int  type;<br>
+	};<br>
+typedef struct Vardesc Vardesc;<br>
+<p>
+struct Namelist {<br>
+	char *name;<br>
+	Vardesc **vars;<br>
+	int nvars;<br>
+	};<br>
+typedef struct Namelist Namelist;<br>
+<p>
+#define abs(x) ((x) &gt;= 0 ? (x) : -(x))<br>
+#define dabs(x) (doublereal)abs(x)<br>
+#define min(a,b) ((a) &lt;= (b) ? (a) : (b))<br>
+#define max(a,b) ((a) &gt;= (b) ? (a) : (b))<br>
+#define dmin(a,b) (doublereal)min(a,b)<br>
+#define dmax(a,b) (doublereal)max(a,b)<br>
+#define bit_test(a,b)	((a) &gt;&gt; (b) &amp; 1)<br>
+#define bit_clear(a,b)	((a) &amp; ~((uinteger)1 &lt;&lt; (b)))<br>
+#define bit_set(a,b)	((a) |  ((uinteger)1 &lt;&lt; (b)))<br>
+<p>
+/* procedure parameter types for -A and -C++ */<br>
+<p>
+#define F2C_proc_par_types 1<br>
+#ifdef __cplusplus<br>
+typedef int /* Unknown procedure type */ (*U_fp)(...);<br>
+typedef shortint (*J_fp)(...);<br>
+typedef integer (*I_fp)(...);<br>
+typedef real (*R_fp)(...);<br>
+typedef doublereal (*D_fp)(...), (*E_fp)(...);<br>
+typedef /* Complex */ VOID (*C_fp)(...);<br>
+typedef /* Double Complex */ VOID (*Z_fp)(...);<br>
+typedef logical (*L_fp)(...);<br>
+typedef shortlogical (*K_fp)(...);<br>
+typedef /* Character */ VOID (*H_fp)(...);<br>
+typedef /* Subroutine */ int (*S_fp)(...);<br>
+#else<br>
+typedef int /* Unknown procedure type */ (*U_fp)();<br>
+typedef shortint (*J_fp)();<br>
+typedef integer (*I_fp)();<br>
+typedef real (*R_fp)();<br>
+typedef doublereal (*D_fp)(), (*E_fp)();<br>
+typedef /* Complex */ VOID (*C_fp)();<br>
+typedef /* Double Complex */ VOID (*Z_fp)();<br>
+typedef logical (*L_fp)();<br>
+typedef shortlogical (*K_fp)();<br>
+typedef /* Character */ VOID (*H_fp)();<br>
+typedef /* Subroutine */ int (*S_fp)();<br>
+#endif<br>
+/* E_fp is for real functions when -R is not specified */<br>
+typedef VOID C_f;	/* complex function */<br>
+typedef VOID H_f;	/* character function */<br>
+typedef VOID Z_f;	/* double complex function */<br>
+typedef doublereal E_f;	/* real function with -R not specified */<br>
+<p>
+/* undef any lower-case symbols that your C compiler predefines, e.g.: */<br>
+<p>
+#ifndef Skip_f2c_Undefs<br>
+#undef cray<br>
+#undef gcos<br>
+#undef mc68010<br>
+#undef mc68020<br>
+#undef mips<br>
+#undef pdp11<br>
+#undef sgi<br>
+#undef sparc<br>
+#undef sun<br>
+#undef sun2<br>
+#undef sun3<br>
+#undef sun4<br>
+#undef u370<br>
+#undef u3b<br>
+#undef u3b2<br>
+#undef u3b5<br>
+#undef unix<br>
+#undef vax<br>
+#endif<br>
+#endif<br>
+<p>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+<p>
+*************************************************************
+* Harold Youngren   ----&gt; Internet: <a href="mailto:guppy@maine.com">guppy@maine.com</a>         *
+* 129 Pitt St,                  or: <a href="mailto:guppy@netcom.com">guppy@netcom.com</a>        *
+* Portland, ME  04103     AeroCraft Consulting              *
+* Home: (207)871-0552     Aeronautical Consulting, Analysis,*
+* Fax:  (207)871-1034     Design, CFD software              *
+*************************************************************
+<p>
+<p>
+<pre>
+--
+<p>
+*************************************************************
+* Harold Youngren   ----&gt; Internet: <a href="mailto:guppy@maine.com">guppy@maine.com</a>         *
+* 129 Pitt St,                  or: <a href="mailto:guppy@netcom.com">guppy@netcom.com</a>        *
+* Portland, ME  04103     AeroCraft Consulting              *
+* Home: (207)871-0552     Aeronautical Consulting, Analysis,*
+* Fax:  (207)871-1034     Design, CFD software              *
+*************************************************************
+<p>
+ 
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0995.html">Paul Wouters: "Re: glibc-2.0 for axp"</a>
+<li> <b>Previous message:</b> <a href="0993.html">Richard Henderson: "Re: scheme for Linux/AXP"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

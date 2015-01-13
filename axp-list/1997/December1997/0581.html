@@ -1,0 +1,261 @@
+<!-- received="Tue Dec 16 06:44:57 1997 " -->
+<!-- sent="Tue, 16 Dec 1997 13:48:34 +0100" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="RH 5.0 update blues" -->
+<!-- id="199712161342.IAA26043@clove.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-l!" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RH 5.0 update blues</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RH 5.0 update blues</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Tue, 16 Dec 1997 13:48:34 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#581">[ date ]</a><a href="index.html#581">[ thread ]</a><a href="subject.html#581">[ subject ]</a><a href="author.html#581">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0582.html">David Alan Gilbert: "Re: Seasons Greetings from a new platform :-)"</a>
+<li> <b>Previous message:</b> <a href="0580.html">Mike Howard: "Re: Recurring kernel paging request errors..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+upgrading my XL266 from 4.2 to 5.0 was again not easy at all:(<br>
+<p>
+<p>
+0) finding correct boot images<br>
+<p>
+/cdrom/README suggests to see kernels/README which kernel image to be used<br>
+but kernels/README doesn't exist at all.<br>
+<p>
+there is milo/xl on the CD but not kernels/xl.gz, so I checked the <br>
+paper docs.  page 212 (D.2) suggests that XL266 is system type Alpha-XLT,<br>
+but trying to use kernels/xlt.gz just hung the machine (when using milo/xl,<br>
+haven't even tried using milo/xlt-alcore)<br>
+<p>
+finally I've used kernels/avanti.gz, but how should a beginner know/find this?<br>
+<p>
+<p>
+1) booting from CDROM<br>
+<p>
+I again had severe problems to boot from CD at all because<br>
+the TOSHIBA XM-5301 cdrom drive needs ~5+ seconds to "initiate"<br>
+after a SCSI bus reset.  as a result it was not yet ready<br>
+when the kernel tried to mount the root fs (using ncr53c8xx)<br>
+from CD and it died.<br>
+<p>
+this is a problem I already had with RH 4.2 and I've described this in<br>
+<p>
+	Message-ID: &lt;19970618191839.19633@turtle.tat.physik.uni-tuebingen.de&gt;<br>
+	Date: Wed, 18 Jun 1997 19:18:39 +0200<br>
+	Subject: Red Hat 4.2 installation woes<br>
+<p>
+that time I had to use my own old kernel because I needed a more recent<br>
+version of the NCR driver (1.18d from 2.0.30) to be able to use <br>
+ncr53c8xx=settle:10.<br>
+<p>
+now the RH 5.0 kernels use NCR driver revision 2.4a which still seems to support<br>
+this according to the sources but neither<br>
+<p>
+	boot -t iso9660 scd0:kernels/avanti.gz root=/dev/scd0 ncr53c8xx=settle:10<br>
+nor<br>
+	boot -t iso9660 scd0:kernels/avanti.gz root=/dev/scd0 ncr53c8xx=safe:y<br>
+<p>
+did work, there was no longer delay to settle the CDROM drivce first:(<br>
+so, again I had to use my own old kernel with ncr 1.18d driver where<br>
+this works fine.  with<br>
+<p>
+	boot -t iso9660 sda2:vmlinux.gz root=/dev/scd0 ncr53c8xx=settle:10<br>
+<p>
+mounting rootfs works fine but then the installation startup complains <br>
+about bot being able to find the kernel on CDROM and that I should specify<br>
+bootfile=....   but even<br>
+<p>
+	boot -t iso9660 sda2:vmlinux.gz root=/dev/scd0 ncr53c8xx=settle:10 bootfile=kernels/avanti.gz<br>
+<p>
+didnt' work, same problem :-(<br>
+so I had to <br>
+<p>
+	mkdir /kernels<br>
+	cp /vmlinux.gz /kernels/avanti.gz<br>
+<p>
+on the old system and use<br>
+<p>
+	boot -t iso9660 sda2:kernels/avanti.gz root=/dev/scd0 ncr53c8xx=settle:10<br>
+<p>
+which finally started the installation/upgrade.  pweh...<br>
+<p>
+<p>
+<p>
+3)  disk space checks before/during upgrade<br>
+<p>
+the first 100+ packes installed/upgraded fine up to kernel-source package<br>
+which filled up the disk resulting in the following error<br>
+<p>
+	unpacking of archive failed on file /usr/src/linux-2.0.30/drivers/sound/soundcard.c.orig: -1: No such file or directory<br>
+	        cannot open RPM file kernel-source-2.0.30-2.alpha.rpm: No such file or directory<br>
+<p>
+(note: kernel-source RPM hasn't been installed before, I've added this newly<br>
+in the manual mode before starting upgrade; I've moved all my old kernel<br>
+sources away to avoid collisions and loosing my own hacks/patches;)<br>
+before continuing to upgrade I've removed some old code to have enouch<br>
+free disk space to continue (this is only a 1GB disk with full XFree86 sources<br>
+etc. on it too)  and did<br>
+<p>
+	rpm -iv --force /RedHat/RPMS/kernel-source-2.0.30-2.alpha.rpm<br>
+<p>
+manually to avoid any problems in the future.   I don't know if the <br>
+next problem (4) relates to this one, but I don't think so.<br>
+<p>
+it would be _very_ helpful if you'd check disk space requirements<br>
+before starting upgrade and warn the user to avoid such problems!<br>
+<p>
+then I pressed return on VC1 to continue installation whick worked fine<br>
+for all other packages until...<br>
+<p>
+<p>
+<p>
+4)  `Error: file kernel missing from source dir'<br>
+<p>
+upgrading itself went pretty smooth but at the very end I got the <br>
+error above and this box gave me options `previous', `retry' and `menu'<br>
+to choose.  <br>
+`retry' and `menu' both only resulted in a blue screen where nothing<br>
+happened anymore -- I had to press CTRL-ALT-DEL.<br>
+`previous' only told me "can't go to previous step" and looped there.  C-A-D again...<br>
+whenever possible (see next point) I run `sync' on VC2 before rebooting.<br>
+<p>
+I've tried many times to get around this point and even used strace to figure out<br>
+where the installation process looks for this "file kernel" -- it should be <br>
+in the rootfs, so in the root of the CDROM:<br>
+<p>
+	...<br>
+	write(4, "* rpm database closed\n", 22) = 22<br>
+	sync()                                  = 0<br>
+	sync()                                  = 0<br>
+	open("/mnt/etc/sysconfig/pcmcia", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 6<br>
+	fstat(6, {st_mode=01, st_size=882198347, ...}) = 0<br>
+	mmap(0, 4831834448, PROT_WRITE|PROT_EXEC|0x1b0, 0 /* MAP_??? */, 4831836032, 0) = 0x1555558a000<br>
+	write(6, "PCMCIA=no\nPCIC=\nPCIC_OPTS=\nCO"..., 38) = 38<br>
+	close(6)                                = 0<br>
+	munmap(0x1555558a000, 8192)             = 0<br>
+	write(1, "\33[1;63H\33[33;44mInstall bootl"..., 33) = 33<br>
+	select(3, [2], NULL, NULL, {0, 0})      = 0 (Timeout)<br>
+	write(1, "\33[10;23H\33[0;10m\33[11m\33[30"..., 518) = 518<br>
+	write(4, "* coping kernel to /mnt/vmlinux."..., 35) = 35<br>
+	write(4, "\n", 1)                       = 1<br>
+	open("kernel", O_RDONLY)                = -1 ENOENT (No such file or directory)<br>
+	write(4, "* file kernel missing from sourc"..., 44) = 44<br>
+	select(3, [2], NULL, NULL, {0, 0})      = 0 (Timeout)<br>
+	write(1, "\33[0;10m\33[37;40m\33[13;18r\33"..., 1383) = 1383<br>
+	select(3, [2], NULL, NULL, {10, 0})     = 0 (Timeout)<br>
+	select(3, [2], NULL, NULL, {10, 0})     = 0 (Timeout)<br>
+	...<br>
+<p>
+<p>
+I don't know if anything important would happen after this step which<br>
+resulted in this `Error: file kernel missing'  but I finally booted<br>
+the installed system and it worked more or less.<br>
+<p>
+<p>
+5)  VC2 woes<br>
+<p>
+while trying to debug, understand or fix ths `file kernel missing' problem<br>
+it was very nasty that <br>
+- the bash on VC2 won't get restarted when it terminates e.g. by accident<br>
+- ^C and ^Z etc. doesn't work on VC2 <br>
+<p>
+this resulted in some more (otherwise unnecessary) reboots which might be <br>
+a reason for <br>
+<p>
+<p>
+6) file system corruption<br>
+<p>
+before starting the update I've checked the ext2 rootfs on disk to be clean<br>
+(running standalone and read-only mounted of course).  now after booting<br>
+the hard disk again after the problems mentioned above, the first e2fsck run<br>
+found _many_ inodes with `illegal blocks' and after repairing them <br>
+there have been even more `duplicate blocks' between files.<br>
+most of those files have been sources files from the kernel-sources package.<br>
+no idea if this is just a coincidence.<br>
+anyway, ext2fs did a good job and the system started fine after reboot...<br>
+<p>
+7) time stamps<br>
+<p>
+the next bad surprise was that all creation time stamps of files <br>
+and modification times of directories and symlinks etc.  _again_<br>
+are in the future in year 2017 because you didn't take care of the<br>
+ARC console clock settings ;-(<br>
+fixing all those time stamps (including creation times because I use<br>
+`ls -ltrc' and `find -ctime ...' quite frequently too) was another<br>
+(IMHO unnecessaary) pain).<br>
+<p>
+<p>
+8) emacs woes<br>
+<p>
+on the text console I can start emacs but trying to suspend it using ^Z<br>
+is _only_ possible if ^Zis the first keypress after emacs was started.<br>
+typing in a buffer or even switching to another buffer (or resuming<br>
+a suspended emacs) is sufficient that ^Z doesn't work anymore :-(<br>
+this happens both on the text consoles and in xterms too if DISPLAY <br>
+is not set.  <br>
+using `emacs -nw' with DISPLAY set (even on text console) doesn't have<br>
+any problems with ^Z suspending...<br>
+<p>
+starting emacs locally in X11 works fine, but when I try to get an emacs<br>
+on a remote display (x86 PC running Linux) I only get an empty window<br>
+and emacs locks up:(<br>
+<p>
+<p>
+<p>
+so, that's enough trouble for now ;-)<br>
+<p>
+Harald<br>
+<pre>
+--
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0582.html">David Alan Gilbert: "Re: Seasons Greetings from a new platform :-)"</a>
+<li> <b>Previous message:</b> <a href="0580.html">Mike Howard: "Re: Recurring kernel paging request errors..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,141 @@
+<!-- received="Tue Dec  3 16:27:21 1996 " -->
+<!-- sent="Tue, 3 Dec 1996 22:17:38 +0100 (CET)" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="Re: mlockall() still causes 100 % oops in 2.0.27" -->
+<!-- id="199612032117.WAA00396@alpha.franken.de" -->
+<!-- inreplyto="9612031351.ZM28527@fabsoft2.zarm.uni-bremen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: mlockall() still causes 100 % oops in 2.0.27</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: mlockall() still causes 100 % oops in 2.0.27</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Tue, 3 Dec 1996 22:17:38 +0100 (CET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#110">[ date ]</a><a href="index.html#110">[ thread ]</a><a href="subject.html#110">[ subject ]</a><a href="author.html#110">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0111.html">Bram Avontuur: "Re: make menuconfig"</a>
+<li> <b>Previous message:</b> <a href="0109.html">Randy Lee Carpenter: "Re: 12 meg simm problem on 233 UDB..."</a>
+<li> <b>In reply to:</b> <a href="0093.html">Zarmfab Software Development: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0132.html">Richard Henderson: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<li> <b>Reply:</b> <a href="0132.html">Richard Henderson: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; maybe it's easier to produce the oops: this is the source, compileable</i><br>
+<i>&gt; under redhat-4.0. </i><br>
+<p>
+ok, I run your program with 2.0.26, it generates following oops:<br>
+<p>
+Dec  3 21:37:34 alpha kernel: Unable to handle kernel paging request at virtual <br>
+address 0000015555720000<br>
+Dec  3 21:37:34 alpha kernel: test-panic(1166): Oops 0<br>
+Dec  3 21:37:34 alpha kernel: pc = [&lt;fffffc000032fc40&gt;] ps = 0000<br>
+Dec  3 21:37:34 alpha kernel: rp = [&lt;fffffc0000330050&gt;] sp = fffffc0000b33ea0<br>
+Dec  3 21:37:34 alpha kernel: r0=0 r1=1 r2=93 r3=ffffffffffffffd7<br>
+Dec  3 21:37:34 alpha kernel: r8=300000000<br>
+Dec  3 21:37:34 alpha kernel: r16=fffffc0000dbc628 r17=15555720000 r18=155557720<br>
+00 r19=2070<br>
+Dec  3 21:37:34 alpha kernel: r20=0 r21=0 r22=8 r23=155556f7f9c<br>
+Dec  3 21:37:34 alpha kernel: r24=fffffc00003116a8 r25=107 r26=fffffc0000330050 <br>
+r27=fffffc00003300b0<br>
+Dec  3 21:37:34 alpha kernel: r28=1 r29=fffffc0000465c88 r30=fffffc0000b33ea0<br>
+Dec  3 21:37:34 alpha kernel: Code: 47ff041f  47ff041f  47ff041f &lt;2c2d0000&gt; 482d<br>
+00c1  48271721  48271781  21ad2000  41ae03a1 <br>
+<p>
+The faulting code is:<br>
+0xfffffc000032fc40 &lt;mlock_fixup..ng+1496&gt;:<br>
+        2c2d0000  ldq_u      t0,0(s4)<br>
+0xfffffc000032fc44 &lt;mlock_fixup..ng+1500&gt;:<br>
+        482d00c1  extbl      t0,s4,t0<br>
+0xfffffc000032fc48 &lt;mlock_fixup..ng+1504&gt;:<br>
+        48271721  sll        t0,0x38,t0<br>
+0xfffffc000032fc4c &lt;mlock_fixup..ng+1508&gt;:<br>
+        48271781  sra        t0,0x38,t0<br>
+0xfffffc000032fc50 &lt;mlock_fixup..ng+1512&gt;:<br>
+        21ad2000  lda        s4,8192(s4)<br>
+0xfffffc000032fc54 &lt;mlock_fixup..ng+1516&gt;:<br>
+        41ae03a1  cmpult     s4,s5,t0<br>
+0xfffffc000032fc58 &lt;mlock_fixup..ng+1520&gt;:<br>
+        f43ffff9  bne        t0,0xfffffc000032fc40 &lt;mlock_fixup..ng+1496&gt;<br>
+0xfffffc000032fc5c &lt;mlock_fixup..ng+1524&gt;:<br>
+        a75e0000  ldq        ra,0(sp)<br>
+0xfffffc000032fc60 &lt;mlock_fixup..ng+1528&gt;:<br>
+        a53e0008  ldq        s0,8(sp)<br>
+<p>
+Which in C looks like (this is in mm/mlock.c line 128):<br>
+<p>
+                        while (start &lt; end) {<br>
+                                char c = get_user((char *) start);<br>
+                                __asm__ __volatile__("": :"r" (c));<br>
+                                start += PAGE_SIZE;<br>
+                        }<br>
+<p>
+<p>
+The memory map of the faulting program looks like:<br>
+alpha:/proc/340# cat maps<br>
+000000011fffe000-0000000120000000 rwxp 0000000000000000 00:00 0<br>
+0000000120000000-0000000120002000 r-xp 0000000000000000 08:05 18392<br>
+0000000120100000-0000000120102000 rwxp 0000000000000000 08:05 18392<br>
+0000015555556000-0000015555570000 r-xp 0000000000000000 08:01 19432<br>
+0000015555570000-0000015555572000 r--p 0000000000000000 08:01 15467<br>
+000001555566e000-0000015555672000 rwxp 0000000000018000 08:01 19432<br>
+0000015555672000-0000015555720000 r-xp 0000000000000000 08:01 19433<br>
+0000015555720000-0000015555772000 ---p 00000000000ae000 08:01 19433<br>
+0000015555772000-0000015555828000 rwxp 0000000000000000 08:01 19433<br>
+0000015555828000-0000015555860000 rwxp 0000000000000000 00:00 0<br>
+alpha:/proc/340# ls -i /lib | grep 19433<br>
+  19433 libc-1.93.so*<br>
+<p>
+Hope this helps someone.<br>
+<p>
+Thomas.<br>
+<p>
+PS: Linking the program with -static, doesn't produce a oops, so it seems<br>
+related to shared libraries.<br>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0111.html">Bram Avontuur: "Re: make menuconfig"</a>
+<li> <b>Previous message:</b> <a href="0109.html">Randy Lee Carpenter: "Re: 12 meg simm problem on 233 UDB..."</a>
+<li> <b>In reply to:</b> <a href="0093.html">Zarmfab Software Development: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0132.html">Richard Henderson: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<li> <b>Reply:</b> <a href="0132.html">Richard Henderson: "Re: mlockall() still causes 100 % oops in 2.0.27"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

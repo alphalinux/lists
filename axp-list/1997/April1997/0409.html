@@ -1,0 +1,278 @@
+<!-- received="Wed Apr  9 13:40:00 1997 " -->
+<!-- sent="Wed, 9 Apr 1997 10:26:47 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@azstarnet.com" -->
+<!-- subject="pseudo-random number generation "bug" fix" -->
+<!-- id="199704091726.KAA06769@panda.mosberger" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>pseudo-random number generation "bug" fix</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>pseudo-random number generation "bug" fix</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@azstarnet.com"><i>davidm@azstarnet.com</i></a>)<br>
+<i>Wed, 9 Apr 1997 10:26:47 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#409">[ date ]</a><a href="index.html#409">[ thread ]</a><a href="subject.html#409">[ subject ]</a><a href="author.html#409">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0410.html">Christian G. Warden: "Re: udb/external scsi drive"</a>
+<li> <b>Previous message:</b> <a href="0408.html">Bruce L Jackson: "Re: TGA socket type?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+If you like to use something like srand48(time(0)) to initialize<br>
+random number generation, you may not like the behavior you get under<br>
+the current glibc.  E.g., try the following program and you'll see<br>
+what I mean.<br>
+<p>
+<pre>
+---
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+<p>
+int
+main (int argc, char **argv)
+{
+  int i, j;
+<p>
+  for (j = 0; j &lt; 5; ++j)
+    {
+      srand48 (j);
+      for (i = 0; i &lt; 5; ++i) printf ("%8.6f ", drand48());
+      printf("\n");
+    }
+  return 0;
+}
+<pre>
+---
+<p>
+This "bug" has been fixed by Uli for glibc-2.03 but in the meantime,
+you may want to apply the appended patch.  For your convenience, I
+also appended a uuencoded version of the fixed erand48() object file.
+Erik tells me that the next Red Hat Linux/Alpha release will have this
+fix as well.
+<p>
+	--david
+<p>
+&lt;--patch--&gt;&lt;--patch--&gt;&lt;--patch--&gt;&lt;--patch--&gt;&lt;--patch--&gt;&lt;--patch--&gt;
+--- erand48_r.c~	Tue Apr  8 22:25:16 1997
++++ erand48_r.c	Tue Apr  8 22:25:29 1997
+@@ -35,9 +35,9 @@
+      its fractional part so the resulting FP number is [0.0,1.0).  */
+ 
+ #if USHRT_MAX == 65535
+-  *result = ((double) xsubi[2] / (1ULL &lt;&lt; 48) +
++  *result = ((double) xsubi[2] / (1ULL &lt;&lt; 16) +
+ 	     (double) xsubi[1] / (1ULL &lt;&lt; 32) +
+-	     (double) xsubi[0] / (1ULL &lt;&lt; 16));
++	     (double) xsubi[0] / (1ULL &lt;&lt; 48));
+ #else
+ # error Unsupported size of short int
+ #endif
+<p>
+&lt;--erand48.o--&gt;&lt;--erand48.o--&gt;&lt;--erand48.o--&gt;&lt;--erand48.o--&gt;&lt;--erand48.o--&gt;
+begin 644 erand48_r.o
+M?T5,1@(!`0````````````$`)I`!`````````````````````````#@7````
+M`````````$```````$``#``)````NR&lt;``+TCT/_&gt;(P``7K&lt;(`#ZU$`!&gt;M0D$
+M$$8*!%)&amp;``!]IP!`6VL``+HG``"](R&lt;<a href="mailto:``.@!E">``.@!E</a>"!!`M$@1```0J0!,2!$P@)!
+M2"``7K0@`+Z-```]I,L7[5L``"&amp;,:Q1A60%4($$"T2!$``!"I`$Q($3"`D%(
+M(`!&gt;M"``OHT``#VDS!?M6P``(8QL%(%9`=$@10``(:0",2!%P0(B2"``/K0@
+M`+Z-``!=I,$7[5L``$*-810J6`L4;%D+%&amp;%9``3_1P``:IT#`.##'P3_1Q\$
+M_T?__Q\@``!&gt;IP@`/J40`%ZE'A3&amp;0P&amp;`^FL``````````)(9"P,`````````
+M``$```"1``````````0```#@"0``8`````$`````````"0``````````````
+M`````````````````````,`!``````````(``````````````````!`+````
+M````(`L`````````%0```````&amp;`5``````````````````#`%0``````````
+M``````````````````!\````_____P`&amp;``30____````````````````,```
+M`/__________`````!X`&amp;@````````````$```!+$`D`__________\-````
+MP`(PCP``````````20D``$5`-H\```````````$```!%0#:/```````````4
+<a href="mailto:M```````XCP``````````-@``````.(\``````````$@``````#B/````````">M```````XCP``````````-@``````.(\``````````$@``````#B/````````</a>
+M``"*```````XCP``````````HP``````.(\``````````.X``````#B/````
+M```````U`0`````XCP``````````A0$`````.(\``````````*,!`````#B/
+<a href="mailto:M``````````#%`0`````XCP``````````X@$`````.(\``````````/X!````">M``````````#%`0`````XCP``````````X@$`````.(\``````````/X!````</a>
+<a href="mailto:M`#B/```````````0`@`````XCP``````````(P(`````.(\``````````#L">M`#B/```````````0`@`````XCP``````````(P(`````.(\``````````#L</a>"
+<a href="mailto:M`````#B/``````````!H`@`````XCP``````````@P(`````.(\`````````">M`````#B/``````````!H`@`````XCP``````````@P(`````.(\`````````</a>
+M`)\"`````#B/``````````#``@`````XCP``````````S`(`````.(\`````
+M`````-8"`````#B/``````````#A`@`````XCP``````````!P,`````.(\`
+M`````````"\#`````#B/``````````!&gt;`P`````XCP``````````&lt;@,`````
+M.(\``````````(0#`````#B/``````````"6`P`````XCP``````````J`,`
+M````.(\``````````+L#`````#B/``````````#/`P`````XCP``````````
+MX0,`````.(\``````````/,#`````#B/```````````)!``````XCP``````
+M````&amp;P0`````.(\``````````"T$`````#B/``````````!`!``````XCP``
+M````````5`0`````.(\``````````&amp;H$`````#B/``````````!]!``````X
+MCP``````````D00`````.(\``````````*4$`````#B/``````````"]!```
+<a href="mailto:M```XCP``````````T@0`````.(\``````````.4$`````#B/```````````3">M```XCP``````````T@0`````.(\``````````.4$`````#B/```````````3</a>
+<a href="mailto:M!0`````XCP``````````'@4`````.(\``````````">M!0`````XCP``````````'@4`````.(\``````````</a>"&lt;%`````#B/````````
+M```P!0`````XCP``````````.04`````.(\``````````$(%`````#B/````
+M``````!+!0`````XCP``````````5`4`````.(\``````````%T%`````#B/
+<a href="mailto:M``````````!F!0`````XCP``````````P@4`````.(\``````````">M``````````!F!0`````XCP``````````P@4`````.(\``````````</a>,\%````
+M`#B/``````````#&lt;!0`````XCP``````````YP4`````.(\``````````/,%
+<a href="mailto:M`````#B/```````````!!@`````XCP``````````#08`````.(\`````````">M`````#B/```````````!!@`````XCP``````````#08`````.(\`````````</a>
+M`!X&amp;<a href="mailto:`````#B/```````````I!@`````XCP``````````-`8`````.(\`````">`````#B/```````````I!@`````XCP``````````-`8`````.(\`````</a>
+M`````#\&amp;<a href="mailto:`````#B/``````````!*!@`````XCP``````````5@8`````.(\`">`````#B/``````````!*!@`````XCP``````````5@8`````.(\`</a>
+M`````````&amp;,&amp;`````#B/``````````!N!@`````XCP``````````&gt;@8`````
+M.(\``````````(4&amp;`````#B/``````````"2!@`````XCP``````````GP8`
+M````.(\``````````*P&amp;`````#B/``````````"Z!@`````XCP``````````
+<a href="mailto:MQ@8`````.(\``````````-">MQ@8`````.(\``````````-</a>,&amp;`````#B/``````````#@!@`````XCP``````
+M````[08`````.(\``````````/H&amp;`````#B/```````````%!P`````XCP``
+M````````$`&lt;`````.(\``````````!L'`````#B/```````````D!P`````X
+MCP``````````+@&lt;`````.(\``````````#@'`````#B/``````````!$!P``
+M```XCP``````````3P&lt;`````.(\``````````%@'`````#B/``````````!A
+M!P`````XCP``````````:@&lt;`````.(\``````````'0'`````#B/````````
+M``!_!P`````XCP``````````B`&lt;`````.(\``````````)('`````#B/````
+M``````";!P`````XCP``````````I`&lt;`````.(\``````````*\'`````#B/
+M``````````"Z!P`````XCP``````````Q@&lt;`````.(\``````````,\'````
+M`#B/``````````#9!P`````XCP``````````X@&lt;`````.(\``````````.P'
+M`````#B/``````````#T!P`````XCP``````````_P&lt;`````.(\`````````
+M``P(`````#B/```````````7"``````XCP``````````)`@`````.(\`````
+M`````"\(`````#B/```````````\"``````XCP``````````1P@`````.(\`
+M`````````%0(`````#B/``````````!B"``````XCP``````````D@@`````
+M.(\``````````)T(`````#B/``````````"H"``````XCP``````````!0D`
+M````.(\``````````%L)``!%T`$```````````!@"0``1A```!P`````````
+M:@D``$70`0`@`````````&amp;\)``!%\`$`-`````````!T"0``16`"`+P`````
+M````&gt;0D``$70`@#``````````'X)``!%8`(`Q`````````"#"0``1=`"`-``
+M````````B`D``$4``@#H`````````&amp;`)``!(P`&lt;```````````"-"0``14`R
+MCPD`````````'@D`````-(\1`````````"L)`````#2/"@`````````Z"0``
+M```TCP``````````F@D``$7P__\``````````*D)``!%\/__``````````"Z
+M"0``PO/__P@`````````OPD``,+S__\0`````````,0)``#"\___````````
+M``#)"0``0O'__P@`````````SPD``$7P__\```````````$```!(````````
+M`(4```````````````!E&lt;F%N9#0X7W(N8P!`&lt;W1A8G,`:6YT.G0Q/7(Q.RTR
+M,<a href="mailto:30W-#@S-C0X.S(Q-#">30W-#@S-C0X.S(Q-#</a>&lt;T.#,V-#&lt;[`&amp;-H87(Z=#(]&lt;C([,#LQ,C&lt;[`&amp;QO;F&lt;@
+M:6YT.G0S/7(Q.S`P,3`P,#`P,#`P,#`P,#`P,#`P,#`P,#LP,#`W-S&lt;W-S&lt;W
+M-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;[`'5N&lt;VEG;F5D(&amp;EN=#IT-#UR,3LP.RTQ.P!L;VYG
+M('5N&lt;VEG;F5D(&amp;EN=#IT-3UR,3LP,#`P,#`P,#`P,#`P,#`P,#`P,#`P,#`[
+M,#`Q-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W.P!L;VYG(&amp;QO;F&lt;@:6YT.G0V/7(Q
+M.S`P,3`P,#`P,#`P,#`P,#`P,#`P,#`P,#LP,#`W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W
+M-S&lt;W-S&lt;[`&amp;QO;F&lt;@;&amp;]N9R!U;G-I9VYE9"!I;G0Z=#&lt;]&lt;C$[,#`P,#`P,#`P
+M,#`P,#`P,#`P,#`P,#`P.S`P,3&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-S&lt;W-SL`&lt;VAO
+M&lt;<a href="mailto:G0@:6YT.G0X/7(Q.RTS">G0@:6YT.G0X/7(Q.RTS</a>,C&lt;V.#LS,C&lt;V-SL`&lt;VAO&lt;G0@=6YS:6=N960@:6YT
+M.G0Y/7(Q.S`[-C4U,S4[`'-I9VYE9"!C:&amp;%R.G0Q,#UR,3LM,3(X.S$R-SL`
+M=6YS:6=N960@8VAA&lt;CIT,3$]&lt;C$[,#LR-34[`&amp;9L;V%T.G0Q,CUR,3LT.S`[
+M`&amp;1O=6)L93IT,3,]&lt;C$[.#LP.P!L;VYG(&amp;1O=6)L93IT,30]&lt;C$[.#LP.P!C
+M;VUP;&amp;5X(&amp;EN=#IT,34]&lt;SAR96%L.C$L,"PS,CMI;6%G.C$L,S(L,S([.P!C
+M;VUP;&amp;5X(&amp;9L;V%T.G0Q-CUR,38[-#LP.P!C;VUP;&amp;5X(&amp;1O=6)L93IT,3&lt;]
+M&lt;C$W.S@[,#L`8V]M&lt;&amp;QE&gt;"!L;VYG(&amp;1O=6)L93IT,3@]&lt;C$X.S@[,#L`=F]I
+M9#IT,3D],3D`&lt;VEZ95]T.G0U`'=C:&amp;%R7W0Z=#0`9&amp;EV7W0Z=#(P/7,X&lt;75O
+M=#HQ+#`L,S([&lt;F5M.C$L,S(L,S([.P!L9&amp;EV7W0Z=#(Q/7,Q-G%U;W0Z,RPP
+M+#8T.W)E;3HS+#8T+#8T.SL`9F1?&lt;V5T.E0R,CUS,3(X9F1S7V)I=',Z,C,]
+M87(Q.S`[,34[-2PP+#$P,C0[.P!?7VME&lt;FYE;%]F9%]S970Z=#(R`%]?:V5R
+M;F5L7VME&gt;5]T.G0Q`%]?:V5R;F5L7V1E=E]T.G0T`%]?:V5R;F5L7VEN;U]T
+M.G0T`%]?:V5R;F5L7VUO9&amp;5?=#IT-`!?7VME&lt;FYE;%]N;&amp;EN:U]T.G0T`%]?
+M:V5R;F5L7V]F9E]T.G0S`%]?:V5R;F5L7W!I9%]T.G0Q`%]?:V5R;F5L7VEP
+M8U]P:61?=#IT,0!?7VME&lt;FYE;%]U:61?=#IT-`!?7VME&lt;FYE;%]G:61?=#IT
+M-`!?7VME&lt;FYE;%]S:7IE7W0Z=#4`7U]K97)N96Q?&lt;W-I&gt;F5?=#IT,P!?7VME
+M&lt;FYE;%]P=')D:69F7W0Z=#,`7U]K97)N96Q?=&amp;EM95]T.G0S`%]?:V5R;F5L
+M7V-L;V-K7W0Z=#,`7U]K97)N96Q?9&amp;%D9')?=#IT,0!?7VME&lt;FYE;%]C861D
+M&lt;E]T.G0R-#TJ,@!?7VME&lt;FYE;%]S:6=S971?=#IT-0!?7VME&lt;FYE;%]L;V9F
+M7W0Z=#8`7U]K97)N96Q?9G-I9%]T.G0R-3US.'9A;#HR-CUA&lt;C$[,#LQ.S$L
+M,"PV-#L[`'5M;V1E7W0Z=#0`7U]S.#IT,3``7U]U.#IT,3$`7U]S,38Z=#@`
+M7U]U,38Z=#D`7U]S,S(Z=#$`7U]U,S(Z=#0`7U]S-C0Z=#,`7U]U-C0Z=#4`
+M=7-T870Z5#(W/7,R,&amp;9?=&amp;9R964Z,2PP+#,R.V9?=&amp;EN;V1E.C0L,S(L,S([
+M9E]F;F%M93HR.#UA&lt;C$[,#LU.S(L-C0L-#@[9E]F&lt;&amp;%C:SHR."PQ,3(L-#@[
+M.P!?7W5?8VAA&lt;CIT,3$`7U]U7W-H;W)T.G0Y`%]?=5]I;G0Z=#0`7U]U7VQO
+M;F&lt;Z=#4`7U]U7W%U861?=#IT-P!?7W%U861?=#IT-@!?7W%A9&amp;1R7W0Z=#(Y
+M/2HV`%]?9&amp;5V7W0Z=#0`7U]U:61?=#IT-`!?7V=I9%]T.G0T`%]?:6YO7W0Z
+M=#0`7U]M;V1E7W0Z=#0`7U]N;&amp;EN:U]T.G0T`%]?;V9F7W0Z=#,`7U]L;V9F
+M7W0Z=#8`7U]P:61?=#IT,0!?7W-S:7IE7W0Z=#,`7U]F&lt;VED7W0Z=#(U`%]?
+M9&amp;%D9')?=#IT,0!?7V-A9&amp;1R7W0Z=#(T`%]?=&amp;EM95]T.G0S`%]?&lt;W=B;&amp;M?
+M=#IT,P!?7V9D7W-E=#IT,C(`7U]C;&amp;]C:U]T.G0S`%]?9F1?;6%S:SIT-0!?
+M7VME&gt;5]T.G0Q`'5?8VAA&lt;CIT,3$`=5]S:&amp;]R=#IT.0!U7VEN=#IT-`!U7VQO
+M;F&lt;Z=#4`&lt;75A9%]T.G0V`'5?&lt;75A9%]T.G0W`&amp;9S:61?=#IT,C4`9&amp;5V7W0Z
+M=#0`9VED7W0Z=#0`:6YO7W0Z=#0`;6]D95]T.G0T`&amp;YL:6YK7W0Z=#0`;V9F
+M7W0Z=#,`;&amp;]F9E]T.G0V`'!I9%]T.G0Q`'5I9%]T.G0T`'-S:7IE7W0Z=#,`
+M9&amp;%D9')?=#IT,0!C861D&lt;E]T.G0R-`!K97E?=#IT,0!T:6UE7W0Z=#,`=6QO
+M;F&lt;Z=#4`=7-H;W)T.G0Y`'5I;G0Z=#0`:6YT.%]T.G0Q,`!U7VEN=#A?=#IT
+M,3$`:6YT,39?=#IT.`!U7VEN=#$V7W0Z=#D`:6YT,S)?=#IT,0!U7VEN=#,R
+M7W0Z=#0`:6YT-C1?=#IT,P!U7VEN=#8T7W0Z=#4`&lt;F5G:7-T97)?=#IT,P!T
+M:6UE&lt;W!E8SI4,S`]&lt;S$V='9?&lt;V5C.C,L,"PV-#MT=E]N&lt;V5C.C,L-C0L-C0[
+M.P!F9%]M87-K.G0U`&amp;9D7W-E=#IT,C(`9')A;F0T.%]D871A.E0S,3US,C18
+M.C,R/6%R,3LP.S([.2PP+#0X.V$Z,S(L-#@L-#@[8SHY+#DV+#$V.V]L9%]8
+M.C,R+#$Q,BPT.#MI;FET.C$L,38P+#,R.SL`7U]C;VUP87)?9FY?=#IT,S,]
+M*C,T/68Q`'AS=6)I.E`S-3TJ.0!B=69F97(Z4#,V/2HS,0!R97-U;'0Z4#,W
+M/2HQ,P`O:&amp;]M92]D879I9&amp;TO=&amp;UP+P`D3$TQ`&amp;5R86YD-#A?&lt;@`D3$TR`"1,
+M33,`)$Q--``D3$TU`"1,338`)$Q--P`D3$TX`&amp;5R86YD-#A?&lt;CI&amp;,0!G8V,R
+M7V-O;7!I;&amp;5D+@!?7V=N=5]C;VUP:6QE9%]C`"1#,S(`)$,S,P`D0S,T`"I!
+M0E,J`&amp;5R86YD-#A?&lt;BXN;F&lt;`````9V-C,E]C;VUP:6QE9"X`7U]G;G5?8V]M
+M&lt;&amp;EL961?8P`D0S,R`"1#,S,`)$,S-`!E&lt;F%N9#0X7W(`*D%"4RH`97)A;F0T
+M.%]R+BYN9P!?7V1R86YD-#A?:71E&lt;F%T90``````````````````````````
+M````````W0D````````!``````````````"1````````````````````````
+M```````!``````````,`````````````````````````````````````````
+M`/#__P`````````````````````/`````/#__P`````````````````````@
+M`````/#__P``````````"``````````E`````/#__P``````````$```````
+M```J`````/#__P`````````````````````O````1L`'````````````````
+M```````Y`````/#__P``````````"``````````_`````/#__P``````````
+M``````````!-````@?'__P``````````"``````````!````,#$N,#$`````
+M````````````\$````````#P00```````/!"`$=#0SH@*$=.52D@,BXW+C(N
+M,0``+G-Y;71A8@`N&lt;W1R=&amp;%B`"YS:'-T&lt;G1A8@`N=&amp;5X=``N&lt;F5L82YT97AT
+M`"YD871A`"YB&lt;W,`+FUD96)U9P`N;F]T90`N&lt;F]D871A`"YC;VUM96YT````
+M````````````````````````````````````````````````````````````
+M```````````````````````````````;`````0````8`````````````````
+M``!``````````/`````````````````````0````````````````````(0``
+M``0`````````````````````````,!P```````#```````````H````!````
+M"``````````8`````````"P````!`````P```````````````````#`!````
+M``````````````````````````$````````````````````R````"`````,`
+M```````````````````P`0`````````````````````````````!````````
+M````````````-P````$``'``````````````````````,`$```````!H%0``
+M````````````````"``````````!`````````#\````'````````````````
+M`````````)@6````````%`````````````````````$`````````````````
+M``!%`````0````(```````````````````"P%@```````!@`````````````
+M```````(````````````````````30````$`````````````````````````
+MR!8````````4`````````````````````0```````````````````!$````#
+M`````````````````````````-P6````````5@````````````````````$`
+M```````````````````!`````@`````````````````````````X&amp;@``````
+M`)@!````````"P````\````(`````````!@`````````"0````,`````````
+M````````````````T!L```````!@`````````````````````0``````````
+M``````````````````````````````````````````$```````$`````````
+M`````````````!````````$``````````````````````"$```````&lt;`````
+M`````````````````"8```````&lt;`"````````````````````"L```````&lt;`
+M$````````````````````#```````/'_`````````````````````#8`````
+M``$`"``````````````````````````#``$`````````````````````````
+M```#``,````````````````````````````#``0`````````````````````
+M```````#``4````````````````````````````#``8`````````````````
+M```````````#``&lt;````````````````````````````#``@`````````````
+M`````````$0````2``$```````````#H`````````$X````0````````````
+M``````````````!G8V,R7V-O;7!I;&amp;5D+@!?7V=N=5]C;VUP:6QE9%]C`"1#
+M,S(`)$,S,P`D0S,T`"I!0E,J`&amp;5R86YD-#A?&lt;BXN;F&lt;`97)A;F0T.%]R`%]?
+M9')A;F0T.%]I=&amp;5R871E````````````!@````8````$`````````"``````
+M````!````!```````````````"0`````````!0````8````#`````````"0`
+M````````"````!```````````````"@`````````!@````8````$````````
+M`%``````````!`````,``````````````'P`````````!`````0````(````
+&lt;`````*0`````````!`````4````0````````````
+`
+end
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0410.html">Christian G. Warden: "Re: udb/external scsi drive"</a>
+<li> <b>Previous message:</b> <a href="0408.html">Bruce L Jackson: "Re: TGA socket type?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

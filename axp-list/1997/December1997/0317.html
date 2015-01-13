@@ -1,0 +1,158 @@
+<!-- received="Tue Dec  9 08:51:30 1997 " -->
+<!-- sent="Tue, 9 Dec 1997 14:50:36 +0100 (MET)" -->
+<!-- name="Andreas Johansson" -->
+<!-- email="ajo@wopr.campus.luth.se" -->
+<!-- subject="Re: [Q] problems with swap" -->
+<!-- id="199712091223.NAA17997@bio6.chemie.uni-freiburg.de" -->
+<!-- inreplyto="199712091223.NAA17997@bio6.chemie.uni-freiburg.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: [Q] problems with swap</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: [Q] problems with swap</h2>
+
+<b>Andreas Johansson</b> (<a href="mailto:ajo@wopr.campus.luth.se"><i>ajo@wopr.campus.luth.se</i></a>)<br>
+<i>Tue, 9 Dec 1997 14:50:36 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#317">[ date ]</a><a href="index.html#317">[ thread ]</a><a href="subject.html#317">[ subject ]</a><a href="author.html#317">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0318.html">Christopher E. Brown: "Re: ECC2-79 challenge update"</a>
+<li> <b>Previous message:</b> <a href="0316.html">Clemens Vonrhein: "[Q] problems with swap"</a>
+<li> <b>In reply to:</b> <a href="0319.html">Harvey J. Stein: "Re: Ieee on linux/alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0324.html">Christian Czezatke: "Re: diskless booting of multias..?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 9 Dec 1997, Clemens Vonrhein wrote:<br>
+<p>
+<i>&gt; We're having some problems with our swap space.</i><br>
+<p>
+[system info snipped] <br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; in /etc/fstab we have:</i><br>
+<i>&gt; /dev/sda5               swap                    swap    defaults 0 0</i><br>
+<i>&gt; </i><br>
+<i>&gt; But now it seems, that this swap space isn't used at all:</i><br>
+<i>&gt; </i><br>
+<i>&gt; # top</i><br>
+<i>&gt;   1:17pm  up  2:06,  4 users,  load average: 0.00, 0.01, 0.00</i><br>
+<i>&gt; 50 processes: 49 sleeping, 1 running, 0 zombie, 0 stopped</i><br>
+<i>&gt; CPU states:  3.6% user,  5.4% system,  0.0% nice, 91.2% idle</i><br>
+<i>&gt; Mem:  256512K av,  44912K used, 211600K free,  45664K shrd,   3752K buff</i><br>
+<i>&gt; Swap: 513000K av,      0K used, 513000K free                 20928K cached</i><br>
+<i>&gt; </i><br>
+<i>&gt; # swapon -s</i><br>
+<i>&gt; swapon: /proc/swaps: No such file or directory</i><br>
+<p>
+The /proc/swaps information is not available in your 2.0.30 kernel. I'm<br>
+not sure when it was added, but it exists in my current 2.1.56 kernel<br>
+(which sucks, don't use it!). It does not exist in any 2.0.xx kernel.<br>
+<p>
+Without swapon -s you can still get some more info out of the 'free'<br>
+command than top displays (see way below).<br>
+<p>
+This is the output of 'swapon -s' on my system:<br>
+<p>
+ajo@wopr ~ &gt;swapon -s<br>
+Filename                        Type            Size    Used    Priority<br>
+/dev/sda1                       partition       51192   0       -1<br>
+/dev/sdb1                       partition       51192   0       -2<br>
+<p>
+This has no more information than free except if there are several<br>
+partitions + device and priority information (which you see when you do<br>
+swapon -a).<br>
+<p>
+<i>&gt; Furthermore, the used memory is permanently growing, reaching nearly</i><br>
+<i>&gt; all of the 256Mb at some point without any process running wild or any</i><br>
+<i>&gt; memory intensive calculation. But even then, the swap space isn't</i><br>
+<i>&gt; used.</i><br>
+<p>
+Well, this is a feature, not a bug! :)<br>
+<p>
+Linux uses all of your available memory for caching of filesystems, so<br>
+when you want to reload files you get them from memory instead of having<br>
+to reload them from disk.<br>
+<p>
+Watch my output of the 'free' command:<br>
+<p>
+ajo@wopr ~ &gt;free<br>
+             total       used       free     shared    buffers     cached<br>
+Mem:         62656      61752        904      49416       1080      28456<br>
+-/+ buffers/cache:      32216      30440<br>
+Swap:       102384          0     102384<br>
+<p>
+61752 kB of my total of 62656 kB is "used". But if you subtract the<br>
+buffers and caches I have only used 32216 kB of memory. This is the number<br>
+to look at. Your system won't start swapping until this starts to get<br>
+close to the total memory of your system (in fact it starts to swap<br>
+somewhat earlier if there are pages which haven't been used for a very<br>
+long time, to free more memory for caching).<br>
+<p>
+<i>&gt; Now:</i><br>
+<i>&gt; - is this specific to our kernel (local deskstation 2.0.30 hack)? We</i><br>
+<i>&gt;   can't go to any other kernel, since we don't have any patches for an</i><br>
+<i>&gt;   official kernel source (and the ones from Jay Estabrook don't work for</i><br>
+<i>&gt;   us yet).</i><br>
+<p>
+swapon -s needs a 2.1 kernel, but I guess you don't need that. You don't<br>
+have any other problem, in my opinion.<br>
+<p>
+<i>&gt; - is it a known problem with RedHat 5.0? I don't think so - otherwise</i><br>
+<i>&gt;   I would have found something in the mailing archive by now ...</i><br>
+<i>&gt; - do we have to configure something during kernel compiling?</i><br>
+<i>&gt; - any other ideas?</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; Thanks for any hints/tips etc.</i><br>
+<p>
+I hope these questions are answered above. If you don't understand what I<br>
+mean, feel free to ask more questions.<br>
+<p>
+/Andreas<br>
+<pre>
+--
+<p>
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+: E-mail: <a href="mailto:ajo@wopr.campus.luth.se">ajo@wopr.campus.luth.se</a>                                       :
+: S-mail: Andreas Johansson, Karhusvagen 5  6:618, 977 54 Lulea, SWEDEN :
+:     Have you had your dose of 261.62 BogoMIPS today? - Run Alpha!     :
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+<p>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0318.html">Christopher E. Brown: "Re: ECC2-79 challenge update"</a>
+<li> <b>Previous message:</b> <a href="0316.html">Clemens Vonrhein: "[Q] problems with swap"</a>
+<li> <b>In reply to:</b> <a href="0319.html">Harvey J. Stein: "Re: Ieee on linux/alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0324.html">Christian Czezatke: "Re: diskless booting of multias..?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,285 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Glibc 2.1.1 notes....</TITLE>
+<META NAME="Author" CONTENT="Christopher C Chimelis (chris@classnet.med.miami.edu)">
+<META NAME="Subject" CONTENT="Glibc 2.1.1 notes....">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Glibc 2.1.1 notes....</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 16 16:33:43 1999 PST" -->
+<!-- sent="Tue, 16 Mar 1999 11:30:24 -0500 (EST)" -->
+<!-- name="Christopher C Chimelis" -->
+<!-- email="chris@classnet.med.miami.edu" -->
+<!-- subject="Glibc 2.1.1 notes...." -->
+<!-- id="Pine.LNX.3.96.990316112838.31487B-100000@beezer.med.miami.edu" -->
+<!-- inreplyto="" -->
+<STRONG>Christopher C Chimelis</STRONG> (<A HREF="mailto:chris@classnet.med.miami.edu?subject=Re:%20Glibc%202.1.1%20notes...."><EM>chris@classnet.med.miami.edu</EM></A>)<BR>
+<EM>Tue, 16 Mar 1999 11:30:24 -0500 (EST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#194">[ date ]</A>
+<A HREF="index.html#194">[ thread ]</A>
+<A HREF="subject.html#194">[ subject ]</A>
+<A HREF="author.html#194">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0193.html">Christopher C. Chimelis: "[Fwd: Mikasa/slink trouble]"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Below is part of a reply from Joel Klecker that I got about the big
+<BR>
+changes in glibc 2.1.x.  This should help all of us determine if/why a
+<BR>
+package needs to be recompiled.  It should also give everyone interested a
+<BR>
+bit of insight as to what we've had to contend with and why it took a bit
+<BR>
+longer than expected :-)
+<BR>
+<P>----- Forwarded message -----
+<BR>
+<P>Basically the issue with glibc 2.1 and other libraries is 
+<BR>
+incompatible changes in libio, symbol versioning is unable to help 
+<BR>
+with this because it is the structure of FILE that changed.
+<BR>
+In libstdc++'s case, its ABI changed due to the LFS (Large File 
+<BR>
+Summit) support in glibc 2.1 (though the libio issue would bite it as 
+<BR>
+well, if there weren't the LFS issue).
+<BR>
+In the case of the libraries affected by the libio change, things 
+<BR>
+only break when trying to link new programs against an old library, 
+<BR>
+i.e. the resulting executable segfaults immediately at startup.
+<BR>
+<P>A source compatibility issue that the glibc FAQ doesn't touch on is 
+<BR>
+programs that detect utmpx.h and assume it is the same as the one in 
+<BR>
+Solaris, though I have looked at what UNIX98 specifies 
+<BR>
+(<A HREF="http://www.opengroup.org/onlinepubs/7908799/xsh/utmpx.h.html">http://www.opengroup.org/onlinepubs/7908799/xsh/utmpx.h.html</A>) for 
+<BR>
+utmpx.h and glibc conforms with that.
+<BR>
+<P>Here are a few FAQ entries of interest (note that the sparc and 
+<BR>
+powerpc ports have addressed most of the source compatibility issues, 
+<BR>
+though in a lot of cases, the fixes have not been applied by the 
+<BR>
+maintainer yet):
+<BR>
+<P>2.27.   What needs to be recompiled when upgrading from glibc 2.0 to glibc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1?
+<BR>
+<P>{AJ,CG} If you just upgrade the glibc from 2.0.x (x &lt;= 7) to 2.1, binaries
+<BR>
+that have been linked against glibc 2.0 will continue to work.
+<BR>
+<P>If you compile your own binaries against glibc 2.1, you also need to
+<BR>
+recompile some other libraries.  The problem is that libio had to be
+<BR>
+changed and therefore libraries that are based or depend on the libio
+<BR>
+of glibc, e.g. ncurses or slang, need to be recompiled.  If you
+<BR>
+experience strange segmentation faults in your programs linked against
+<BR>
+glibc 2.1, you might need to recompile your libraries.
+<BR>
+<P>Another problem is that older binaries that were linked statically against
+<BR>
+glibc 2.0 will reference the older nss modules (libnss_files.so.1 instead of
+<BR>
+libnss_files.so.2), so don't remove them.  Also, the old glibc-2.0 compiled
+<BR>
+static libraries (libfoo.a) which happen to depend on the older libio
+<BR>
+behavior will be broken by the glibc 2.1 upgrade.  We plan to produce a
+<BR>
+compatibility library that people will be able to link in if they want
+<BR>
+to compile a static library generated against glibc 2.0 into a program
+<BR>
+on a glibc 2.1 system.  You just add -lcompat and you should be fine.
+<BR>
+<P>The glibc-compat add-on will provide the libcompat.a library, the older
+<BR>
+nss modules, and a few other files.  Together, they should make it
+<BR>
+possible to do development with old static libraries on a glibc 2.1
+<BR>
+system.  This add-on is still in development.  You can get it from
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://alpha.gnu.org/gnu/glibc-compat-2.1.tar.gz">ftp://alpha.gnu.org/gnu/glibc-compat-2.1.tar.gz</A>
+<BR>
+but please keep in mind that it is experimental.
+<BR>
+<P>3.8.    I've got errors compiling code that uses certain string
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;functions.  Why?
+<BR>
+<P>{AJ} glibc 2.1 has special string functions that are faster than the normal
+<BR>
+library functions.  Some of the functions are additionally implemented as
+<BR>
+inline functions and others as macros.  This might lead to problems with
+<BR>
+existing codes but it is explicitly allowed by ISO C.
+<BR>
+<P>The optimized string functions are only used when compiling with
+<BR>
+optimizations (-O1 or higher).  The behavior can be changed with two feature
+<BR>
+macros:
+<BR>
+<P>* __NO_STRING_INLINES: Don't do any string optimizations.
+<BR>
+* __USE_STRING_INLINES: Use assembly language inline functions (might
+<BR>
+&nbsp;&nbsp;increase code size dramatically).
+<BR>
+<P>Since some of these string functions are now additionally defined as macros,
+<BR>
+code like &quot;char *strncpy();&quot; doesn't work anymore (and is unnecessary, since
+<BR>
+&lt;string.h&gt; has the necessary declarations).  Either change your code or
+<BR>
+define __NO_STRING_INLINES.
+<BR>
+<P>{UD} Another problem in this area is that gcc still has problems on machines
+<BR>
+with very few registers (e.g., ix86).  The inline assembler code can require
+<BR>
+almost all the registers and the register allocator cannot always handle
+<BR>
+this situation.
+<BR>
+<P>One can disable the string optimizations selectively.  Instead of writing
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp = strcpy (foo, &quot;lkj&quot;);
+<BR>
+<P>one can write
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cp = (strcpy) (foo, &quot;lkj&quot;);
+<BR>
+<P>This disables the optimization for that specific call.
+<BR>
+<P>3.9.    I get compiler messages &quot;Initializer element not constant&quot; with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stdin/stdout/stderr. Why?
+<BR>
+<P>{RM,AJ} Constructs like:
+<BR>
+static FILE *InPtr = stdin;
+<BR>
+<P>lead to this message.  This is correct behaviour with glibc since stdin is
+<BR>
+not a constant expression.  Please note that a strict reading of ISO C does
+<BR>
+not allow above constructs.
+<BR>
+<P>One of the advantages of this is that you can assign to stdin, stdout, and
+<BR>
+stderr just like any other global variable (e.g. `stdout = my_stream;'),
+<BR>
+which can be very useful with custom streams that you can write with libio
+<BR>
+(but beware this is not necessarily portable).  The reason to implement it
+<BR>
+this way were versioning problems with the size of the FILE structure.
+<BR>
+<P>To fix those programs you've got to initialize the variable at run time.
+<BR>
+This can be done, e.g. in main, like:
+<BR>
+<P>static FILE *InPtr;
+<BR>
+int main(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;InPtr = stdin;
+<BR>
+}
+<BR>
+<P>or by constructors (beware this is gcc specific):
+<BR>
+<P>static FILE *InPtr;
+<BR>
+static void inPtr_construct (void) __attribute__((constructor));
+<BR>
+static void inPtr_construct (void) { InPtr = stdin; }
+<BR>
+<P>3.12.   I can't access some functions anymore.  nm shows that they do
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exist but linking fails nevertheless.
+<BR>
+<P>{AJ} With the introduction of versioning in glibc 2.1 it is possible to
+<BR>
+export only those identifiers (functions, variables) that are really needed
+<BR>
+by application programs and by other parts of glibc.  This way a lot of
+<BR>
+internal interfaces are now hidden.  nm will still show those identifiers
+<BR>
+but marking them as internal.  ISO C states that identifiers beginning with
+<BR>
+an underscore are internal to the libc.  An application program normally
+<BR>
+shouldn't use those internal interfaces (there are exceptions,
+<BR>
+e.g. __ivaliduser).  If a program uses these interfaces, it's broken.  These
+<BR>
+internal interfaces might change between glibc releases or dropped
+<BR>
+completely.
+<BR>
+<P>3.15.   The sys/sem.h file lacks the definition of `union semun'.
+<BR>
+<P>{UD} Nope.  This union has to be provided by the user program.  Former glibc
+<BR>
+versions defined this but it was an error since it does not make much sense
+<BR>
+when thinking about it.  The standards describing the System V IPC functions
+<BR>
+define it this way and therefore programs must be adopted.
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to <A HREF="mailto:debian-alpha-request@lists.debian.org?subject=Re:%20Glibc%202.1.1%20notes....">debian-alpha-request@lists.debian.org</A>
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact <A HREF="mailto:listmaster@lists.debian.org?subject=Re:%20Glibc%202.1.1%20notes....">listmaster@lists.debian.org</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0193.html">Christopher C. Chimelis: "[Fwd: Mikasa/slink trouble]"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Mar 16 1999 - 09:00:25 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

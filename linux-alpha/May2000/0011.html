@@ -1,0 +1,792 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: [PATCH] bogo-resource-management for 2.2.</TITLE>
+<META NAME="Author" CONTENT="Jay Estabrook (Jay.Estabrook@compaq.com)">
+<META NAME="Subject" CONTENT="Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)</H1>
+<HR>
+<P>
+<!-- received="Thu May 11 17:09:29 2000" -->
+<!-- isoreceived="20000512000929" -->
+<!-- sent="Thu, 11 May 2000 12:44:59 -0400" -->
+<!-- isosent="20000511164459" -->
+<!-- name="Jay Estabrook" -->
+<!-- email="Jay.Estabrook@compaq.com" -->
+<!-- subject="Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)" -->
+<!-- id="20000511124459.B5908@linux04.mro.dec.com" -->
+<!-- inreplyto="87og6e3xs3.fsf@linuxcare.com" -->
+<STRONG>Subject: </STRONG>Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)<BR>
+<STRONG>From: </STRONG>Jay Estabrook (<EM>Jay.Estabrook@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu May 11 2000 - 09:44:59 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#11">[ date ]</A>
+<A HREF="index.html#11">[ thread ]</A>
+<A HREF="subject.html#11">[ subject ]</A>
+<A HREF="author.html#11">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0012.html">David Huggins-Daines: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Matti Aarnio: "Re: PCI configuration problem in 2.3.99 prex"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">David Huggins-Daines: "[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0012.html">David Huggins-Daines: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Jay Estabrook: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, May 10, 2000 at 05:23:08PM -0400, David Huggins-Daines wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Certain Miatas (most notably the 600au) have a problem where the SRM
+</EM><BR>
+<EM>&gt; console will configure the Cypress PCI-IDE interface's I/O space at
+</EM><BR>
+<EM>&gt; 0x90a0.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Because the 2.2 kernel ignores the Cypress chip completely when doing
+</EM><BR>
+<EM>&gt; PCI bus layout, it has a bad habit of putting the Qlogic-ISP's I/O
+</EM><BR>
+<EM>&gt; space controller at 0x9000.  If one enables the PCI IDE driver, it
+</EM><BR>
+<EM>&gt; claims this space to the exclusion of the SCSI host adaptor, with
+</EM><BR>
+<EM>&gt; predictable results...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This patch tries to avoid placing devices on top of the Cypress chip's
+</EM><BR>
+<EM>&gt; I/O space.
+</EM><BR>
+<P>Much better (and simpler) to do The Right Thing (tm), and *not* ignore
+<BR>
+the appropriate BAR initializations (see below).
+<BR>
+<P><EM>&gt; This patch is admittedly bogus, but so is bios32.c (or, arguably, so
+</EM><BR>
+<EM>&gt; is the SRM console on Miata, or the Cypress chip, or any number of
+</EM><BR>
+<EM>&gt; other things :-)  2.3 does things right, thankfully.
+</EM><BR>
+<P>Well, it is really a case of bios32 being negligent; fixed below.
+<BR>
+<P>Note that the patches below also contain a few other things, primary
+<BR>
+being code that saves and restores any PCI-PCI bridge settings for
+<BR>
+boxes booted from SRM console. This code is necessary specifically to
+<BR>
+prevent hanging certain platforms during shutdown when equipped with
+<BR>
+MYLEX ExtremeRAID 1100, but may be useful generically as well...
+<BR>
+<P>Please, give them a try and let me know what happens...
+<BR>
+<P>--Jay++
+<BR>
+<P>-----------------------------------------------------------------------------
+<BR>
+Jay A Estabrook                            Alpha Engineering - LINUX Project
+<BR>
+Compaq Computer Corp. - MRO1-2/K20         (508) 467-2080
+<BR>
+200 Forest Street, Marlboro MA 01752       Jay.Estabrook@compaq.com
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P>diff -urP old/arch/alpha/kernel/bios32.c new/arch/alpha/kernel/bios32.c
+<BR>
+--- old/arch/alpha/kernel/bios32.c	Fri May  5 12:00:46 2000
+<BR>
++++ new/arch/alpha/kernel/bios32.c	Thu May 11 12:13:29 2000
+<BR>
+@@ -327,6 +327,28 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;#define ALIGN(val,align)	(((val) + ((align) - 1)) &amp; ~((align) - 1))
+<BR>
+&nbsp;
+<BR>
++static short __inline__
+<BR>
++__disable_dev(struct pci_dev *dev)
+<BR>
++{
+<BR>
++	unsigned short cmd, orig_cmd;
+<BR>
++
+<BR>
++	pcibios_read_config_word(dev-&gt;bus-&gt;number, dev-&gt;devfn,
+<BR>
++				 PCI_COMMAND, &amp;cmd);
+<BR>
++
+<BR>
++	orig_cmd = cmd;
+<BR>
++	cmd &amp;= (~PCI_COMMAND_IO &amp; ~PCI_COMMAND_MEMORY &amp; ~PCI_COMMAND_MASTER);
+<BR>
++
+<BR>
++	pcibios_write_config_word(dev-&gt;bus-&gt;number, dev-&gt;devfn,
+<BR>
++				  PCI_COMMAND, cmd);
+<BR>
++	return orig_cmd;
+<BR>
++}
+<BR>
++
+<BR>
++static void __inline__
+<BR>
++__enable_dev(struct pci_dev *dev, short orig_cmd)
+<BR>
++{
+<BR>
++	pcibios_write_config_word(dev-&gt;bus-&gt;number, dev-&gt;devfn,
+<BR>
++				  PCI_COMMAND, orig_cmd);
+<BR>
++}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* 
+<BR>
+&nbsp;&nbsp;* The following structure records initial configuration of devices
+<BR>
+@@ -344,6 +366,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct srm_io_reset *next;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev *dev;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u32 io;
+<BR>
++	short cmd;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 reg;
+<BR>
+&nbsp;} *srm_io_resets;
+<BR>
+&nbsp;
+<BR>
+@@ -354,6 +377,7 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct srm_irq_reset *qreset;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct srm_io_reset *ireset;
+<BR>
++	struct pci_dev *last_dev;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Reset any IRQs that we changed.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (qreset = srm_irq_resets; qreset ; qreset = qreset-&gt;next) {
+<BR>
+@@ -370,6 +394,15 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
++	/* Disable any devices which had IO addresses that we changed.  */
+<BR>
++	last_dev = NULL;
+<BR>
++	for (ireset = srm_io_resets; ireset ; ireset = ireset-&gt;next) {
+<BR>
++		if (ireset-&gt;dev != last_dev) {
+<BR>
++			ireset-&gt;cmd = __disable_dev(ireset-&gt;dev);
+<BR>
++			last_dev = ireset-&gt;dev;
+<BR>
++		}
+<BR>
++	}
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Reset any IO addresses that we changed.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (ireset = srm_io_resets; ireset ; ireset = ireset-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_write_config_dword(ireset-&gt;dev-&gt;bus-&gt;number,
+<BR>
+@@ -383,31 +416,40 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ireset-&gt;io);
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++
+<BR>
++	/* Re-enable any devices which had IO addresses that we changed.  */
+<BR>
++	last_dev = NULL;
+<BR>
++	for (ireset = srm_io_resets; ireset ; ireset = ireset-&gt;next) {
+<BR>
++		if (ireset-&gt;dev != last_dev) {
+<BR>
++			__enable_dev(ireset-&gt;dev, ireset-&gt;cmd);
+<BR>
++			last_dev = ireset-&gt;dev;
+<BR>
++		}
+<BR>
++	}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;new_irq_reset(struct pci_dev *dev, u8 irq)
+<BR>
+&nbsp;{
+<BR>
+-	struct srm_irq_reset *n;
+<BR>
+-	n = kmalloc(sizeof(*n), GFP_KERNEL);
+<BR>
++	struct srm_irq_reset *new;
+<BR>
++	new = kmalloc(sizeof(*new), GFP_KERNEL);
+<BR>
+&nbsp;
+<BR>
+-	n-&gt;next = srm_irq_resets;
+<BR>
+-	n-&gt;dev = dev;
+<BR>
+-	n-&gt;irq = irq;
+<BR>
+-	srm_irq_resets = n;
+<BR>
++	new-&gt;next = srm_irq_resets;
+<BR>
++	new-&gt;dev = dev;
+<BR>
++	new-&gt;irq = irq;
+<BR>
++	srm_irq_resets = new;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;new_io_reset(struct pci_dev *dev, u8 reg, u32 io)
+<BR>
+&nbsp;{
+<BR>
+-	struct srm_io_reset *n;
+<BR>
+-	n = kmalloc(sizeof(*n), GFP_KERNEL);
+<BR>
++	struct srm_io_reset *new;
+<BR>
++	new = kmalloc(sizeof(*new), GFP_KERNEL);
+<BR>
+&nbsp;
+<BR>
+-	n-&gt;next = srm_io_resets;
+<BR>
+-	n-&gt;dev = dev;
+<BR>
+-	n-&gt;reg = reg;
+<BR>
+-	n-&gt;io = io;
+<BR>
+-	srm_io_resets = n;
+<BR>
++	new-&gt;next = srm_io_resets;
+<BR>
++	new-&gt;dev = dev;
+<BR>
++	new-&gt;reg = reg;
+<BR>
++	new-&gt;io = io;
+<BR>
++	srm_io_resets = new;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+@@ -418,9 +460,6 @@
+<BR>
+&nbsp;static void __init
+<BR>
+&nbsp;disable_dev(struct pci_dev *dev)
+<BR>
+&nbsp;{
+<BR>
+-	struct pci_bus *bus;
+<BR>
+-	unsigned short cmd;
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* HACK: the PCI-to-EISA bridge does not seem to identify
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*       itself as a bridge... :-(
+<BR>
+@@ -442,10 +481,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* We don't have code that will init the CYPRESS bridge correctly
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* so we do the next best thing, and depend on the previous
+<BR>
+-	 * console code to do the right thing, and ignore it here... :-\
+<BR>
++	 * console code to do the right thing, and ignore it mostly... :-\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
+-	    dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693) {
+<BR>
++	    dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693 &amp;&amp;
+<BR>
++	    PCI_FUNC(dev-&gt;devfn) == 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_DEVS((&quot;disable_dev: ignoring CYPRESS bridge...\n&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+@@ -463,12 +503,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_DEVS((&quot;disable_dev: disabling %04x:%04x\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;vendor, dev-&gt;device));
+<BR>
+&nbsp;
+<BR>
+-	bus = dev-&gt;bus;
+<BR>
+-	pcibios_read_config_word(bus-&gt;number, dev-&gt;devfn, PCI_COMMAND, &amp;cmd);
+<BR>
+-
+<BR>
+-	/* hack, turn it off first... */
+<BR>
+-	cmd &amp;= (~PCI_COMMAND_IO &amp; ~PCI_COMMAND_MEMORY &amp; ~PCI_COMMAND_MASTER);
+<BR>
+-	pcibios_write_config_word(bus-&gt;number, dev-&gt;devfn, PCI_COMMAND, cmd);
+<BR>
++	(void)__disable_dev(dev);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+@@ -489,6 +524,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int orig_base;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int alignto;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long handle;
+<BR>
++	int start_idx = 0;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* HACK: the PCI-to-EISA bridge does not seem to identify
+<BR>
+@@ -511,18 +547,24 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* We don't have code that will init the CYPRESS bridge correctly
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* so we do the next best thing, and depend on the previous
+<BR>
+-	 * console code to do the right thing, and ignore it here... :-\
+<BR>
++	 * console code to do the right thing, and ignore it mostly... :-\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693) {
+<BR>
++	    int func = PCI_FUNC(dev-&gt;devfn);
+<BR>
++	    if (func == 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_DEVS((&quot;layout_dev: ignoring CYPRESS bridge...\n&quot;));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
++	    }
+<BR>
++	    if (func == 1 || func == 2) { 
+<BR>
++		start_idx = 4; /* bypass BAR 0 - 3 for the IDE devs */
+<BR>
++	    }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bus = dev-&gt;bus;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcibios_read_config_word(bus-&gt;number, dev-&gt;devfn, PCI_COMMAND, &amp;cmd);
+<BR>
+&nbsp;
+<BR>
+-	for (idx = 0; idx &lt;= 5; idx++) {
+<BR>
++	for (idx = start_idx; idx &lt;= 5; idx++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;off = PCI_BASE_ADDRESS_0 + 4*idx;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Figure out how much space and of what type this
+<BR>
+@@ -713,6 +755,46 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;device, dev-&gt;class, cmd|PCI_COMMAND_MASTER));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++/* We must save away the current bridge settings for restore during exit. */
+<BR>
++static void __init
+<BR>
++save_bridge_setup(struct pci_dev *bridge)
+<BR>
++{
+<BR>
++	unsigned int dword;
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_IO_BASE, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_IO_BASE, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_IO_BASE_UPPER16, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_IO_BASE_UPPER16, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_PREF_BASE_UPPER32, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_PREF_BASE_UPPER32, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_PREF_LIMIT_UPPER32, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_PREF_LIMIT_UPPER32, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_MEMORY_BASE, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_MEMORY_BASE, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_PREF_MEMORY_BASE, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_PREF_MEMORY_BASE, dword);
+<BR>
++
+<BR>
++	/* Must use dword that contains PCI_BRIDGE_CONTROL. */
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				  PCI_INTERRUPT_LINE, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_INTERRUPT_LINE, dword);
+<BR>
++
+<BR>
++	pcibios_read_config_dword(bridge-&gt;bus-&gt;number, bridge-&gt;devfn,
+<BR>
++				   PCI_COMMAND, &amp;dword);
+<BR>
++	new_io_reset(bridge, PCI_COMMAND, dword);
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;static int __init
+<BR>
+&nbsp;layout_bus(struct pci_bus *bus)
+<BR>
+&nbsp;{
+<BR>
+@@ -764,6 +846,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((dev-&gt;class &gt;&gt; 8) == PCI_CLASS_DISPLAY_VGA)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;found_vga = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Recursively allocate space for all of the sub-buses:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+@@ -772,6 +855,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (child = bus-&gt;children; child; child = child-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;found_vga += layout_bus(child);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Align the current bases on 4K and 1MB boundaries:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+@@ -783,6 +867,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DBG_DEVS((&quot;layout_bus: config bus %d bridge\n&quot;, bus-&gt;number));
+<BR>
+&nbsp;
+<BR>
++		save_bridge_setup(bridge);
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Set up the top and bottom of the PCI I/O segment
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* for this bus.
+<BR>
+@@ -1364,7 +1450,6 @@
+<BR>
+&nbsp;layout_hoses(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct linux_hose_info * hose;
+<BR>
+-	int i;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* On multiple bus machines, we play games with pci_root in order
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;that all of the busses are probed as part of the normal PCI
+<BR>
+diff -urP old/arch/alpha/kernel/time.c new/arch/alpha/kernel/time.c
+<BR>
+--- old/arch/alpha/kernel/time.c	Fri May  5 12:00:03 2000
+<BR>
++++ new/arch/alpha/kernel/time.c	Thu May 11 10:07:48 2000
+<BR>
+@@ -236,7 +236,7 @@
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void (*irq_handler)(int, void *, struct pt_regs *);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int year, mon, day, hour, min, sec, cc1, cc2;
+<BR>
+-	unsigned long cycle_freq, one_percent;
+<BR>
++	unsigned long cycle_freq, ppm_error;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long diff;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+@@ -261,17 +261,24 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cc1 = cc2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-	/* If the given value is within 1% of what we calculated, 
+<BR>
+-	   accept it.  Otherwise, use what we found.  */
+<BR>
++	/* This code used to check for a 1% error.
+<BR>
++	 * PWS600au reports 598802395 which is way off. (ntpd has problems.)
+<BR>
++	 * So I tightened down the check.  Hal Murray, Feb 27, 2000.
+<BR>
++	 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycle_freq = hwrpb-&gt;cycle_freq;
+<BR>
+-	one_percent = cycle_freq / 100;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diff = cycle_freq - est_cycle_freq;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (diff &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diff = -diff;
+<BR>
+-	if (diff &gt; one_percent) {
+<BR>
++	ppm_error = (diff * 1000000L) / cycle_freq;
+<BR>
++#if 0
+<BR>
++	printk(&quot;Alpha clock init: HWRPB %lu, Measured %lu, error=%lu ppm.\n&quot;,
+<BR>
++	       hwrpb-&gt;cycle_freq, est_cycle_freq, ppm_error);
+<BR>
++#endif
+<BR>
++	if (ppm_error &gt; 1000) {
+<BR>
++		printk(&quot;HWRPB cycle frequency (%lu) seems inaccurate -&quot;
+<BR>
++		       &quot; using the measured value of %lu Hz\n&quot;,
+<BR>
++		       cycle_freq, est_cycle_freq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycle_freq = est_cycle_freq;
+<BR>
+-		printk(&quot;HWRPB cycle frequency bogus.  Estimated %lu Hz\n&quot;,
+<BR>
+-		       cycle_freq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;est_cycle_freq = 0;
+<BR>
+diff -urP old/arch/alpha/vmlinux.lds new/arch/alpha/vmlinux.lds
+<BR>
+--- old/arch/alpha/vmlinux.lds	Wed May 14 01:41:00 1997
+<BR>
++++ new/arch/alpha/vmlinux.lds	Thu May 11 10:07:48 2000
+<BR>
+@@ -1,10 +1,11 @@
+<BR>
+&nbsp;OUTPUT_FORMAT(&quot;elf64-alpha&quot;)
+<BR>
+&nbsp;ENTRY(__start)
+<BR>
++PHDRS { kernel PT_LOAD ; }
+<BR>
+&nbsp;SECTIONS
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;. = 0xfffffc0000310000;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;_text = .;
+<BR>
+-   .text : { *(.text) }
+<BR>
++   .text : { *(.text) } :kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;.text2 : { *(.text2) }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;_etext = .;
+<BR>
+&nbsp;
+<BR>
+-----------------------------------------------------------------------------
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0012.html">David Huggins-Daines: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Matti Aarnio: "Re: PCI configuration problem in 2.3.99 prex"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0008.html">David Huggins-Daines: "[PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0012.html">David Huggins-Daines: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0008.html">Jay Estabrook: "Re: [PATCH] bogo-resource-management for 2.2.15 bios32.c (Miata+SRM+IDE fix)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Jun 01 2000 - 09:46:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

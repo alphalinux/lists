@@ -1,0 +1,158 @@
+<!-- received="Mon Jul 14 05:42:19 1997 " -->
+<!-- sent="Mon, 14 Jul 1997 11:41:05 +0200" -->
+<!-- name="Stephan Schroepfer" -->
+<!-- email="scr@iis.fhg.de" -->
+<!-- subject="Iomega ZIP ATAPI on PC164 success story" -->
+<!-- id="33C9F431.41C67EA6@iis.fhg.de" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Iomega ZIP ATAPI on PC164 success story</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Iomega ZIP ATAPI on PC164 success story</h2>
+
+<b>Stephan Schroepfer</b> (<a href="mailto:scr@iis.fhg.de"><i>scr@iis.fhg.de</i></a>)<br>
+<i>Mon, 14 Jul 1997 11:41:05 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#334">[ date ]</a><a href="index.html#334">[ thread ]</a><a href="subject.html#334">[ subject ]</a><a href="author.html#334">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0335.html">Ka'Plaagh: "Re: PC164/SCSI/128MB"</a>
+<li> <b>Previous message:</b> <a href="0333.html">JPG: "Alpha 21164PC ?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0347.html">WebMaster sabelotodo: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0347.html">WebMaster sabelotodo: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0353.html">Jo Hausmann: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0377.html">Stephan Schroepfer: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+A few weeks ago I asked axp-list if someone is experienced with the<br>
+usage of Iomega's internal ATAPI ZIP drive, especially on a PC164<br>
+board with RHL.<br>
+Now I present my own experiences (I got no reply on my first mail,<br>
+so either nobody is experienced or it is trivial).<br>
+Hope this helps at least one of you.<br>
+<p>
+Using Linux there is no need for Iomega ZIP specific software<br>
+(at least if one can live without write protection and some other<br>
+goodies provided by Iomega's Wintel-specific tools).<br>
+Main problem seems to be a broken mkdosfs on axplinux, which<br>
+forces me to do formatting of ZIP media under NT (only if a<br>
+dos file system should be used).<br>
+<p>
+//======================================<br>
+axplinux (ext2 file system)<br>
+//======================================<br>
+<p>
+ - Successfully made ext2 file system on ZIP drive using<br>
+   '/sbin/mke2fs &lt;device&gt;' (in my case &lt;device&gt; is /dev/hdd1, the<br>
+   first (primary) partition on slave of 2nd EIDE channel ---<br>
+   always assume first partitionon ZIP drive, not e.g. /dev/hdd).<br>
+<p>
+ - Successfully mounted ZIP drive (mount point takes on actual<br>
+   time as modification time --- see odd behaviour of linux<br>
+   while mounting msdos partitions below).<br>
+<p>
+ - Users can write to ZIP drive after root given has given<br>
+   permissions to mount point (once and for all, while ZIP<br>
+   drive is *NOT* mounted).<br>
+<p>
+ + o.k.<br>
+<p>
+//======================================<br>
+axplinux (msdos file system created by axplinux's (RH4.1) mkdosfs)<br>
+//======================================<br>
+<p>
+ - '/sbin/mkdosfs &lt;device&gt;' doesn't report an error, but returns<br>
+   pretty fast --- at least for a floppy like 100MB medium<br>
+   (/usr/bin/time reports 0.00user 0.77system 0:01.70elapsed 45%CPU).<br>
+<p>
+ - Mounting this dos file system on ZIP drive failes with<br>
+   'mount: wrong fs type, bad option, bad superblock on &lt;device&gt;,<br>
+           or too many mounted file systems'<br>
+<p>
+ - These are the same symptoms I see if I try to create a msdos<br>
+   file system on an EIDE hd partition.<br>
+   /sbin/mkdosfs of RH4.1 (axp) seems to generally fail at least on<br>
+   EIDE media.<br>
+<p>
+ + NO GO<br>
+<p>
+//======================================<br>
+axplinux (msdos file system created by axpNT)<br>
+//======================================<br>
+<p>
+ - Mounting with options '-t msdos -o umask=000' provides the desired<br>
+   funcionality (users can read from and write on this medium, umask<br>
+   value is the bitmask of the permissions that are *NOT* present).<br>
+<p>
+ - Mount point's modification time is altered to 'Jan  1  1970'<br>
+   while Zip drive is mounted.<br>
+   This seems to be generally the case if msdos partitions are mounted<br>
+   with linux (same effect can be seen with EIDE hd partitions on<br>
+   axplinux as well as on i86linux).<br>
+<p>
+ - axpNT written data are readable under axplinux (NT's recycled<br>
+   folder simply can be seen as an usual directory).<br>
+<p>
+ - axplinux written data are readable under axpNT (and hopefully<br>
+   under all systems which can cope with msdos formatted partitions<br>
+   on ZIP media).<br>
+<p>
+ + o.k. except odd modification time of mount point while medium<br>
+   is mounted<br>
+<p>
+//======================================<br>
+axplinux (using tar)<br>
+//======================================<br>
+<p>
+ - Users can write to ZIP drive using 'tar cvf &lt;device&gt; &lt;files&gt;'<br>
+   after root has given write permissions to &lt;device&gt; while ZIP<br>
+   drive is *NOT* mounted.<br>
+<p>
+ - Data exchange with an i86linux box and SCSI ZIP drive<br>
+   has been proven to work.<br>
+<p>
+ + o.k.<br>
+<p>
+That's all for now<br>
+Stefan Schroepfer<br>
+<a href="mailto:scr@iis.fhg.de">scr@iis.fhg.de</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0335.html">Ka'Plaagh: "Re: PC164/SCSI/128MB"</a>
+<li> <b>Previous message:</b> <a href="0333.html">JPG: "Alpha 21164PC ?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0347.html">WebMaster sabelotodo: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0347.html">WebMaster sabelotodo: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0353.html">Jo Hausmann: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<li> <b>Maybe reply:</b> <a href="0377.html">Stephan Schroepfer: "Re: Iomega ZIP ATAPI on PC164 success story"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

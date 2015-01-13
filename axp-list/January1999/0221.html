@@ -1,0 +1,376 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Threads problem: segfault in ntop1.1a9</TITLE>
+<META NAME="Author" CONTENT="y0000218@rzsrv2.rz.tu-bs.de (y0000218@rzsrv2.rz.tu-bs.de)">
+<META NAME="Subject" CONTENT="Threads problem: segfault in ntop1.1a9">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Threads problem: segfault in ntop1.1a9</H1>
+<HR>
+<P>
+<!-- received="Mon Jan 04 16:24:37 1999 PST" -->
+<!-- sent="Mon, 4 Jan 1999 16:15:59 GMT" -->
+<!-- name="y0000218@rzsrv2.rz.tu-bs.de" -->
+<!-- email="y0000218@rzsrv2.rz.tu-bs.de" -->
+<!-- subject="Threads problem: segfault in ntop1.1a9" -->
+<!-- id="199901041615.QAA20239@ppp393.ts.rz.tu-bs.de" -->
+<!-- inreplyto="" -->
+<A HREF="mailto:y0000218@rzsrv2.rz.tu-bs.de?subject=Re:%20Threads%20problem:%20segfault%20in%20ntop1.1a9"><EM>y0000218@rzsrv2.rz.tu-bs.de</EM></A><BR>
+<EM>Mon, 4 Jan 1999 16:15:59 GMT</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#221">[ date ]</A>
+<A HREF="index.html#221">[ thread ]</A>
+<A HREF="subject.html#221">[ subject ]</A>
+<A HREF="author.html#221">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0222.html">Izaak Bozof: "Sources for Multia SCSI hdd's"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0220.html">dr john halewood: "RE: 2.2.0-pre4 doesn't compile"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0222.html">Izaak Bozof: "Sources for Multia SCSI hdd's"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I have a problem compiling ntop-1.1a9 (<A HREF="ftp://ftp.unipi.it/pub/ntop/snapshots/">ftp://ftp.unipi.it/pub/ntop/snapshots/</A>
+<BR>
+ntop1.1a9.tar.gz) the uses threads. it works on x86.
+<BR>
+<P>Just compiled ntop on a alpha-redhat-5.2 system, 2.1.130
+<BR>
+kernel.
+<BR>
+<P><P>Starting program: /home/olaf/bin/./ntop -w 3000 -n
+<BR>
+<P>Program received signal SIGUSR1, User defined signal 1.
+<BR>
+__sigsuspend () at ../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42
+<BR>
+../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42: No such file or directory.
+<BR>
+Current language:  auto; currently asm
+<BR>
+(gdb) bt
+<BR>
+#0  __sigsuspend () at ../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42
+<BR>
+#1  0x2000027d1d0 in pthread_create (thread=0x1201884a0, attr=0x0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;start_routine=0x120009450 &lt;dequeuePacket&gt;, arg=0x0) at restart.h:32
+<BR>
+#2  0x12000a6a0 in createThread (threadId=0x0, __start_routine=0, __arg=0x0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at util.c:374
+<BR>
+#3  0x120003008 in main (argc=4, argv=0x11ffff7f8) at ntop.c:279
+<BR>
+(gdb) l util.c:374
+<BR>
+369
+<BR>
+370     int createThread(pthread_t *threadId,
+<BR>
+371                       void *(*__start_routine) (void *),
+<BR>
+372                       void *__arg) {
+<BR>
+373
+<BR>
+374       int rc = pthread_create(threadId, NULL, 
+<BR>
+375                               __start_routine, __arg);
+<BR>
+376
+<BR>
+377       return(rc);
+<BR>
+378     }
+<BR>
+<P>after loading the initial page in a web browser.
+<BR>
+<P><P>Starting program: /tmp/olaf/ntop-1.1a9/ntop -w 3000 -n
+<BR>
+<P>(global vars:)
+<BR>
+<P><P>#ifdef MULTITHREADED
+<BR>
+ConditionalVariable packetQueueCondvar;
+<BR>
+pthread_mutex_t     packetQueueMutex;  
+<BR>
+pthread_t           dequeueThreadId, handleWebConnectionsThreadId, updateThptThreadId;
+<BR>
+PacketInformation packetQueue[PACKET_QUEUE_LENGTH];
+<BR>
+unsigned int maxPacketQueueLen, packetQueueLen, packetQueueHead, packetQueueTail, packetQueueDroppedPkts;
+<BR>
+#endif
+<BR>
+<P><P><P>Breakpoint 1, main (argc=4, argv=0x11ffff7f8) at ntop.c:279
+<BR>
+279       createThread(&amp;dequeueThreadId, dequeuePacket, NULL);
+<BR>
+Current language:  auto; currently c
+<BR>
+(gdb) l
+<BR>
+274     #ifdef MULTITHREADED
+<BR>
+275       maxPacketQueueLen = packetQueueLen = packetQueueHead = 
+<BR>
+276         packetQueueTail = packetQueueDroppedPkts = 0;
+<BR>
+277       createCondvar(&amp;packetQueueCondvar);
+<BR>
+278       createMutex(&amp;packetQueueMutex);
+<BR>
+279       createThread(&amp;dequeueThreadId, dequeuePacket, NULL);
+<BR>
+280       createThread(&amp;updateThptThreadId, updateThptLoop, NULL);
+<BR>
+281     #endif
+<BR>
+282
+<BR>
+283       (void)fprintf(stderr, &quot;ntop v.%s &quot;
+<BR>
+(gdb) p dequeueThreadId
+<BR>
+$1 = 0
+<BR>
+(gdb) p* dequeueThreadId
+<BR>
+Cannot access memory at address 0x0.
+<BR>
+(gdb) p &amp;dequeueThreadId
+<BR>
+$2 = (pthread_t *) 0x1201884a0
+<BR>
+(gdb) p dequeuePacket
+<BR>
+$3 = {void ()} 0x120009450 &lt;dequeuePacket&gt;
+<BR>
+(gdb) s
+<BR>
+createThread (threadId=0x1201884a0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__start_routine=0x120009450 &lt;dequeuePacket&gt;, __arg=0x0) at util.c:374
+<BR>
+374       int rc = pthread_create(threadId, NULL, 
+<BR>
+(gdb) l
+<BR>
+369
+<BR>
+370     int createThread(pthread_t *threadId,
+<BR>
+371                       void *(*__start_routine) (void *),
+<BR>
+372                       void *__arg) {
+<BR>
+373
+<BR>
+374       int rc = pthread_create(threadId, NULL, 
+<BR>
+375                               __start_routine, __arg);
+<BR>
+376
+<BR>
+377       return(rc);
+<BR>
+378     }
+<BR>
+(gdb) m threadId
+<BR>
+Ambiguous command &quot;m threadId&quot;: maintenance, make, mt.
+<BR>
+(gdb) p threadId
+<BR>
+$4 = (pthread_t *) 0x1201884a0
+<BR>
+(gdb) p __start_routine
+<BR>
+$5 = (void *(*)()) 0x120009450 &lt;dequeuePacket&gt;
+<BR>
+(gdb) p __arg
+<BR>
+$6 = (void *) 0x0
+<BR>
+(gdb) s
+<BR>
+pthread_create (thread=0xbb8, attr=0x12014839c, start_routine=0x3690e794, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;arg=0x11ffff7f8) at pthread.c:233
+<BR>
+pthread.c:233: No such file or directory.
+<BR>
+(gdb)  b util.c:377
+<BR>
+Breakpoint 2 at 0x12000a6a8: file util.c, line 377.
+<BR>
+(gdb) c
+<BR>
+Continuing.
+<BR>
+<P>Program received signal SIGUSR1, User defined signal 1.
+<BR>
+__sigsuspend () at ../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42
+<BR>
+../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42: No such file or directory.
+<BR>
+Current language:  auto; currently asm
+<BR>
+(gdb) bt
+<BR>
+#0  __sigsuspend () at ../sysdeps/unix/sysv/linux/alpha/sigsuspend.S:42
+<BR>
+#1  0x2000027d1d0 in pthread_create (thread=0x1201884a0, attr=0x0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;start_routine=0x120009450 &lt;dequeuePacket&gt;, arg=0x0) at restart.h:32
+<BR>
+#2  0x12000a6a0 in createThread (threadId=0x0, __start_routine=0, __arg=0x0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at util.c:374
+<BR>
+#3  0x120003008 in main (argc=4, argv=0x11ffff7f8) at ntop.c:279
+<BR>
+<P><P>glibc-2.0.7-29
+<BR>
+<P>/lib/libpthread-0.7.so
+<BR>
+/lib/libpthread.so.0
+<BR>
+/usr/lib/libpthread.a
+<BR>
+/usr/lib/libpthread.so
+<BR>
+<P><P>x86 system, rh 5.2, same versions, kernel 2.0.36:
+<BR>
+<P>works. 
+<BR>
+Starting program: /tmp/olaf/ntop-1.1a9/ntop -w 3000 -n
+<BR>
+<P>Breakpoint 1, main (argc=4, argv=0xbffffd1c) at ntop.c:279
+<BR>
+279       createThread(&amp;dequeueThreadId, dequeuePacket, NULL);
+<BR>
+(gdb) p &amp;dequeueThreadId
+<BR>
+$1 = (long unsigned int *) 0x80c075c
+<BR>
+(gdb) p dequeuePacket
+<BR>
+$2 = {void ()} 0x804df40 &lt;dequeuePacket&gt;
+<BR>
+(gdb) s
+<BR>
+createThread (threadId=0x80c075c, __start_routine=0x804df40 &lt;dequeuePacket&gt;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__arg=0x0) at util.c:374
+<BR>
+374       int rc = pthread_create(threadId, NULL, 
+<BR>
+(gdb) l
+<BR>
+369
+<BR>
+370     int createThread(pthread_t *threadId,
+<BR>
+371                       void *(*__start_routine) (void *),
+<BR>
+372                       void *__arg) {
+<BR>
+373
+<BR>
+374       int rc = pthread_create(threadId, NULL, 
+<BR>
+375                               __start_routine, __arg);
+<BR>
+376
+<BR>
+377       return(rc);
+<BR>
+378     }
+<BR>
+(gdb) p threadId
+<BR>
+$3 = (long unsigned int *) 0x80c075c
+<BR>
+(gdb) p __start_routine
+<BR>
+$4 = (void *(*)()) 0x804df40 &lt;dequeuePacket&gt;
+<BR>
+(gdb) p __arg
+<BR>
+$5 = (void *) 0x0
+<BR>
+(gdb) s
+<BR>
+strcmp (p1=0x8048e85 &quot;_IO_stdin_&quot;, p2=0x8049096 &quot;pthread_create&quot;)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at ../sysdeps/generic/strcmp.c:30
+<BR>
+../sysdeps/generic/strcmp.c:30: No such file or directory.
+<BR>
+(gdb) 
+<BR>
+(gdb) b util.c:377
+<BR>
+Breakpoint 2 at 0x804eae7: file util.c, line 377.
+<BR>
+(gdb) c
+<BR>
+Continuing.
+<BR>
+[New Thread 19982]
+<BR>
+[New Thread 19968]
+<BR>
+[New Thread 19983]
+<BR>
+<P>Breakpoint 2, createThread (threadId=0x80c075c, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__start_routine=0x804df40 &lt;dequeuePacket&gt;, __arg=0x0) at util.c:378
+<BR>
+378     }
+<BR>
+(gdb) 
+<BR>
+<P><P>Any hints? 
+<BR>
+<P>Olaf
+<BR>
+<P><PRE>
+-- 
+&quot;The number of Unix installations       Olaf Schnapauff,
+has grown to 10, with more expected.&quot;   <A HREF="mailto:O.Schnapauff@tu-bs.de?subject=Re:%20Threads%20problem:%20segfault%20in%20ntop1.1a9">O.Schnapauff@tu-bs.de</A>  
+- The Unix Programmer's Manual,1972     <A HREF="http://www.tu-bs.de/~c0033014/">http://www.tu-bs.de/~c0033014/</A>
+       See Web page and keyservers  for pgp public key
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Threads%20problem:%20segfault%20in%20ntop1.1a9">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Threads%20problem:%20segfault%20in%20ntop1.1a9">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0222.html">Izaak Bozof: "Sources for Multia SCSI hdd's"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0220.html">dr john halewood: "RE: 2.2.0-pre4 doesn't compile"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0222.html">Izaak Bozof: "Sources for Multia SCSI hdd's"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:46 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

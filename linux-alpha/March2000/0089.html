@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 15 12:58:31 2000" -->
+<!-- isoreceived="20000315205831" -->
+<!-- sent="Tue, 14 Mar 2000 10:03:01 -0800 (PST)" -->
+<!-- isosent="20000314180301" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003140953490.1134-100000@penguin.transmeta.com" -->
+<!-- inreplyto="Pine.GSO.4.10.10003141833430.27183-100000@zeus.fh-brandenburg.de" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Mar 14 2000 - 10:03:01 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#89">[ date ]</A>
+<A HREF="index.html#89">[ thread ]</A>
+<A HREF="subject.html#89">[ subject ]</A>
+<A HREF="author.html#89">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0090.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0088.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0085.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0084.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0085.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 14 Mar 2000, Roman Zippel wrote:
+<BR>
+<EM>&gt; &gt; Agreed, but what is the point of it? Now every spinlock has to look up
+</EM><BR>
+<EM>&gt; &gt; current. The nice spinlock code that used to be 2 instructions (or 1 for
+</EM><BR>
+<EM>&gt; &gt; the unlock case) suddenly became 5 or more. No, thank you. Especially as I
+</EM><BR>
+<EM>&gt; &gt; don't believe it buys you anything on SMP.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Only i386, arm and sh need to look up current and on all other
+</EM><BR>
+<EM>&gt; architectures it's almost free. I would say, why not experimenting with
+</EM><BR>
+<EM>&gt; and keep as an option, you don't want that on servers of course, where
+</EM><BR>
+<EM>&gt; throughput is far more important, but if want to play qua^H^H^Hmp3s...
+</EM><BR>
+<P>I don't think people understand.
+<BR>
+<P>I WILL NOT APPLY THE PATCHES I'VE SEEN SO FAR.
+<BR>
+<P>They suck. Sorry, Ingo.
+<BR>
+<P>They add new infrastructure to do something that the SMP code has been
+<BR>
+doing for ages. I consider them ugly. They buy you nothing that wouldn't
+<BR>
+be cleanly done by my simple suggestion, and my simple suggestion gets it
+<BR>
+right in GENERAL, not in the few special cases that Ingo's code handled.
+<BR>
+<P>There are absolutely no advantages to doing it the stupid way. So why do
+<BR>
+it that way, then?
+<BR>
+<P>Using the existing spin_lock()/lock_kernel() infrastructure means that
+<BR>
+&nbsp;- the locks get verified on UP, and it makes peopleaware of what the cost
+<BR>
+&nbsp;&nbsp;&nbsp;of lock_kernel() is on both UP =and= SMP. Imagine extending the current
+<BR>
+&nbsp;&nbsp;&nbsp;profiling code trivially to show very clearly where interrupts happen
+<BR>
+&nbsp;&nbsp;&nbsp;during active spinlocks - it would be very efficient at pinpointing
+<BR>
+&nbsp;&nbsp;&nbsp;code that runs under lock_kernel and causes latency degradation.
+<BR>
+&nbsp;- the UP kernel is threaded in all the same places the SMP kernel is
+<BR>
+&nbsp;&nbsp;&nbsp;threaded, not just in a few special cases.
+<BR>
+&nbsp;- you do not introduce any new forms of threading.
+<BR>
+<P>And it's fast and simple. What more can you ask for? Most of the spinlocks
+<BR>
+are already of the irqsaving kind which would be complete no-ops in my
+<BR>
+version of the threading code.
+<BR>
+<P>In contrast, the other approaches have either made spinlocks slower on
+<BR>
+SMP, or have added special cases around special code. Ingo's patch is
+<BR>
+simple, but would not show how the latency of filename lookup is still
+<BR>
+going to be noticeable. But eventually we'll have a fully threaded dcache,
+<BR>
+and issues like that go away on their own if just designed right.
+<BR>
+<P>I do not like the notion of introducing new concepts that aren't really
+<BR>
+even needed as far as I can tell.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0090.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0088.html">Andrea Arcangeli: "Re: [patch] preemptive kernel, preemptive-2.3.52-A7"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0085.html">Roman Zippel: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0084.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0085.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

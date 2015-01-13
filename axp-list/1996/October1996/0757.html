@@ -1,0 +1,139 @@
+<!-- received="Sat Oct 19 03:32:39 1996 " -->
+<!-- sent="Sat, 19 Oct 1996 10:28:10 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Ping with a 65510 bytes pack" -->
+<!-- id="199610190404.OAA06199@cs.monash.edu.au" -->
+<!-- inreplyto="199610182252.SAA00126@neko.binary9.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Ping with a 65510 bytes pack</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Ping with a 65510 bytes pack</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Sat, 19 Oct 1996 10:28:10 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#757">[ date ]</a><a href="index.html#757">[ thread ]</a><a href="subject.html#757">[ subject ]</a><a href="author.html#757">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0758.html">Linus Torvalds: "Re: 2.1.4 axp exception patches"</a>
+<li> <b>Previous message:</b> <a href="0756.html">Bernd : "Re: Open plea to sales@redhat"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 18 Oct 1996, Shinanyaku wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Bruno Kraychete da Costa was heard saying ....</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; 	When a friend of mine, using a Win95 workstation, issued the ping </i><br>
+<i>&gt; &gt; command using a pack of 65510 bytes and addressed to my Linux 2.0.22, it </i><br>
+<i>&gt; &gt; simply rebooted. On the second time he issued that command, all the </i><br>
+<i>&gt; &gt; process stopped because of a general protection 000, including the agetty </i><br>
+<i>&gt; &gt; processes.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Everybody try this and lock up your linux system? I did. It works as</i><br>
+<i>&gt; reported except it didn't reboot my box, just lock it up solid-like.</i><br>
+<p>
+Ok, this is _definitely_ the kind of bug that I want to have fixed asap. <br>
+Alan already sent out a test-patch, but he hadn't been able to test it. <br>
+Neither can I, because I don't have access to any Windows machines, and Linux<br>
+won't even try to send out those illegal packets (and I'm way too lazy to try<br>
+to write a program that tries to send out raw ethernet packets)<br>
+<p>
+So could people please test the patch by Alan (I'm including it at the end of<br>
+this email in ase you missed it for some reason)? Please test first a<br>
+unpatched kernel to make sure you see the problem properly so that I don't<br>
+get positive reports that turn out to be flukes due to a router eating up the<br>
+packets or something.. <br>
+<p>
+The patch applies to just about any 2.x kernel (it certainly applied to both<br>
+2.1.5 and 2.0.23), and the reason I'm asking people to test it out is that<br>
+this kind of embarrassing bug (Q: "What's the height of embarrassment?"<br>
+A: "Windows crashing Linux"), and even this small patch is enough to release <br>
+a new kernel version just to have it "officially fixed" before the news of <br>
+this spread. But I don't want to make a 2.0.24 that turns out to not fix the<br>
+only problem it was meant to fix ;)<br>
+<p>
+(Thanks Alan for the quick action, and sorry to people who get this patch<br>
+twice in their mailbox)<br>
+<p>
+Please reply to me directly, just a "yes, it fixes it" or "nope, my machine<br>
+still crashes" will do. <br>
+<p>
+	Thanks,<br>
+		Linus<br>
+<p>
+-----<br>
+Date: 	Sat, 19 Oct 96 01:05 BST<br>
+From: <a href="mailto:alan@lxorguk.ukuu.org.uk">alan@lxorguk.ukuu.org.uk</a> (Alan Cox)<br>
+To: <a href="mailto:linux-kernel@vger.rutgers.edu">linux-kernel@vger.rutgers.edu</a>, linux-net@vger.rutgers.edu<br>
+Subject: Untested but this should fix the problem with oversize packets<br>
+<p>
+<p>
+Let me know how it works (patch v 2.0.2x)<br>
+<p>
+--- ip_fragment.c.old	Mon Sep 16 22:14:52 1996<br>
++++ ip_fragment.c	Sat Oct 19 01:04:47 1996<br>
+@@ -366,7 +366,7 @@<br>
+ 		{<br>
+ 			NETDEBUG(printk("Invalid fragment list: Fragment over size.\n"));<br>
+ 			ip_free(qp);<br>
+-			frag_kfree_skb(skb,FREE_WRITE);<br>
++			kfree_skb(skb,FREE_WRITE);<br>
+ 			ip_statistics.IpReasmFails++;<br>
+ 			return NULL;<br>
+ 		}<br>
+@@ -466,6 +466,18 @@<br>
+ 			return NULL;<br>
+ 		}<br>
+ 	}<br>
++	<br>
++	/*<br>
++	 *	Attempt to construct an oversize packet.<br>
++	 */<br>
++	 <br>
++	if(ntohs(iph-&gt;tot_len)+(int)offset&gt;65535)<br>
++	{<br>
++		skb-&gt;sk = NULL;<br>
++		frag_kfree_skb(skb, FREE_READ);<br>
++		ip_statistics.IpReasmFails++;<br>
++		return NULL;<br>
++	}	<br>
+ <br>
+ 	/*<br>
+ 	 *	Determine the position of this fragment.<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0758.html">Linus Torvalds: "Re: 2.1.4 axp exception patches"</a>
+<li> <b>Previous message:</b> <a href="0756.html">Bernd : "Re: Open plea to sales@redhat"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

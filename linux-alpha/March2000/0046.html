@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 17:29:06 2000" -->
+<!-- isoreceived="20000314012906" -->
+<!-- sent="Mon, 13 Mar 2000 16:36:17 +0100 (CET)" -->
+<!-- isosent="20000313153617" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131627000.2997-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.21.0003131505190.5618-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 07:36:17 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#46">[ date ]</A>
+<A HREF="index.html#46">[ thread ]</A>
+<A HREF="subject.html#46">[ subject ]</A>
+<A HREF="author.html#46">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0047.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0048.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0075.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0048.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt; Anyway it looks more like your object is to put automatic conditional
+</EM><BR>
+<EM>&gt; schedules all over the place (when each locks gets dropped) than to take
+</EM><BR>
+<EM>&gt; advantage of getting rescheduled in kernel mode by an irq.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Such way is more generic but it's also costly because it does at runtime
+</EM><BR>
+<EM>&gt; what we could do at compile time.
+</EM><BR>
+<P>identifying
+<BR>
+<P><P><EM>&gt; For example if you do:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 	spin_lock(&amp;lru_list_lock)
+</EM><BR>
+<EM>&gt; 	spin_lock(&amp;hash_table_lock);
+</EM><BR>
+<EM>&gt; 	spin_unlock(&amp;hash_table_lock);
+</EM><BR>
+<EM>&gt; 	spin_unlock(&amp;lru_list_lock)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; everybody will know that the spin_lock(&amp;has_table_lock) doesn't need to
+</EM><BR>
+<EM>&gt; increase the lock_depth but you do increase it anyway and adding such
+</EM><BR>
+<EM>&gt; bloat is not so nice IMHO.
+</EM><BR>
+<P>holding multiple spinlocks does increase the current-&gt;spinlock_depth twice
+<BR>
+(for clarity: it's not the same as current-&gt;lock_depth) - but the cost
+<BR>
+(lets say ~2 cycle) is going to be dwarfed by the cost of the LOCK;
+<BR>
+operations alone (~20-40 cycles). The variable is on the current process's
+<BR>
+stack page so there is not going to be any cachemiss, and in the typical
+<BR>
+case there is not going to be any branch miss either.
+<BR>
+<P>but yes, it's some overhead, so this thing is going to be optional. Also,
+<BR>
+there is no problem optimizing the above as:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inc_preemption_depth();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_lock(&amp;lru_list_lock)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_lock(&amp;hash_table_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[...]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_unlock(&amp;hash_table_lock);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__spin_unlock(&amp;lru_list_lock)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dec_preemption_depth();
+<BR>
+<P>(where __spin variants are the ones without the preemption control bits)  
+<BR>
+- if we want to make it explicit - but i dont think we want that, at least
+<BR>
+initially.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0047.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0045.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0048.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0075.html">Jamie Lokier: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0048.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

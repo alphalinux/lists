@@ -1,0 +1,115 @@
+<!-- received="Sat Mar 21 17:20:08 1998 " -->
+<!-- sent="Sat, 21 Mar 1998 22:09:56 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="Re: SX164 Clock Problem" -->
+<!-- id="199803212109.WAA24994@gueuze.ens-lyon.fr" -->
+<!-- inreplyto="199803211338.NAA00295@clifton.hobby.nl" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SX164 Clock Problem</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SX164 Clock Problem</h2>
+
+<b>Loic Prylli</b> (<a href="mailto:Loic.Prylli@ens-lyon.fr"><i>Loic.Prylli@ens-lyon.fr</i></a>)<br>
+<i>Sat, 21 Mar 1998 22:09:56 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#498">[ date ]</a><a href="index.html#498">[ thread ]</a><a href="subject.html#498">[ subject ]</a><a href="author.html#498">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0499.html">Michal Jaegermann: "Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0497.html">Leslie F. Donaldson: "Redhat 5.0 and keyboard buffer"</a>
+<li> <b>In reply to:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0553.html">Christopher Huffine: "Re: SX164 Clock Problem"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Wim van Dorst writes:<br>
+<i> &gt; </i><br>
+<i> &gt; I have run the program on my PC164SX several times with:</i><br>
+<i> &gt; - a self-built 2.0.33 kernel</i><br>
+<i> &gt; - the stock rh5 sx164 kernel (as Jay Estabrook suggested)</i><br>
+<i> &gt; </i><br>
+<i> &gt; The former give me the double timespeed (`date`=2*`clock`)</i><br>
+<i> &gt; and the latter gives me the normal timespeed (`date`=`clock`).</i><br>
+<i> &gt; </i><br>
+<i> &gt; Here are the results for the self-built kernel:</i><br>
+<i> &gt; [...]</i><br>
+<p>
+Ok, so it looks like the same problem (actually given the percentages,<br>
+it looks the date on your Alpha was perharps running about 1.6 too<br>
+fast rather than exatly 2?) <br>
+<p>
+Below the patch I use (not this workaround should be ok, but it does not<br>
+really solve the real problem, the interrupt handler should not be<br>
+called twice).<br>
+<p>
+<p>
+It is strange than the redhat one works ok, maybe the timer handler is<br>
+a bit slower to execute (due a smaller level of optimization while<br>
+compiling the kernel), and the problem cannot occur?<br>
+<p>
+Loic<br>
+<p>
+--- linux/arch/alpha/kernel/time.c.std  Sat Mar 21 21:01:41 1998<br>
++++ linux/arch/alpha/kernel/time.c      Sat Mar 21 21:05:39 1998<br>
+@@ -61,12 +61,23 @@<br>
+  * timer_interrupt() needs to keep up the real-time clock,<br>
+  * as well as call the "do_timer()" routine every clocktick<br>
+  */<br>
++<br>
++#define MINCYCLE 50000/2<br>
++/* the minimum number of rpcc cycles between two timer interrupts, it<br>
++   assume &gt; 50 Mhz processor clock, for a 600Mhz machine, this<br>
++   workaround will work if the timer handler takes less than 25000<br>
++   cycles=40us (that should be ok) */<br>
++<br>
+ void timer_interrupt(struct pt_regs * regs)<br>
+ {<br>
+        __u32 delta, now;<br>
++       static int ignored;<br>
+ <br>
+        now = rpcc();<br>
+        delta = now - state.last_time;<br>
++       if (delta &lt; MINCYCLE &amp;&amp; ignored++ &lt; 4)<br>
++         return 0;<br>
++       ignored = 0;<br>
+        state.last_time = now;<br>
+        if (delta &gt; state.max_cycles_per_tick) {<br>
+                int i, missed_ticks;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0499.html">Michal Jaegermann: "Adventures with xcdroast on Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0497.html">Leslie F. Donaldson: "Redhat 5.0 and keyboard buffer"</a>
+<li> <b>In reply to:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0553.html">Christopher Huffine: "Re: SX164 Clock Problem"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

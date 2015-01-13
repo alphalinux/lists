@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: problem with unaligned access on Alpha</TITLE>
+<META NAME="Author" CONTENT="Maciej W. Rozycki (macro@ds2.pg.gda.pl)">
+<META NAME="Subject" CONTENT="Re: problem with unaligned access on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: problem with unaligned access on Alpha</H1>
+<HR>
+<P>
+<!-- received="Wed Jun 23 16:16:37 1999" -->
+<!-- isoreceived="19990623231637" -->
+<!-- sent="Wed, 23 Jun 1999 16:55:31 +0200 (MET DST)" -->
+<!-- isosent="19990623145531" -->
+<!-- name="Maciej W. Rozycki" -->
+<!-- email="macro@ds2.pg.gda.pl" -->
+<!-- subject="Re: problem with unaligned access on Alpha" -->
+<!-- id="Pine.GSO.3.96.990623161434.16101A-100000@delta.ds2.pg.gda.pl" -->
+<!-- inreplyto="41256799.00395D39.00@saturn.aladdin.de" -->
+<STRONG>Subject: </STRONG>Re: problem with unaligned access on Alpha<BR>
+<STRONG>From: </STRONG>Maciej W. Rozycki (<EM>macro@ds2.pg.gda.pl</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jun 23 1999 - 07:55:31 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#483">[ date ]</A>
+<A HREF="index.html#483">[ thread ]</A>
+<A HREF="subject.html#483">[ subject ]</A>
+<A HREF="author.html#483">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0484.html">Gavin: "Re: [off-topic] stop bashing! /. Posting"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0482.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0478.html">Christian Groessler: "Re: problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0506.html">Christian Groessler: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0478.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed, 23 Jun 1999, Christian Groessler wrote:
+<BR>
+<P><EM>&gt; But it also happens with egcs-1.1.2 (on NetBSD, but I don't think this
+</EM><BR>
+<EM>&gt; makes a difference).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; OK, now that I know whats the problem I can avoid the unaligned access and
+</EM><BR>
+<EM>&gt; fix the program. But I initially relied on unaligned accesses being
+</EM><BR>
+<EM>&gt; signalled
+</EM><BR>
+<EM>&gt; by the kernel, and now that the compiler works around unaligned accesses
+</EM><BR>
+<EM>&gt; (in a buggy way) makes it much more difficult to get alignment-unaware
+</EM><BR>
+<EM>&gt; (intel)
+</EM><BR>
+<EM>&gt; apps running on Alpha....
+</EM><BR>
+<P>&nbsp;Well, unless you interchange non-byte data between architectures all
+<BR>
+accesses should be aligned by the compiler.  If you cast between types of
+<BR>
+different alignments, you may make the compiler be aware of wrong
+<BR>
+alignment by casting the type to an unaligned one.  E.g. you may cast
+<BR>
+unaligned &quot;int32_t&quot; to &quot;struct { int32_t __attribute__((packed)); }&quot; (it's
+<BR>
+not written formally but it should give you the idea); I'm told it works
+<BR>
+with egcs 1.1.2 which will add a necessary code to fetch the whole object
+<BR>
+properly. 
+<BR>
+<P>&nbsp;If you interchange non-byte data between architectures then you have to
+<BR>
+take care of different endianness anyway and you can simply apply
+<BR>
+alignment fixes to all places where you swap bytes for correct endianness.
+<BR>
+This is what I did in the program I am currently porting to multi-arch.
+<BR>
+<P>&nbsp;I also observed the compiler behaviour you described.  I believe it's a
+<BR>
+bug unless egcs people have a proof it's a feature.  I think the most
+<BR>
+reasonable (i.e. performance-wise) solution is to change the unaligned
+<BR>
+load to the aligned one and let the kernel trap it.  Given the compiler
+<BR>
+can be told explicitly to handle unaligned data this solution seems to be
+<BR>
+the right one.  Have you reported the bug to egcs folks? 
+<BR>
+<P><PRE>
+-- 
++  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
++--------------------------------------------------------------+
++        e-mail: macro@ds2.pg.gda.pl, PGP key available        +
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0484.html">Gavin: "Re: [off-topic] stop bashing! /. Posting"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0482.html">Michal Jaegermann: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0478.html">Christian Groessler: "Re: problem with unaligned access on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0506.html">Christian Groessler: "Re: problem with unaligned access on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0478.html">Maciej W. Rozycki: "Re: problem with unaligned access on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

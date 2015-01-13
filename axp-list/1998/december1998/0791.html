@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: LX164 and rpcc</TITLE>
+<META NAME="Author" CONTENT="Hannu Mallat (hmallat@peak3.cs.hut.fi)">
+<META NAME="Subject" CONTENT="Re: LX164 and rpcc">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: LX164 and rpcc</H1>
+<HR>
+<P>
+<!-- received="Fri Dec 18 13:04:14 1998 PST" -->
+<!-- sent="Fri, 18 Dec 1998 15:02:05 +0200 (EET)" -->
+<!-- name="Hannu Mallat" -->
+<!-- email="hmallat@peak3.cs.hut.fi" -->
+<!-- subject="Re: LX164 and rpcc" -->
+<!-- id="Pine.LNX.3.96.981218145230.21851A-100000@peak3.cs.hut.fi" -->
+<!-- inreplyto="19981217123625.G2290@zib.de" -->
+<STRONG>Hannu Mallat</STRONG> (<A HREF="mailto:hmallat@peak3.cs.hut.fi?subject=Re:%20LX164%20and%20rpcc"><EM>hmallat@peak3.cs.hut.fi</EM></A>)<BR>
+<EM>Fri, 18 Dec 1998 15:02:05 +0200 (EET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#791">[ date ]</A>
+<A HREF="index.html#791">[ thread ]</A>
+<A HREF="subject.html#791">[ subject ]</A>
+<A HREF="author.html#791">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0792.html">Peter Petrakis: "Re: ISDN card for alpha linux ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0790.html">Tristan Colgate: "RE: 2.1.130 and pppd"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0541.html">B. James Phillippe: "RE: 2.1.130 and pppd"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Sorry for the continued C source spam on the list ;-), but I've managed
+<BR>
+to track my problem down a bit further. I was stracing the little example
+<BR>
+program I posted earlier and found out that a munmap() call done by the
+<BR>
+stdio lib freaks out the process cycle counter. Here's another sample
+<BR>
+program that demonstrates what happens:
+<BR>
+<P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+#include &lt;string.h&gt;
+<BR>
+#include &lt;errno.h&gt;
+<BR>
+#include &lt;sys/types.h&gt;
+<BR>
+#include &lt;sys/stat.h&gt;
+<BR>
+#include &lt;fcntl.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+#include &lt;sys/mman.h&gt;
+<BR>
+<P>static inline unsigned long cc64 (void) {
+<BR>
+&nbsp;&nbsp;unsigned long cc;
+<BR>
+&nbsp;&nbsp;asm volatile(&quot;rpcc %0&quot; : &quot;=r&quot;(cc) : : &quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;return cc;
+<BR>
+}
+<BR>
+<P>int main(int argc, char* argv[]) {
+<BR>
+&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;unsigned long c1, c2;
+<BR>
+&nbsp;&nbsp;unsigned int i1, i2;
+<BR>
+<P>&nbsp;&nbsp;for(i = 0; i &lt; 10; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char* stuff;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;struct stat buf;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int mfd;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;mfd = open(&quot;/vmlinux.gz&quot; /* or something ... */, O_RDONLY);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fstat(mfd, &amp;buf);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;stuff = mmap(0, buf.st_size, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PROT_READ,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MAP_PRIVATE, mfd, 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;c1 = cc64();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;munmap(stuff, buf.st_size);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;c2 = cc64();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;close(mfd);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;i1 = ((c1 &gt;&gt; 32ULL) &amp; 0xffffffff) + (c1 &amp; 0xffffffff); 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;i2 = ((c2 &gt;&gt; 32ULL) &amp; 0xffffffff) + (c2 &amp; 0xffffffff); 
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stdout, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;%08x %08x ... %08x %08x : %08x\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(unsigned int)(c1 &gt;&gt; 32), 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(unsigned int)(c1 &amp; 0xffffffff), 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(unsigned int)(c2 &gt;&gt; 32), 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(unsigned int)(c2 &amp; 0xffffffff), 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i2 - i1);
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;exit(0);
+<BR>
+}
+<BR>
+<P>Any kernel hackers out there? What's going on? Again, the sample program
+<BR>
+works fine on the OSF/1 machine I have access to. 
+<BR>
+<P>Hannu
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20LX164%20and%20rpcc">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20LX164%20and%20rpcc">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0792.html">Peter Petrakis: "Re: ISDN card for alpha linux ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0790.html">Tristan Colgate: "RE: 2.1.130 and pppd"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0541.html">B. James Phillippe: "RE: 2.1.130 and pppd"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Fri Dec 18 1998 - 06:00:24 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

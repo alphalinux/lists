@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: axp update for 2.3.15</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="axp update for 2.3.15">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>axp update for 2.3.15</H1>
+<HR>
+<P>
+<!-- received="Tue Aug 31 07:25:10 1999" -->
+<!-- isoreceived="19990831142510" -->
+<!-- sent="Mon, 30 Aug 1999 22:35:40 -0700" -->
+<!-- isosent="19990831053540" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="axp update for 2.3.15" -->
+<!-- id="19990830223540.A3016@twiddle.net" -->
+<STRONG>Subject: </STRONG>axp update for 2.3.15<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Aug 30 1999 - 22:35:40 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#837">[ date ]</A>
+<A HREF="index.html#837">[ thread ]</A>
+<A HREF="subject.html#837">[ subject ]</A>
+<A HREF="author.html#837">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0838.html">Thomas Leitner: "Re: video card woes (with dec unix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0836.html">Michal Jaegermann: "Re: gcc-2.95.1 and ftp.alphalinux.org"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0850.html">Mitchell Blank Jr: "Re: axp update for 2.3.15"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+What fun!
+<BR>
+<P>This has been successfully tested on pyxis (sx164), cia (pc164),
+<BR>
+and tsunami (ds20).  As of last night it nearly, but didn't quite,
+<BR>
+work on mcpcia (as4100).  More work to do there, but this patch
+<BR>
+has gotten quite large enough.
+<BR>
+<P>I don't have direct access to anything else, so testers go to it.
+<BR>
+I'm particularly interested in results from XL and AlphaBook1,
+<BR>
+as those got tweeked heavier than most.
+<BR>
+<P>Due to the size of the patch, I've put it up at
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://ftp.twiddle.net/pub/rth/d-2315-rth3.gz">ftp://ftp.twiddle.net/pub/rth/d-2315-rth3.gz</A>
+<BR>
+<P>There are several points of interest besides the bare fact of
+<BR>
+the pci subsystem rewrite:
+<BR>
+<P>&nbsp;&nbsp;* The generic PCI probing is tweeked to allow the port to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;always assign bus numbers.  Tweeked to add the additional
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;top-level PCI busses in order, so as not to affect probe
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;order.
+<BR>
+<P>&nbsp;&nbsp;* __delay is out of line, hoping to cure whatever weird
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;inconsistency thing Gerard was seeing on the ncr's.
+<BR>
+<P>&nbsp;&nbsp;* CONFIG_ALPHA_SRM_SETUP is gone.  We're about to start playing
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;with scatter-gather I/O, which will preclude that sort of thing.
+<BR>
+<P>&nbsp;&nbsp;* PYXIS now always uses byte/word insns for I/O.  The one 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;holdout so far had been RUFFIAN; If you have one and have
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;problems with things wigging out extremely early, consider
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;upgrading AlphaBIOS so that bw i/o gets turned on.
+<BR>
+<P>&nbsp;&nbsp;* CIA and MCPCIA force all devices within the span of HAE=0.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;For CIA this is merely a performance improvement (and we 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;have 512MB to work with, which seems more than enough for
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;machines with 5 or fewer pci slots).
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;For MCPCIA this is a deadly earnest requirement -- we have
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;SMP races on I/O if we must manipulate the HAE, and one HAE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;per pci bus (and we never did handle the secondary bus' HAE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;values properly).  It would be possible to solve the SMP
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;race issue if it weren't for the fact that userland 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;processes (i.e. X) also manipulate the HAE.  We have a 128MB
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;span per pci bus to work with, so most folks won't notice.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;But if you've got lots of video capture cards or something
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;else that eats lots of space, you may have to shift the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;cards between the busses to balance the load.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;The only SMP machine left (that we support) using an HAE is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;the T2 (Sable).  There probably aren't that many running around,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;but if you've got one, I'd suggest you not use X.  (I should
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;probably get a spinlock in there so that at least the kernel
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;is reliable...)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P>r~
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0838.html">Thomas Leitner: "Re: video card woes (with dec unix)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0836.html">Michal Jaegermann: "Re: gcc-2.95.1 and ftp.alphalinux.org"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0850.html">Mitchell Blank Jr: "Re: axp update for 2.3.15"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:04 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

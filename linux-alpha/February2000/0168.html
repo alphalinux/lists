@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Sun Feb 27 19:16:41 2000" -->
+<!-- isoreceived="20000228031641" -->
+<!-- sent="Sun, 27 Feb 2000 16:04:13 +0100 (CET)" -->
+<!-- isosent="20000227150413" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10002271529220.1620-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.21.0002270501160.473-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Feb 27 2000 - 07:04:13 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#168">[ date ]</A>
+<A HREF="index.html#168">[ thread ]</A>
+<A HREF="subject.html#168">[ subject ]</A>
+<A HREF="author.html#168">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0169.html">Jan-Benedict Glaw: "2.3.48 link problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0167.html">Andrea Arcangeli: "Re: smp irq affinity and new irq stuff"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0166.html">Andrea Arcangeli: "smp irq affinity and new irq stuff"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0166.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sun, 27 Feb 2000, Andrea Arcangeli wrote:
+<BR>
+<P><EM>&gt; I ported the SMP irq affinity code and the per-irq-desc locking to alpha
+</EM><BR>
+<EM>&gt; (plus the -&gt;end semantical change). [...]
+</EM><BR>
+<P>here is a summary of all the IA32 IRQ scalability changes which were added
+<BR>
+as of 2.3.48, so that other architectures can make sense of these changes
+<BR>
+and potentially adopt them:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- per-IRQ-source spinlocks and per-IRQ-controller spinlocks
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;increasing scalability: now two IRQ handlers on two CPUs
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;can run do_IRQ in parallel. Note that level-triggered PCI IRQ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handlers never actually take the IRQ-controller spinlock in the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'IRQ handling fast path'.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- got rid of the global_irq_count shared variable, it was
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cache-pingponging like hell during multi-CPU interrupt
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;load. The irqs_running() function does it all now - cli()/sti()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thus got a bit slower, but it's worth it. The change is supposed
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to be an invariant otherwise.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Reworked (level-triggered) IO-APIC IRQ handlers to never touch
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the IO-APIC registers and keep the interrupt unacked in the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;local APIC while the handler is running. This speeded
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'null IRQ latency' up considerably and also works better with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hardware features like focus-CPU, and causes better IRQ
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomicity. The 'legacy' edge-triggered IO-APIC IRQ sources
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;still need the slower method to work reliably.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- per-CPU IRQ statistics causing better cache workload
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- explicit IRQ affinity (to a group of CPUs) can be set through
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/proc/irq/*. Extended the IRQ controller function template with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-&gt;set_affinity(). See Documentation/IRQ-affinity.txt for more.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- added /proc/irq/prof_cpu_mask, to enable profiling on a single
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPU only. (useful to determine the true idleness of a CPU, and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;other interesting things when using CPU-affine IRQs.)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- the irq_handler-&gt;end() semantics had to be changed slightly to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow the fastest possible IO-APIC IRQ handling on x86.
+<BR>
+<P>architectures that are currently using (a hw-adopted version of) the IA32
+<BR>
+IRQ architecture are: Alpha, IA64, SH and ARM.
+<BR>
+<P><EM>&gt; I checked it works fine here. The sys_dp264 is the only port that
+</EM><BR>
+<EM>&gt; actively uses SMP irq affinity it (because it's the only one capable
+</EM><BR>
+<EM>&gt; of SMP irq scaling) and so it's also the only one who currently needs
+</EM><BR>
+<EM>&gt; lowlevel controller locking. There are also a few common code changes
+</EM><BR>
+<EM>&gt; (the irq_stat is useless on alpha, on alpha there's a better cpu_data
+</EM><BR>
+<EM>&gt; smp struct where all the per-cpu things gets allocated) There are a
+</EM><BR>
+<EM>&gt; few IA32 irq.c cleanups for some 64bit issue. [...]
+</EM><BR>
+<P>yep. In 2.5 the IA32 irq.c will probably be moved into kernel/irq.c so
+<BR>
+it's important to keep it 64-bit clean. Since there are 11 different
+<BR>
+architectures in the main tree now (and 2-3 not yet integrated ones) this
+<BR>
+can definitely not happen now, but will be very important to do in 2.5.
+<BR>
+<P>Manfred Spraul does have some ideas/patches wrt. per-CPU data structures -
+<BR>
+i believe these concepts have to be unified in 2.5 as well (together with
+<BR>
+the unification of the irq code). Sparc64 had these per-CPU data
+<BR>
+structures for ages.
+<BR>
+<P>a related 'SMP-scalability' note: i've implemented a new type of
+<BR>
+read-write spinlock which does not cause cacheline pingpong in the read
+<BR>
+path (and is thus extremely scalable and cache-friendly), David Miller
+<BR>
+added his own ideas and ported it to Sparc - this should show up soon.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0169.html">Jan-Benedict Glaw: "2.3.48 link problem"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0167.html">Andrea Arcangeli: "Re: smp irq affinity and new irq stuff"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0166.html">Andrea Arcangeli: "smp irq affinity and new irq stuff"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0171.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0166.html">Ingo Molnar: "new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

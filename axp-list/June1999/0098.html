@@ -1,0 +1,207 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: files &gt;4gig [WAS Adding more than 8 swap parti</TITLE>
+<META NAME="Author" CONTENT="Matti Aarnio (matti.aarnio@sonera.fi)">
+<META NAME="Subject" CONTENT="Re: files &gt;4gig [WAS Adding more than 8 swap partitions]">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: files &gt;4gig [WAS Adding more than 8 swap partitions]</H1>
+<HR>
+<P>
+<!-- received="Sat Jun 05 07:34:06 1999" -->
+<!-- isoreceived="19990605143406" -->
+<!-- sent="Sat, 5 Jun 1999 08:51:48 +0300" -->
+<!-- isosent="19990605055148" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@sonera.fi" -->
+<!-- subject="Re: files &gt;4gig [WAS Adding more than 8 swap partitions]" -->
+<!-- id="19990605085148.M30475@mea.tmt.tele.fi" -->
+<!-- inreplyto="37586508.6CA0E9B5@voicenet.com" -->
+<STRONG>Subject: </STRONG>Re: files >4gig [WAS Adding more than 8 swap partitions]<BR>
+<STRONG>From: </STRONG>Matti Aarnio (<EM>matti.aarnio@sonera.fi</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jun 04 1999 - 22:51:48 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#98">[ date ]</A>
+<A HREF="index.html#98">[ thread ]</A>
+<A HREF="subject.html#98">[ subject ]</A>
+<A HREF="author.html#98">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0099.html">Jeff Bolle: "video card support"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0097.html">Wes Bauske: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0096.html">Uncle George: "files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0100.html">Uncle George: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0096.html">Matti Aarnio: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, Jun 04, 1999 at 07:45:12PM -0400, Uncle George wrote:
+<BR>
+<EM>&gt; So I created  a 17 gig file using Linux 2.2.9 &amp; a file in /tmp.
+</EM><BR>
+<EM>&gt; Interestingly enough at 17 gig I get an error 22 ( still have space &amp;
+</EM><BR>
+<EM>&gt; inodes available ).
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EINVAL is per standards error code for exceeding filesystem
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addressability range.  EFBIG would have been more intuitive,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I think, but this is what POSIX and Single Unix Specification
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tell us to use :-/
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;You have 1k blocksize at your filesystem, and you are actually
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seeing 16 GB + epsilon worth of file offset range.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;... in the 32-bit front, it seems that during 2.3.* the systems
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;will be able to address file offsets up to 512 * 4G = 2 TB.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Not quite  sizeof(page_size) * 4G  that my initial code did..
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(intel has 4kB pages)
+<BR>
+<P><EM>&gt; YOU ALSO NOW HAVE A CORRUPT / BUSTED-SUPER-BLOCK in the partition.
+</EM><BR>
+<EM>&gt; fsck wants to use an alternate superblock, and suggests using 8192(?),
+</EM><BR>
+<EM>&gt; which doesn't work. :-\
+</EM><BR>
+<EM>&gt; this is the little pgm used to create the 17gig sparse file.
+</EM><BR>
+<EM>&gt; So I guess its not a 2/4gig boundary problem anymore.
+</EM><BR>
+<EM>&gt; gat
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; BTW it may be that fsck cant handle it ( redhat 5.0 vintage ), but I
+</EM><BR>
+<EM>&gt; dunno at the moment :( It just at reboot time, i always force a fsck.
+</EM><BR>
+<EM>&gt; Removeing the 17gig file didn't help :-(
+</EM><BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;That guess is correct, that old fsck DOESN'T handle it.
+<BR>
+<P>/Matti Aarnio &lt;matti.aarnio@sonera.fi&gt;
+<BR>
+<P>&nbsp;&nbsp;From my 'try-lfs.c' program comments:
+<BR>
+<P>/*
+<BR>
+&nbsp;*  Execution of this program creates a large (looking) file at
+<BR>
+&nbsp;*  local system.  The execution of this program stops at offset
+<BR>
+&nbsp;*  which is just beyond what the local filesystem can support.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*  In case the local filesystem is EXT2 or UFS, the triply-
+<BR>
+&nbsp;*  indirection scheme can support up to following sizes per
+<BR>
+&nbsp;*  filesystem basic block size:
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*   512        2 GB + epsilon
+<BR>
+&nbsp;*    1k       16 GB + epsilon
+<BR>
+&nbsp;*    2k      128 GB + epsilon
+<BR>
+&nbsp;*    4k     1024 GB + epsilon
+<BR>
+&nbsp;*    8k     8192 GB + epsilon  ( not without PAGE_SIZE &gt;= 8 kB )
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*  However, the basic block device layer can support only up to
+<BR>
+&nbsp;*  4G blocks of 512 bytes; being at safe side, lets say 2G blocks
+<BR>
+&nbsp;*  of 512 bytes:  1024 GB without epsilon.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*  The basic filesystem block size supportable at given system is 
+<BR>
+&nbsp;*  currently dependent on what the system page cache page size is.
+<BR>
+&nbsp;*  If the filesystem basic block exceeds of the system page size,
+<BR>
+&nbsp;*  the system does not work currently. (2.2.* series kernels.)
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*        bb = sizeof(basic block)
+<BR>
+&nbsp;*        B  = bb / 4
+<BR>
+&nbsp;*        MaxSize = bb * (B^3 + B^2 + B + 10)
+<BR>
+&nbsp;*                = bb^4 / 4^3 + bb^3 / 4^2 + bb^2 / 4^1 + 10 * bb
+<BR>
+&nbsp;*                = bb^4 / 64  + bb^3 / 16  + bb^2 / 4   + 10 * bb
+<BR>
+&nbsp;*  
+<BR>
+&nbsp;*        The primary term (bb^4/64) yields that 16 GB for bb=1k
+<BR>
+&nbsp;*        The 'epsilon' is all the rest, and is less than 1/250 of
+<BR>
+&nbsp;*        the primary term for 1kB, even less for larger bb values.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*  The EXT2 (and UFS) can address up to 4G of &quot;basic blocks&quot;, however
+<BR>
+&nbsp;*  that limit will likely to be beyond of other limitations from other
+<BR>
+&nbsp;*  parts of the system.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*/
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0099.html">Jeff Bolle: "video card support"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0097.html">Wes Bauske: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0096.html">Uncle George: "files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0100.html">Uncle George: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0096.html">Matti Aarnio: "Re: files &gt;4gig [WAS Adding more than 8 swap partitions]"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:25 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

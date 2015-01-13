@@ -1,0 +1,194 @@
+<!-- received="Mon Jul  6 23:06:02 1998 " -->
+<!-- sent="Mon, 6 Jul 1998 18:33:40 -0700" -->
+<!-- name="Tibbetts, Richard" -->
+<!-- email="Richard.Tibbetts@PSS.Boeing.com" -->
+<!-- subject="RE: more on aboot..." -->
+<!-- id="199807070120.VAA01949@boojum.cs.brown.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>RE: more on aboot...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>RE: more on aboot...</h2>
+
+<b>Tibbetts, Richard</b> (<a href="mailto:Richard.Tibbetts@PSS.Boeing.com"><i>Richard.Tibbetts@PSS.Boeing.com</i></a>)<br>
+<i>Mon, 6 Jul 1998 18:33:40 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#447">[ date ]</a><a href="index.html#447">[ thread ]</a><a href="subject.html#447">[ subject ]</a><a href="author.html#447">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0448.html">Paul Tomblin: "David Hull, FOAD!"</a>
+<li> <b>Previous message:</b> <a href="0446.html">mgraffam@mhv.net: "Re: PGP + Alpha linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I'm using the SRM &amp; aboot to boot an AlphaStation 200.<br>
+swriteboot does _NOT_ work with PC Style partitions. You must use BSD.<br>
+And it gets tricky because the RedHat install process does not recognize<br>
+the BSD partitions... (It gets hairy!) (it's a kind of the old "chicken<br>
+&amp; egg problem"!)<br>
+<p>
+What I had to do was:<br>
+	At the point in the install where you partition your disk up,<br>
+set it up with regular PC style partitions. Leave about 1-2 mb<br>
+unallocated at the beginning of the disk (just start your first<br>
+partition at cylinder 2 or 3 rather than at cylinder 1 (make sure that<br>
+NO partitions start at cylinder 1). save &amp; exit fdisk. Then go back into<br>
+fdisk, and select option "b" to select BSD style labels, and set up the<br>
+partitions to "exactly" match the starting &amp; ending cylinders on the PC<br>
+"side" for all of your partitions(*) (more on this below).<br>
+	Then finish your install. When your done, run swriteboot -v<br>
+/dev/sda2 /boot/bootlx. NOTE: This WILL trash your PC Style Partition<br>
+table! If you check fdisk, it will show that only partitions 1 &amp; 2 will<br>
+have survived. (watch for errors, &amp; correct as necessary)<br>
+	However, what has happened is that the information that was on<br>
+the trashed partitions is still alive &amp; valid, but on the BSD<br>
+partitions. If you matched everything up correctly, they'll be alive &amp;<br>
+well. You can re-boot at this point, and at the prompt:<br>
+<p>
+<i>	&gt;&gt;&gt;b dka0 -fi 2/vmlinux.gz -fl "root=/dev/sda2" (assuming the</i><br>
+correct drive numbers..)<br>
+<p>
+	It should boot without problem. If all is well, you can set your<br>
+boot options to allow either full automatic booting, or controlled<br>
+booting, depending on your preferences.<br>
+<p>
+*  Now the something more from above:<br>
+	When I set mine up using this method, I had a "lot" of troubles<br>
+with the partitions not lining up. Gave me a full night of fits! Until I<br>
+simplified the system. What I did was:<br>
+<p>
+	When in fdisk doing the initial setup for the PC style<br>
+partitions, I only set up 3 (/, swap, and /usr), then in the BSD side, I<br>
+set up the first three to match them, and then set up the remaining<br>
+partitions as desired.<br>
+	After completing the load, and when it had done a successful<br>
+re-boot, and I was comfortable that all was well, I went back and made<br>
+the appropriate filesystems on the pre-defined partitions, (just as you<br>
+normally would make a new filesystem) to finish out the system.<br>
+	 NOTE here: Just do a "mke2fs /dev/sda3 /var" (for example) to<br>
+make the filesystem... do not go back into fdisk, if you try to set up<br>
+new partitions, you'll trash aboot!<br>
+	There were only 3 filesystems that had things to watch out for:<br>
+	/var	Has installed content. Tar this up FIRST, and stash the<br>
+tar file. Create the new /var, and mount it, then untar the original<br>
+/var contents into it. Test... If everything checks out ok, then unmount<br>
+it, and delete the contents in the original /var (you won't need them,<br>
+and they're taking up space on your root filesystem).<br>
+	/home		Same as /var<br>
+	/usr/local	Same as /var &amp; /home<br>
+<p>
+	It's a pain! But it gives me a good boot console now. With this<br>
+in place, and if you set up your boot defaults, you have all the control<br>
+that you need. In my case, I don't want a full automatic boot, because<br>
+I'm working on the kernel. If I get a bad kernel, I need the option to<br>
+boot and alternate. Thus on my system, I've set up my boot options as:<br>
+<p>
+	auto_action	halt<br>
+	bootdef_dev	dka0	(my harddrive)<br>
+	boot_file	2/vmlinux.gz	2 being /dev/sda2. It resolves<br>
+that itself<br>
+	boot_osflags	"root=/dev/sda2"<br>
+<p>
+	Now upon bootup, at the &gt;&gt;&gt; prompt, I can enter as little as<br>
+<i>&gt;&gt;&gt;b   to boot. This will boot it using all the defaults. But what if I</i><br>
+put an unknown kernel in?<br>
+<p>
+	Use:  &gt;&gt;&gt; b -fi 2/vmlinux.test.gz<br>
+<p>
+	It will now use all the defaults "except" the kernel. If it<br>
+doesn't work, or the new kernel locks up your system, just reboot it<br>
+back to your last known kernel (vmlinux.gz), and your back on your way.<br>
+<p>
+	Got it all settled, and you don't want to make any more changes?<br>
+Do this:<br>
+<i>		  &gt;&gt;&gt; set auto_action boot</i><br>
+<p>
+	Then when you boot it up... It'll boot straight into Linux.<br>
+	I hope all of this helps someone. I went through a lot of misery<br>
+working it all out. This also goes out with many thanks to B. James<br>
+Phillippe &lt;<a href="mailto:bryan@terran.org">bryan@terran.org</a>&gt;<br>
+	He was endlessly patient with me in working this out!<br>
+	It's painful, but it works. I personally didn't want my Alpha<br>
+box to rely on a "DOS" partition to boot! So it was worth the extra<br>
+effort!<br>
+<p>
+		Good Luck!<br>
+<p>
+<p>
+<i>&gt; 	______________________________</i><br>
+<i>&gt; 	Ric Tibbetts</i><br>
+<i>&gt; 	Boeing SSG Distributed CATIA</i><br>
+<i>&gt; 	Central Administration</i><br>
+<i>&gt; 	CAS-CADE Central Administration</i><br>
+<i>&gt; 	Phone: 425/393-4442    Pager: 425/645-2012</i><br>
+<i>&gt; 	E-Mail:    <a href="mailto:richard.tibbetts@boeing.com">richard.tibbetts@boeing.com</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; 	Eagles may soar, but weasels don't get sucked into jet engines.</i><br>
+<i>&gt; 	_______________________________</i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; </i><br>
+<i>&gt; ----------</i><br>
+<i>&gt; From: 	Brian Craft[SMTP:bcboy@dorothy.wanglab.brandeis.edu]</i><br>
+<i>&gt; Reply To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Sent: 	Monday, July 06, 1998 4:45 PM</i><br>
+<i>&gt; To: 	<a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; Subject: 	more on aboot...</i><br>
+<i>&gt; </i><br>
+<i>&gt; I just tried using "swriteboot -f1 -f3", which successfully destroyed</i><br>
+<i>&gt; the</i><br>
+<i>&gt; partition table. I re-wrote the table with fdisk.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Does swriteboot not work with fdisk partitioned disks? The docs imply</i><br>
+<i>&gt; it</i><br>
+<i>&gt; does. They apparently are reading different tables, though, because</i><br>
+<i>&gt; swriteboot</i><br>
+<i>&gt; thinks partitions 1 and 3 begin at offset 0, while fdisk shows</i><br>
+<i>&gt; partition 1 doesn't</i><br>
+<i>&gt; exist and partition 3 is offset 84 Meg from the begining of the disk.</i><br>
+<i>&gt; </i><br>
+<i>&gt; This disk used to have digital unix on it, so perhaps there's some</i><br>
+<i>&gt; left</i><br>
+<i>&gt; over data that's confusing swriteboot??</i><br>
+<i>&gt; </i><br>
+<i>&gt; b.c.</i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0448.html">Paul Tomblin: "David Hull, FOAD!"</a>
+<li> <b>Previous message:</b> <a href="0446.html">mgraffam@mhv.net: "Re: PGP + Alpha linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: RE: Converting time (since 01-01-1970) to Epoch</TITLE>
+<META NAME="Author" CONTENT="Paul Jakma (Paul.Jakma@Digital.com)">
+<META NAME="Subject" CONTENT="RE: Converting time (since 01-01-1970) to Epoch">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: Converting time (since 01-01-1970) to Epoch</H1>
+<HR>
+<P>
+<!-- received="Wed May 19 09:52:52 1999" -->
+<!-- isoreceived="19990519165252" -->
+<!-- sent="Wed, 19 May 1999 09:57:10 +0100" -->
+<!-- isosent="19990519085710" -->
+<!-- name="Paul Jakma" -->
+<!-- email="Paul.Jakma@Digital.com" -->
+<!-- subject="RE: Converting time (since 01-01-1970) to Epoch" -->
+<!-- id="15AD5D7936F8D21198240000F831776E3E7908@dboexc1.dbo.dec.com" -->
+<!-- inreplyto="Converting time (since 01-01-1970) to Epoch" -->
+<STRONG>Subject: </STRONG>RE: Converting time (since 01-01-1970) to Epoch<BR>
+<STRONG>From: </STRONG>Paul Jakma (<EM>Paul.Jakma@Digital.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 19 1999 - 01:57:10 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#640">[ date ]</A>
+<A HREF="index.html#640">[ thread ]</A>
+<A HREF="subject.html#640">[ subject ]</A>
+<A HREF="author.html#640">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0641.html">Dr . David Alan Gilbert: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0639.html">Dr . David Alan Gilbert: "Re: 2.2.3 Kernel Error?"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0587.html">Franco Tassone: "Converting time (since 01-01-1970) to Epoch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0643.html">Wessels, Hans: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0587.html">Paul Jakma: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt; Perfect, here is the details:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I have a binary file with record fixed lenght, it has been written on an
+</EM><BR>
+<EM>&gt; SGI
+</EM><BR>
+<EM>&gt; box (Irix 6.2) using the following structure:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (/usr/include/rpcsvc/rusers.h)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; struct rusers_utmp {
+</EM><BR>
+<EM>&gt; 	char    ut_line[8];             /* tty name */
+</EM><BR>
+<EM>&gt; 	char    ut_name[8];             /* user id */
+</EM><BR>
+<EM>&gt; 	char    ut_host[16];            /* host name, if remote */
+</EM><BR>
+<EM>&gt; 	long    ut_time;                /* time on */
+</EM><BR>
+<EM>&gt; };
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; For the SGI box, sizeof(long) = 4.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So I've converted the file, rewriting all the records on an Alpha-Linux
+</EM><BR>
+<EM>&gt; box
+</EM><BR>
+<EM>&gt; (kernel 2.2.7) using the following structure:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; (/usr/include/rpcsvc/rusers.h)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; struct ru_utmp {
+</EM><BR>
+<EM>&gt;         char    ut_line[8];             /* tty name */
+</EM><BR>
+<EM>&gt;         char    ut_name[8];             /* user id */
+</EM><BR>
+<EM>&gt;         char    ut_host[16];            /* host name, if remote */
+</EM><BR>
+<EM>&gt;         long    ut_time;                /* time on */
+</EM><BR>
+<EM>&gt; };
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; For Alpha-Linux box, sizeof(long) = 8.
+</EM><BR>
+<EM>&gt; My conversion program does only a field's level assignments, and rewrites
+</EM><BR>
+<EM>&gt; the
+</EM><BR>
+<EM>&gt; new file, due to different sizeof(long).
+</EM><BR>
+<EM>&gt; The resulting dates (ut_time in ru_utmp) are all garbled.
+</EM><BR>
+<EM>&gt; Any ideas ?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+how are you reading/parsing the input file? are you literally applying the
+<BR>
+ru_utmp structure to the sgi binary file? or are you interpreting the binary
+<BR>
+file and copying the values into the structure on the linux machine. 
+<BR>
+<P>looks like if you pad out the ut_time field with 4 MSB bytes then the file
+<BR>
+should become binary compatible with linux.
+<BR>
+<P>i think you can either:
+<BR>
+<P>a) read and interpet the binary value, copying the values from the binary
+<BR>
+value into the defined linux structure.
+<BR>
+<P>b) change the irix programme to use a double long for the time field.
+<BR>
+<P>c) write a utility to insert the padding.
+<BR>
+<P>regards,
+<BR>
+<P><P>Paul Jakma.
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0641.html">Dr . David Alan Gilbert: "Re: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0639.html">Dr . David Alan Gilbert: "Re: 2.2.3 Kernel Error?"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0587.html">Franco Tassone: "Converting time (since 01-01-1970) to Epoch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0643.html">Wessels, Hans: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0587.html">Paul Jakma: "RE: Converting time (since 01-01-1970) to Epoch"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:24 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

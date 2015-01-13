@@ -1,0 +1,114 @@
+<!-- received="Mon Aug  5 13:01:57 1996 " -->
+<!-- sent="Mon, 05 Aug 1996 12:39:16 -0400" -->
+<!-- name="jestabro@amt.tay1.dec.com" -->
+<!-- email="jestabro@amt.tay1.dec.com" -->
+<!-- subject="Re: network problems with alphastation 255" -->
+<!-- id="199608051639.MAA26995@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="D6E4C75DF6@ihsm1.mpi.htwm.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: network problems with alphastation 255</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: network problems with alphastation 255</h2>
+
+<a href="mailto:jestabro@amt.tay1.dec.com"><i>jestabro@amt.tay1.dec.com</i></a><br>
+<i>Mon, 05 Aug 1996 12:39:16 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#109">[ date ]</a><a href="index.html#109">[ thread ]</a><a href="subject.html#109">[ subject ]</a><a href="author.html#109">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0110.html">David Mosberger-Tang: "Re: MILO/Kernel Trouble"</a>
+<li> <b>Previous message:</b> <a href="0108.html">Alastair Martin: "UDB serial pinout (was:Re: Printing and Redhat)"</a>
+<li> <b>In reply to:</b> <a href="0103.html">David Wild: "RE: telnet and rlogin problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;&gt;&gt; "Joachim Geiler" said:</i><br>
+<i>&gt; After installing redhat-linux 3.0.3 on an as255 I have problems to get</i><br>
+<i>&gt; networking up. I tried both the tulip and the de4x5 driver to use </i><br>
+<i>&gt; with the onboard 21040 ethernet controller. It seems there is </i><br>
+<i>&gt; something wrong with the PCI setup. While booting linux 2.0.10 the </i><br>
+<i>&gt; following messages are displayed:</i><br>
+<i>&gt; </i><br>
+<i>&gt; bios32.sio_fixup: weird, found device 1011:0002 in non-existent slot </i><br>
+<i>&gt; 14!!</i><br>
+<p>
+Yow! Never seen that one before!!! :-( <br>
+<p>
+<p>
+<i>&gt; eth0: DE434/5 at b000 (PCI bus 0, device 14), h/w address </i><br>
+<i>&gt; 00:00:f8:22:25:c8 and requires IRQ10 (provided by PCI BIOS).</i><br>
+<i>&gt; de4x5.c: v0.43 96/6/21 <a href="mailto:davies@wanton.lkg.dec.com">davies@wanton.lkg.dec.com</a></i><br>
+<p>
+Hmm, don't know where IRQ 10 came from, the earlier message indicated that<br>
+the PCI config code didn't know how to allocate an IRQ for it... ???<br>
+<p>
+<p>
+<i>&gt; The kernel is 2.0.10, for "avanti" and was compiled on this machine.</i><br>
+<p>
+OK, it looks as if the AS255 you've got is a new one, which has a slightly<br>
+different motherboard/riser-card setup than earlier ones. The TULIP chip has<br>
+been moved off the riser card onto the MB, and given a *new* PCI slot, which<br>
+doesn't exist on the other platforms using the same PCI bus IRQ fixup code.<br>
+<p>
+I *think* (hope :-) the below fix will do the trick, but I've no hardware to<br>
+check it out on. The word I got was that the TULIP will use PIRQ0, so, like<br>
+the SCSI which is set for all PIRQ3 no matter the INTx pin, we set the TULIP<br>
+"slot" to always choose PIRQ0.<br>
+<p>
+Add the line indicated by the "+" to arch/alpha/kernel/bios32.c, sio_fixup():<br>
+<p>
+                { 2,  2,  1,  0,  2}, /* idsel 13 KN25_PCI_SLOT2 */<br>
++               { 0,  0,  0,  0,  0}, /* idsel 14 AS255 TULIP */<br>
+#endif<br>
+<p>
+Rebuild and try it out, let me know what happens...<br>
+<p>
+<p>
+--Jay++<br>
+<p>
+-------------------------------------------------------------------------------<br>
+  American Non Sequitur Society: we don't make sense, but we do like pizza...<br>
+<p>
+Jay A Estabrook                         Alpha Migration Tools - LINUX Project<br>
+Digital Equipment Corp.                 (508) 952-4202 or (DTN) 227-4202<br>
+151 Taylor Street - TAY1-2              enet: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a><br>
+Littleton, MA 01460-1407                decnet: tallis::jestabro<br>
+-------------------------------------------------------------------------------<br>
+<p>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0110.html">David Mosberger-Tang: "Re: MILO/Kernel Trouble"</a>
+<li> <b>Previous message:</b> <a href="0108.html">Alastair Martin: "UDB serial pinout (was:Re: Printing and Redhat)"</a>
+<li> <b>In reply to:</b> <a href="0103.html">David Wild: "RE: telnet and rlogin problem"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

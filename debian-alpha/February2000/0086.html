@@ -1,0 +1,238 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Binary incompatibility between RH6.1 and pot</TITLE>
+<META NAME="Author" CONTENT="David Huggins-Daines (dhd@eradicator.org)">
+<META NAME="Subject" CONTENT="Binary incompatibility between RH6.1 and potato on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Binary incompatibility between RH6.1 and potato on Alpha</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 11 04:33:19 2000" -->
+<!-- isoreceived="20000211123319" -->
+<!-- sent="Thu, 10 Feb 2000 21:34:39 -0500" -->
+<!-- isosent="20000211023439" -->
+<!-- name="David Huggins-Daines" -->
+<!-- email="dhd@eradicator.org" -->
+<!-- subject="Binary incompatibility between RH6.1 and potato on Alpha" -->
+<!-- id="20000210213439.A15696@blood-axp.eradicator.org" -->
+<STRONG>Subject: </STRONG>Binary incompatibility between RH6.1 and potato on Alpha<BR>
+<STRONG>From: </STRONG>David Huggins-Daines (<EM>dhd@eradicator.org</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 10 2000 - 18:34:39 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#86">[ date ]</A>
+<A HREF="index.html#86">[ thread ]</A>
+<A HREF="subject.html#86">[ subject ]</A>
+<A HREF="author.html#86">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0087.html">Jay.Estabrook@compaq.com: "Re: Alpha issues (SRM installation)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0085.html">Adam C Powell IV: "Re: Fast blas1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0127.html">Christopher C. Chimelis: "Re: Binary incompatibility between RH6.1 and potato on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>I'm sending this to the list (and to Chris who builds our glibc packages)
+<BR>
+instead of reporting it as a bug against libc6.1 because I am not really
+<BR>
+sure we are in the wrong here.
+<BR>
+<P>Basically, the problem is that binaries compiled on potato cannot be run on
+<BR>
+Red Hat 6.1 for Alpha (though the opposite is not true, thankfully).  It's
+<BR>
+the old __register_frame_info problem from glibc2.0 days come back to haunt
+<BR>
+us. :(
+<BR>
+<P>This program:
+<BR>
+<P>int main() { printf(&quot;foo!\n&quot;); return 0; }
+<BR>
+<P>when compiled on Red Hat 6.1, produces this nm output:
+<BR>
+<P>[dhd@doppelbock dhd]$ nm test
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+00000001201005c0 ? _DYNAMIC
+<BR>
+0000000120100568 ? _GLOBAL_OFFSET_TABLE_
+<BR>
+0000000120000504 R _IO_stdin_used
+<BR>
+0000000120100530 ? _PROCEDURE_LINKAGE_TABLE_
+<BR>
+0000000120100518 ? __CTOR_END__
+<BR>
+0000000120100510 ? __CTOR_LIST__
+<BR>
+0000000120100528 ? __DTOR_END__
+<BR>
+0000000120100520 ? __DTOR_LIST__
+<BR>
+0000000120100700 A __bss_start
+<BR>
+0000000120000460 t __do_global_ctors_aux
+<BR>
+00000001200003c0 t __do_global_dtors_aux
+<BR>
+00000001200004a0 W __gmon_start__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U __libc_start_main@@GLIBC_2.0
+<BR>
+0000000120000380 W __start
+<BR>
+0000000120100700 A _edata
+<BR>
+0000000120100700 A _end
+<BR>
+00000001200004c0 A _etext
+<BR>
+00000001200004c0 ? _fini
+<BR>
+0000000120000320 ? _init
+<BR>
+0000000120000380 T _start
+<BR>
+0000000120000400 T main
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U printf@@GLIBC_2.0
+<BR>
+<P>Whereas on Debian:
+<BR>
+<P>dhd@blood-axp:~$ nm test
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000000000000 a *ABS*
+<BR>
+0000000120100768 ? _DYNAMIC
+<BR>
+00000001201006e0 ? _GLOBAL_OFFSET_TABLE_
+<BR>
+000000012000066c R _IO_stdin_used
+<BR>
+00000001201006a8 ? _PROCEDURE_LINKAGE_TABLE_
+<BR>
+0000000120100690 ? __CTOR_END__
+<BR>
+0000000120100688 ? __CTOR_LIST__
+<BR>
+00000001201006a0 ? __DTOR_END__
+<BR>
+0000000120100698 ? __DTOR_LIST__
+<BR>
+0000000120100680 ? __EH_FRAME_BEGIN__
+<BR>
+0000000120100680 ? __FRAME_END__
+<BR>
+00000001201008a8 A __bss_start
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;w __deregister_frame_info@@GLIBC_2.0
+<BR>
+00000001200004e0 t __do_frame_setup
+<BR>
+0000000120000518 t __do_frame_takedown
+<BR>
+00000001200005c0 t __do_global_ctors_aux
+<BR>
+00000001200004a0 t __do_global_dtors_aux
+<BR>
+0000000120000600 W __gmon_start__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U __libc_start_main@@GLIBC_2.0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;w __register_frame_info@@GLIBC_2.0
+<BR>
+0000000120000460 W __start
+<BR>
+00000001201008a8 A _edata
+<BR>
+00000001201008d8 A _end
+<BR>
+0000000120000620 A _etext
+<BR>
+0000000120000620 ? _fini
+<BR>
+0000000120000400 ? _init
+<BR>
+0000000120000460 T _start
+<BR>
+0000000120000560 T main
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U printf@@GLIBC_2.0
+<BR>
+<P>Predictably, trying to run the Debian-built program on Red Hat does this:
+<BR>
+<P>[dhd@doppelbock dhd]$ ./test
+<BR>
+./test: error in loading shared libraries: ./test: symbol __register_frame_info, version GLIBC_2.0 not defined in file libc.so.6.1 with link time reference
+<BR>
+<P>Could the cause of this be that our glibc is built with gcc 2.96 snapshots,
+<BR>
+whereas theirs is built with egcs 1.1.2?  I say that they may be in the
+<BR>
+wrong, because the glibc2.1 FAQ indicates that glibc2.1 is suppposed to
+<BR>
+provide the exception handling symbols in order to prevent other libraries
+<BR>
+from providing them.
+<BR>
+<P>Also, on i386, both Debian and Red Hat's glibc2.1 seem to be providing them,
+<BR>
+since the same program does show __register_frame_info@@GLIBC_2.0 and
+<BR>
+company in its 'nm' output (well, it's listed as 'U' on Red Hat, and 'w' on
+<BR>
+Debian, but that's not really important since it's a dependency either way).
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0087.html">Jay.Estabrook@compaq.com: "Re: Alpha issues (SRM installation)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0085.html">Adam C Powell IV: "Re: Fast blas1"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0127.html">Christopher C. Chimelis: "Re: Binary incompatibility between RH6.1 and potato on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 16:00:06 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

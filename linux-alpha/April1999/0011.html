@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: DS20 - Status Report</TITLE>
+<META NAME="Author" CONTENT="Simon Shapiro (shimon@simon-shapiro.org)">
+<META NAME="Subject" CONTENT="DS20 - Status Report">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>DS20 - Status Report</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 02 21:42:26 1999 PST" -->
+<!-- sent="Fri, 2 Apr 1999 16:01:38 -0500" -->
+<!-- name="Simon Shapiro" -->
+<!-- email="shimon@simon-shapiro.org" -->
+<!-- subject="DS20 - Status Report" -->
+<!-- id="99040216430601.22286@nomis.simon-shapiro.org" -->
+<!-- inreplyto="" -->
+<STRONG>Simon Shapiro</STRONG> (<A HREF="mailto:shimon@simon-shapiro.org?subject=Re:%20DS20%20-%20Status%20Report"><EM>shimon@simon-shapiro.org</EM></A>)<BR>
+<EM>Fri, 2 Apr 1999 16:01:38 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#11">[ date ]</A>
+<A HREF="index.html#11">[ thread ]</A>
+<A HREF="subject.html#11">[ subject ]</A>
+<A HREF="author.html#11">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Douglas Eadline: "Re: 128-node Alpha 21264 cluster?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi Y'll
+<BR>
+<P>Well, the good news is that Linux booted, and Debian installed.
+<BR>
+All that it took was getting the SRM How-TO from alphalinux.org, and a
+<BR>
+floppy image.
+<BR>
+<P>For those more confused than I am, here is my understanding of this
+<BR>
+whole process:
+<BR>
+<P>*  Following Alpha and SRM HowTo's one makes a boot floppy.
+<BR>
+*  This floppy contains at the first block or so aboot which is a short
+<BR>
+&nbsp;&nbsp;&nbsp;second-stage boot for Linux.  then it contains an ext2 filesystem in
+<BR>
+&nbsp;&nbsp;&nbsp;which one puts their favorite kernel.
+<BR>
+*  For installation purposes, this kernel needs to be configured with
+<BR>
+&nbsp;&nbsp;&nbsp;RAM disk, and something called initrd.
+<BR>
+*  The RAMDisk allows the kernel, at boot time to create a ``block
+<BR>
+&nbsp;&nbsp;&nbsp;device'' which is really a block of memory.
+<BR>
+*  The initrd option allows the ramdisk to load a given filesystem
+<BR>
+&nbsp;&nbsp;&nbsp;image into that ramdisk.
+<BR>
+<P><P>*  You get the machine powered up.
+<BR>
+*  At the SRM prompt, you put the boot/kernel floppy in the drive and
+<BR>
+&nbsp;&nbsp;&nbsp;type boot dva0.  Contrary to popular belief, this does work on DS20.
+<BR>
+*  You will get an aboot&gt; prompt
+<BR>
+*  Type ``vmlinux.gz root=/dev/fd0 load_ramdisk=1 prompt_ramdisk=1''
+<BR>
+*  When you see a prompt to insert the filesystem/root disk, do so.  I
+<BR>
+&nbsp;&nbsp;&nbsp;used the Debian 2.1 (slink) disk.
+<BR>
+*  The rest will be a normal install.
+<BR>
+*  When partitioning, do NOT use cfdisk (the default);  it creates PC
+<BR>
+&nbsp;&nbsp;&nbsp;fdisk partitions and belive or not, not the entire world use these.
+<BR>
+*  Instead, escape into a shell, type fdisk, then the ``b'' option, and
+<BR>
+&nbsp;&nbsp;&nbsp;create BSD disklabel partitions.
+<BR>
+*  Remember disklabel partitions can overlap!  As a matter of fact,
+<BR>
+&nbsp;&nbsp;&nbsp;partition ``c'' is assumed to be the whole disk.  Partition ``b'' is
+<BR>
+&nbsp;&nbsp;&nbsp;the swap device.  Old Unices created /root in `a' and then used `g',
+<BR>
+&nbsp;&nbsp;&nbsp;`h'.
+<BR>
+*  I did this (IMPORTANT):  Created partition `h' first.  IT is small
+<BR>
+&nbsp;&nbsp;&nbsp;(few megabytes, say 16) and starts at sector zero.  Then I put swap
+<BR>
+&nbsp;&nbsp;&nbsp;in `b', root in `a', usr in `d', var in `f', and home on `g'.  this
+<BR>
+&nbsp;&nbsp;&nbsp;is everely suboptimal for a large server, but allowed me to install.
+<BR>
+<P>PROBLEMS:
+<BR>
+<P>*  fdisk (option b) is broken;  IT uses 32 bit integer for computing
+<BR>
+&nbsp;&nbsp;&nbsp;sizes, and gets very confused. Perhaps the confusion is only in the
+<BR>
+&nbsp;&nbsp;&nbsp;printf to the stdout, but the result is that what you type and what
+<BR>
+&nbsp;&nbsp;&nbsp;you get are not the same.
+<BR>
+*  fdisk is further broken by ``correcting and improving'' your input. 
+<BR>
+&nbsp;&nbsp;&nbsp;If you say cylinder 55 to start a partition, it will round it off to
+<BR>
+&nbsp;&nbsp;&nbsp;cylinder 54, or even 53.  This created apparent overlaps.
+<BR>
+*  Overlap between partitions is not good.  It means that when /usr
+<BR>
+&nbsp;&nbsp;&nbsp;fills up, it will wipe out the super-block for /home, etc.
+<BR>
+*  The system booted, convinced it is April 15th, 1931.  this confuses
+<BR>
+&nbsp;&nbsp;&nbsp;Debian installation tools.  In particular these that use make.
+<BR>
+&nbsp;&nbsp;&nbsp;Running hwclock would have helped, but it fails on this platform.
+<BR>
+<P>&nbsp;*  I have yet to figure out how to install aboot &amp; Co. on the hard
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;disk.  So there will be another note coming.
+<BR>
+<P>I have done no Linux work in several years, so perhaps this note does
+<BR>
+not belong here, or belongs elsewhere too.  Feel free to redirect.
+<BR>
+<P><PRE>
+--
+<P>Sincerely,
+<P>Simon Shapiro
+Research Fellow                               <A HREF="mailto:ShapiroS@MindSpring.com?subject=Re:%20DS20%20-%20Status%20Report">ShapiroS@MindSpring.com</A>
+MindSpring Enterprises, Inc.                   404.815.0770 ext. 2057
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Douglas Eadline: "Re: 128-node Alpha 21264 cluster?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Fri Apr 02 1999 - 14:00:09 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

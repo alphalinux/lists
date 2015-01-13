@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Linus Torvalds (torvalds@transmeta.com)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 01 20:02:35 2000" -->
+<!-- isoreceived="20000302040235" -->
+<!-- sent="Wed, 1 Mar 2000 10:18:20 -0800 (PST)" -->
+<!-- isosent="20000301181820" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@transmeta.com" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003011008190.1220-100000@penguin.transmeta.com" -->
+<!-- inreplyto="Pine.LNX.4.21.0003010333130.5774-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Linus Torvalds (<EM>torvalds@transmeta.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 01 2000 - 10:18:20 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1">[ date ]</A>
+<A HREF="index.html#1">[ thread ]</A>
+<A HREF="subject.html#1">[ subject ]</A>
+<A HREF="author.html#1">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Brian Pomerantz: "Hard error"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Tue, 29 Feb 2000, Andrea Arcangeli wrote:
+<BR>
+<EM>&gt; &gt;It's only necessary for hardware that doesn't work the way we want it to
+</EM><BR>
+<EM>&gt; &gt;work.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; More precisely it's necessary only with edge triggered irqs.
+</EM><BR>
+<P>Indeed. And even then it is only necessary in the case that the edge
+<BR>
+doesn't re-play automatically after an enable() event. For example, on the
+<BR>
+i8259, a disabled interrupt that gets enabled _will_ see an edge if the
+<BR>
+interrupt was active in the first place, because the edge detect logic is
+<BR>
+not on the interrupt line itself, but on the _masked_ interrupt line, so
+<BR>
+unmasking an active interrupt will automatically cause the edge to be
+<BR>
+seen.
+<BR>
+<P>The same is not true on many other edge interrupts (notably the new and
+<BR>
+&quot;improved&quot; IO-APIC is actually de-proved in this respect).
+<BR>
+<P><P><EM>&gt;						 That's why in
+</EM><BR>
+<EM>&gt; the alpha port I added underlined check to improve performance:
+</EM><BR>
+<P>If you do that, then that just shows that the rest of the interrupt
+<BR>
+subsystem is doing something wrong. You should not have had a pending
+<BR>
+interrupt in normal circumstances in the first place, and the fact that it
+<BR>
+makes a difference for you implies that the alpha &quot;ack()&quot; code is iffy and
+<BR>
+doesn't really synchronize correctly.
+<BR>
+<P>That may be due to a hardware issue, but it's more likely due to you doing
+<BR>
+something wrong in the &quot;mask-and-ack&quot; stage.
+<BR>
+<P>Look at the i386 case for example, for a level interrupt you can do
+<BR>
+either:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static void mask_and_ack_level_irq (unsigned int i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ /* nothing */}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static void end_level_irq(unsigned int i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ hw_ack_irq(); }
+<BR>
+<P>OR you do something like
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static void mask_and_ack_level_irq (unsigned int i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ hw_mask_irq(); hw_ack_irq(); }
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;static void end_level_irq(unsigned int i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ hw_unmask_irq(); }
+<BR>
+<P>but in NO case should the IRQ_PENDING bit be set &quot;extraneously&quot;. 
+<BR>
+<P>The &quot;PENDING&quot; bit should be meaningful only when there are races between a
+<BR>
+&quot;disable_irq()&quot; and an incoming interrupt, not for normal operations. The
+<BR>
+fact that you needed the hack to avoid taking extra interrupts implies
+<BR>
+that there's something else wrong, and you're just papering it over..
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linus
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Brian Pomerantz: "Hard error"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0002.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

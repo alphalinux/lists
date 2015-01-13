@@ -1,0 +1,139 @@
+<!-- received="Thu May  9 19:08:34 1996 " -->
+<!-- sent="Thu, 9 May 1996 19:08:34 +0200 (MET DST)" -->
+<!-- name="Harald Koenig" -->
+<!-- email="koenig@tat.physik.uni-tuebingen.de" -->
+<!-- subject="times(2) no sys_call ??" -->
+<!-- id="9605091709.AA15621@nova.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@^^^^       ^^^^^
+" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>times(2) no sys_call ??</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>times(2) no sys_call ??</h2>
+
+<b>Harald Koenig</b> (<a href="mailto:koenig@tat.physik.uni-tuebingen.de"><i>koenig@tat.physik.uni-tuebingen.de</i></a>)<br>
+<i>Thu, 9 May 1996 19:08:34 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#162">[ date ]</a><a href="index.html#162">[ thread ]</a><a href="subject.html#162">[ subject ]</a><a href="author.html#162">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0163.html">David Mosberger-Tang: "gcc code quality [was: Re: times(2) no sys_call ??]"</a>
+<li> <b>Previous message:</b> <a href="0161.html">Richard Henderson: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0166.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0166.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0167.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0175.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+why is times(2) no real system call as `man times' implies ?<br>
+<p>
+for alpha this is implemented in libc using 3 syscalls <br>
+<p>
+	getrusage(RUSAGE_SELF, {...})<br>
+	getrusage(RUSAGE_CHILDREN, {...})<br>
+	gettimeofday({...}, NULL)<br>
+<p>
+and it is not values in terms of clock ticks (which would be 1024/sec <br>
+for Linux/AXP) but are scaled to "CLK_TCK"s which are defined as 100<br>
+in &lt;time.h&gt;.<br>
+<p>
+for x86-Linux times() really is a system call and thus really returning<br>
+clock tickes.<br>
+<p>
+for DEC Unix times() again is implemeted using getrusage/gettimeofday<br>
+(thanks to Linux strace ;-) but here CLK_TCK is 60 :-(<br>
+<p>
+<p>
+I slipped into this when I tried to figure out why I get different<br>
+CPU time results for my "benchmark" fortran application which I compiled<br>
+with both gcc and DEC-cc  using the same f2c-converted C sources.<br>
+<p>
+this is part of the reason that I reportedsome days before that <br>
+gcc compiled f2c-converted code takes twice as much cpu time as <br>
+the same DEC-cc compiled binary because I relied on the timing<br>
+output of the program itself which uses times(2). I've checked the<br>
+correct cpu time output first with "time program ..." for the gcc version<br>
+and forgot to do the same for the DEC unix binary (partly because I didn't<br>
+have the idea that a "system call" can return different values for<br>
+differenct compiler/libc combinations (when returning reasonable values<br>
+which shows that the syscall succeeded...).  so the cpu ratio between<br>
+the gcc and cc compiled programs are only 1.2.<br>
+<p>
+for completeness here are the CPU times for this program for<br>
+gcc and cc (using f2c), DEC f77 and f90, always using "-O2":<br>
+<p>
+	                                                       gcc_ratio<br>
+	gcc	1548.95user 8.06system 25:57.20elapsed 99%CPU    1.00<br>
+	cc 	1318.54user 6.93system 22:07.94elapsed 99%CPU    1.17<br>
+	f77	1030.31user 2.09system 17:14.05elapsed 99%CPU    1.50<br>
+	f90	1113.64user 2.24system 18:37.76elapsed 99%CPU    1.39<br>
+<p>
+<p>
+but no reason to be too happy about the optimisation of gcc (since 17% less<br>
+wouldn't be that bad for a weird f2c-converted strange fp based C program<br>
+only using REAL*4 aka float):<br>
+<p>
+yesterday I run a "virtex" binary from a DEC Unix machine on Linux<br>
+(this one used shared libs; after borrowing /sbin/loader and /usr/shlib/libc.so<br>
+for this test the binary run fine) and compared it with the Red Hat binary<br>
+TeXing texbook.tex which is 494 pages plain TeX).  this time<br>
+I used /usr/bin/time to get the CPU time and got<br>
+<p>
+	GCC binary      :  37 seconds<br>
+	DEC-cc &amp; shared :  22 seconds<br>
+<p>
+which is almost a ratio of 1.7 :-(<br>
+<p>
+tomorrow hopefully I'll get a "stage 1" gcc compiler which has been built <br>
+with DEC cc.  I'm really curious how much difference in compilation<br>
+CPU time this will give...<br>
+<p>
+<p>
+Harald<br>
+<pre>
+-- 
+All SCSI disks will from now on                     ___       _____
+be required to send an email notice                0--,|    /OOOOOOO\
+24 hours prior to complete hardware failure!      &lt;_/  /  /OOOOOOOOOOO\
+                                                    \  \/OOOOOOOOOOOOOOO\
+                                                      \ OOOOOOOOOOOOOOOOO|//
+Harald Koenig,                                         \/\/\/\/\/\/\/\/\/
+Inst.f.Theoret.Astrophysik                              //  /     \\  \
+<a href="mailto:koenig@tat.physik.uni-tuebingen.de">koenig@tat.physik.uni-tuebingen.de</a>                     ^^^^^       ^^^^^
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0163.html">David Mosberger-Tang: "gcc code quality [was: Re: times(2) no sys_call ??]"</a>
+<li> <b>Previous message:</b> <a href="0161.html">Richard Henderson: "Re: gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0166.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0166.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0167.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<li> <b>Maybe reply:</b> <a href="0175.html">David Mosberger-Tang: "Re: times(2) no sys_call ??"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

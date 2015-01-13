@@ -1,0 +1,207 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: netscape?</TITLE>
+<META NAME="Author" CONTENT="Donald R. Spoon (dspoon@satx.rr.com)">
+<META NAME="Subject" CONTENT="Re: netscape?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: netscape?</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 06 07:36:45 2001" -->
+<!-- isoreceived="20010706143645" -->
+<!-- sent="Fri, 06 Jul 2001 01:45:22 -0500" -->
+<!-- isosent="20010706064522" -->
+<!-- name="Donald R. Spoon" -->
+<!-- email="dspoon@satx.rr.com" -->
+<!-- subject="Re: netscape?" -->
+<!-- id="3B455E82.2147C566@satx.rr.com" -->
+<!-- inreplyto="001201c105d1$d40fe600$58495c42@hockeyfiend.com" -->
+<STRONG>Subject: </STRONG>Re: netscape?<BR>
+<STRONG>From: </STRONG>Donald R. Spoon (<EM>dspoon@satx.rr.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 05 2001 - 23:45:22 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#7">[ date ]</A>
+<A HREF="index.html#7">[ thread ]</A>
+<A HREF="subject.html#7">[ subject ]</A>
+<A HREF="author.html#7">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0006.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0008.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0006.html">Donald R. Spoon: "Re: netscape?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&quot;Christopher C. Chimelis&quot; wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; The problem is g++, believe it or not.  I tracked down the problem ages ago
+</EM><BR>
+<EM>&gt; and realised that the multiple inheritence C++ code isn't compiled correctly
+</EM><BR>
+<EM>&gt; by g++.  I've been testing g++-3.0 with mozilla on and off, but I don't
+</EM><BR>
+<EM>&gt; think
+</EM><BR>
+<EM>&gt; that mozilla is ready to comply with the changes in the new gcc (dies with
+</EM><BR>
+<EM>&gt; missing symbol problems when linking).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; BTW, on exit, is mozilla segfaulting?  This is usually a symptom of the
+</EM><BR>
+<EM>&gt; above
+</EM><BR>
+<EM>&gt; (destructors aren't being called in most cases, so each execution will cause
+</EM><BR>
+<EM>&gt; a memory leak).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If I get a working mozilla, I'm going to try to fix the build-deps and such
+</EM><BR>
+<EM>&gt; for
+</EM><BR>
+<EM>&gt; alpha so that the autobuilders can build it again and we can have an updated
+</EM><BR>
+<EM>&gt; (and working) browser :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; C
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>Thanks, Chris &amp; Elijah!
+<BR>
+<P>Now for some additional info from my most recent experiences.  I am NOT
+<BR>
+a coder so I am at the limit of what I know how to do.
+<BR>
+<P>1. &quot;apt-get update&quot; and an &quot;apt-get install mozilla&quot; from Debian
+<BR>
+Unstable will d/l and INSTALL 3 packages in this order: 
+<BR>
+mozilla-browser, mozilla-mailnews, and mozilla (a dummy package that has
+<BR>
+dependencies for the other two).  The install will bomb-out in setting
+<BR>
+up (dpkg --configure) phase of mozilla-browser with an error message of: 
+<BR>
+<P>....
+<BR>
+&nbsp;&nbsp;&nbsp;/var/lib/dpkg/info/mozilla-browser.postinst: line 19:  1581 Illegal
+<BR>
+instruction     /usr/bin/regxpcom &gt;/dev/null 2&gt;/dev/null
+<BR>
+dpkg: error processing mozilla-browser (--configure):
+<BR>
+....
+<BR>
+The number before the &quot;Illegal instruction&quot; seems to vary from
+<BR>
+install-to-install.  This is just an extract of a long list of error
+<BR>
+messages at this point.
+<BR>
+<P>2.  Edit &quot;/var/lib/dpkg/info/mozilla-browser.postinst&quot; to comment out
+<BR>
+the offending line(s).  I have found that you MUST comment out the next
+<BR>
+line (line 20) also, i.e.:
+<BR>
+<P>#       /usr/bin/regxpcom &gt;/dev/null 2&gt;/dev/null
+<BR>
+#       /usr/bin/regchrome &gt;/dev/null 2&gt;/dev/null
+<BR>
+<P>3.  Re-configure mozilla-browser ONLY (dpkg --configure
+<BR>
+mozilla-browser).  It will complete this time.
+<BR>
+<P>4.  Run &quot;/usr/bin/regxpcom&quot; (minus all the diversions to /dev/null) and
+<BR>
+you get the following message:
+<BR>
+<P>*** Registering Proxy Auto Config (a Javascript module!)
+<BR>
+*** Unloading Proxy Auto Config...
+<BR>
+Illegal instruction    &lt;-----THIS is probably what is causing the
+<BR>
+&quot;problem&quot;!!
+<BR>
+<P>5.  Run &quot;/usr/bin/regchrome&quot; and this completes without
+<BR>
+complaint/comment.  I did steps 4&amp;5 just to replace what I had edited
+<BR>
+out in step 2, AND to see what was being diverted to /dev/null.
+<BR>
+<P>6.  Repeat steps 2-5, but do it on mozilla-mailnews, i.e. edit
+<BR>
+/var/lib/dpkg/info/mozilla-mailnews.postinst and comment out the SAME
+<BR>
+TWO LINES then reconfigure mozilla-mailnews and add back in the two
+<BR>
+instructions you edited out from the command console.  I got the exact
+<BR>
+same message here when I ran /usr/bin/regxpcom.
+<BR>
+<P>7.  Now you can install/configure the &quot;dummy&quot; mozilla package without
+<BR>
+problems.  Mozilla now works for me using this procedure in &quot;root&quot; as
+<BR>
+well as in the &quot;user&quot; accounts.  There seems to be some other problems
+<BR>
+with GTK internal to Mozilla, but I havn't had it stop the show yet.  It
+<BR>
+complains, but goes on.
+<BR>
+<P>Apparently the /usr/bin/regxpcom program is the bad-boy.  The &quot;Illegal
+<BR>
+instruction&quot; comes up when the Javascript module is unloaded.  Perhaps
+<BR>
+this info will help focus the investigation somewhat.
+<BR>
+<P>HTH &amp; Cheers,
+<BR>
+-Don Spoon-
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0008.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0006.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0008.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0006.html">Donald R. Spoon: "Re: netscape?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Aug 01 2001 - 06:11:43 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

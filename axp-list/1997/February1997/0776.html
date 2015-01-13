@@ -1,0 +1,92 @@
+<!-- received="Mon Feb 24 23:11:25 1997 " -->
+<!-- sent="Mon, 24 Feb 1997 22:08:32 -0600" -->
+<!-- name="Bryan W. Headley" -->
+<!-- email="bheadley@interaccess.com" -->
+<!-- subject="Re: fclose()" -->
+<!-- id="9702242208.ZM1694@davros.bwh.com" -->
+<!-- inreplyto="eric@brouhaha.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: fclose()</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: fclose()</h2>
+
+<b>Bryan W. Headley</b> (<a href="mailto:bheadley@interaccess.com"><i>bheadley@interaccess.com</i></a>)<br>
+<i>Mon, 24 Feb 1997 22:08:32 -0600</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#776">[ date ]</a><a href="index.html#776">[ thread ]</a><a href="subject.html#776">[ subject ]</a><a href="author.html#776">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0777.html">Chris Ingrassia: "Still having problems..."</a>
+<li> <b>Previous message:</b> <a href="0775.html">jestabro@amt.tay1.dec.com: "Re: Booting &amp; bsd disklabel: memory violation"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Feb 24,  7:41pm, Eric Smith wrote:<br>
+<i>&gt; Subject: Re: fclose()</i><br>
+<i>&gt; Uncle George &lt;<a href="mailto:gatgul@voicenet.com">gatgul@voicenet.com</a>&gt; wrote:</i><br>
+<i>&gt; &gt; I just looked at the Linux man pages for fclose(). I shudda looked at</i><br>
+<i>&gt; &gt; them at the beginning of this dialog, but interestingly enough THAT</i><br>
+<i>&gt; &gt; DOCUMENTATION seems to support my view point -under ERRORS:</i><br>
+<i>&gt; &gt; 	 EBADF the argument stream is not an open stream.</i><br>
+<i>&gt;</i><br>
+<i>&gt; Yes, but even if it did that, you *still* wouldn't be safe calling fclose()</i><br>
+<i>&gt; twice on the same stream.  Why?  Because it would still be possible that</i><br>
+<i>&gt; an intermediate open() call might have returned the same pointer:</i><br>
+<i>&gt;</i><br>
+<i>&gt; 	f1 = fopen ("foo", "r");  /* returns 28 */</i><br>
+<i>&gt; 	fclose (f1);</i><br>
+<i>&gt; 	f2 = fopen ("bar", "r");  /* also returns 28 */</i><br>
+<i>&gt; 	fclose (f1);              /* oops!  28 is still a valid stream! */</i><br>
+<i>&gt; 	fprintf (f2, "test\n");   /* fails */</i><br>
+<p>
+Actually, there's a semaphore bit you can set on close that prevents the stream<br>
+from looking valid. The library currently uses signature patterns to see if the<br>
+stream looks legit, and adding a check for this semaphore bit to that code<br>
+would not be hard. Sure, the fprintf() will return an error -- it should. But<br>
+I'd rather fail on the signature bit test and immediately return with an error<br>
+than to allow fprintf to write to f2-&gt;buffer, who got freed in fclose(f1), and<br>
+whose state is rather "undefined". SOME wrong code is harder to debug than<br>
+others...<br>
+<p>
+I passed the idea to Uli and Richard, let's see what they say...<br>
+<p>
+<pre>
+-- 
+Bryan W. Headley                    Home:   <a href="mailto:bheadley@interaccess.com">bheadley@interaccess.com</a>
+211 East Pineview Drive             Office: <a href="mailto:bwh@abnamro.com">bwh@abnamro.com</a>
+Round Lake Park, IL 60073           Phone:  847 740-1446
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0777.html">Chris Ingrassia: "Still having problems..."</a>
+<li> <b>Previous message:</b> <a href="0775.html">jestabro@amt.tay1.dec.com: "Re: Booting &amp; bsd disklabel: memory violation"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

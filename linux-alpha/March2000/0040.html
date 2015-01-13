@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Mon Mar 13 12:47:44 2000" -->
+<!-- isoreceived="20000313204744" -->
+<!-- sent="Mon, 13 Mar 2000 12:57:34 +0100 (CET)" -->
+<!-- isosent="20000313115734" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131247470.1661-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="20000313031638.B343@hq.fsmlabs.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 03:57:34 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#40">[ date ]</A>
+<A HREF="index.html#40">[ thread ]</A>
+<A HREF="subject.html#40">[ subject ]</A>
+<A HREF="author.html#40">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0039.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0042.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0041.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000 yodaiken@fsmlabs.com wrote:
+<BR>
+<P><EM>&gt; &gt; &gt; Ok. Ingo: does your &quot;low latency&quot; patch violate this rule?
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; yep, of course. It's a grave error to schedule during IRQ contexts, and we
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I think you mean: &quot;of course not&quot;! 
+</EM><BR>
+<P>[ oops, correct :-) ]
+<BR>
+<P><EM>&gt; &gt; do have an assert in schedule() so it's plain impossible. The lowlatency
+</EM><BR>
+<EM>&gt; &gt; patch simply works by increasing the effective frequency (occurance) of
+</EM><BR>
+<EM>&gt; &gt; rescheduling (preemption) points [without actually rescheduling more
+</EM><BR>
+<EM>&gt; &gt; often].
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This is too subtle for me. I don't know how you can make true 
+</EM><BR>
+<EM>&gt; the first 2 things without having the third be false.
+</EM><BR>
+<P>well, the core of it is really simple:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (current-&gt;need_resched)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;schedule();
+<BR>
+<P>current-&gt;need_resched is rarely set, mostly only if a process is getting
+<BR>
+preempted by a higher priority process. (which is the case we are
+<BR>
+interested in)
+<BR>
+<P>There are two basic cases: there is no 'high priority frequent
+<BR>
+rescheduler', in which case the above code rarely hits (mostly gets
+<BR>
+triggered only if some interactive application is used). The other case
+<BR>
+when there is some latency-sensitive high priority application around - in
+<BR>
+this case we will likely rescheduler more often, but thats exactly what we
+<BR>
+were interested in: rescheduling right when the application needs it.
+<BR>
+<P><EM>&gt; &gt; Having said this, i now do agree that doing a preemptible kernel (which
+</EM><BR>
+<EM>&gt; &gt; the Linux SMP kernel could become with a small amount of work) is a
+</EM><BR>
+<EM>&gt; &gt; superior solution to this, wrt. latencies.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Well, to start, it would violate Linus' rule, an old UNIX rule, and your
+</EM><BR>
+<EM>&gt; new IRQ scheme makes it more complex -- you have to make sure to not
+</EM><BR>
+<EM>&gt; switch out of tasks that are handling unacked interrupts. 
+</EM><BR>
+<EM>&gt; I don't know how to trade throughput for latency without losing throughput.
+</EM><BR>
+<P>we would still not switch out of IRQ contexts. IRQ contexts (including
+<BR>
+softirqs, tasklets and bhs) are supposed to be atomic and time-bound. A
+<BR>
+preemptive Linux kernel simply does a context switch if 1) -&gt;need_resched
+<BR>
+is set 2) we return to a non-IRQ context (which can be either user-space
+<BR>
+or kernel-space). There is nothing magic about this, SMP does not
+<BR>
+effectively when two processes are running on two CPUs - instructions get
+<BR>
+mixed up. You can think of SMP Linux running on a dual-CPU box as a 'very
+<BR>
+fast scheduler', which schedules instructions from 2 processes to the
+<BR>
+system bus at the instruction level. The fact that we do not do _explicit_
+<BR>
+kernel-code preemption in SMP mode is just a tiny detail ;-)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0039.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0041.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0042.html">Andrea Arcangeli: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0041.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

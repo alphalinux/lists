@@ -1,0 +1,144 @@
+<!-- received="Sun Oct 27 14:14:29 1996 " -->
+<!-- sent="Sun, 27 Oct 1996 14:11:27 -0500" -->
+<!-- name="Eric Youngdale" -->
+<!-- email="eric@sub2317.jic.com" -->
+<!-- subject="Re: SCSI driver times out on UDB?" -->
+<!-- id="199610271911.OAA13497@sub2317.jic.com" -->
+<!-- inreplyto="SCSI driver times out on UDB?" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SCSI driver times out on UDB?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SCSI driver times out on UDB?</h2>
+
+<b>Eric Youngdale</b> (<a href="mailto:eric@sub2317.jic.com"><i>eric@sub2317.jic.com</i></a>)<br>
+<i>Sun, 27 Oct 1996 14:11:27 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1145">[ date ]</a><a href="index.html#1145">[ thread ]</a><a href="subject.html#1145">[ subject ]</a><a href="author.html#1145">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1146.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Previous message:</b> <a href="1144.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1146.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;Well, actually, not quite true. The key issue here is that the</i><br>
+<i>&gt;two machines have to have different initiator IDs. Even non-tagged</i><br>
+<i>&gt;q'ing capable devices can keep track of different (single) commands</i><br>
+<i>&gt;from different initiators. There are notable buggy implementations</i><br>
+<i>&gt;of this (for example, the old CDC Wren IV, would get confused over</i><br>
+<i>&gt;which command came from which initiator).</i><br>
+<p>
+	This part of it would work, but the scenario that I had in mind<br>
+was something that even can come up with single initiator machines.<br>
+<p>
+	Consider a block read request for sectors 100000-100010, followed by a<br>
+block read request for sector 0, and then a bunch more reads for sectors near<br>
+100000.  The devices are capable of reordering requests, and thus the read<br>
+for sector 0 could keep getting deferred as long as requests around 100000<br>
+keep coming in.  Eventually the request at block 0 times out, and this causes<br>
+a problem.  In the single initiator case, the device driver can detect this<br>
+situation, and simply tell the device to complete all previous outstanding<br>
+commands before starting the next one (i.e. the Buslogic driver does this.<br>
+See Buslogic.c:2560 for example).<br>
+<p>
+	In the multi-initiator case, the problem is a bit more complicated.<br>
+You can have a similar situation but if the read from block 0 comes from<br>
+machine A and the rest from machine B, then all machine A knows is that<br>
+a single command is timing out, but it doesn't know why.  Since that<br>
+host isn't issuing any more commands, it cannot use the same strategy that<br>
+the Buslogic driver does (i.e. it cannot force an Ordered Queue Tag on the<br>
+next request), and we cannot count upon machine B to even notice that anything<br>
+is amiss.<br>
+<p>
+	The ultimate solution is that the error detection/recovery system<br>
+needs to be redone anyways.  It needs to be made tagged queueing aware so that<br>
+it works better for these cases.  It may be capable of handling a case like<br>
+what I have described, but I still am unsure what an appropriate stragegy<br>
+to detect and deal with the above case would be.  There is probably some<br>
+command that could be forced out there to order the queues, but ideally<br>
+the strategy would depend upon whether or not the device/system has multiple<br>
+initiators or not.<br>
+<p>
+<i>&gt;Yes, I ran into this case, which is why sent the patch to the AIC7770 list-</i><br>
+<i>&gt;a change made in August broke that which had been a pretty multi-initiator</i><br>
+<i>&gt;environment for some time (bouncing BUSY conditions (setting DID_ERROR)</i><br>
+<i>&gt;instead of letting them retry).</i><br>
+<p>
+	Yes, for a 0th order solution, this would seem like a reasonable<br>
+thing to do.<br>
+<p>
+<i>&gt;I've certainly done the latter, but it really isn't necessary to do the</i><br>
+<i>&gt;former when you have a stable system that:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	a) Has patchable timeouts (fixed compile time timeouts are a bad</i><br>
+<i>&gt;	idea- any number that you pick will certainly be wrong in the future).</i><br>
+<p>
+	I know.  This is something which could in principle be set on a device<br>
+by device basis.  Doing something via the /proc filesystem would be the easiest<br>
+way to do this, I guess.  To me this has the feel of a band-aid, but it<br>
+would alleviate the immediate problem.<br>
+<p>
+<i>&gt;	b) Truly handles command timeouts, with increasing backoff.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Even with the above being not entirely the case, I've made a pretty</i><br>
+<i>&gt;stable multi-initiator system (with the latest &amp;&amp; greatest, after I</i><br>
+<i>&gt;fixed the aic 'fixes'). I ran for a 4 hour burn in beating the</i><br>
+<i>&gt;crap of the same disk from both systems.</i><br>
+<p>
+	I think everyone agrees that timeout handling definitely needs to be<br>
+rethought and redone.  I didn't realize it when I first got into SCSI, but<br>
+that is probably the hardest part of the whole thing, especially when you have<br>
+so many different types of drivers out there, so many different types of<br>
+peripherals.  I had the misfourtune of starting out with a 1542, for which<br>
+there are really very few effective strategies for dealing with hung devices<br>
+or busses.<br>
+<p>
+<i>&gt;No. No. No. RESERVE/RELEASE is not the answer. You'd have to do it on</i><br>
+<i>&gt;a per-command basis if you're actually sharing peripherals completely.</i><br>
+<i>&gt;RESERVE/RELEASE is only really for the HA/Cluster type systems, and even</i><br>
+<p>
+	I know, I know.  I said I didn't like the idea myself :-).  My<br>
+main objection is the additional overhead of putting those commands on<br>
+the bus, and as you say, you would have to use it for each and every command<br>
+that goes out.  Another SCSI-1 feature that sounded good when they first came<br>
+up with it....<br>
+<p>
+-Eric<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1146.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Previous message:</b> <a href="1144.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<li> <b>Maybe in reply to:</b> <a href="1042.html">Bernd : "SCSI driver times out on UDB?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1146.html">Matthew Jacob: "Re: SCSI driver times out on UDB?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

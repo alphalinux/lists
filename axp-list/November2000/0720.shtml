@@ -1,0 +1,293 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Alpha SCSI error on 2.4.0-test11</H1> 
+	
+<!-- received="Fri Dec 01 01:08:07 2000" -->
+<!-- isoreceived="20001201090807" -->
+<!-- sent="Thu, 30 Nov 2000 15:02:42 -0500 (EST)" -->
+<!-- isosent="20001130200242" -->
+<!-- name="Phillip Ezolt" -->
+<!-- email="ezolt@perf.zko.dec.com" -->
+<!-- subject="Alpha SCSI error on 2.4.0-test11" -->
+<!-- id="Pine.OSF.3.96.1001130145721.15171B-100000@perf.zko.dec.com" -->
+<STRONG>Subject: </STRONG>Alpha SCSI error on 2.4.0-test11<BR>
+<STRONG>From: </STRONG>Phillip Ezolt (<EM>ezolt@perf.zko.dec.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Nov 30 12:02:42 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#720">[ date ]</A>
+<A HREF="index.shtml#720">[ thread ]</A>
+<A HREF="subject.shtml#720">[ subject ]</A>
+<A HREF="author.shtml#720">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0721.shtml">W Bauske: "Re: scsi HD performance?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0719.shtml">Paul Bunn: "RE: scsi HD performance?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0715.shtml">Peter Rival: "Re: Alpha SCSI error on 2.4.0-test11"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi All,
+<BR>
+<P>Qlogic SCSI support seems broken on 2.4.0-test11 on a Miata (Digital Personal WorkStation 600au).
+<BR>
+<P>When starting up, we get a machine check after initialing the qlogic SCSI code. 
+<BR>
+<P>Using the Alpha kgdb, we figured out that the code is dying in scsi_wait_request().
+<BR>
+<P>Here's the backtrace: 
+<BR>
+<P>scsi_wait_req (SRpnt=0xfffffc0001f9b480, cmnd=0xfffffc890000a078, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;buffer=0x100, bufflen=2, timeout=17891584, retries=6144)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at /usr/src/linux/include/asm/atomic.h:85
+<BR>
+(gdb) where
+<BR>
+#0  scsi_wait_req (SRpnt=0xfffffc0001f9b480, cmnd=0xfffffc890000a078, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;buffer=0x100, bufflen=2, timeout=17891584, retries=6144)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at /usr/src/linux/include/asm/atomic.h:85
+<BR>
+#1  0xfffffc00004107f0 in scan_scsis_single (channel=0, dev=41080, lun=0, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;max_dev_lun=0xfffffc00001efa30, sparse_lun=0xfffffc00001efa34, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;SDpnt2=0xfffffc00001efa38, shpnt=0xfffffc00005ff800, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;scsi_result=0xfffffc00001ef930 &quot;\001&quot;) at scsi_scan.c:516
+<BR>
+#2  0xfffffc0000410548 in scan_scsis (shpnt=0xfffffc00005ff800, hardcoded=1, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;hchannel=0, hid=0, hlun=0) at scsi_scan.c:403
+<BR>
+#3  0xfffffc0000404f58 in scsi_register_host (tpnt=0xfffffc000058fb80)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at scsi.c:1904
+<BR>
+#4  0xfffffc00004dac50 in init_this_scsi_driver ()
+<BR>
+#5  0xfffffc00004c2bec in do_initcalls ()
+<BR>
+#6  0xfffffc00004c2c6c in do_basic_setup ()
+<BR>
+#7  0xfffffc0000310078 in init (unused=0x0) at init/main.c:775
+<BR>
+&nbsp;&nbsp;
+<BR>
+<P>Note: On the working kernels, the two controllers are 0x800 apart, but
+<BR>
+on the broken kernels, they are only 0x400.  Could the overlap
+<BR>
+cause problems? 
+<BR>
+<P>Working: 2.2.14-6.0: (from 6.2 Redhat)
+<BR>
+<P>qlogicisp: new isp1020 revision ID (5)
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+scsi0: QLogic ISP1020 SCSI on PCI bus 01 device 20 irq 27 I/O base 0x9000
+<BR>
+scsi1: QLogic ISP1020 SCSI on PCI bus 01 device 48 irq 40 I/O base 0x9800
+<BR>
+scsi: 2 hosts.
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ1CB-BA (C) DEC  Rev: LYE0
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sda at scsi0, channel 0, id 0, lun 0
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ28D    (C) DEC  Rev: 0008
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sdb at scsi0, channel 0, id 1, lun 0
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ1BB-BA (C) DEC  Rev: LYE0
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sdc at scsi0, channel 0, id 2, lun 0
+<BR>
+scsi: detected 3 SCSI disks total.
+<BR>
+<P>Working: vmlinux-2.2.17-4 (from 7.0 Redhat)
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+DC390: 0 adapters found
+<BR>
+scsi0: QLogic ISP1020 SCSI on PCI bus 01 device 20 irq 27 I/O base 0xa000
+<BR>
+scsi1: QLogic ISP1020 SCSI on PCI bus 01 device 48 irq 40 I/O base 0xa800
+<BR>
+scsi: 2 hosts.
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ1CB-BA (C) DEC  Rev: LYE0
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sda at scsi0, channel 0, id 0, lun 0
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ28D    (C) DEC  Rev: 0008
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sdb at scsi0, channel 0, id 1, lun 0
+<BR>
+&nbsp;&nbsp;Vendor: DEC       Model: RZ1BB-BA (C) DEC  Rev: LYE0
+<BR>
+&nbsp;&nbsp;Type:   Direct-Access                      ANSI SCSI revision: 02
+<BR>
+Detected scsi disk sdc at scsi0, channel 0, id 2, lun 0
+<BR>
+scsi: detected 3 SCSI disks total.
+<BR>
+SCSI device sda: hdwr sector= 512 bytes. Sectors= 8380080 [4091 MB] [4.1 GB]
+<BR>
+SCSI device sdb: hdwr sector= 512 bytes. Sectors= 4110480 [2007 MB] [2.0 GB]
+<BR>
+SCSI device sdc: hdwr sector= 512 bytes. Sectors= 4110480 [2007 MB] [2.0 GB]
+<BR>
+<P>Broken 2.4.0-test11:  (gcc version 2.96 20000731 (Red Hat Linux 7.0))
+<BR>
+<P>SCSI subsystem driver Revision: 1.00
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+scsi0: QLogic ISP1020 SCSI on PCI bus 01 device 20 irq 27 I/O base 0xa000
+<BR>
+scsi1: QLogic ISP1020 SCSI on PCI bus 01 device 48 irq 40 I/O base 0xa400
+<BR>
+CIA machine check: vector=0x660 pc=0xfffffc0000312644 code=0x813
+<BR>
+machine check type: unknown
+<BR>
+pc = [&lt;fffffc0000312644&gt;]  ra = [&lt;fffffc0000312660&gt;]  ps = 0000
+<BR>
+v0 = 0000000000000000  t0 = 0000000000000000  t1 = fffffc00005d8b20
+<BR>
+t2 = 0000000000000001  t3 = 0000000000000001  t4 = fffffc000057a110
+<BR>
+t5 = fffffffffffffc18  t6 = 000000000000451d  t7 = fffffc0000520000
+<BR>
+a0 = 0000000000000019  a1 = 0000000000000032  a2 = fffffc000035d5cc
+<BR>
+a3 = 0000000000000002  a4 = fffffc0000544080  a5 = fffffc000057a110
+<BR>
+t8 = 0000000000000000  t9 = 00000000f96329ef  t10= 0000000000000000
+<BR>
+t11= 0000000000000001  pv = fffffc0000329f80  at = fffffc0000520000
+<BR>
+gp = fffffc000059dd88  sp = fffffc0000523fd0
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+<P><P>Broken 2.4.0-test11: (gcc version egcs-2.91.66 19990314/Linux (egcs-1.1.2 release))
+<BR>
+<P>SCSI subsystem driver Revision: 1.00
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+qlogicisp: new isp1020 revision ID (5)
+<BR>
+scsi0: QLogic ISP1020 SCSI on PCI bus 01 device 20 irq 27 I/O base 0xa000
+<BR>
+scsi1: QLogic ISP1020 SCSI on PCI bus 01 device 48 irq 40 I/O base 0xa400
+<BR>
+CIA machine check: vector=0x660 pc=0xfffffc0000312464 code=0x813
+<BR>
+machine check type: unknown
+<BR>
+pc = [&lt;fffffc0000312464&gt;]  ra = [&lt;fffffc0000312480&gt;]  ps = 0000
+<BR>
+v0 = 0000000000000000  t0 = 0000000000000000  t1 = 0000000000000001
+<BR>
+t2 = 0000000000000001  t3 = fffffc0000562850  t4 = fffffc0000562850
+<BR>
+t5 = fffffffffffffc18  t6 = fffffc00005613d0  t7 = fffffc0000508000
+<BR>
+a0 = 0000000000000019  a1 = 0000000000000032  a2 = fffffc000035b478
+<BR>
+a3 = 0000000000000002  a4 = fffffc00003f8880  a5 = 0000000000001800
+<BR>
+t8 = 0000000000000000  t9 = 000000001feee829  t10= 0000000000000000
+<BR>
+t11= ffff00ff00000012  pv = fffffc0000329f80  at = fffffc000052c080
+<BR>
+gp = fffffc0000585ed8  sp = fffffc000050bfd0
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+scsi: aborting command due to timeout : pid 0, scsi0, channel 0, id 0, lun 0 0 
+<BR>
+<P><P>Thanks,
+<BR>
+--Phil &amp; Bill
+<BR>
+<P>Compaq:  High Performance Server Division/Benchmark Performance Engineering 
+<BR>
+---------------- Alpha, The Fastest Processor on Earth --------------------
+<BR>
+Phillip.Ezolt@compaq.com        |C|O|M|P|A|Q|        ezolt@perf.zko.dec.com
+<BR>
+------------------- See the results at www.spec.org -----------------------
+<BR>
+<P><P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0721.shtml">W Bauske: "Re: scsi HD performance?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0719.shtml">Paul Bunn: "RE: scsi HD performance?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0715.shtml">Peter Rival: "Re: Alpha SCSI error on 2.4.0-test11"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Fri Dec  1 08:00:09 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

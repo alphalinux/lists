@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: How do I find/fix unaligned accesses?</TITLE>
+<META NAME="Author" CONTENT="Tom Linden (tom@kednos.com)">
+<META NAME="Subject" CONTENT="Re: How do I find/fix unaligned accesses?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: How do I find/fix unaligned accesses?</H1>
+<HR>
+<P>
+<!-- received="Sat Dec 05 03:26:29 1998 PST" -->
+<!-- sent="Fri, 4 Dec 1998 18:29:24 -0800 (PST)" -->
+<!-- name="Tom Linden" -->
+<!-- email="tom@kednos.com" -->
+<!-- subject="Re: How do I find/fix unaligned accesses?" -->
+<!-- id="Pine.ULT.3.91.981204182134.6659z-100000@gunn.kednos.com" -->
+<!-- inreplyto="36685594.38C3976A@adam.cheshire.net" -->
+<STRONG>Tom Linden</STRONG> (<A HREF="mailto:tom@kednos.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?"><EM>tom@kednos.com</EM></A>)<BR>
+<EM>Fri, 4 Dec 1998 18:29:24 -0800 (PST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#201">[ date ]</A>
+<A HREF="index.html#201">[ thread ]</A>
+<A HREF="subject.html#201">[ subject ]</A>
+<A HREF="author.html#201">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0202.html">Daniel Potts: "PALcode Violation Checker (pvc)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0200.html">Dan Morrill: "Iomega SCSI Adapter"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is generally the right approach, but having done this many times 
+<BR>
+there is a bit more to do.  Once you have breakpointed, you need to 
+<BR>
+determine which variable is offending, and this generally means examing 
+<BR>
+the assembler statements with gdb and relating it to the source.  Once 
+<BR>
+identified you need to find the declaration of the variable whether 
+<BR>
+static or automatic, and by looking at the declaration trying to figure 
+<BR>
+out how it got allocated on the inappropriate boundary.  If it is this 
+<BR>
+simple then padding by dummy allocations of the appropriate size will fix 
+<BR>
+it.  If however, this is the result of aliasing,  this may require more 
+<BR>
+difficult source code changes. use of 'nm' helps a lot.  good luck.
+<BR>
+Tom
+<BR>
+<P><P>On Fri, 4 Dec 1998, Rich Payne wrote:
+<BR>
+<P><EM>&gt; Date: Fri, 04 Dec 1998 16:35:16 -0500
+</EM><BR>
+<EM>&gt; From: Rich Payne &lt;<A HREF="mailto:rdp@adam.cheshire.net?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">rdp@adam.cheshire.net</A>&gt;
+</EM><BR>
+<EM>&gt; To: <A HREF="mailto:axp-list@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list@redhat.com</A>, Eric Ding &lt;<A HREF="mailto:ericding@applix.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">ericding@applix.com</A>&gt;
+</EM><BR>
+<EM>&gt; Subject: Re: How do I find/fix unaligned accesses?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I didn't write this, but I picked it up from somewhere!!
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;If you get a message like so:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;    identd(15285): unaligned trap at 0000000120024a9c: 000000011ffffa34 2d
+</EM><BR>
+<EM>&gt; 10
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;you fire up gdb on identd (which must be linked with -g, and preferably
+</EM><BR>
+<EM>&gt; &gt;statically with the debugging version of libc) and type:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;    info line *0x0000000120024a9c
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;which tells you:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;Line 888 of &quot;vfscanf.c&quot; starts at address 0x120024a40 &lt;_IO_vfscanf+10400&gt;
+</EM><BR>
+<EM>&gt; &gt;   and ends at 0x120024aa4 &lt;_IO_vfscanf+10500&gt;.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;So, the problem is at line 888 of vfscanf.c.
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt;Paul Slootman
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Hope it helps...
+</EM><BR>
+<EM>&gt; regards,
+</EM><BR>
+<EM>&gt; rdp
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Eric Ding wrote:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; Hi all,
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I've read the FAQ about unaligned accesses on Alpha Linux.  My question is,
+</EM><BR>
+<EM>&gt; &gt; now that I've got a whole log full of errors about unaligned accesses, how
+</EM><BR>
+<EM>&gt; &gt; do I go about tracking down the actual place in the code that's causing the
+</EM><BR>
+<EM>&gt; &gt; problem?
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I see, for example,
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt;     axmain(521): unaligned trap at 0000000120472178: 000000011ffff2f4 2d 2
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; in /var/log/messages.  Now what?  Help me get Applixware for Linux/Alpha
+</EM><BR>
+<EM>&gt; &gt; out the door!  :)
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; Thanks,
+</EM><BR>
+<EM>&gt; &gt; Eric
+</EM><BR>
+<EM>&gt; &gt; --
+</EM><BR>
+<EM>&gt; &gt; Senior Software Engineer / <A HREF="mailto:ericding@applix.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">ericding@applix.com</A>               &lt;&gt;&lt;
+</EM><BR>
+<EM>&gt; &gt; Applix, Inc. / 112 Turnpike Road / Westboro MA 01581-2842
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; --
+</EM><BR>
+<EM>&gt; &gt; To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list-request@redhat.com</A> with
+</EM><BR>
+<EM>&gt; &gt; 'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list@redhat.com</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; Rich Payne
+</EM><BR>
+<EM>&gt; www.alphalinux.org
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list-request@redhat.com</A> with
+</EM><BR>
+<EM>&gt; 'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list@redhat.com</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20How%20do%20I%20find/fix%20unaligned%20accesses?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0202.html">Daniel Potts: "PALcode Violation Checker (pvc)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0200.html">Dan Morrill: "Iomega SCSI Adapter"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Fri Dec 04 1998 - 21:04:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

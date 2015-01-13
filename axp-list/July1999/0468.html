@@ -1,0 +1,259 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: RE: Linux Install on AlphaServer 4X00 5/400 21164 400</TITLE>
+<META NAME="Author" CONTENT="Jemiolo, John (John.Jemiolo@compaq.com)">
+<META NAME="Subject" CONTENT="RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 23 17:27:06 1999" -->
+<!-- isoreceived="19990724002706" -->
+<!-- sent="Fri, 23 Jul 1999 12:15:58 -0500" -->
+<!-- isosent="19990723171558" -->
+<!-- name="Jemiolo, John" -->
+<!-- email="John.Jemiolo@compaq.com" -->
+<!-- subject="RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz" -->
+<!-- id="C98EB92F42B9D11197EA0000F806268E02A63A6F@pkoexc4.pko.dec.com" -->
+<!-- inreplyto="Linux Install on AlphaServer 4X00 5/400 21164 400MHz" -->
+<STRONG>Subject: </STRONG>RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz<BR>
+<STRONG>From: </STRONG>Jemiolo, John (<EM>John.Jemiolo@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jul 23 1999 - 10:15:58 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#468">[ date ]</A>
+<A HREF="index.html#468">[ thread ]</A>
+<A HREF="subject.html#468">[ subject ]</A>
+<A HREF="author.html#468">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0469.html">Jemiolo, John: "RE: smp kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0467.html">Greg Lindahl: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0361.html">Feisal Umar: "Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0475.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0361.html">Jemiolo, John: "RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+If you read serial-console.txt in the Documentation dir of the 2.2.* kernel
+<BR>
+source tree. it explains that you have to remove /dev/console and /dev/tty0.
+<BR>
+Then create new devices using 
+<BR>
+mknod -m 622 console  c 5 1 
+<BR>
+and 
+<BR>
+mknod -m 622 tty0 c 4 0     (yes tty0 not ttyS0 )
+<BR>
+<P>Then, when serial console is configured into the kernel, If a graphics
+<BR>
+controller is present it will be used as The console device. If No graphics
+<BR>
+console is found, it will automatically fail over to the serial port.  There
+<BR>
+is no need to create any links for ttyS0.
+<BR>
+<P>I use this feature all the time in my 2.2 kernels...
+<BR>
+<P>JJ
+<BR>
+<EM>&gt; ----------
+</EM><BR>
+<EM>&gt; From: 	Rival, Frank
+</EM><BR>
+<EM>&gt; Reply To: 	axp-list@redhat.com
+</EM><BR>
+<EM>&gt; Sent: 	Friday, July 23, 1999 12:57 PM
+</EM><BR>
+<EM>&gt; To: 	axp-list@redhat.com
+</EM><BR>
+<EM>&gt; Subject: 	Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Peter Rival wrote: 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &lt;snip&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   
+</EM><BR>
+<EM>&gt;         if (open(&quot;/dev/console&quot;, O_RDWR, 0) &lt; 0) 
+</EM><BR>
+<EM>&gt;                 printk(&quot;Warning: unable to open an initial console.\n&quot;); 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;         (void) dup(0); 
+</EM><BR>
+<EM>&gt;         (void) dup(0); 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; .... 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; My guess is that yes, the install kernel never intended to support serial
+</EM><BR>
+<EM>&gt; console.  I'd call that an oversight if that's the case, but one that
+</EM><BR>
+<EM>&gt; probably wouldn't happen again.  We'll see what happens - this shouldn't
+</EM><BR>
+<EM>&gt; take too long...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Well, that part was correct - it didn't take too long at all.  The above
+</EM><BR>
+<EM>&gt; code is what's breaking.  The interesting thing is what appears to be the
+</EM><BR>
+<EM>&gt; cause - the devices used on the RH 6.0 CD.  It _appears_ that to save
+</EM><BR>
+<EM>&gt; space, /dev/console used the device number pairing (4,0) meant for tty0,
+</EM><BR>
+<EM>&gt; instead of that which is normally used (5,1). 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Does anyone who understands this code path a bit better than I know why I
+</EM><BR>
+<EM>&gt; can get through this section of booting if all I do is change
+</EM><BR>
+<EM>&gt; &quot;/dev/console&quot; to &quot;/dev/ttyS0&quot;?  Yeah, it chokes shortly thereafter, but
+</EM><BR>
+<EM>&gt; this says something (I think).  Anyway, here's the error that I'm up to
+</EM><BR>
+<EM>&gt; now (I'm using 2.3.10, as it's the latest stable kernel I have that
+</EM><BR>
+<EM>&gt; actually builds)... 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; VFS: Mounted root (iso9660 filesystem) readonly. 
+</EM><BR>
+<EM>&gt; Freeing unused kernel memory: 112k freed 
+</EM><BR>
+<EM>&gt; hello 
+</EM><BR>
+<EM>&gt; Red Hat install init version 1.1 starting 
+</EM><BR>
+<EM>&gt; mounting /proc filesystem... done 
+</EM><BR>
+<EM>&gt; opening /proc/cmdline... done 
+</EM><BR>
+<EM>&gt; checking command line arguments... 
+</EM><BR>
+<EM>&gt;  unknown option 'console=ttyS0'!done 
+</EM><BR>
+<EM>&gt; checking for NFS root filesystem...no 
+</EM><BR>
+<EM>&gt; trying to remount root filesystem read write... done 
+</EM><BR>
+<EM>&gt; checking for writeable /tmp... no (probably a CD rooted install) 
+</EM><BR>
+<EM>&gt; mke2fs 1.14, 9-Jkmod: failed to exec /sbin/modprobe -s -k char-major-4,
+</EM><BR>
+<EM>&gt; errno = 
+</EM><BR>
+<EM>&gt; an-1999 for EXT2 FS 0.5b, 95/08/09 
+</EM><BR>
+<EM>&gt; Linux ext2 filesystem format 
+</EM><BR>
+<EM>&gt; Filesystem label= 
+</EM><BR>
+<EM>&gt; 80 inodes, 300 blocks 
+</EM><BR>
+<EM>&gt; 15 blocks (5.00%) reserved for the super user 
+</EM><BR>
+<EM>&gt; First data block=1 
+</EM><BR>
+<EM>&gt; Block size=1024 (log=0) 
+</EM><BR>
+<EM>&gt; Fragment size=1024 (log=0) 
+</EM><BR>
+<EM>&gt; 1 block group 
+</EM><BR>
+<EM>&gt; 8192 blocks per group, 8192 fragments per group 
+</EM><BR>
+<EM>&gt; 80 inodes per group 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Writing inode tables: done 
+</EM><BR>
+<EM>&gt; Writing superblocks and filesystem accounting information: done 
+</EM><BR>
+<EM>&gt; creating 300k of ramdisk space... done 
+</EM><BR>
+<EM>&gt; mounting /tmp from ramdisk... done 
+</EM><BR>
+<EM>&gt; couldn't open /dev/tty4 for syslog -- still using /tmp/syslog 
+</EM><BR>
+<EM>&gt; running install... 
+</EM><BR>
+<EM>&gt; failed to open /dev/tty1failed. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I can't recover from this. 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I've attached an extracted .config - maybe someone can smack me around and
+</EM><BR>
+<EM>&gt; show me what I'm missing.  I'm hoping that someone just says &quot;Oh, just
+</EM><BR>
+<EM>&gt; make /dev/console have the correct major/minor, create a /dev/tty0, and
+</EM><BR>
+<EM>&gt; walk away&quot; or something like that.  Even if I have to burn a CD again to
+</EM><BR>
+<EM>&gt; get this to work, I'll be happy... 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  - Pete
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0469.html">Jemiolo, John: "RE: smp kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0467.html">Greg Lindahl: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0361.html">Feisal Umar: "Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0475.html">Peter Rival: "Re: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0361.html">Jemiolo, John: "RE: Linux Install on AlphaServer 4X00 5/400 21164 400MHz"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:36 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: Linux-2.3.51, and the pre-2.4 series..</H1> 
+	
+<!-- received="Sun Mar 12 04:35:42 2000" -->
+<!-- isoreceived="20000312123542" -->
+<!-- sent="Sun, 12 Mar 2000 01:44:42 +0000" -->
+<!-- isosent="20000312014442" -->
+<!-- name="Thorsten Kranzkowski" -->
+<!-- email="th@Marvin.DL8BCU.ampr.org" -->
+<!-- subject="Re: Linux-2.3.51, and the pre-2.4 series.." -->
+<!-- id="20000312014442.A353@Marvin.DL8BCU.ampr.org" -->
+<!-- inreplyto="Pine.LNX.4.10.10003101641350.839-100000@penguin.transmeta.com" -->
+<STRONG>Subject: </STRONG>Re: Linux-2.3.51, and the pre-2.4 series..<BR>
+<STRONG>From: </STRONG>Thorsten Kranzkowski (<EM>th@Marvin.DL8BCU.ampr.org</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Mar 11 17:44:42 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#260">[ date ]</A>
+<A HREF="index.shtml#260">[ thread ]</A>
+<A HREF="subject.shtml#260">[ subject ]</A>
+<A HREF="author.shtml#260">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0261.shtml">George08@aol.com: "Online Troubles--arghhhhhhh!!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0259.shtml">Designer Seven: "Re: Intel &quot;easier&quot; than Alpha? (was: XFree86 4.0)"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri, Mar 10, 2000 at 04:45:25PM -0800, Linus Torvalds wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I just made a 2.3.51 release, and the next kernel will be the first of the
+</EM><BR>
+<EM>&gt; pre-2.4.x kernels. That does NOT mean that I'll apply a lot of last-minute
+</EM><BR>
+<EM>&gt; patches: it only means that I'll let 2.3.51 be out there over the weekend
+</EM><BR>
+<EM>&gt; to hear about any embarrassing problems so that we can start the pre-2.4
+</EM><BR>
+<EM>&gt; series without the truly stupid stuff.
+</EM><BR>
+<P>I needed these changes to make 2.3.51 go:
+<BR>
+<P><P>--- linux-2.3.51/arch/alpha/kernel/traps.c	Mon Feb 28 02:36:35 2000
+<BR>
++++ linux-2.3.51-work/arch/alpha/kernel/traps.c	Sun Mar 12 01:34:30 2000
+<BR>
+@@ -215,8 +215,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* EV4 does not implement anything except normal
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rounding.  Everything else will come here as
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;an illegal instruction.  Emulate them.  */
+<BR>
+-			if (alpha_fp_emul(regs.pc)) {
+<BR>
+-				regs.pc += 4;
+<BR>
++			if (alpha_fp_emul(regs.pc-4)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>This was changed in 2.3.48 but that change is wrong, at least I get wrong
+<BR>
+results in fp-calculations.
+<BR>
+Could the one who changed this please comment on it?
+<BR>
+<P><P>diff -ur linux-2.3.51/drivers/block/md.c linux-2.3.51-work/drivers/block/md.c
+<BR>
+--- linux-2.3.51/drivers/block/md.c	Mon Feb 28 02:36:53 2000
+<BR>
++++ linux-2.3.51-work/drivers/block/md.c	Sun Mar 12 01:23:40 2000
+<BR>
+@@ -37,7 +37,6 @@
+<BR>
+&nbsp;#include &lt;asm/unaligned.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern asmlinkage int sys_sched_yield(void);
+<BR>
+-extern asmlinkage int sys_setsid(void);
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern unsigned long io_events[MAX_BLKDEV];
+<BR>
+<P><P><P>Simple compilation fix. RAID 0 apparently works here.
+<BR>
+<P><P><P>&nbsp;
+<BR>
+diff -ur linux-2.3.51/fs/binfmt_em86.c linux-2.3.51-work/fs/binfmt_em86.c
+<BR>
+--- linux-2.3.51/fs/binfmt_em86.c	Wed Mar  8 00:59:25 2000
+<BR>
++++ linux-2.3.51-work/fs/binfmt_em86.c	Sat Mar 11 15:39:41 2000
+<BR>
+@@ -15,6 +15,7 @@
+<BR>
+&nbsp;#include &lt;linux/binfmts.h&gt;
+<BR>
+&nbsp;#include &lt;linux/elf.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
++#include &lt;asm/smplock.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define EM86_INTERP	&quot;/usr/bin/em86&quot;
+<BR>
+<P><P>Compilation fix. Don't know whether em86 works.
+<BR>
+<P><P><P>This is an Alpha AXPpci33 ev4 machine. gcc 2.95.2.
+<BR>
+<P>Bye,
+<BR>
+Thorsten
+<BR>
+<PRE>
+-- 
+| Thorsten Kranzkowski        Internet: dl8bcu@gmx.net                        |
+| Mobile: ++49 170 1876134       Snail: Niemannsweg 30, 49201 Dissen, Germany |
+| Ampr: dl8bcu@db0lj.#rpl.deu.eu, dl8bcu@marvin.dl8bcu.ampr.org [44.130.8.19] |
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0261.shtml">George08@aol.com: "Online Troubles--arghhhhhhh!!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0259.shtml">Designer Seven: "Re: Intel &quot;easier&quot; than Alpha? (was: XFree86 4.0)"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:00 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

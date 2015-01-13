@@ -1,0 +1,122 @@
+<!-- received="Wed Apr 16 23:10:42 1997 " -->
+<!-- sent="Wed, 16 Apr 1997 23:05:56 -0400" -->
+<!-- name="Jim Paradis" -->
+<!-- email="jrp@jrp.tiac.net" -->
+<!-- subject="SIGFPE -- the answer" -->
+<!-- id="Pine.A32.3.91.970416195518.18696A-100000@olvera.seas.ucla.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>SIGFPE -- the answer</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>SIGFPE -- the answer</h2>
+
+<b>Jim Paradis</b> (<a href="mailto:jrp@jrp.tiac.net"><i>jrp@jrp.tiac.net</i></a>)<br>
+<i>Wed, 16 Apr 1997 23:05:56 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#762">[ date ]</a><a href="index.html#762">[ thread ]</a><a href="subject.html#762">[ subject ]</a><a href="author.html#762">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0763.html">Anthony Pardini: "Re: SSH"</a>
+<li> <b>Previous message:</b> <a href="0761.html">CHIH-HSIANG HENRY YAO: "Re: some questions."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0768.html">Uncle George: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0768.html">Uncle George: "Re: SIGFPE -- the answer"</a>
+<li> <b>Reply:</b> <a href="0789.html">Richard Henderson: "Re: some questions."</a>
+<li> <b>Maybe reply:</b> <a href="0796.html">Jim Paradis: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0801.html">Randy Chapman: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0893.html">David Mosberger-Tang: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0919.html">Randy Chapman: "Re: SIGFPE -- the answer"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+[ cc'ed to axp-list for everyone's edification ]<br>
+Randy,<br>
+<p>
+I can be soooo dense sometimes.  Remember the divide-by-zero<br>
+exception handling problem you were having?  I figured out what<br>
+was *really* going on.<br>
+<p>
+Seeing as I wrote the floating-point emulation code for Linux/Alpha<br>
+(or, more accurately, I wrote the code for another project which I<br>
+then gave to David M-T to hammer into the Linux sources), I shoulda<br>
+known this.<br>
+<p>
+Anyhow: there is a way to turn off those nasty SIGFPE's and get the<br>
+results you want.  It's a "secret" system call (osf_setsysinfo) <br>
+which can be used to set the floating-point exception enable bits <br>
+in the process struct.<br>
+<p>
+Here's da goods:  To read and write the floating-point exception <br>
+enable bits, you can use the following routines:<br>
+<p>
+	#include &lt;asm/fpu.h&gt;<br>
+<p>
+	#define __NR_getsysinfo 256<br>
+	#define __NR_setsysinfo 257<br>
+<p>
+	unsigned long read_fpe_bits()<br>
+	{<br>
+	    unsigned long fpcw;<br>
+	    syscall(__NR_getsysinfo, 45, &amp;fpcw, sizeof(fpcw), 0, 0);<br>
+	    return(fpcw &amp; IEEE_TRAP_ENABLE_MASK);<br>
+	}<br>
+<p>
+	void write_fpe_bits(unsigned long fpcw)<br>
+	{<br>
+	    syscall(__NR_setsysinfo, 14, &amp;fpcw, sizeof(fpcw), 0, 0);<br>
+	}<br>
+<p>
+The bits themselves are defined in /usr/include/asm/fpu.h.<br>
+Look for "IEEE_TRAP_ENABLE_xxx".  Apparently INV (invalid operand),<br>
+DZE (divide-by-zero) and OVF (overflow) are turned ON by default<br>
+for all processes, and you have to turn them off manually.<br>
+<p>
+Hope this helps!<br>
+<p>
+<pre>
+-- 
+Jim Paradis   <a href="mailto:jrp@jrp.tiac.net">jrp@jrp.tiac.net</a>  
+<a href="http://www.tiac.net/users/jrp/index.html">http://www.tiac.net/users/jrp/index.html</a>
+"It's not procrastination, it's my new Just-In-Time Workload Management
+System!"
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0763.html">Anthony Pardini: "Re: SSH"</a>
+<li> <b>Previous message:</b> <a href="0761.html">CHIH-HSIANG HENRY YAO: "Re: some questions."</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0768.html">Uncle George: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0768.html">Uncle George: "Re: SIGFPE -- the answer"</a>
+<li> <b>Reply:</b> <a href="0789.html">Richard Henderson: "Re: some questions."</a>
+<li> <b>Maybe reply:</b> <a href="0796.html">Jim Paradis: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0801.html">Randy Chapman: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0893.html">David Mosberger-Tang: "Re: SIGFPE -- the answer"</a>
+<li> <b>Maybe reply:</b> <a href="0919.html">Randy Chapman: "Re: SIGFPE -- the answer"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

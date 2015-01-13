@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: kernel upgrade</TITLE>
+<META NAME="Author" CONTENT="Paul Slootman (paul@wau.mis.ah.nl)">
+<META NAME="Subject" CONTENT="Re: kernel upgrade">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: kernel upgrade</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 19 08:28:10 1999" -->
+<!-- isoreceived="19990819152810" -->
+<!-- sent="Thu, 19 Aug 1999 09:56:41 +0200" -->
+<!-- isosent="19990819075641" -->
+<!-- name="Paul Slootman" -->
+<!-- email="paul@wau.mis.ah.nl" -->
+<!-- subject="Re: kernel upgrade" -->
+<!-- id="19990819095641.B26958@wau.mis.ah.nl" -->
+<!-- inreplyto="Pine.GSO.4.02.9908181837590.587-100000@serv1.jump.net" -->
+<STRONG>Subject: </STRONG>Re: kernel upgrade<BR>
+<STRONG>From: </STRONG>Paul Slootman (<EM>paul@wau.mis.ah.nl</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 19 1999 - 00:56:41 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#105">[ date ]</A>
+<A HREF="index.html#105">[ thread ]</A>
+<A HREF="subject.html#105">[ subject ]</A>
+<A HREF="author.html#105">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0106.html">Paul Slootman: "strange phenomena on potato"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0104.html">Bart Warmerdam: "Re: Bug#43137: dqs can't load shared libs"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0101.html">Robb Romans: "Re: kernel upgrade"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0101.html">Paul Slootman: "Re: kernel upgrade"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wed 18 Aug 1999, Robb Romans wrote:
+<BR>
+<EM>&gt; On Tue, 17 Aug 1999, Paul Slootman wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; On Sun 15 Aug 1999, Ryan Kirkpatrick wrote:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; &gt; &gt; Don't use 2.2.11. It's br0ken. 2.2.12 will be out on monday or tuesday.
+</EM><BR>
+<EM>&gt; &gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; &gt; 	I will second this. The best it did on my XLT was kernel panic
+</EM><BR>
+<EM>&gt; &gt; &gt; when trying to initialize my SCSI controllers. I would recommend 2.2.5 or
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I tried this myself yesterday (2.2.11 that is), and the ncr53c8xx and
+</EM><BR>
+<EM>&gt; &gt; sym53c8xx drivers think that there's some problem with the cache, as it
+</EM><BR>
+<EM>&gt; &gt; detects that the script isn't running (the script that gets executed by
+</EM><BR>
+<EM>&gt; &gt; the 810 chip that is). I tried the 53c7,8xx driver, same problem only
+</EM><BR>
+<EM>&gt; &gt; worded differently :-(
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I saw this exact thing on an XL300 with a 53c810a and 53c875.
+</EM><BR>
+<P>I've since got a fix via the kernel list after I posted all the details
+<BR>
+of my crash:
+<BR>
+<P><EM>: From: Gerard Roudier &lt;groudier@club-internet.fr&gt;
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: &gt; I just verified that I still have this problem with 2.2.12-final.
+</EM><BR>
+<EM>: &gt; The symptom:
+</EM><BR>
+<EM>: &gt;
+</EM><BR>
+<EM>: &gt;     sym53c8xx: 53c810a detected
+</EM><BR>
+<EM>: &gt;     sym53c810a-0: rev=0x11, base=0xa000000, io_port=0x9800, irq=28
+</EM><BR>
+<EM>: &gt;     sym53c810a-0: ID=7, Fast-IO, Parity Checking
+</EM><BR>
+<EM>: &gt;     CACHE TEST FAILED: script exection failed
+</EM><BR>
+<EM>: &gt;     start=80292d08, pc=80292d08, end=80292d28
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: The DMA area is supposed to start at 1GB as seen from the BUS but the bus
+</EM><BR>
+<EM>: addresses above (start, pc and end) are beyond 2 GB. If your machine has
+</EM><BR>
+<EM>: less than 1 GB, then it is quite abnormal.
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: In earlier versions both dma base and size were 1GB. Only the dma size has
+</EM><BR>
+<EM>: been changed to 2GB but not the dma base.
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: There is some dubious section in core_cia.h that seems to confuse dma base
+</EM><BR>
+<EM>: and dma size. If it is so, this just break virt_to_bus() translations and
+</EM><BR>
+<EM>: explains the breakage and the offending bus addresses above as well:
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: You should give a try to the below simple changes (do it by hand):
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>:  #if defined(CONFIG_ALPHA_GENERIC) || defined(CONFIG_ALPHA_SRM_SETUP)
+</EM><BR>
+<EM>:  #define CIA_DMA_WIN_BASE               alpha_mv.dma_win_base
+</EM><BR>
+<EM>:  #define CIA_DMA_WIN_SIZE               alpha_mv.dma_win_size
+</EM><BR>
+<EM>:  #else
+</EM><BR>
+<EM>: -#define CIA_DMA_WIN_BASE               CIA_DMA_WIN_SIZE_DEFAULT
+</EM><BR>
+<EM>: +#define CIA_DMA_WIN_BASE               CIA_DMA_WIN_BASE_DEFAULT
+</EM><BR>
+<EM>:  #define CIA_DMA_WIN_SIZE               CIA_DMA_WIN_SIZE_DEFAULT
+</EM><BR>
+<EM>:  #endif
+</EM><BR>
+<EM>:
+</EM><BR>
+<EM>: By the way, the core_pyxis stuff seems fine in this regard.
+</EM><BR>
+<P>The last line is the reason why other people had this problem fixed in
+<BR>
+2.2.11, and I still had problems... And yes, I didn't choose the generic
+<BR>
+system type. What are the advantages of either? I could imagine that a
+<BR>
+kernel built for the generic system type might be suboptimal...
+<BR>
+<P><P>Paul Slootman
+<BR>
+<PRE>
+-- 
+home:       paul@wurtel.demon.nl <A HREF="http://www.wurtel.demon.nl/">http://www.wurtel.demon.nl/</A>
+work:       paul@murphy.nl       <A HREF="http://www.murphy.nl/">http://www.murphy.nl/</A>
+debian:     paul@debian.org      <A HREF="http://www.debian.org/">http://www.debian.org/</A>
+isdn4linux: paul@isdn4linux.de   <A HREF="http://www.isdn4linux.de/">http://www.isdn4linux.de/</A>
+<P><P>--  
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0106.html">Paul Slootman: "strange phenomena on potato"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0104.html">Bart Warmerdam: "Re: Bug#43137: dqs can't load shared libs"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0101.html">Robb Romans: "Re: kernel upgrade"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0101.html">Paul Slootman: "Re: kernel upgrade"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:07 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,91 @@
+<!-- received="Sat Jun 29 21:08:35 1996 " -->
+<!-- sent="Sat, 29 Jun 1996 21:08:35 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="ncr810 disconnect fix?" -->
+<!-- id="199606300408.VAA07137@panda.azstarnet.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>ncr810 disconnect fix?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>ncr810 disconnect fix?</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Sat, 29 Jun 1996 21:08:35 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#442">[ date ]</a><a href="index.html#442">[ thread ]</a><a href="subject.html#442">[ subject ]</a><a href="author.html#442">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0443.html">Harald Koenig: "HELP!!! XL-266 dead ?!"</a>
+<li> <b>Previous message:</b> <a href="0441.html">Eduardo Kaftanski: "Re: which web-browser"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0446.html">Gerard Roudier: "Re: ncr810 disconnect fix?"</a>
+<li> <b>Reply:</b> <a href="0446.html">Gerard Roudier: "Re: ncr810 disconnect fix?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Well, for those of you who don't want to switch to a whole new driver<br>
+because of the ncr810 DISCONNECT bug, here is something to try: just<br>
+delete the following lines in linux/arch/alpha/kernel/irq.c:device_interrupt:<br>
+<p>
+	if (action) {<br>
+		/* quick interrupts get executed with no extra overhead */<br>
+		if (action-&gt;flags &amp; SA_INTERRUPT) {<br>
+			while (action) {<br>
+				action-&gt;handler(irq, action-&gt;dev_id, regs);<br>
+				action = action-&gt;next;<br>
+			}<br>
+			ack_irq(ack);<br>
+			return;<br>
+		}<br>
+	}<br>
+<p>
+I have tried this on a Cabriolet with disconnect enabled and have not<br>
+been able to crash the machine anymore.  Not proof positive, but it<br>
+looks good.  Could other people try this and let me know whether it<br>
+works?  In particular hearing from people with SCSI tape drives would<br>
+be interesting.<br>
+<p>
+Linus found this bug while we were discussing how to best fix a bug in<br>
+_another_ driver (qlogicisp1020).  Turns out that both the Alpha<br>
+version and the x86 version had seemingly sane interpretation of what<br>
+the SA_INTERRUPT flag meant.  Problem is: the two interpretations were<br>
+different!  Overall, this had the effect of leading to race conditions<br>
+in certain drivers (notably the qlogicisp).  Now that everything is in<br>
+sync, it works much better.  It also means that for the Alpha, the<br>
+setting of SA_INTERRUPT has no effect whatsoever.<br>
+<p>
+	--david<br>
+<p>
+PS: I have some other (cleanup) patches for irq.c, so if you plan on<br>
+    changing that code very soon, give a holler.<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0443.html">Harald Koenig: "HELP!!! XL-266 dead ?!"</a>
+<li> <b>Previous message:</b> <a href="0441.html">Eduardo Kaftanski: "Re: which web-browser"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0446.html">Gerard Roudier: "Re: ncr810 disconnect fix?"</a>
+<li> <b>Reply:</b> <a href="0446.html">Gerard Roudier: "Re: ncr810 disconnect fix?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

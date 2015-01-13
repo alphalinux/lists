@@ -1,0 +1,146 @@
+<!-- received="Fri Jan 19 11:15:42 1996 " -->
+<!-- sent="Fri, 19 Jan 96 11:15:42 MET" -->
+<!-- name="Ka'plaagh  19-Jan-1996 1023 +0000" -->
+<!-- email="rusling@rdgeng.enet.dec.com" -->
+<!-- subject="New Milo images/src + Milo/Linux on the XL266" -->
+<!-- id="199601191015.LAA20985@vbormc.vbo.dec.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>New Milo images/src + Milo/Linux on the XL266</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>New Milo images/src + Milo/Linux on the XL266</h2>
+
+<b>Ka'plaagh  19-Jan-1996 1023 +0000</b> (<a href="mailto:rusling@rdgeng.enet.dec.com"><i>rusling@rdgeng.enet.dec.com</i></a>)<br>
+<i>Fri, 19 Jan 96 11:15:42 MET</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#84">[ date ]</a><a href="index.html#84">[ thread ]</a><a href="subject.html#84">[ subject ]</a><a href="author.html#84">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0085.html">Donnie Barnes: "Re: Mosaic"</a>
+<li> <b>Previous message:</b> <a href="0083.html">Subir Sachdev: "Re: Mosaic"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0086.html">Nigel.Metheringham: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<li> <b>Maybe reply:</b> <a href="0086.html">Nigel.Metheringham: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<li> <b>Maybe reply:</b> <a href="0088.html">Ka'plaagh  19-Jan-1996 1651 +0000: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+All,<br>
+	there are now new, updated Milo images on gatekeeper.<br>
+Here are the highlights:<br>
+<p>
+(1) Timer fixes from Linus that fix floppy problems including<br>
+Milo going south when you type "ls fd" and there's no floppy<br>
+in the drive.<br>
+<p>
+(2) EB164.  Fully working Milos including flashable images as<br>
+well as ARC-loadable images.  I'm working on a set of 1.3.57<br>
+relative patches to give to David Mosberger-Tang and to Linus.<br>
+<p>
+(3) XL266 - (Avanti/Mustang).   Hot off the presses, ARC loadable<br>
+Milo for these systems plus a working 1.3.57 kernel (including<br>
+David Mosberger-Tang's patches) in Miniloader/kernels/XL-1.3.57.gz.<br>
+This image allows Red Hat to be installed.  I've included the changes<br>
+to irq.c at the end of this mail.<br>
+<p>
+(4) Latest sources are in /src/milo-1.3.57-011896.tgz.  These include<br>
+the PALcode etc required for EB164 and XL.<br>
+<p>
+(5) AlphaPC64 images have the latest, faster NCR SCSI drivers in<br>
+them, making booting faster.<br>
+<p>
+I have tried out all of the images (in /images/*) and they work<br>
+fine for me.  I've also moved the old images into /archive.  Let<br>
+me know if there are any problems.<br>
+<p>
+Cheers	Dave<br>
+<p>
+--------------------------------------------------------------------------------<br>
+David A Rusling					<a href="mailto:david.rusling@reo.mts.dec.com">david.rusling@reo.mts.dec.com</a><br>
+Principal Engineer				Digital Equipment Co. Limited<br>
+European Semiconductor				P.O. BOX 121<br>
+	Applications Engineering		Imperial Way,<br>
+						Worton Grange<br>
+						Reading RG2 0TU<br>
+						UK<br>
+						UK-(0)1734-204380<br>
+<p>
+------ changes to irq.c to allow XL to boot via ARC Milo ----------<br>
+------ Add the following elif line to do_entInt -------------------<br>
+<p>
+#elif NR_IRQS == 16<br>
+			isa_device_interrupt(vector, &amp;regs) ;<br>
+#endif<br>
+<p>
+<i>&gt;</i><br>
+<i>&gt;	You need this because the Avanti PALcode (based on EB64+/Cabriolet)</i><br>
+<i>&gt;	does not process the interrupts (like Noname does) and so the </i><br>
+<i>&gt;	kernel has to.  </i><br>
+<i>&gt;</i><br>
+----- and you get the following ------------------------------------<br>
+<p>
+asmlinkage void do_entInt(unsigned long type, unsigned long vector, unsigned long la_ptr,<br>
+	unsigned long a3, unsigned long a4, unsigned long a5,<br>
+	struct pt_regs regs)<br>
+{<br>
+	switch (type) {<br>
+		case 0:<br>
+			printk("Interprocessor interrupt? You must be kidding\n");<br>
+			break;<br>
+		case 1:<br>
+			timer_interrupt(&amp;regs);<br>
+			return;<br>
+		case 2:<br>
+			machine_check(vector, la_ptr, &amp;regs);<br>
+			return;<br>
+		case 3:<br>
+#if defined(CONFIG_ALPHA_JENSEN) || defined(CONFIG_ALPHA_NONAME) || \<br>
+    defined(CONFIG_ALPHA_SRM)<br>
+			srm_device_interrupt(vector, &amp;regs);<br>
+#elif NR_IRQS == 33<br>
+			cabriolet_and_eb66p_device_interrupt(vector, &amp;regs);<br>
+#elif NR_IRQS == 32<br>
+			eb66_and_eb64p_device_interrupt(vector, &amp;regs);<br>
+#elif NR_IRQS == 16<br>
+			isa_device_interrupt(vector, &amp;regs) ;<br>
+#endif<br>
+			return;<br>
+		case 4:<br>
+			printk("Performance counter interrupt\n");<br>
+			break;;<br>
+		default:<br>
+			printk("Hardware intr %ld %lx? Huh?\n", type, vector);<br>
+	}<br>
+	printk("PC = %016lx PS=%04lx\n", regs.pc, regs.ps);<br>
+}<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0085.html">Donnie Barnes: "Re: Mosaic"</a>
+<li> <b>Previous message:</b> <a href="0083.html">Subir Sachdev: "Re: Mosaic"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0086.html">Nigel.Metheringham: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<li> <b>Maybe reply:</b> <a href="0086.html">Nigel.Metheringham: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<li> <b>Maybe reply:</b> <a href="0088.html">Ka'plaagh  19-Jan-1996 1651 +0000: "Re: New Milo images/src + Milo/Linux on the XL266"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

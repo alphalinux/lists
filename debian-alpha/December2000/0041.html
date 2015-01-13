@@ -1,0 +1,966 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: possible glibc bug?</TITLE>
+<META NAME="Author" CONTENT="Luke Shulenburger (sluke@bartender.mit.edu)">
+<META NAME="Subject" CONTENT="possible glibc bug?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>possible glibc bug?</H1>
+<HR>
+<P>
+<!-- received="Fri Dec 08 06:02:16 2000" -->
+<!-- isoreceived="20001208140216" -->
+<!-- sent="Thu, 07 Dec 2000 18:18:44 -0500" -->
+<!-- isosent="20001207231844" -->
+<!-- name="Luke Shulenburger" -->
+<!-- email="sluke@bartender.mit.edu" -->
+<!-- subject="possible glibc bug?" -->
+<!-- id="3A301AD3.C88B70DA@bartender.mit.edu" -->
+<STRONG>Subject: </STRONG>possible glibc bug?<BR>
+<STRONG>From: </STRONG>Luke Shulenburger (<EM>sluke@bartender.mit.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Dec 07 2000 - 15:18:44 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#41">[ date ]</A>
+<A HREF="index.html#41">[ thread ]</A>
+<A HREF="subject.html#41">[ subject ]</A>
+<A HREF="author.html#41">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0042.html">Luke Shulenburger: "Re: possible glibc bug?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0040.html">Stuart Anderson: "Re: [Xpert] stripping X server modules on Alpha makes them unusable"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0042.html">Luke Shulenburger: "Re: possible glibc bug?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello,
+<BR>
+<P>I am a student taking a c programming class (I'm a fortran hacker) and
+<BR>
+I believe I may have stumbled across a bug in libc for potato.  I'm
+<BR>
+attaching
+<BR>
+my code.  Please be kind as I am quite new at c.  Anyway, if I run the
+<BR>
+program,
+<BR>
+tell it that I have 2 variables, t=0.0, y1 = 1.0, y2 = 10.0, RTOL =
+<BR>
+1.0e-5,
+<BR>
+ATOL = 1.0e-200, I have no problems, the program exits normally.  If
+<BR>
+I give it
+<BR>
+the exact same inputs, but change RTOL to 1.0e-7, the program dies with
+<BR>
+a
+<BR>
+seg fault.  I thought this was interesting, so I tried running it in gdb
+<BR>
+and it said that
+<BR>
+the program died like so:
+<BR>
+<P>Program received signal SIGSEGV, Segmentation fault.
+<BR>
+0x2000011fb04 in chunk_free () from /lib/libc.so.6.1
+<BR>
+<P>I tried several things to clear this up, but couldn't figure it out, so
+<BR>
+I tried using
+<BR>
+ccc instead of gcc and got the same thing.  The thing that led me to
+<BR>
+think it
+<BR>
+might be a bug in the alpha version of glibc is that I took the same
+<BR>
+code and
+<BR>
+tried compiling it and running on an x86 running woody.  There were no
+<BR>
+problems
+<BR>
+when I tried that, I also attempted to compile it and run it  using gcc
+<BR>
+on a sparc running
+<BR>
+solaris.  Once again, I could not reproduce the same errors that I had
+<BR>
+gotten on
+<BR>
+my alpha.
+<BR>
+<P>Here is what information on gcc and the various libraries that I could
+<BR>
+scrape together
+<BR>
+for the different machines:
+<BR>
+<P>my alpha:
+<BR>
+gcc: version 2.95.2 20000220 (Debian GNU/Linux)
+<BR>
+libc: libc6.1_2.2-5_alpha.deb
+<BR>
+<P>the x86 box:
+<BR>
+gcc version 2.95.2 20000220 (Debian GNU/Linux)
+<BR>
+libc: glibc Version: 2.1.94-3
+<BR>
+<P>I can't get the c library version on the solaris box, but the gcc is:
+<BR>
+gcc version 2.95 19990728 (release)
+<BR>
+<P>Like I said earlier, I'm quite new to c, so this is in all likelihood
+<BR>
+just a programming
+<BR>
+error of mine that for some reason only manifests itself on alpha.
+<BR>
+Please be kind.
+<BR>
+And don't bother sending me corrections on the homework, first, I know
+<BR>
+this is not
+<BR>
+the place for that and second, it was already due :-)
+<BR>
+<P>Luke Shulenburger
+<BR>
+(sluke@mit.edu)
+<BR>
+<P><P><P><P><P>
+/*
+<BR>
+&nbsp;* 10.001 Fall 2000
+<BR>
+&nbsp;* Homework 12.0 solution
+<BR>
+&nbsp;* Written by L. Shulenburger
+<BR>
+&nbsp;* 12/1/00
+<BR>
+&nbsp;* sluke@mit.edu
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* This program uses the AM2 ode solver to take initial values of x[1] and x[2]
+<BR>
+&nbsp;* from the user as well as the initial time and to calculate the future values
+<BR>
+&nbsp;* for these variables given the functions exp_decay and exp_decayJJ.
+<BR>
+&nbsp;* 
+<BR>
+&nbsp;*/
+<BR>
+<P><P><P>#include &lt;stdio.h&gt;    /* needed for scanf, printf */
+<BR>
+#include &lt;stdlib.h&gt;   /* needed for malloc, calloc, and free */
+<BR>
+#include &lt;math.h&gt;     /* needed for exp and sqrt */
+<BR>
+#define NR_END 1      /* needed for dmatrix */
+<BR>
+#define FREE_ARG char*  /* needed for free_dmatrix and free_dvector */
+<BR>
+<P>double **dmatrix(long nrl, long nrh, long ncl, long nch);
+<BR>
+void free_dmatrix(double **m, long nrl, long nrh, long ncl, long nch);
+<BR>
+double *dvector(long nl, long nh);
+<BR>
+void free_dvector(double *v, long nl, long nh);
+<BR>
+void nrerror(char error_text[]);
+<BR>
+int Newton_solve(void FJ(double X[],double F[],double **,double *,int *),int N, double X0[], double p[], int ip[], double RTOL, double ATOL, double X[]);
+<BR>
+void gauss(double **a, double *b, double *x, int n);
+<BR>
+void exp_decay(double Y[], double F[], double **J, double param[], int iparam[]);
+<BR>
+void exp_decayJJ(double Y[], double FF[], double **JJ, double param[], int iparam[]);
+<BR>
+void AM2(double y[], int neq, double h, double param[], int iparam[], double RTOL, double ATOL, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void derivs(double Y[], double F[], double **J, double param[], int iparam[]),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void minme(double Y[], double FF[], double **JJ, double param[], int iparam[]));
+<BR>
+<P><P>int main(void)  {
+<BR>
+&nbsp;&nbsp;&nbsp;int neq, i, j, z;
+<BR>
+&nbsp;&nbsp;&nbsp;double RTOL, ATOL, *params, *save_params, *y, *yold, inith;
+<BR>
+&nbsp;&nbsp;&nbsp;int *iparams, steps, initsteps, flag, nsteps;
+<BR>
+&nbsp;&nbsp;&nbsp;FILE *ofp;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;ofp = fopen(&quot;output&quot;, &quot;w&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;nsteps = 10;
+<BR>
+&nbsp;&nbsp;&nbsp;neq = 4;
+<BR>
+&nbsp;&nbsp;&nbsp;do {     /* read in neq and make sure it is sane */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (neq &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;A positive integer number of variables must be specified.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;How many variables (excluding t) are in your model?\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scanf(&quot;%d&quot;, &amp;neq);
+<BR>
+&nbsp;&nbsp;&nbsp;} while (neq &lt; 0);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/* allocate space for vectors */
+<BR>
+&nbsp;&nbsp;&nbsp;params = calloc((neq+2), sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;save_params = calloc((neq+2), sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;y = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;yold = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;/* decrement pointers so y and yold will have 1 as offset */
+<BR>
+&nbsp;&nbsp;&nbsp;y--;
+<BR>
+&nbsp;&nbsp;&nbsp;yold--;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* read in the current time */
+<BR>
+&nbsp;&nbsp;&nbsp;printf(&quot;What is the initial value of the time in your model?\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;scanf(&quot;%lf&quot;, &amp;params[0]);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* read in initial values of all other variables */
+<BR>
+&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;%s%d%s\n&quot;, &quot;What is the initial value of variable &quot;, i, &quot; in your model?&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scanf(&quot;%lf&quot;, &amp;params[i]);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;RTOL = 5.0;
+<BR>
+&nbsp;&nbsp;&nbsp;do {     /* read in ROTL and make sure it is attainable */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (RTOL &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;A positive value of the relative error must be specified.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else if (RTOL &lt; 1e-12) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;That much accuracy cannot be attained with double precision\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;variables.  Please choose a less restrictive error tolerance.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;What is the maximum value for the relative error which is tolerable?\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scanf(&quot;%lf&quot;, &amp;RTOL);
+<BR>
+&nbsp;&nbsp;&nbsp;} while (RTOL &lt; 1e-12);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;ATOL = 5.0;
+<BR>
+&nbsp;&nbsp;&nbsp;do {     /* read in ROTL and make sure it is attainable */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (ATOL &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;A positive value of the absolute error must be specified.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else if (ATOL &lt; 1e-212) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;That much accuracy cannot be attained with double precision\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;variables.  Please choose a less restrictive error tolerance.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;What is the maximum value for the absolute error which is tolerable?\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scanf(&quot;%lf&quot;, &amp;ATOL);
+<BR>
+&nbsp;&nbsp;&nbsp;} while (ATOL &lt; 1e-212);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/* loop over all steps */
+<BR>
+&nbsp;&nbsp;&nbsp;for (z = 1; z &lt;= nsteps; z++) {
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inith = params[neq+1] = 0.1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;initsteps = steps = 10;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_params[i] = params[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* set initial guess for the value of y at t = t+1 to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* the value of y at t = t */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yold[i] = params[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* run AM2 over this interval with smaller and smaller h's until
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* each of the y's has converged */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(steps == 1000000) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;The requested accruacy cannot be achieved, sorry\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* reset parameters */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt;=neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;params[i] = save_params[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flag = 0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* get guess for value of y at t = t+1 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= steps; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AM2(y, neq, params[neq+1], params, iparams, RTOL, ATOL, exp_decay, exp_decayJJ);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j = 1; j &lt;= neq; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;params[j] = y[j];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* check convergence criteria and then copy y into yold */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (fabs((y[i] - yold[i])) &gt;= fabs(y[i]) * RTOL + ATOL) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flag++;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yold[i] = y[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;params[neq+1] = params[neq+1] / 10.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;steps = steps * 10;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while(flag != 0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* write results to a file */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(ofp, &quot;%.9g%s&quot;, params[i], &quot;    &quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(ofp, &quot;\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* free the space allocated for the pointers */
+<BR>
+&nbsp;&nbsp;&nbsp;params++; save_params++;
+<BR>
+&nbsp;&nbsp;&nbsp;y++;
+<BR>
+&nbsp;&nbsp;&nbsp;yold++;
+<BR>
+&nbsp;&nbsp;&nbsp;free(params);
+<BR>
+&nbsp;&nbsp;&nbsp;free(save_params);
+<BR>
+&nbsp;&nbsp;&nbsp;free(y);
+<BR>
+&nbsp;&nbsp;&nbsp;free(yold);
+<BR>
+&nbsp;&nbsp;&nbsp;fclose(ofp);
+<BR>
+&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P><P>/* this function uses the Adams Moulton second order method to take one step of
+<BR>
+&nbsp;* size h in integrating differential equations.  the new values are returned in
+<BR>
+&nbsp;* y[].  The initial values are passed down in param[1] and param[2]..., The
+<BR>
+&nbsp;* initial time is passed down in param[0]
+<BR>
+&nbsp;*/
+<BR>
+void AM2(double y[], int neq, double h, double param[], int iparam[], double RTOL, double ATOL, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void derivs(double Y[], double F[], double **J, double param[], int iparam[]), 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void minme(double Y[], double FF[], double **JJ, double param[], int iparam[])) {
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;double *FE, *oldslope, **J, *BE, *newslope;
+<BR>
+&nbsp;&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;FE = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;BE = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;oldslope = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;newslope = calloc(neq, sizeof(double));
+<BR>
+&nbsp;&nbsp;&nbsp;FE--; BE--; oldslope--; newslope--;
+<BR>
+&nbsp;&nbsp;&nbsp;J = dmatrix(1, neq, 1, neq);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* copy initial guesses from params into y */
+<BR>
+&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y[i] = param[i];
+<BR>
+&nbsp;&nbsp;&nbsp;}	
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* get the estimate of ynew from the forward euler method (put it in FE) */
+<BR>
+&nbsp;&nbsp;&nbsp;derivs(y, oldslope, J, param, iparam);
+<BR>
+&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FE[i] = y[i] + h * oldslope[i];
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* get slope from backward euler's method */
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* get value of y for evaluating derivative in BE method */
+<BR>
+&nbsp;&nbsp;&nbsp;param[0] = param[0] + h;
+<BR>
+&nbsp;&nbsp;&nbsp;Newton_solve(minme, neq, FE, param, iparam, 1.0e-10, 1.0e-200, BE);
+<BR>
+&nbsp;&nbsp;&nbsp;derivs(BE, newslope, J, param, iparam);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;/* calculate new value of y using AM2 */
+<BR>
+&nbsp;&nbsp;&nbsp;for (i = 1; i &lt;= neq; i++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y[i] = y[i] + (h / 2.0) * (newslope[i] + oldslope[i]);
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;FE++; oldslope++; BE++; newslope++;
+<BR>
+&nbsp;&nbsp;&nbsp;free_dmatrix(J, 1, neq, 1, neq);
+<BR>
+&nbsp;&nbsp;&nbsp;free(FE);
+<BR>
+&nbsp;&nbsp;&nbsp;free(BE);
+<BR>
+&nbsp;&nbsp;&nbsp;free(oldslope);
+<BR>
+&nbsp;&nbsp;&nbsp;free(newslope);
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;return;
+<BR>
+}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P>int Newton_solve(void FJ(double X[],double F[],double **,double *,int *),int N, double X0[], double p[], int ip[], double RTOL, double ATOL, double X[])  
+<BR>
+/* general multi-d Newton solver for F(X)=0.
+<BR>
+&nbsp;&nbsp;&nbsp;FJ returns F(X) and its Jacobian J(X). 
+<BR>
+&nbsp;&nbsp;&nbsp;At output, X[] holds the solution 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;and Niter is the number of iterations used. 
+<BR>
+&nbsp;&nbsp;&nbsp;Terminates if Niter reaches 500.   */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;int Niter,i,converged;
+<BR>
+&nbsp;&nbsp;&nbsp;double *F,*DX;
+<BR>
+&nbsp;&nbsp;&nbsp;double **J;
+<BR>
+&nbsp;&nbsp;&nbsp;J=dmatrix(1,N,1,N);  /* allocate memory for Jacobian */
+<BR>
+&nbsp;&nbsp;&nbsp;F=dvector(1,N); /* allocate memory for F (called &quot;residual vector&quot;) */
+<BR>
+&nbsp;&nbsp;&nbsp;DX=dvector(1,N);
+<BR>
+&nbsp;&nbsp;&nbsp;for(i=1;i&lt;=N;i++){X[i]=X0[i];} /* set X=X0 */
+<BR>
+&nbsp;&nbsp;&nbsp;Niter=0;
+<BR>
+&nbsp;&nbsp;&nbsp;do{  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Niter=Niter+1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;converged=1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FJ(X,F,J,p,ip);   /* evaluate F(X) and J(X) */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i=1;i&lt;=N;i++){F[i]=-F[i];}  /* switch sign of F */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gauss(J,F,DX,N);           /* solve for DX */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i=1;i&lt;=N;i++){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;X[i]=X[i]+DX[i];   /* update X */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* test for failure to converge: */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if((fabs(DX[i]))&gt;(RTOL*fabs(X[i])+ATOL))converged=-1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;}while((converged&lt;0)&amp;&amp;(Niter&lt;500)); 
+<BR>
+&nbsp;&nbsp;&nbsp;/* if not converged yet and not too many iterations, try again */
+<BR>
+&nbsp;&nbsp;&nbsp;free_dmatrix(J,1,N,1,N);   /* free memory used for J */
+<BR>
+&nbsp;&nbsp;&nbsp;free_dvector(F,1,N);       /* free memory used for F */
+<BR>
+&nbsp;&nbsp;&nbsp;free_dvector(DX,1,N);      /* free memory used for DX */
+<BR>
+&nbsp;&nbsp;&nbsp;return Niter;
+<BR>
+}
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+void exp_decay(double Y[], double F[], double **J, double param[], int iparam[]) {
+<BR>
+/* returns F(Y) and J(Y).With this F, both Y[1] and Y[2] decay exponentially from their initial values */ 
+<BR>
+&nbsp;&nbsp;&nbsp;F[1] = -Y[1]; 
+<BR>
+&nbsp;&nbsp;&nbsp;F[2] = -Y[2]; 
+<BR>
+&nbsp;&nbsp;&nbsp;J[1][1] = -1; 
+<BR>
+&nbsp;&nbsp;&nbsp;J[2][2] = -1; 
+<BR>
+&nbsp;&nbsp;&nbsp;J[1][2] = J[2][1] = 0; 
+<BR>
+return; 
+<BR>
+} 
+<BR>
+<P>void exp_decayJJ(double Y[], double FF[], double **JJ, double param[], int iparam[]) {
+<BR>
+/* returns FF(Y) and JJ(Y) suitable for use with AM2 solver. 
+<BR>
+&nbsp;* param[1] = Yold[1] 
+<BR>
+&nbsp;* param[2] = Yold[2] 
+<BR>
+&nbsp;* param[3] = the time step h */ 
+<BR>
+&nbsp;&nbsp;&nbsp;double h; 
+<BR>
+&nbsp;&nbsp;&nbsp;h=param[3]; 
+<BR>
+&nbsp;&nbsp;&nbsp;FF[1] = param[1] - Y[1] - (0.5*h*(param[1]+Y[1])); 
+<BR>
+&nbsp;&nbsp;&nbsp;FF[2] = param[2] - Y[2] - (0.5*h*(param[2]+Y[2])); 
+<BR>
+&nbsp;&nbsp;&nbsp;JJ[1][1] = -1 - 0.5*h; 
+<BR>
+&nbsp;&nbsp;&nbsp;JJ[2][2] = -1 - 0.5*h; 
+<BR>
+&nbsp;&nbsp;&nbsp;JJ[1][2] = JJ[2][1]= 0; 
+<BR>
+&nbsp;&nbsp;&nbsp;return; 
+<BR>
+} 
+<BR>
+<P>void gauss(double **a, double *b, double *x, int n) {
+<BR>
+/*    This program uses Gaussian Elimination with
+<BR>
+&nbsp;*     pivoting to solve the problem A x =b.
+<BR>
+&nbsp;*  Use is made of array offsets so that the indices go from 1 to n.
+<BR>
+&nbsp;*			
+<BR>
+&nbsp;*  Author(s): R. Sureshkumar (10 January 1997)
+<BR>
+&nbsp;*         Modified by: Gregory J. McRae (22 October 1997)
+<BR>
+&nbsp;*
+<BR>
+&nbsp;*  Usage:     gauss(a,b,x,n)
+<BR>
+&nbsp;*		   
+<BR>
+&nbsp;*		   a   - Matrix a[1..n][1..n]
+<BR>
+&nbsp;*		   b   - Right hand side vector b[1..n]
+<BR>
+&nbsp;*		   x   - Desired solution vector
+<BR>
+&nbsp;*		   n   - Matrix dimensions
+<BR>
+*/
+<BR>
+int   i,j,k,m,rowx;
+<BR>
+double xfac,temp,temp1,amax;
+<BR>
+<P>/*_______________________________________
+<BR>
+<P>&nbsp;&nbsp;Do the forward reduction step. 
+<BR>
+_______________________________________*/
+<BR>
+<P>&nbsp;&nbsp;&nbsp;rowx = 0;   /* Keep count of the row interchanges */
+<BR>
+&nbsp;&nbsp;&nbsp;for (k=1; k&lt;=n-1; ++k) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;amax = (double) fabs(a[k][k]) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m = k;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=k+1; i&lt;=n; i++){   /* Find the row with largest pivot */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xfac = (double) fabs(a[i][k]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(xfac &gt; amax) {amax = xfac; m=i;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(m != k) {  /* Row interchanges */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rowx = rowx+1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp1 = b[k];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[k]  = b[m];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[m]  = temp1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(j=k; j&lt;=n; j++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp = a[k][j];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a[k][j] = a[m][j];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a[m][j] = temp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=k+1; i&lt;=n; ++i) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xfac = a[i][k]/a[k][k];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (j=k+1; j&lt;=n; ++j) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a[i][j] = a[i][j]-xfac*a[k][j];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[i] = b[i]-xfac*b[k];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+/*_______________________________________
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;Do the back substitution step 
+<BR>
+_______________________________________*/
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;for (j=1; j&lt;=n; ++j) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;k=n-j+1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x[k] = b[k];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i=k+1; i&lt;=n; ++i) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x[k] = x[k]-a[k][i]*x[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;x[k] = x[k]/a[k][k];
+<BR>
+&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;return;
+<BR>
+}
+<BR>
+<P>void nrerror(char error_text[])
+<BR>
+/* Numerical Recipes standard error handler */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;Numerical Recipes run-time error...\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;%s\n&quot;,error_text);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,&quot;...now exiting to system...\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+}
+<BR>
+<P>double **dmatrix(long nrl, long nrh, long ncl, long nch)
+<BR>
+/* allocate a double matrix with subscript range m[nrl..nrh][ncl..nch] */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long i, nrow=nrh-nrl+1,ncol=nch-ncl+1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double **m;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* allocate pointers to rows */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m=(double **) malloc((size_t)((nrow+NR_END)*sizeof(double*)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!m) nrerror(&quot;allocation failure 1 in matrix()&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m += NR_END;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m -= nrl;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* allocate rows and set pointers to them */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m[nrl]=(double *) malloc((size_t)((nrow*ncol+NR_END)*sizeof(double)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!m[nrl]) nrerror(&quot;allocation failure 2 in matrix()&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m[nrl] += NR_END;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;m[nrl] -= ncl;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(i=nrl+1;i&lt;=nrh;i++) m[i]=m[i-1]+ncol;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* return pointer to array of pointers to rows */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return m;
+<BR>
+}
+<BR>
+<P>double *dvector(long nl, long nh)
+<BR>
+/* allocate a double vector with subscript range v[nl..nh] */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double *v;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v=(double *)malloc((size_t) ((nh-nl+1+NR_END)*sizeof(double)));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!v) nrerror(&quot;allocation failure in dvector()&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return v-nl+NR_END;
+<BR>
+}
+<BR>
+<P>void free_dmatrix(double **m, long nrl, long nrh, long ncl, long nch)
+<BR>
+/* free a double matrix allocated by dmatrix() */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free((FREE_ARG) (m[nrl]+ncl-NR_END));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free((FREE_ARG) (m+nrl-NR_END));
+<BR>
+}
+<BR>
+<P>void free_dvector(double *v, long nl, long nh)
+<BR>
+/* free a double vector allocated with dvector() */
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;free((FREE_ARG) (v+nl-NR_END));
+<BR>
+}
+<BR>
+<P><P>/* sample output:
+<BR>
+[sluke@bartender] ~/10.001/ps12/&gt; hw11_0.x 
+<BR>
+How many variables (excluding t) are in your model?
+<BR>
+2
+<BR>
+What is the initial value of the time in your model?
+<BR>
+0.0
+<BR>
+What is the initial value of variable 1 in your model?
+<BR>
+1.0
+<BR>
+What is the initial value of variable 2 in your model?
+<BR>
+10.0
+<BR>
+What is the maximum value for the relative error which is tolerable?
+<BR>
+1.0e-5
+<BR>
+What is the maximum value for the absolute error which is tolerable?
+<BR>
+1.0e-200
+<BR>
+<P><P>This generates the file output which looks like this:
+<BR>
+<P>1    0.367879411    3.67879411    
+<BR>
+2    0.135335261    1.35335261    
+<BR>
+3    0.0497870559    0.497870559    
+<BR>
+4    0.0183156328    0.183156328    
+<BR>
+5    0.00673794419    0.0673794419    
+<BR>
+6    0.00247875094    0.0247875094    
+<BR>
+7    0.000911881434    0.00911881434    
+<BR>
+8    0.000335462404    0.00335462404    
+<BR>
+9    0.000123409712    0.00123409712    
+<BR>
+10    4.53998919e-05    0.000453998919 
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+<P>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0042.html">Luke Shulenburger: "Re: possible glibc bug?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0040.html">Stuart Anderson: "Re: [Xpert] stripping X server modules on Alpha makes them unusable"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0042.html">Luke Shulenburger: "Re: possible glibc bug?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jan 02 2001 - 07:48:33 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,176 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: rxvt segmentation fault.... anyone know of a fix?</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: rxvt segmentation fault.... anyone know of a fix?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: rxvt segmentation fault.... anyone know of a fix?</H1>
+<HR>
+<P>
+<!-- received="Mon Dec 28 18:19:45 1998 PST" -->
+<!-- sent="Mon, 28 Dec 1998 11:19:00 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: rxvt segmentation fault.... anyone know of a fix?" -->
+<!-- id="199812281819.LAA13005@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="19981228104230.23265.qmail@hotmail.com" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20rxvt%20segmentation%20fault....%20anyone%20know%20of%20a%20fix?"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Mon, 28 Dec 1998 11:19:00 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#5">[ date ]</A>
+<A HREF="index.html#5">[ thread ]</A>
+<A HREF="subject.html#5">[ subject ]</A>
+<A HREF="author.html#5">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">Peter Petrakis: "Re[2]: funny colors with 2.1.132"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Lars Nordin: "Re: Trouble compiling 2.0.35 on 5.1 as200 - NCR53c810 SCSI controller not found"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0008.html">Matt Wagner: "Re: rxvt segmentation fault.... anyone know of a fix?"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Designer 7 wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Anyone tried using rxvt on alpha?
+</EM><BR>
+<P>Yes, I am using it all the time for some years (on alpha).
+<BR>
+<P><EM>&gt; I'm on kernel 2.1.131 w/ac11. Rxvt 
+</EM><BR>
+<EM>&gt; keeps crashing with segmentation fault and core dump.
+</EM><BR>
+<P>There is probably a long list of different versions of rxvt, recompiled
+<BR>
+with different headers and so on.
+<BR>
+<P><EM>&gt; I recompiled from source (with -g, no -O?), same problem. Then I tried 
+</EM><BR>
+<EM>&gt; to debug, but I'm not an expert with gdb (can anyone help?).
+</EM><BR>
+<P>Type 'info gdb'.  There are also some graphic front ends to gdb
+<BR>
+(like xgdb - if my memory serves me right).  It is also a good idea
+<BR>
+to run gdb from emacs (M-x gdb); gdb has extensive on-line help.
+<BR>
+gdb can be also attached to an already running process ('help attach'
+<BR>
+at gdb prompt).
+<BR>
+<P>BTW - it is usually a good idea to compile for debugging with -O2,
+<BR>
+or at least -O, flag; but not with -fomit-frame-pointer.  Once you
+<BR>
+will gain some experience with debugging with gdb you will see why.
+<BR>
+True, some variables may &quot;disappear&quot; but gains are bigger than
+<BR>
+losses.
+<BR>
+<P><EM>&gt; I got a 
+</EM><BR>
+<EM>&gt; message saying &quot;dl-debug.c: file does not exist&quot; when i tried a 'list' 
+</EM><BR>
+<EM>&gt; after rxvt seg faults.
+</EM><BR>
+<P>Does it exist?  Maybe you have to add a directory to a list of
+<BR>
+directories searched ('help dir' at gdb prompt).
+<BR>
+<P><EM>&gt; I tried a 'info line *0x????????' on the 
+</EM><BR>
+<EM>&gt; addresses that were outputed by gdb. This got me the message: &quot;no line 
+</EM><BR>
+<EM>&gt; info for 0x???????&quot;. Backtrace didn't give anything useful either.
+</EM><BR>
+<P>This sounds like one of two classics:
+<BR>
+&nbsp;&nbsp;- either there is &quot;off-by-one&quot; error somewhere and you write
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;past memory you allocated in a form of an automatic array on stack
+<BR>
+&nbsp;&nbsp;- or somebody is passing int to a function which expects long
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;or vice-versa (this bug is masked on Intel processor as long and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int happen there to have the same size) or something of a similar
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;kind.
+<BR>
+In both cases you already messed up your stack and an information
+<BR>
+you are trying to read is garbled and invalid.  You have to stop
+<BR>
+the whole process before that and trace down, step-by-step, to find out
+<BR>
+what is killing your stack.  Attaching 'strace' to your process and
+<BR>
+analizing its output while you performed actions leading to a crash
+<BR>
+can be of help here.
+<BR>
+<P>There are other ways to kill your stack but the two above are the
+<BR>
+most popular.  There can be a bad interaction with your kernel
+<BR>
+(some structures are misaligned) but in theory rxvt is a user space
+<BR>
+application and it should not care at all what kernel you are
+<BR>
+running.  This theory may be not entirely true in practice :-) but
+<BR>
+rxvt is not something which has to mess up with network packets,
+<BR>
+or something of that sort, so the theory should generally apply.
+<BR>
+<P><EM>&gt; Anyways... I'm going to try to figure out how to use gdb better... but 
+</EM><BR>
+<EM>&gt; in the mean time, does anyone know of this problem already? And is there 
+</EM><BR>
+<EM>&gt; a fix? Any suggestions on using gdb?
+</EM><BR>
+<P>This is a bit of mystery as I am using rxvt with various Red Hat
+<BR>
+distributions and I never seen something even close.  When you ask
+<BR>
+questions like that an information about your enviroment and versions
+<BR>
+of things you are using can be a crucial one.  It is missing from
+<BR>
+what you posted.
+<BR>
+<P>&nbsp;&nbsp;Michal
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20rxvt%20segmentation%20fault....%20anyone%20know%20of%20a%20fix?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20rxvt%20segmentation%20fault....%20anyone%20know%20of%20a%20fix?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.html">Peter Petrakis: "Re[2]: funny colors with 2.1.132"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.html">Lars Nordin: "Re: Trouble compiling 2.0.35 on 5.1 as200 - NCR53c810 SCSI controller not found"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0008.html">Matt Wagner: "Re: rxvt segmentation fault.... anyone know of a fix?"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:45 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,146 @@
+<!-- received="Wed May  8 20:06:58 1996 " -->
+<!-- sent="Wed, 8 May 1996 20:06:58 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: gdb" -->
+<!-- id="9605081612.AA16683@rsphy6.anu.edu.au" -->
+<!-- inreplyto="9605070748.AA16850@nova.tat.physik.uni-tuebingen.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: gdb</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: gdb</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Wed, 8 May 1996 20:06:58 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#134">[ date ]</a><a href="index.html#134">[ thread ]</a><a href="subject.html#134">[ subject ]</a><a href="author.html#134">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0135.html">Eric Youngdale: "Re: gdb"</a>
+<li> <b>Previous message:</b> <a href="0133.html">Paul Gortmaker: "Re: /dev/rtc on Jensen?"</a>
+<li> <b>In reply to:</b> <a href="0091.html">Harald Koenig: "gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0136.html">David  Mosberger: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 7 May 1996, Harald Koenig wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; does anyone have a patch for gdb which would allow to display the</i><br>
+<i>&gt; sybmolic destination of a JSR like this</i><br>
+<i>&gt; </i><br>
+<i>&gt;           a77db248        ldq     t12, -19896(gp)</i><br>
+<i>&gt;           6b5b6c2a        jsr     ra, (t12), 0x12004c0e4</i><br>
+<i>&gt; </i><br>
+<i>&gt; and other accesses via (gp) for the disassebmle or x/i instruction</i><br>
+<i>&gt; for a running process ?</i><br>
+<p>
+Umm, while I agree that it might make it a lot easier to debug things on the<br>
+alpha, I hope nobody writes a patch like that for gdb. The reason I hope that<br>
+is that I hope that it will be unnecessary. The _correct_ way to handle it is<br>
+to never generate those d*mn instructions in the first place. We need an<br>
+optimizing linker that gets rid of them and makes it into a single "bsr"<br>
+instruction instead. <br>
+<p>
+The reasons for doing it with "bsr":<br>
+ - it's smaller (no data space needed, and only 1 insn)<br>
+ - it's faster (roughly 10-1000 times faster! The load will stall, and it <br>
+   will stall a _lot_ if it wasn't in the cache)<br>
+ - it doesn't have any problems like the above when debugging - you see <br>
+   the bsr target quite well.<br>
+ - secondary issues: cache footprints etc.<br>
+<p>
+The reason it's not done with "bsr" now:<br>
+ - the compiler can't know at compile-time if the target will be within <br>
+   21 bits (or whatever the branch offset was). In 99% of all cases it <br>
+   _will_ be in range, and it's essentially just calling a shared library <br>
+   that can't be optimized.<br>
+ - thus the linker needs to do the optimizing, and the linker isn't <br>
+   clever enough (it should also look at the target, and jump over any <br>
+   "ldgp" instructions when it's within the same ldgp area).<br>
+<p>
+So if somebody wants to do something worthwhile on the alpha, and doesn't <br>
+like the instruction scheduling stuff, _this_ single optimization would <br>
+probably make more of a difference..  The easy way to handle it is within <br>
+the compiler (make gcc always use "bsr" and never reload "gp"), but that <br>
+doesn't work for the generic case, so it's not really worth pursuing (I <br>
+wrote patches to gcc that did it, but I threw them away after I noticed <br>
+all the problems with shared libs etc).<br>
+<p>
+gcc _does_ produce "bsr" calls, but only for local jumps (static <br>
+functions or calls to a function that was defined earlier in the same <br>
+source file). That makes it very inefficient to do subroutine calls (it's <br>
+not just the added instructions, it's the data segment access I don't <br>
+like either).<br>
+<p>
+There are some other optimizations that it would be interesting if gcc did:<br>
+"known alignment byte and word fetch/store". There are cases where you know<br>
+the alignment of a byte or short value (when the access is through a<br>
+structure or union that has guaranteed alignment due to other larger<br>
+members), but gcc creates code for the generic byte load case. For example: <br>
+<p>
+	struct example {<br>
+		struct example * next;<br>
+		unsigned char data;<br>
+	};<br>
+<p>
+gcc will compile "example-&gt;data = 1" as something like this (note the silly<br>
+"addq $16,8,$3", even though we are only interested in the low 7 bits of the<br>
+address for the byte masking ops, but note even more the whole broken<br>
+algorithm): <br>
+<p>
+        ldq_u $2,8($16)<br>
+        bis $31,1,$1<br>
+        addq $16,8,$3<br>
+        insbl $1,$3,$1<br>
+        mskbl $2,$3,$2<br>
+        bis $1,$2,$1<br>
+        stq_u $1,8($16)<br>
+<p>
+it _should_ be something like this (note that this example happens to be <br>
+exactly aligned on a 8-byte boundary, but the same thing works with very <br>
+minor modifications for any structure byte access, because we know what <br>
+the alignment withing the quadword should be): <br>
+<p>
+	ldq $1,8($16)<br>
+	zap $1,1,$1<br>
+	bis $1,1,$1<br>
+	stq $1,8($16)<br>
+<p>
+I would really like to get the code density a bit better - alpha binaries are<br>
+inherently larger than x86 and most others, but it doesn't exactly help that<br>
+gcc is stupid in some ways. And I'd like to work on gcc - I've done small<br>
+hacks before and it could be interesting - but I don't honestly think I'll<br>
+have the time to do anything real.. <br>
+<p>
+		Linus<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0135.html">Eric Youngdale: "Re: gdb"</a>
+<li> <b>Previous message:</b> <a href="0133.html">Paul Gortmaker: "Re: /dev/rtc on Jensen?"</a>
+<li> <b>In reply to:</b> <a href="0091.html">Harald Koenig: "gdb"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0136.html">David  Mosberger: "Re: gdb"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

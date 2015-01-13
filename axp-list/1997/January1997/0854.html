@@ -1,0 +1,162 @@
+<!-- received="Mon Jan 27 15:36:44 1997 " -->
+<!-- sent="Mon, 27 Jan 1997 15:22:53 -0500 (EST)" -->
+<!-- name="Daniel Gruner" -->
+<!-- email="dgruner@tikva.chem.utoronto.ca" -->
+<!-- subject="Re: ddd" -->
+<!-- id="199701272022.PAA08568@ tikva" -->
+<!-- inreplyto="199701272013.PAA13041@sobolev.dsm.fordham.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: ddd</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: ddd</h2>
+
+<b>Daniel Gruner</b> (<a href="mailto:dgruner@tikva.chem.utoronto.ca"><i>dgruner@tikva.chem.utoronto.ca</i></a>)<br>
+<i>Mon, 27 Jan 1997 15:22:53 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#854">[ date ]</a><a href="index.html#854">[ thread ]</a><a href="subject.html#854">[ subject ]</a><a href="author.html#854">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0855.html">jestabro@amt.tay1.dec.com: "Re: Sorry, One more UDB Question."</a>
+<li> <b>Previous message:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Hi.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Have you had any luck building ddd?</i><br>
+<p>
+I have a running ddd on my pentium box (where I also have the real motif).<br>
+<p>
+<p>
+<i>&gt; </i><br>
+<i>&gt; I have had the following experience:</i><br>
+<i>&gt; </i><br>
+<i>&gt; (1) The version of lesstif I have (on both our Intel and Alpha boxes)</i><br>
+<i>&gt;     was missing two header files (VirtKeys.h and VirtKeysP.h) that</i><br>
+<i>&gt;     seem to be needed.  For the purpose of trying things out, I</i><br>
+<i>&gt;     snarfed these files from a machine that has (real) Motif running</i><br>
+<i>&gt;     (an IBM RS6K running AIX). </i><br>
+<p>
+I had problems with lesstif on the alpha, and I think principally due<br>
+to the fact that lesstif is not 64 bit clean (too many warnings about<br>
+conversions between pointers and ints, which are not the same size).<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; (2) The make proceeded without incident on the Intel box.  However,</i><br>
+<i>&gt;     the ddd that was built didn't quite work right.  In particular,</i><br>
+<i>&gt;     text selection didn't work, so I couldn't do (e.g.) lookup.</i><br>
+<p>
+It doesn't work on the alpha, presumably due to lesstif.<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; (3) The make went almost OK on the Alpha, but I got the error msg from</i><br>
+<i>&gt;     /usr/include/g++/streambuf.h!  </i><br>
+<p>
+I posted a fix for this on the axp-list.  I will include at the end of this<br>
+the fixes to /usr/include/libio.h for the alpha (as I sent them to the list).<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Thoughts?</i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; Art Werschulz (8-{)}   "Metaphors be with you."  -- bumper sticker</i><br>
+<i>&gt; GCS/M (GAT): d? -p+ c++ l u+(-) e--- m* s n+ h f g+ w+ t++ r- y? </i><br>
+<i>&gt; Internet: <a href="mailto:agw@dsm.fordham.edu">agw@dsm.fordham.edu</a> &lt;a href="<a href="http://dsm.fordham.edu/~agw/">http://dsm.fordham.edu/~agw/</a>"&gt;WWW&lt;/a&gt;</i><br>
+<i>&gt; ATTnet:   Fordham U. (212) 636-6325, Columbia U. (212) 939-7061</i><br>
+<i>&gt; </i><br>
+<p>
+I hope it works for you.  I don't have high hopes on lesstif (unless you<br>
+want to do the dirty work of cleaning it up - I don't have time).  At least<br>
+you will have cleaner g++ compiles on the alpha.<br>
+<p>
+Daniel<br>
+<p>
+<p>
+=========================================================================<br>
+diff -c libio.h.orig libio.h<br>
+<p>
+*** libio.h.orig        Fri Jan 24 18:02:25 1997<br>
+--- libio.h     Fri Jan 24 18:02:42 1997<br>
+***************<br>
+*** 262,267 ****<br>
+--- 262,283 ----<br>
+  #define _IO_feof_unlocked(__fp) (((__fp)-&gt;_flags &amp; _IO_EOF_SEEN) != 0)<br>
+  #define _IO_ferror_unlocked(__fp) (((__fp)-&gt;_flags &amp; _IO_ERR_SEEN) != 0)<br>
+  <br>
++ #ifndef _IO_getc<br>
++ # define _IO_getc(f)  _IO_getc_unlocked(f)<br>
++ #endif<br>
++ #ifndef _IO_peekc<br>
++ # define _IO_peekc(f) _IO_peekc_unlocked(f)<br>
++ #endif<br>
++ #ifndef _IO_putc<br>
++ # define _IO_putc(c,f)        _IO_putc_unlocked(c,f)<br>
++ #endif<br>
++ #ifndef _IO_feof<br>
++ # define _IO_feof(f)  _IO_feof_unlocked(f)<br>
++ #endif<br>
++ #ifndef _IO_ferror<br>
++ # define _IO_ferror(f)        _IO_ferror_unlocked(f)<br>
++ #endif<br>
++ <br>
+  /* This one is for Emacs. */<br>
+  #define _IO_PENDING_OUTPUT_COUNT(_fp) \<br>
+        ((_fp)-&gt;_IO_write_ptr - (_fp)-&gt;_IO_write_base)<br>
+***************<br>
+*** 282,287 ****<br>
+--- 298,306 ----<br>
+  extern int _IO_vfprintf __P((_IO_FILE*, const char*, _IO_va_list));<br>
+  extern _IO_ssize_t _IO_padn __P((_IO_FILE *, int, _IO_ssize_t));<br>
+  extern _IO_size_t _IO_sgetn __P((_IO_FILE *, void*, _IO_size_t));<br>
++ <br>
++ extern _IO_fpos_t _IO_seekoff __P((_IO_FILE*, _IO_off_t, int, int));<br>
++ extern _IO_fpos_t _IO_seekpos __P((_IO_FILE*, _IO_fpos_t, int));<br>
+  <br>
+  extern void _IO_free_backup_area __P((_IO_FILE*));<br>
+<p>
+======================================================================<br>
+<p>
+<pre>
+-- 
+<p>
+Dr. Daniel Gruner                        <a href="mailto:dgruner@tikva.chem.utoronto.ca">dgruner@tikva.chem.utoronto.ca</a>
+Dept. of Chemistry                       phone:  (416)-978-8689
+University of Toronto                    fax:    (416)-978-5325
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0855.html">jestabro@amt.tay1.dec.com: "Re: Sorry, One more UDB Question."</a>
+<li> <b>Previous message:</b> <a href="0853.html">Claus Denk: "compiler efficency"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

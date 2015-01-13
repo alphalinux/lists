@@ -1,0 +1,153 @@
+<!-- received="Sun Aug 24 12:13:37 1997 " -->
+<!-- sent="Sun, 24 Aug 1997 12:17:16 -0400 (EDT)" -->
+<!-- name="Steven N. Hirsch" -->
+<!-- email="shirsch@ibm.net" -->
+<!-- subject="milo success &lt;whew..&gt;" -->
+<!-- id="199708230001.SAA19102@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>milo success &lt;whew..&gt;</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>milo success &lt;whew..&gt;</h2>
+
+<b>Steven N. Hirsch</b> (<a href="mailto:shirsch@ibm.net"><i>shirsch@ibm.net</i></a>)<br>
+<i>Sun, 24 Aug 1997 12:17:16 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#457">[ date ]</a><a href="index.html#457">[ thread ]</a><a href="subject.html#457">[ subject ]</a><a href="author.html#457">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0458.html">J. Eric Mutter: "Sound?"</a>
+<li> <b>Previous message:</b> <a href="0456.html">Steven N. Hirsch: "Building milo (cont.)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+All,<br>
+<p>
+After a protracted battle, I've built an operational milo for my UDB.<br>
+There were really two problems:<br>
+<p>
+1) The milo-2.0.30 Makefile does not contain a proper action to link the<br>
+'objstrip' executable.<br>
+<p>
+2) The x86-digital BIOS emulator hangs the machine after "Swapping to PAL<br>
+code..".  The x86 variant _does_ work, but requires a small patch to<br>
+compile.<br>
+<p>
+Anyway, here 'tis:<br>
+<p>
+*** milo-2.0.30/Makefile.orig	Mon Jul 28 06:43:53 1997<br>
+--- milo-2.0.30/Makefile	Sat Aug 23 17:20:09 1997<br>
+***************<br>
+*** 563,568 ****<br>
+--- 563,573 ----<br>
+  #	The tools that we need to build the miniloader.<br>
+  # ----------------------------------------------------------------------------<br>
+  <br>
++ $(OBJSTRIP): $(KSRC)/arch/alpha/boot/tools/objstrip.o<br>
++ 	$(CC) -o $(OBJSTRIP) \<br>
++ 		$(KSRC)/arch/alpha/boot/tools/objstrip.o \<br>
++ 		$(KSRC)/arch/alpha/lib/memset.o<br>
++ <br>
+  tools:	$(TOOLS)<br>
+  <br>
+  tools/bin/clist:	tools/list/clist.c tools/common/commlib.a<br>
+*** milo-2.0.30/x86_sysenv.c.orig	Sun Aug 24 00:36:22 1997<br>
+--- milo-2.0.30/x86_sysenv.c	Sun Aug 24 00:34:32 1997<br>
+***************<br>
+*** 40,45 ****<br>
+--- 40,49 ----<br>
+  #include "sysenv.h"<br>
+  #include "host.h"<br>
+  <br>
++ void *malloc(int size)<br>
++ {   return vmalloc(size);<br>
++ }<br>
++ <br>
+  #ifdef MINI_DIGITAL_BIOSEMU<br>
+  /*<br>
+   *  Use Digital's BIOS emulation technology to set up the video device.<br>
+***************<br>
+*** 97,106 ****<br>
+  unsigned int PCIGetNumberOfBusses(void) <br>
+  {<br>
+      return pci_root.subordinate;<br>
+- }<br>
+- <br>
+- void *malloc(int size)<br>
+- {   return vmalloc(size);<br>
+  }<br>
+  <br>
+  #ifdef NOT_NOW<br>
+--- 101,106 ----<br>
+<p>
+<p>
+This is the .config file used to build an operational milo:<br>
+<p>
+#<br>
+# Automatically generated make config: don't edit<br>
+#<br>
+<p>
+#<br>
+# Alpha Linux Miniloader setup<br>
+#<br>
+# MINI_SERIAL_ECHO is not set<br>
+# MINI_DIGITAL_BIOSEMU is not set<br>
+# CONFIG_ALPHA_LX164 is not set<br>
+MINI_BUILD_PALCODE_FROM_SOURCES=y<br>
+ <br>
+It probably isn't necessary to rebuild the palcode from sources, but it<br>
+worked for me.<br>
+<p>
+Milo must be built using this command line:<br>
+<p>
+$ KSRC=/usr/src/linux make<br>
+<p>
+(where "KSRC" is the appropriate base directory for your alpha-patched<br>
+Linux source).<br>
+<p>
+Can these fixes find their way into the sources on Gatekeeper?<br>
+<p>
+The _real_ good news is that my long-running problem with milo not seeing<br>
+the partitions on my second SCSI drive is fixed &lt;g&gt;.  I can now start<br>
+Linux directly from /dev/sdb5 without "two-stepping" through a little<br>
+partition on the first drive.  <br>
+<p>
+<p>
+Steve<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0458.html">J. Eric Mutter: "Sound?"</a>
+<li> <b>Previous message:</b> <a href="0456.html">Steven N. Hirsch: "Building milo (cont.)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

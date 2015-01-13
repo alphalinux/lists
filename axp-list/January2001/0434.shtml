@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> bad routing performance in AS200</H1> 
+	
+<!-- received="Wed Jan 31 11:11:03 2001" -->
+<!-- isoreceived="20010131191103" -->
+<!-- sent="Wed, 31 Jan 2001 11:50:34 +0100" -->
+<!-- isosent="20010131105034" -->
+<!-- name="Ingo T. Storm" -->
+<!-- email="tux-axp@computerbild.de" -->
+<!-- subject="bad routing performance in AS200" -->
+<!-- id="007a01c08b73$c0242cb0$2e2ca8c0@buxtown.de" -->
+<!-- inreplyto="000b01c0889c$124bb100$0200a8c0@halfcomp" -->
+<STRONG>Subject: </STRONG>bad routing performance in AS200<BR>
+<STRONG>From: </STRONG>Ingo T. Storm (<EM>tux-axp@computerbild.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jan 31 02:50:34 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#434">[ date ]</A>
+<A HREF="index.shtml#434">[ thread ]</A>
+<A HREF="subject.shtml#434">[ subject ]</A>
+<A HREF="author.shtml#434">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0435.shtml">Sebastian Moeller: "Jensen kernel 2.2.18 and parport"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0433.shtml">Eugene Chu: "Re: Cray chooses Alpha Linux ..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0444.shtml">Hoover, Tony: "RE: bad routing performance in AS200"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>(please be kind: I am NO hacker by any means, just an admin with little AXP
+<BR>
+experience wondering if his AS200s are really slow)
+<BR>
+<P>I am (still;-) trying to set up a netfilter/iptables firewall on an AS200
+<BR>
+(233MHz, 128 MB) or (if it the AS200 doesn't cut it) a Ruffian (533 MHz,
+<BR>
+256MB). We have a 100MBit/s connection (honestly) to our ISP for internet
+<BR>
+traffic and web site production, so I'd rather have a firewall that is
+<BR>
+capable of routing at least 10 MBytes/sec with some headroom for filtering.
+<BR>
+The NICs I tested are
+<BR>
+<P>- Intel dual eepro100 (Dell OEM, pretty new)
+<BR>
+- Adaptec quad starfire (not so new)
+<BR>
+<P>Unfortunately I cannot get either of them running stable with a 2.4.0 kernel
+<BR>
+on Alpha, so I went back to 2.2.18 plus the latest netdrivers from
+<BR>
+www.scyld.com (Donald Becker). To measure the performance I have set up a
+<BR>
+server (Dual 1GHz-PIII, rh6.2 + kernel 2.2.18), dual eepro100 and 4 clients
+<BR>
+(Celeron 600, plain rh6.2).
+<BR>
+<P>I then measured the maximum the server and the clients can do with &quot;tbench
+<BR>
+4&quot;:
+<BR>
+<P>- server over lo: 40 MBytes/s
+<BR>
+- client over lo: 6 MBytes/s
+<BR>
+- 2 clients directly connected to a dedicated nic on the server: 10 MBytes/s
+<BR>
+each
+<BR>
+- 3 clients directly connected to server: &gt;8 MBytes/s each
+<BR>
+- 4 clients directly connected to server: ~7 MBytes/s each
+<BR>
+- i.e. the clients can saturate a 100MBit/s NIC and the server can saturate
+<BR>
+2 100 MBits/s NICs with hardly any trouble.
+<BR>
+- FWIW: all connections are switched over 3Com switches
+<BR>
+<P>Next I put an Alpha in the middle, connected two clients each to two ports
+<BR>
+and two server ports to the remaining two ports and set up routing
+<BR>
+accordingly. (I have an ISA VGA card in the AS200 to be able to use both PCI
+<BR>
+slots).
+<BR>
+<P>- 4 clients get ~5 MBytes/s each through the Ruffian. Excellent.
+<BR>
+- 4 clients get 0,8 MBytes/s each through the AS200. Not so good. (The
+<BR>
+switches do show that autonegotiation resulted in 100MBit/FD!)
+<BR>
+<P>vmstat on the Alpha shows ~25% sys load on the Ruffian and close to 100% sys
+<BR>
+load on the AS200 at ~6000 interrupts per second.
+<BR>
+<P>To me this means that the AS200 does max out here, most probably due to the
+<BR>
+high interrupt load.
+<BR>
+<P>My questions now:
+<BR>
+<P>- If I am totally wrong here: Which mailing list should I have posted this
+<BR>
+kind of question to? linux-alpha@vger? linux-kernel? Anywhere else I haven't
+<BR>
+come across yet?
+<BR>
+- Can anybody quote similar or better figures for the AS200? Or should I
+<BR>
+just ditch the 5 AS200s I have and use the Ruffians right away?
+<BR>
+- Would interrupt mitigation be able to help? I'd be willing to trade
+<BR>
+latency for throughput.
+<BR>
+- If so, how can I activate it in the drivers? I see a line &quot;static int
+<BR>
+interrupt_mitigation = 0x0;&quot; in starfire.c, but I cannot see that this
+<BR>
+variable is being used at all nor do I have any idea what to set it to and
+<BR>
+if this will work at all. I cannot find anything similar in eepro100.c.
+<BR>
+- Or should I rather play with &quot;max_interrupt_work = 20&quot; which both drivers
+<BR>
+offer as a module option?
+<BR>
+- Are there any kernel parameters I can play with?
+<BR>
+- Who and where should I report the trouble I am having with the quoted NICs
+<BR>
+and 2.4.0?
+<BR>
+<P>Thanks a lot for reading this much!
+<BR>
+<P>Cheers,
+<BR>
+Ingo
+<BR>
+<P>P.S. And thanks a LOT to Rich and Michal who got me running with my Alphas
+<BR>
+in the beginning!
+<BR>
+<P><P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0435.shtml">Sebastian Moeller: "Jensen kernel 2.2.18 and parport"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0433.shtml">Eugene Chu: "Re: Cray chooses Alpha Linux ..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0444.shtml">Hoover, Tony: "RE: bad routing performance in AS200"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Mar  3 12:54:55 2001 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

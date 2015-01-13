@@ -1,0 +1,100 @@
+<!-- received="Wed Jan 10 16:17:55 1996 " -->
+<!-- sent="Wed, 10 Jan 1996 16:17:55 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@cs.arizona.edu" -->
+<!-- subject="micro patch for udp" -->
+<!-- id="199601102317.QAA04454@lehrer.cs.arizona.edu" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>micro patch for udp</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>micro patch for udp</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@cs.arizona.edu"><i>davidm@cs.arizona.edu</i></a>)<br>
+<i>Wed, 10 Jan 1996 16:17:55 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#44">[ date ]</a><a href="index.html#44">[ thread ]</a><a href="subject.html#44">[ subject ]</a><a href="author.html#44">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0045.html">Ka'plaagh  11-Jan-1996 1657 +0000: "Milo : update"</a>
+<li> <b>Previous message:</b> <a href="0043.html">Erik Troan: "Re: new SysVinit"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+OK, I finally *did* get sick of not being able to NFS mount the<br>
+Cabrio's in our department when it works just fine at home.  Turns out<br>
+that the UDP checksum is wrong if the destination host has an ip<br>
+address with a last byte of &gt;= 128 (in network byteorder, this means<br>
+that bit 31 is set... :-) The following patch fixes the problem (and<br>
+also makes the "bad checksum" error message look a little nicer).  It<br>
+should apply to 1.3.52 but I don't recall recent changes to UDP, so<br>
+other kernel versions probably work, too.<br>
+<p>
+The exact reason why the checksum was wrong is that the call:<br>
+<p>
+		ufh-&gt;uh.check = csum_tcpudp_magic(saddr, ufh-&gt;daddr, <br>
+					  ntohs(ufh-&gt;uh.len),<br>
+					  IPPROTO_UDP, ufh-&gt;wcheck);<br>
+<p>
+resulted in ufh-&gt;daddr being sign extended because the second argument<br>
+to csum_tcpudp_magic() is an "unsigned long" argument.<br>
+<p>
+Cheers,<br>
+	--david<br>
+<p>
+--- net/ipv4/udp.c~	Wed Jan 10 11:56:38 1996<br>
++++ net/ipv4/udp.c	Wed Jan 10 16:02:03 1996<br>
+@@ -216,10 +216,10 @@<br>
+ struct udpfakehdr <br>
+ {<br>
+ 	struct udphdr uh;<br>
+-	int daddr;<br>
+-	int other;<br>
++	__u32 daddr;<br>
++	__u32 other;<br>
+ 	const char *from;<br>
+-	int wcheck;<br>
++	__u32 wcheck;<br>
+ };<br>
+ <br>
+ /*<br>
+@@ -645,8 +645,8 @@<br>
+ 	  /* the network is concered, anyway) as per 4.1.3.4 (MUST). */<br>
+ <br>
+ 		NETDEBUG(printk("UDP: bad checksum. From %08X:%d to %08X:%d ulen %d\n",<br>
+-		       ntohl(saddr),ntohs(uh-&gt;source),<br>
+-		       ntohl(daddr),ntohs(uh-&gt;dest),<br>
++		       (__u32) ntohl(saddr),ntohs(uh-&gt;source),<br>
++		       (__u32) ntohl(daddr),ntohs(uh-&gt;dest),<br>
+ 		       ulen));<br>
+ 		udp_statistics.UdpInErrors++;<br>
+ 		kfree_skb(skb, FREE_WRITE);<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0045.html">Ka'plaagh  11-Jan-1996 1657 +0000: "Milo : update"</a>
+<li> <b>Previous message:</b> <a href="0043.html">Erik Troan: "Re: new SysVinit"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

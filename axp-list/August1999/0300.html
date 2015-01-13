@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: 2.2.11 segfaults</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: 2.2.11 segfaults">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.2.11 segfaults</H1>
+<HR>
+<P>
+<!-- received="Fri Aug 13 02:31:29 1999" -->
+<!-- isoreceived="19990813093129" -->
+<!-- sent="Thu, 12 Aug 1999 18:34:42 -0600 (MDT)" -->
+<!-- isosent="19990813003442" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: 2.2.11 segfaults" -->
+<!-- id="199908130034.SAA20722@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="199908130021.CAA65106@vmax.unix-ag.uni-siegen.de" -->
+<STRONG>Subject: </STRONG>Re: 2.2.11 segfaults<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 12 1999 - 17:34:42 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#300">[ date ]</A>
+<A HREF="index.html#300">[ thread ]</A>
+<A HREF="subject.html#300">[ subject ]</A>
+<A HREF="author.html#300">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0301.html">Christopher T. Lansdown: "how efficient are functions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0299.html">Nils Faerber: "Re: 2.2.11 segfaults"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0299.html">Nils Faerber: "Re: 2.2.11 segfaults"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0512.html">Dan Morrill: "Re: 2.2.11 segfaults"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0299.html">Michal Jaegermann: "Re: 2.2.11 segfaults"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Nils Faerber wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Up to now 2.2.11 had no problems with my machein so far! (knocking on wood,
+</EM><BR>
+<EM>&gt; crossing fingers, pressing thumbs and so on ;)
+</EM><BR>
+<P>Well, this small change is likely good.  The problem does not affect
+<BR>
+everybody but when it hits you are dead with &quot;Out of memory&quot; in five
+<BR>
+minutes.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Michal
+<BR>
+<P>p.s. it may be wise to modify this by hand (or 'patch -l').  Blanks
+<BR>
+may be messed up.
+<BR>
+<P>&nbsp;From: &quot;David S. Miller&quot; &lt;davem@redhat.com&gt;
+<BR>
+&nbsp;Date: Thu, 12 Aug 1999 08:33:43 -0700
+<BR>
+&nbsp;Subject: Re: 2.2.11: Complicated memory leak...
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Date: Thu, 12 Aug 1999 17:29:05 +0100 (BST)
+<BR>
+&nbsp;&nbsp;&nbsp;From: Alan Cox &lt;alan@lxorguk.ukuu.org.uk&gt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This isnt the bug however. I have reports from other network card
+<BR>
+&nbsp;&nbsp;&nbsp;cases, and that backing rtl8139.c out doesnt change it. It seems to
+<BR>
+&nbsp;&nbsp;&nbsp;have appeared about the time the 2nd set of TCP changes went in
+<BR>
+<P>Bingo, here is what I think the fix is.  Everyone please test this...
+<BR>
+Alan, once people have tested and verified this I will send you the
+<BR>
+final version of the diff so that the CVS Id's are up to snuff too...
+<BR>
+<P>--- net/ipv4/tcp_ipv4.c.~1~	Mon Aug  9 12:05:14 1999
+<BR>
++++ net/ipv4/tcp_ipv4.c	Thu Aug 12 08:30:34 1999
+<BR>
+@@ -1778,13 +1778,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case TCP_TW_ACK:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tcp_v4_send_ack(skb, ((struct tcp_tw_bucket *)sk)-&gt;snd_nxt,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((struct tcp_tw_bucket *)sk)-&gt;rcv_nxt); 
+<BR>
+-		break; 
+<BR>
++		goto discard_it; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case TCP_TW_RST:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto no_tcp_socket; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto discard_it; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void __tcp_v4_rehash(struct sock *sk)
+<BR>
+- --- net/ipv6/tcp_ipv6.c.~1~	Mon Aug  9 12:05:14 1999
+<BR>
++++ net/ipv6/tcp_ipv6.c	Thu Aug 12 08:30:51 1999
+<BR>
+@@ -1465,14 +1465,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case TCP_TW_ACK:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tcp_v6_send_ack(skb, ((struct tcp_tw_bucket *)sk)-&gt;snd_nxt,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((struct tcp_tw_bucket *)sk)-&gt;rcv_nxt); 
+<BR>
+-		break; 
+<BR>
++		goto discard_it; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case TCP_TW_RST:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto no_tcp_socket;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto discard_it; 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-
+<BR>
+-	return 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static int tcp_v6_rebuild_header(struct sock *sk)
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0301.html">Christopher T. Lansdown: "how efficient are functions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0299.html">Nils Faerber: "Re: 2.2.11 segfaults"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0299.html">Nils Faerber: "Re: 2.2.11 segfaults"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0512.html">Dan Morrill: "Re: 2.2.11 segfaults"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0299.html">Michal Jaegermann: "Re: 2.2.11 segfaults"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:14:59 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

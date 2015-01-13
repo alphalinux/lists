@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: weird error messages</TITLE>
+<META NAME="Author" CONTENT="Paul Slootman (paul@murphy.nl)">
+<META NAME="Subject" CONTENT="Re: weird error messages">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: weird error messages</H1>
+<HR>
+<P>
+<!-- received="Sat Feb 10 00:08:03 2001" -->
+<!-- isoreceived="20010210080803" -->
+<!-- sent="Fri, 9 Feb 2001 15:21:48 +0100" -->
+<!-- isosent="20010209142148" -->
+<!-- name="Paul Slootman" -->
+<!-- email="paul@murphy.nl" -->
+<!-- subject="Re: weird error messages" -->
+<!-- id="20010209152148.B15010@murphy.nl" -->
+<!-- inreplyto="20010209135109.303.cpmta@c012.sfo.cp.net" -->
+<STRONG>Subject: </STRONG>Re: weird error messages<BR>
+<STRONG>From: </STRONG>Paul Slootman (<EM>paul@murphy.nl</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Feb 09 2001 - 06:21:48 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#270">[ date ]</A>
+<A HREF="index.html#270">[ thread ]</A>
+<A HREF="subject.html#270">[ subject ]</A>
+<A HREF="author.html#270">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0271.html">James D. Freels: "Re: help needed to boot 2.4.1 kernel on SRM-based system"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0269.html">Phil Carmody: "Re: weird error messages"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0269.html">Phil Carmody: "Re: weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0269.html">Paul Slootman: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Fri 09 Feb 2001, Phil Carmody wrote:
+<BR>
+<P><EM>&gt; These look as if, given a map file, they ought to be simple to find and fix, without necessarily understanding the what the code does (assuming the Trap gives you enough information where to look in a map file). It sounds like the kind of 'black box debugging' that I've done for the last year or so (don't tell my boss I still don't understand what the code does).
+</EM><BR>
+<P>Actually, given a binary compiled with -g (and not stripped ;-)
+<BR>
+gdb will show exactly which line in which source file is causing
+<BR>
+the trap; take the first hex number such from:
+<BR>
+<P>snort(25221): unaligned trap at 000000012000e870: 000000012006a41a 28 17
+<BR>
+<P>and in gdb:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;list *0x12000e870
+<BR>
+will show the segment of source.
+<BR>
+<P><EM>&gt; &gt;From your analysis it appears there are 2 solutions.
+</EM><BR>
+<EM>&gt; 1) Create an copy of the bytes in a way that a simple -&gt;member access can read without trapping.
+</EM><BR>
+<P>That's usually the easiest, which means the least changes in the
+<BR>
+original source. And that's what I've done :-)
+<BR>
+<P><EM>&gt; 2) Supply unaligned read/write (inline) functions/macros
+</EM><BR>
+<EM>&gt; Something along the lines of
+</EM><BR>
+<EM>&gt; #define READ_8U(addr) \
+</EM><BR>
+<EM>&gt;    (*((addr)&amp;~7)&gt;&gt;(((addr)&amp;7)&lt;&lt;3) | \
+</EM><BR>
+<EM>&gt;    (*((addr&amp;~7)+1)&lt;&lt;(64-((addr)&amp;7)&lt;&lt;3))
+</EM><BR>
+<P>Ouch :-)
+<BR>
+This would mean quite a lot of changes in the average source,
+<BR>
+IMHO.
+<BR>
+<P><EM>&gt; These could be used to replace
+</EM><BR>
+<EM>&gt; u64 key = pPacket-&gt;key; /* unaligned trap */
+</EM><BR>
+<EM>&gt; with 
+</EM><BR>
+<EM>&gt; u64 key = READ_8U(&amp;pPacket-&gt;key); /* safe */
+</EM><BR>
+<P>In snort, the lines are of the form:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;ph.sip = (u_int32_t)(p-&gt;iph-&gt;ip_src.s_addr);
+<BR>
+<P>where iph points to a not-aligned struct.
+<BR>
+<P><EM>&gt; Do such inline function/macro definitions already exist somewhere (I find it very hard to believe they don't)? If so, then we're already armed with all the tools we need - perhaps one weekend we should all just grab a package and fix a trap each!
+</EM><BR>
+<P>I think the kernel has them :-)
+<BR>
+<P>Actually, most packages by now are reasonably well-behaved;
+<BR>
+it's basically the new ones that haven't been audited by
+<BR>
+me or Chris :-)
+<BR>
+<P><P>PS: could you wrap your lines at about 70 chars? It makes
+<BR>
+quoting relevant pieces much easier; now I have to quote
+<BR>
+the whole paragraph...  And delete non-relevant part...
+<BR>
+<P><P>Paul Slootman
+<BR>
+<PRE>
+-- 
+home:       paul@wurtel.net      <A HREF="http://www.wurtel.demon.nl/">http://www.wurtel.demon.nl/</A>
+work:       paul@murphy.nl       <A HREF="http://www.murphy.nl/">http://www.murphy.nl/</A>
+debian:     paul@debian.org      <A HREF="http://www.debian.org/">http://www.debian.org/</A>
+isdn4linux: paul@isdn4linux.org  <A HREF="http://www.isdn4linux.org/">http://www.isdn4linux.org/</A>
+<P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0271.html">James D. Freels: "Re: help needed to boot 2.4.1 kernel on SRM-based system"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0269.html">Phil Carmody: "Re: weird error messages"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0269.html">Phil Carmody: "Re: weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0269.html">Paul Slootman: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:01 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

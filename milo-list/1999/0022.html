@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Milo List: Re: Milo 2.2 - things are becoming generic.</TITLE>
+<META NAME="Author" CONTENT="Nikita Schmidt (cetus@snowball.ucd.ie)">
+<META NAME="Subject" CONTENT="Re: Milo 2.2 - things are becoming generic.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Milo 2.2 - things are becoming generic.</H1>
+<HR>
+<P>
+<!-- received="Fri Sep 10 05:56:54 1999" -->
+<!-- isoreceived="19990910125654" -->
+<!-- sent="Thu, 9 Sep 1999 13:55:01 +0100" -->
+<!-- isosent="19990909125501" -->
+<!-- name="Nikita Schmidt" -->
+<!-- email="cetus@snowball.ucd.ie" -->
+<!-- subject="Re: Milo 2.2 - things are becoming generic." -->
+<!-- id="19990909135501.B4685@snowball.ucd.ie" -->
+<!-- inreplyto="Pine.LNX.4.10.9909082017350.13179-100000@Wotan.suse.de" -->
+<STRONG>Subject: </STRONG>Re: Milo 2.2 - things are becoming generic.<BR>
+<STRONG>From: </STRONG>Nikita Schmidt (<EM>cetus@snowball.ucd.ie</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Sep 09 1999 - 05:55:01 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#22">[ date ]</A>
+<A HREF="index.html#22">[ thread ]</A>
+<A HREF="subject.html#22">[ subject ]</A>
+<A HREF="author.html#22">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0023.html">Jeff Garzik: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0023.html">Jeff Garzik: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0021.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Wednesday,  8 Sep, Stefan Reinauer wrote:
+<BR>
+<EM>&gt; On Wed, 8 Sep 1999, Nikita Schmidt wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; I don't think that &quot;production&quot; (non-debug) MILOs should do any I/O
+</EM><BR>
+<EM>&gt; &gt; before passing control to the uncompressed full image.  For the debug
+</EM><BR>
+<EM>&gt; &gt; versions even a less than ideal solution should be fine.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; True. On the other hand, it's just the debug versions that need debug
+</EM><BR>
+<EM>&gt; output. I had rather big problems to determine my errors with exactly no
+</EM><BR>
+<EM>&gt; output, when I started.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>Yes, some debug output in the stub will be useful.  You can link
+<BR>
+alpha_mv into MILO twice for that purpose (one copy into the compressed
+<BR>
+image and another one into the stub/decompressor).  Since it's a debug
+<BR>
+version, some waste of memory doesn't matter.  Alternatively you could
+<BR>
+put it only into the stub and make the main working image link to it
+<BR>
+using linker scripts, but it's not worth the effort.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; I made some tests on our Ruffians and it seems that at least Jay's hacked
+</EM><BR>
+<EM>&gt; version of ldmilo ignores the OSLoadFileName. I just entered &quot;blubb&quot; there
+</EM><BR>
+<EM>&gt; (which is the german equivalent of &quot;foo&quot;) and it just loaded &quot;milo&quot;
+</EM><BR>
+<EM>&gt; Having ldmilo interpreting this variable would be very nice. Or we leave
+</EM><BR>
+<EM>&gt; it as it is now and &quot;misuse&quot; the meaning of it (not that elegant)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>True, ldmilo (originally written by Deskstation) just merely ignores
+<BR>
+OSLoadFilename, but nothing prevents us from taking linload's source and
+<BR>
+adapting it to our needs.  The difference between ldmilo and linload is
+<BR>
+only caused by the absence of the vendor vector (as defined by Digital)
+<BR>
+in ARCSBIOS.  If I remember correctly, the only thing linload needs from
+<BR>
+it is Print, and it is replaced in ldmilo by sprintf/Write combination
+<BR>
+(this is why ldmilo is bigger - it has to carry sprintf's code inside).
+<BR>
+<P>What I wanted to do was to integrate linload/ldmilo into MILO.  This
+<BR>
+would drastically simplify whatever remains from linload, since all the
+<BR>
+file loading would go away: milo.exe will boot straight from ARC.
+<BR>
+OSLoadFilename would become completely free for our use.  SRM would load
+<BR>
+milo.exe starting a couple of blocks after the beginning of the file,
+<BR>
+skipping the NT .exe header and perhaps the code related to booting from
+<BR>
+ARC.
+<BR>
+<P>This way the part of MILO responsible for booting from ARC (the
+<BR>
+remainings of linload) would pass the parameters such as OSLoadOptions
+<BR>
+straight into the designated area in the MILO, rather than through some
+<BR>
+peculiar memory location.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; I even thought about a single milo for all boxes. This may be to big
+</EM><BR>
+<EM>&gt; though. But one per palcode is a very good idea since it wouldn't be much
+</EM><BR>
+<EM>&gt; bigger. I stripped down my milo from 490k to about 410k. (Only with ncr,
+</EM><BR>
+<EM>&gt; but debug versions. a version linked against the generic kernel is about
+</EM><BR>
+<EM>&gt; 20k bigger at the moment)
+</EM><BR>
+<P>I think a generic, single MILO is a serious undertaking.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Yes, you are right. On the other hand, we could just &quot;decide&quot; that only a
+</EM><BR>
+<EM>&gt; specific milo is allowed for flashing and a generic milo can be put on an
+</EM><BR>
+<EM>&gt; installation CD for example. ;-&gt;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>True.
+<BR>
+<P><EM>&gt; &gt; Currently MILO swaps PALcode three times (two on MIKASA), which is
+</EM><BR>
+<EM>&gt; &gt; clearly redundant.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Ups? I only found two of them.. once in boot_main (which is the one not
+</EM><BR>
+<EM>&gt; executed on MIKASA) and once in devices.c
+</EM><BR>
+<P>First time it happens in micropal.S at the very end where it jumps to
+<BR>
+the pal_reset entry of the MILO palcode.  That means all parts of MILO
+<BR>
+except micropal.S and relocate.c run under MILO palcode.
+<BR>
+<P><EM>&gt; Why is it sufficient for Mikasa to swap palcodes later? Couldn't we do
+</EM><BR>
+<EM>&gt; that just for the other platforms, too ?
+</EM><BR>
+<P>I have absolutely no idea why that palcode swap is needed at all.  I
+<BR>
+guess it has been there since old times when it was really required and
+<BR>
+nobody wanted to touch it, since it worked.  It's no surprise at all
+<BR>
+that Mikasa works fine without it!
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Again, the same for the wrfen at the very beginning of
+</EM><BR>
+<EM>&gt; boot_main.c:__main() - if it's not neccessary (or possible) on Ruffian, is
+</EM><BR>
+<EM>&gt; it really neccessary on other boards? I'd like to get the boot process a
+</EM><BR>
+<EM>&gt; bit more stripped down and/or explained for a real release of the current
+</EM><BR>
+<EM>&gt; code.
+</EM><BR>
+<P>I avoided that question simply because I don't know.  I don't understand
+<BR>
+how wrfen() can break things.  The only person I know of who can shed some
+<BR>
+light here is Jay Estabrook.
+<BR>
+<P><EM>&gt; 
+</EM><BR>
+<EM>&gt; Well.. I just read the LICENSE file and it seems to state that everything
+</EM><BR>
+<EM>&gt; except the PALcode and the BIOS emulation is GPL. The headers of the
+</EM><BR>
+<EM>&gt; sources on the other hand give not a single statement about GPL.
+</EM><BR>
+<P>Again, I'm not a lawyer, but my understanding is that in case of
+<BR>
+contradicting licences you can choose whatever you want, though my
+<BR>
+feeling is that it's safer to choose the more restrictive one.
+<BR>
+<P><EM>&gt; What shall I do now with files that I threw away and rewrote completely?
+</EM><BR>
+<P>Put them under GPL.
+<BR>
+<P><EM>&gt; I sometimes took the kernel source and just copied the function headers to
+</EM><BR>
+<EM>&gt; be sure what it refers to in the kernel. On the other hand, I did the same
+</EM><BR>
+<EM>&gt; with the milo sources. For example, I took the entry.S of the kernel and
+</EM><BR>
+<EM>&gt; stripped it down until it fitted my needs. What license header do I have
+</EM><BR>
+<EM>&gt; to put in the file before release?
+</EM><BR>
+<P>Whatever the kernel licence allows you to.  I think it's safe just to
+<BR>
+say it's GPL.
+<BR>
+<P><EM>&gt; I don't think that anyone would give this a wrong sense, but as I had lots
+</EM><BR>
+<EM>&gt; of contract problems with buerocratic german publishers, I try to be kind
+</EM><BR>
+<EM>&gt; of aware now :)
+</EM><BR>
+<P>Can you ask SuSE's lawyers?  Lawyers tend to be very conservative and
+<BR>
+interpret every nuance in the worst possible sense, but the advices they
+<BR>
+give are bulletproof.  You might also try to persuade Digital
+<BR>
+authorities to resolve this licensing mess somehow...
+<BR>
+<P>Nikita
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0023.html">Jeff Garzik: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0021.html">Stefan Reinauer: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0023.html">Jeff Garzik: "Re: Milo 2.2 - things are becoming generic."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0021.html">Nikita Schmidt: "Re: Milo 2.2 - things are becoming generic."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:14 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

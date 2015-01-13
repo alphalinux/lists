@@ -1,0 +1,244 @@
+<!-- received="Thu Mar 19 16:35:21 1998 " -->
+<!-- sent="Thu, 19 Mar 1998 21:28:33 +0100 (MET)" -->
+<!-- name="Loic Prylli" -->
+<!-- email="Loic.Prylli@ens-lyon.fr" -->
+<!-- subject="SX164 Clock Problem" -->
+<!-- id="199803192028.VAA10590@gueuze.ens-lyon.fr" -->
+<!-- inreplyto="199803152235.RAA01704@linux03.amt.tay1.dec.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>SX164 Clock Problem</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>SX164 Clock Problem</h2>
+
+<b>Loic Prylli</b> (<a href="mailto:Loic.Prylli@ens-lyon.fr"><i>Loic.Prylli@ens-lyon.fr</i></a>)<br>
+<i>Thu, 19 Mar 1998 21:28:33 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#460">[ date ]</a><a href="index.html#460">[ thread ]</a><a href="subject.html#460">[ subject ]</a><a href="author.html#460">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0461.html">Philippe GIROLAMI: "aboot won't boot my alpha over the network"</a>
+<li> <b>Previous message:</b> <a href="0459.html">Richard Henderson: "Re: sqrt FPE's and fclose errors"</a>
+<li> <b>In reply to:</b> <a href="0389.html">Wes Bauske: "Re: Symbios 876 dual channel UW SCSI"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<li> <b>Reply:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<li> <b>Maybe reply:</b> <a href="0553.html">Christopher Huffine: "Re: SX164 Clock Problem"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Some people had problems with AlphaPC164-SX (aka SX164 or SX) clock<br>
+running 2X or 1/2X.<br>
+<p>
+It would be interesting to see if it is the same problem that is<br>
+described in <br>
+<a href="http://archive.redhat.com/axp-list/1998-February/0438.html">http://archive.redhat.com/axp-list/1998-February/0438.html</a><br>
+<p>
+I have written a small program to check if it the case,<br>
+could some people that writes in the thread:<br>
+ "Self-build PC164SX-kernel:clock twice too fast" run it?<br>
+<p>
+This programs relies on the facts that gettimeofday increments at each<br>
+clock tick and use the rpcc counter as a time base, it build a kind of<br>
+histogram of the delay (in rpcc cycles) between timer ticks (in fact<br>
+gettimeofday increments). It detects the case where several timer<br>
+ticks occurs consecutively (which was the problem for me).<br>
+<p>
+<p>
+Here was the ouput on our PWS500A that was running 1.15 to 1.25 too<br>
+fast depending on ethernet and disk activity.<br>
+<p>
+   pws500% checktick 500<br>
+   63% nbtick=1,duration=0.98 millisec (rpcc cycles/488500)<br>
+   19% nbtick=1,duration=1.02 millisec (rpcc cycles/488500)<br>
+   0.52% nbtick=2,duration=0.98 millisec (rpcc cycles/488500)<br>
+   17% nbtick=2,duration=1.02 millisec (rpcc cycles/488500)<br>
+<p>
+<p>
+We can count the first two lines together: <br>
+r 82% (63+19) of the timer ticks  were normal (about 1millisec)<br>
+<p>
+The other 18% times gettimeofday switched, the kernel timer routine<br>
+was called twice (meaning the interrupt status of the chipset has not<br>
+been resetted by the end of the handler).<br>
+<p>
+<p>
+After a patch that check this condition at the beginning of the timer<br>
+handler our clock is very stable at 1024 Hz, the output of the program<br>
+below is now:<br>
+   pws500% checktick 500<br>
+   microsec per tick=977<br>
+   100% nbtick=1,duration=3.98 millisec (rpcc cycles/97700)<br>
+   0.0489% nbtick=3,duration=3.3 millisec (rpcc cycles/97700)<br>
+<p>
+The program will generally only work properly on an idle system.<br>
+Lines that have a very low percentage should be ignored (artefacts due<br>
+to multitasking).<br>
+<p>
+The program takes as argument the frequency of the processor to have<br>
+a reliable time reference (but this only used to do the proper<br>
+conversion in millisec), if you pass no value or the wrong value the<br>
+ numbers of millisec should be taken to a multiplication close.<br>
+<p>
+Cheers,<br>
+<p>
+Loic<br>
+<p>
+Here is the prog:<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+#include &lt;sys/timex.h&gt;<br>
+#include &lt;assert.h&gt;<br>
+<p>
+<p>
+static volatile inline unsigned rdtsc()<br>
+{<br>
+  unsigned l;<br>
+  __asm__ volatile("rpcc %0": "=r" (l));<br>
+  return l;<br>
+}<br>
+<p>
+<p>
+#include &lt;time.h&gt;<br>
+<p>
+long waittick(void) {<br>
+  struct timeval t1,t2;<br>
+  gettimeofday(&amp;t1,NULL);<br>
+  while (gettimeofday(&amp;t2,NULL),t1.tv_usec == t2.tv_usec);<br>
+  return t2.tv_sec * 1000000L + t2.tv_usec;<br>
+}<br>
+<p>
+#define MAXTICK 10<br>
+#define STATSIZE 100<br>
+<p>
+<p>
+int stats[MAXTICK][STATSIZE];<br>
+int freqref;<br>
+<p>
+unsigned statnb(long t)<br>
+{<br>
+  unsigned res;<br>
+  /* the first quarter correspond to tick that last less than one<br>
+     millisec == 1000*freqreq rpcc cycles */<br>
+  res = t * (STATSIZE/4) / (freqref*977);<br>
+  if (res &gt;= STATSIZE -1)<br>
+    res = STATSIZE -1;<br>
+  return res;<br>
+}<br>
+<p>
+void print_stat(void)<br>
+{<br>
+  int i,j;<br>
+  long sum=0;<br>
+  for (i=0;i&lt;MAXTICK;i++)<br>
+    for (j=0;j&lt;STATSIZE;j++)<br>
+      sum += stats[i][j];<br>
+  for (i=0;i&lt;MAXTICK;i++) {<br>
+    for (j=0;j&lt;STATSIZE;j++) {<br>
+      if (stats[i][j]) {<br>
+        printf("%.3g%% nbtick=%d,duration=%.3g millisec (rpcc<br>
+cycles/%d)\n",<br>
+               stats[i][j]*100.0/(double)sum,i,(j+0.5)/(double)(STATSIZE/4),freqref*977);<br>
+      }<br>
+    }<br>
+  }<br>
+}<br>
+<p>
+<p>
+  <br>
+int main(int argc,char*argv[])<br>
+{<br>
+  struct timex ti;<br>
+  long tick;<br>
+  long start;<br>
+  ti.modes = 0;<br>
+  adjtimex(&amp;ti);<br>
+  tick = ti.tick;<br>
+<p>
+  if (argc &gt;= 2)<br>
+    freqref = atoi(argv[1]);<br>
+  if (freqref == 0)<br>
+    freqref = 100;<br>
+<p>
+  printf("microsec per tick=%ld\n",tick);<br>
+  start = waittick();<br>
+  while (1) {<br>
+    long d1,d2,t,rest;<br>
+    unsigned nbtick;<br>
+    unsigned t1,t2;<br>
+    unsigned range;<br>
+    d1 = waittick();<br>
+    t1 = rdtsc();<br>
+    while (1) {<br>
+      d2 = waittick();<br>
+      t2 = rdtsc();<br>
+      nbtick = (d2 - d1 + tick / 2) / tick;<br>
+      rest = d2 - d1 - nbtick*tick;<br>
+      if (abs(rest) &gt; tick/10) {<br>
+        static int count;<br>
+        fprintf(stderr,"gettimeofday increments not a multiple of<br>
+tick:%d tick+%ld microsec\n",nbtick,rest);<br>
+        if (count++ &gt; 10)<br>
+          exit(1);<br>
+        break;<br>
+      }<br>
+      if (nbtick &gt;= MAXTICK) {<br>
+        fprintf(stderr,"tick ignored\n");<br>
+        break;<br>
+      }<br>
+      if (t2 &lt; t1)<br>
+        t = t2 + (1L&lt;&lt;32) - t1;<br>
+      else<br>
+        t = t2 - t1;<br>
+      range = statnb(t);<br>
+      //      printf("range=%u\n",range);<br>
+      assert(nbtick &gt;= 0 &amp;&amp; nbtick &lt; MAXTICK &amp;&amp; range &gt;= 0 &amp;&amp; range &lt;<br>
+STATSIZE);<br>
+      stats[nbtick][range] += 1;<br>
+      if (d2 &gt; start + 2000000)<br>
+        goto end;<br>
+      d1 = d2;<br>
+      t1 = t2;<br>
+    }<br>
+  }<br>
+ end:<br>
+  print_stat();<br>
+  return 0;<br>
+}<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0461.html">Philippe GIROLAMI: "aboot won't boot my alpha over the network"</a>
+<li> <b>Previous message:</b> <a href="0459.html">Richard Henderson: "Re: sqrt FPE's and fclose errors"</a>
+<li> <b>In reply to:</b> <a href="0389.html">Wes Bauske: "Re: Symbios 876 dual channel UW SCSI"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<li> <b>Reply:</b> <a href="0494.html">Wim van Dorst: "Re: SX164 Clock Problem"</a>
+<li> <b>Maybe reply:</b> <a href="0553.html">Christopher Huffine: "Re: SX164 Clock Problem"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

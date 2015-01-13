@@ -1,0 +1,608 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.42 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@cygnus.com)">
+<META NAME="Subject" CONTENT="Re: 2.3.42 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.42 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Sat Feb 05 22:01:02 2000" -->
+<!-- isoreceived="20000206060102" -->
+<!-- sent="Sat, 5 Feb 2000 12:06:26 -0800" -->
+<!-- isosent="20000205200626" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@cygnus.com" -->
+<!-- subject="Re: 2.3.42 alpha updates" -->
+<!-- id="20000205120626.A17839@cygnus.com" -->
+<!-- inreplyto="389C021E.8729264B@colorfullife.com" -->
+<STRONG>Subject: </STRONG>Re: 2.3.42 alpha updates<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@cygnus.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sat Feb 05 2000 - 12:06:26 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#101">[ date ]</A>
+<A HREF="index.html#101">[ thread ]</A>
+<A HREF="subject.html#101">[ subject ]</A>
+<A HREF="author.html#101">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0100.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0097.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0097.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sat, Feb 05, 2000 at 11:57:34AM +0100, Manfred Spraul wrote:
+<BR>
+<EM>&gt; It seems that Alpha is broken, because it relies on &quot;current-&gt;active_mm&quot;
+</EM><BR>
+<EM>&gt; to check if a flush is required.
+</EM><BR>
+<P>Indeed it is broken.  What do you think of the following?
+<BR>
+<P><P>r~
+<BR>
+<P><P>Index: include/asm-alpha/pgalloc.h
+<BR>
+===================================================================
+<BR>
+RCS file: /disk1/u4/cvs/linux/include/asm-alpha/pgalloc.h,v
+<BR>
+retrieving revision 1.2
+<BR>
+diff -c -p -d -r1.2 pgalloc.h
+<BR>
+*** include/asm-alpha/pgalloc.h	2000/02/03 10:13:24	1.2
+<BR>
+--- include/asm-alpha/pgalloc.h	2000/02/05 15:44:42
+<BR>
+*************** ev5_flush_tlb_other(struct mm_struct *mm
+<BR>
+*** 42,49 ****
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;* Flush just one page in the current TLB set.
+<BR>
+!  * We need to be very careful about the icache here, there
+<BR>
+!  * is no way to invalidate a specific icache page..
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;__EXTERN_INLINE void
+<BR>
+--- 42,51 ----
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;* Flush just one page in the current TLB set.
+<BR>
+!  *
+<BR>
+!  * Do a tbisd (type = 2) normally, and a tbis (type = 3) if it is an
+<BR>
+!  * executable mapping.  We want to avoid the itlb flush, because that
+<BR>
+!  * potentially also does a icache flush.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;__EXTERN_INLINE void
+<BR>
+*************** static inline void flush_tlb_mm(struct m
+<BR>
+*** 118,128 ****
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;* Page-granular tlb flush.
+<BR>
+-  *
+<BR>
+-  * do a tbisd (type = 2) normally, and a tbis (type = 3)
+<BR>
+-  * if it is an executable mapping.  We want to avoid the
+<BR>
+-  * itlb flush, because that potentially also does a
+<BR>
+-  * icache flush.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;static inline void flush_tlb_page(struct vm_area_struct *vma,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long addr)
+<BR>
+--- 120,125 ----
+<BR>
+*************** static inline void flush_tlb_page(struct
+<BR>
+*** 136,143 ****
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;/*
+<BR>
+!  * Flush a specified range of user mapping:  on the
+<BR>
+!  * Alpha we flush the whole user tlb.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;static inline void flush_tlb_range(struct mm_struct *mm,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long start, unsigned long end)
+<BR>
+--- 133,140 ----
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;/*
+<BR>
+!  * Flush a specified range of user mapping:  on the Alpha we flush the
+<BR>
+!  * whole user tlb.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;static inline void flush_tlb_range(struct mm_struct *mm,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long start, unsigned long end)
+<BR>
+Index: include/asm-alpha/smp.h
+<BR>
+===================================================================
+<BR>
+RCS file: /disk1/u4/cvs/linux/include/asm-alpha/smp.h,v
+<BR>
+retrieving revision 1.14
+<BR>
+diff -c -p -d -r1.14 smp.h
+<BR>
+*** include/asm-alpha/smp.h	2000/02/03 04:33:58	1.14
+<BR>
+--- include/asm-alpha/smp.h	2000/02/05 15:44:42
+<BR>
+*************** struct cpuinfo_alpha {
+<BR>
+*** 34,39 ****
+<BR>
+--- 34,40 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_expected;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_taken;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned char mcheck_extra;
+<BR>
++ 	struct mm_struct *delayed_flush;
+<BR>
+&nbsp;&nbsp;} __attribute__((aligned(64)));
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;extern struct cpuinfo_alpha cpu_data[NR_CPUS];
+<BR>
+Index: include/asm-alpha/system.h
+<BR>
+===================================================================
+<BR>
+RCS file: /disk1/u4/cvs/linux/include/asm-alpha/system.h,v
+<BR>
+retrieving revision 1.34
+<BR>
+diff -c -p -d -r1.34 system.h
+<BR>
+*** include/asm-alpha/system.h	1999/12/20 04:57:59	1.34
+<BR>
+--- include/asm-alpha/system.h	2000/02/05 15:44:43
+<BR>
+*************** struct el_common_EV6_mcheck {
+<BR>
+*** 112,124 ****
+<BR>
+--- 112,141 ----
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;extern void halt(void) __attribute__((noreturn));
+<BR>
+&nbsp;&nbsp;
+<BR>
++ #ifdef __SMP__
+<BR>
++ #define prepare_to_switch()	cpu_data[smp_processor_id()].delayed_flush = 0
+<BR>
++ #define __delayed_flush()						\
+<BR>
++ 	do {								\
+<BR>
++ 		struct mm_struct *mm;					\
+<BR>
++ 		/* Note that we're syncronizing only with the current	\
+<BR>
++ 		   processor, not with other processors.  */		\
+<BR>
++ 		mm = cpu_data[smp_processor_id()].delayed_flush;	\
+<BR>
++ 		cpu_data[smp_processor_id()].delayed_flush = 0;		\
+<BR>
++ 		if (current-&gt;active_mm == mm)				\
+<BR>
++ 			flush_tlb_current(mm);				\
+<BR>
++ 	} while (0)
+<BR>
++ #else
+<BR>
+&nbsp;&nbsp;#define prepare_to_switch()	do { } while(0)
+<BR>
++ #define __delayed_flush()	do { } while(0)
+<BR>
++ #endif
+<BR>
++ 
+<BR>
+&nbsp;&nbsp;#define switch_to(prev,next,last)			\
+<BR>
+&nbsp;&nbsp;do {							\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long pcbb;				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current = (next);				\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcbb = virt_to_phys(&amp;current-&gt;thread);		\
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(last) = alpha_switch_to(pcbb, (prev));		\
+<BR>
++ 	__delayed_flush();				\
+<BR>
+&nbsp;&nbsp;} while (0)
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;extern struct task_struct* alpha_switch_to(unsigned long, struct task_struct*);
+<BR>
+Index: arch/alpha/kernel/smp.c
+<BR>
+===================================================================
+<BR>
+RCS file: /disk1/u4/cvs/linux/arch/alpha/kernel/smp.c,v
+<BR>
+retrieving revision 1.27
+<BR>
+diff -c -p -d -r1.27 smp.c
+<BR>
+*** arch/alpha/kernel/smp.c	2000/02/03 04:34:02	1.27
+<BR>
+--- arch/alpha/kernel/smp.c	2000/02/05 15:45:06
+<BR>
+*************** struct smp_call_struct {
+<BR>
+*** 693,730 ****
+<BR>
+&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;static struct smp_call_struct *smp_call_function_data;
+<BR>
+! 
+<BR>
+! /* Atomicly drop data into a shared pointer.  The pointer is free if
+<BR>
+!    it is initially locked.  If retry, spin until free.  */
+<BR>
+! 
+<BR>
+! static inline int
+<BR>
+! pointer_lock (void *lock, void *data, int retry)
+<BR>
+! {
+<BR>
+! 	void *old, *tmp;
+<BR>
+! 
+<BR>
+! 	mb();
+<BR>
+! again:
+<BR>
+! 	/* Compare and swap with zero.  */
+<BR>
+! 	asm volatile (
+<BR>
+! 	&quot;1:	ldq_l	%0,%1\n&quot;
+<BR>
+! 	&quot;	mov	%3,%2\n&quot;
+<BR>
+! 	&quot;	bne	%0,2f\n&quot;
+<BR>
+! 	&quot;	stq_c	%2,%1\n&quot;
+<BR>
+! 	&quot;	beq	%2,1b\n&quot;
+<BR>
+! 	&quot;2:&quot;
+<BR>
+! 	: &quot;=&amp;r&quot;(old), &quot;=m&quot;(*(void **)lock), &quot;=&amp;r&quot;(tmp)
+<BR>
+! 	: &quot;r&quot;(data)
+<BR>
+! 	: &quot;memory&quot;);
+<BR>
+! 
+<BR>
+! 	if (old == 0)
+<BR>
+! 		return 0;
+<BR>
+! 	if (! retry)
+<BR>
+! 		return -EBUSY;
+<BR>
+! 
+<BR>
+! 	while (*(void **)lock)
+<BR>
+! 		schedule();
+<BR>
+! 	goto again;
+<BR>
+! }
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;void
+<BR>
+&nbsp;&nbsp;handle_ipi(struct pt_regs *regs)
+<BR>
+--- 693,699 ----
+<BR>
+&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;static struct smp_call_struct *smp_call_function_data;
+<BR>
+! static spinlock_t smp_call_function_lock = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;void
+<BR>
+&nbsp;&nbsp;handle_ipi(struct pt_regs *regs)
+<BR>
+*************** smp_call_function (void (*func) (void *i
+<BR>
+*** 840,849 ****
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_set(&amp;data.unfinished_count, smp_num_cpus - 1);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Aquire the smp_call_function_data mutex.  */
+<BR>
+! 	if (pointer_lock(&amp;smp_call_function_data, &amp;data, retry))
+<BR>
+! 		return -EBUSY;
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Send a message to all other CPUs.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;send_ipi_message(to_whom, IPI_CALL_FUNC);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Wait for a minimal response.  */
+<BR>
+--- 809,826 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_set(&amp;data.unfinished_count, smp_num_cpus - 1);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Aquire the smp_call_function_data mutex.  */
+<BR>
+! 	local_bh_disable();
+<BR>
+! 	if (retry) {
+<BR>
+! 		if (! spin_trylock(&amp;smp_call_function_lock)) {
+<BR>
+! 			local_bh_enable();
+<BR>
+! 			return -EBUSY;
+<BR>
+! 		}
+<BR>
+! 	} else {
+<BR>
+! 		spin_lock(&amp;smp_call_function_lock);
+<BR>
+! 	}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Send a message to all other CPUs.  */
+<BR>
++ 	smp_call_function_data = &amp;data;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;send_ipi_message(to_whom, IPI_CALL_FUNC);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Wait for a minimal response.  */
+<BR>
+*************** smp_call_function (void (*func) (void *i
+<BR>
+*** 855,860 ****
+<BR>
+--- 832,838 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* We either got one or timed out -- clear the lock.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mb();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_call_function_data = 0;
+<BR>
++ 	local_bh_enable();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (atomic_read (&amp;data.unstarted_count) &gt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -ETIMEDOUT;
+<BR>
+&nbsp;&nbsp;
+<BR>
+*************** static void
+<BR>
+*** 889,896 ****
+<BR>
+--- 867,879 ----
+<BR>
+&nbsp;&nbsp;ipi_flush_tlb_mm(void *x)
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct mm_struct *mm = (struct mm_struct *) x;
+<BR>
++ 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (mm == current-&gt;active_mm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_current(mm);
+<BR>
++ 
+<BR>
++ 	/* We may be between switch_mm and switch_to.  Leave a crumb
+<BR>
++ 	   so that we can check after the fact if a flush is required.  */
+<BR>
++ 	cpu_data[smp_processor_id()].delayed_flush = mm;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;void
+<BR>
+*************** static void
+<BR>
+*** 918,925 ****
+<BR>
+--- 901,913 ----
+<BR>
+&nbsp;&nbsp;ipi_flush_tlb_page(void *x)
+<BR>
+&nbsp;&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct flush_tlb_page_struct *data = (struct flush_tlb_page_struct *)x;
+<BR>
++ 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (data-&gt;mm == current-&gt;active_mm)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_current_page(data-&gt;mm, data-&gt;vma, data-&gt;addr);
+<BR>
++ 
+<BR>
++ 	/* We may be between switch_mm and switch_to.  Leave a crumb
+<BR>
++ 	   so that we can check after the fact if a flush is required.  */
+<BR>
++ 	cpu_data[smp_processor_id()].delayed_flush = data-&gt;mm;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;void
+<BR>
+*************** flush_tlb_page(struct vm_area_struct *vm
+<BR>
+*** 932,939 ****
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_current_page(mm, vma, addr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (atomic_read(&amp;mm-&gt;mm_users) &lt;= 1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+! 	} else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_other(mm);
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data.vma = vma;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data.mm = mm;
+<BR>
+--- 920,928 ----
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_current_page(mm, vma, addr);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (atomic_read(&amp;mm-&gt;mm_users) &lt;= 1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+! 	} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flush_tlb_other(mm);
+<BR>
++ 	}
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data.vma = vma;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data.mm = mm;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0100.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0097.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0102.html">Manfred Spraul: "Re: 2.3.42 alpha updates"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0097.html">Richard Henderson: "Re: 2.3.42 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

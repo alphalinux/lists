@@ -1,0 +1,234 @@
+<!-- received="Tue Aug 19 20:57:15 1997 " -->
+<!-- sent="Wed, 20 Aug 1997 2:57:15 +0200 (CET-DST)" -->
+<!-- name="HAIMO@wisconsin.cern.ch" -->
+<!-- email="HAIMO@wisconsin.cern.ch" -->
+<!-- subject="Miata hangs during NFS IO" -->
+<!-- id="970820025715.2e005d38@wisconsin.cern.ch" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Miata hangs during NFS IO</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Miata hangs during NFS IO</h2>
+
+<a href="mailto:HAIMO@wisconsin.cern.ch"><i>HAIMO@wisconsin.cern.ch</i></a><br>
+<i>Wed, 20 Aug 1997 2:57:15 +0200 (CET-DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#392">[ date ]</a><a href="index.html#392">[ thread ]</a><a href="subject.html#392">[ subject ]</a><a href="author.html#392">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0393.html">Alvin Starr: "glibc 2.0.[34]"</a>
+<li> <b>Previous message:</b> <a href="0391.html">Stephen Williams: "Re: Kaffe 0.9.1 compile problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+system:	  DEC Personal Workstation 433a (Miata), 160 MB, no L3 cache installed<br>
+linux:	  RedHat 4.2 (kernel 2.0.30)<br>
+ethernet: tulip.c v0.76 w/ #define SKBUFF_RX_COPYBREAK 16384<br>
+problem:  nfs client apparently causes system freeze during heavy IO<br>
+<p>
+Hello,<br>
+<p>
+A colleague of mine, Chris Lishka, discovered an apparent connection between<br>
+the freeze/hang situations we have seen on this system and nfs IO. These seem <br>
+to happen when reading or writing an nfs-mounted file system. The file systems <br>
+involved are served by servers running DU V3.2b, DU 4.0b or VMS V6.2 (using <br>
+Multinet NFS server). We have about 40-50 such filesystems and many of them are<br>
+larger than 2 or 4 GBytes. The hangs happen during transfers with cp, dd and<br>
+other commands, as well as when reading large files from user programs, and they<br>
+appear fairly reliably when doing such IO. Frequently enough to make this Miata<br>
+nearly useless for serious work :-( <br>
+<p>
+I have made some complementary tests to see if I can generate such hangs when <br>
+the machine was booted without mounting any nfs file systems - no hangs observed<br>
+despite heavy IO on local disks. This is of course not conclusive, but it seems<br>
+to strongly indicate a problem with the linux nfs client on Alpha. <br>
+<p>
+I do seem to remember having seen remarks about patches for Alpha that deal<br>
+with file systems &gt; 2 GB, but I have no specific pointers.<br>
+Are there any known fixes for this? <br>
+<p>
+Below I include the 2 emails Chris sent me about his findings. <br>
+Especially intriguing is mail #2, since he seems to find inconsistencies in<br>
+the type of fileid ( u_int vs. int ) used in some routines, which could <br>
+have an effect for large filesystems. (btw we don't have extremely large files,<br>
+just very many of them, up to ca. 200 MB each )<br>
+<p>
+I hope someone can help here. Maybe some of this has been fixed in one of the<br>
+2.1.xx kernels ? <br>
+<p>
+- Haimo Zobernig<br>
+<p>
+  <a href="mailto:haimo@wisconsin.cern.ch">haimo@wisconsin.cern.ch</a><br>
+ <br>
+<p>
+<p>
+<p>
+<p>
+Mail #1:<br>
+========<br>
+<i>&gt;</i><br>
+<i>&gt;Hey Haimo,</i><br>
+<i>&gt;</i><br>
+<i>&gt;I was doing more speed tests today with un-striped/striped AdvFS files and</i><br>
+<i>&gt;NFS3.  If you recall, yesterday while doing the speed test with pcuw04 you came</i><br>
+<i>&gt;in, were unable to log into pcuw04, and rebooted the node.  My suspicion was</i><br>
+<i>&gt;that the ethernet line to pcuw04 was so flooded that telnet requests were not</i><br>
+<i>&gt;getting through.  So, since you were not in, I thought I would retry the pcuw04</i><br>
+<i>&gt;speed test and see what kind of throughput I can achieve.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Bad news.  A simple command-line such as the following (reading from an</i><br>
+<i>&gt;NFS-mounted disk served by afuw09) causes pcuw04 to lock up so bad I had to</i><br>
+<i>&gt;reboot:</i><br>
+<i>&gt;</i><br>
+<i>&gt;  cd /mnt/test1</i><br>
+<i>&gt;  date ; time dd bs=32040 if=data_1996_161_dst_55.epio of=/dev/null ; date</i><br>
+<i>&gt;</i><br>
+<i>&gt;My next thought was that either "dd" had a bug or the ethernet driver had a</i><br>
+<i>&gt;bug.  (The ethernet on my PC portable hangs occasionally with</i><br>
+<i>&gt;Netscape/IExplorer.)  To figure out which, I copied over the</i><br>
+<i>&gt;data_1996_161_dst_55.epio to my ~lishka/tmp directory with the command:</i><br>
+<i>&gt;</i><br>
+<i>&gt;  cd ~lishka/tmp</i><br>
+<i>&gt;  cp /mnt/test1/data_1996_161_dst_55.epio .</i><br>
+<i>&gt;</i><br>
+<i>&gt;This hung pcuw04 as well!!!  I rebooted again.  I was very suspicious that the</i><br>
+<i>&gt;ethernet driver was at fault.  I checked to see how much of the file had copied</i><br>
+<i>&gt;over -- 68meg had.  To add support to my theory, I then tried:</i><br>
+<i>&gt;</i><br>
+<i>&gt;  cd ~lishka/tmp  # i.e. Run the same dd command on my 68M file in ~lishka/tmp</i><br>
+<i>&gt;  date ; time dd bs=32040 if=data_1996_161_dst_55.epio</i><br>
+<i>&gt;</i><br>
+<i>&gt;pcuw04 hung again!!!  I rebooted and at this point left pcuw04 alone.</i><br>
+<i>&gt;</i><br>
+<i>&gt;To sanity check that loss of network bandwidth (due to high-speed transfers)</i><br>
+<i>&gt;was NOT the cause of the problem, I logged into afuw23 (a DUnix v4.0b node on</i><br>
+<i>&gt;ethernet) and did the same dd and cp tests from the NFS-mounted directory to</i><br>
+<i>&gt;/dev/null.  No crashes on the DUnix node (or with any other nodes on the</i><br>
+<i>&gt;network).  Plus, I achieved 0.981 megabytes/second throughput in one case --</i><br>
+<i>&gt;the fastest ethernet throughput I have ever seen.</i><br>
+<i>&gt;</i><br>
+<i>&gt;This appears to be a serious problem with Linux/Alpha.  Consider the following:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	* Test 1: pcuw04 locks up while doing a "dd" transfer of a large file</i><br>
+<i>&gt;	          over ethernet from an NFS mounted directory to /dev/null.</i><br>
+<i>&gt;</i><br>
+<i>&gt;	* Test 2: pcuw04 locks up while doing a "cp" transfer of a large file</i><br>
+<i>&gt;	          over ethernet from an NFS mounted directory to disk.</i><br>
+<i>&gt;</i><br>
+<i>&gt;	* Test 3: pcuw04 locks up while doing a "dd" transfer of a large file</i><br>
+<i>&gt;	          &gt;LOCALLY&lt;  from disk to /dev/null!!!</i><br>
+<i>&gt;</i><br>
+<i>&gt;The general pattern here seems to be any fast I/O (whether over ethernet or</i><br>
+<i>&gt;not, to disk or /dev/null) causes pcuw04 to hang.  Obviously more tests need to</i><br>
+<i>&gt;be done.  I leave this up to you, as I do not know what I am damaging (if</i><br>
+<i>&gt;anything) by hanging pcuw04 so much.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Please let me know what you turn up.  You can feel free to use or remove my</i><br>
+<i>&gt;~lishka/tmp/data* file which is 68meg -- it was only there for testing.</i><br>
+<i>&gt;</i><br>
+<i>&gt;					Cheers,</i><br>
+<i>&gt;						.oO Chris Oo.</i><br>
+<i>&gt;</i><br>
+<p>
+Mail #2:<br>
+========<br>
+<p>
+<p>
+<i>&gt;I was poking around some of the configurable kernel constants on DUnix when I</i><br>
+<i>&gt;came across some of the NFS header files.  This gave me an idea, so I looked at</i><br>
+<i>&gt;the definitions in Linux on pcuw04.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Here is the appropriate NFS structure for file attributes from</i><br>
+<i>&gt;/usr/include/linux/nfs.h:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	struct nfs_fattr {</i><br>
+<i>&gt;	        enum nfs_ftype type;</i><br>
+<i>&gt;        	u_int mode;</i><br>
+<i>&gt;	        u_int nlink;</i><br>
+<i>&gt;	        u_int uid;</i><br>
+<i>&gt;	        u_int gid;</i><br>
+<i>&gt;	        u_int size;</i><br>
+<i>&gt;	        u_int blocksize;</i><br>
+<i>&gt;	        u_int rdev;</i><br>
+<i>&gt;	        u_int blocks;</i><br>
+<i>&gt;	        u_int fsid;</i><br>
+<i>&gt;---&gt;	        u_int fileid;</i><br>
+<i>&gt;	        struct nfs_time atime;</i><br>
+<i>&gt;	        struct nfs_time mtime;</i><br>
+<i>&gt;	        struct nfs_time ctime;</i><br>
+<i>&gt;	};</i><br>
+<i>&gt;</i><br>
+<i>&gt;Notice the line marked by an arrow.  On DUnix's nfs.h, the like field (called</i><br>
+<i>&gt;na_nodeid) in the like structure (called nfsfattr.h there) has a comment</i><br>
+<i>&gt;stating that this field is the inode number.  Also note that it is declared as</i><br>
+<i>&gt;an unsigned int.</i><br>
+<i>&gt;</i><br>
+<i>&gt;Next I did some poking around /usr/src/linux/fs/nfs.  In particular, I grepped</i><br>
+<i>&gt;for all *.c files that use the fileid field.  dir.c has a lot of hits. </i><br>
+<i>&gt;Furthermore, dir.c contains lines that look like:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	dir.c:  int fileid;</i><br>
+<i>&gt;</i><br>
+<i>&gt;	dir.c:  int fileid = file-&gt;i_ino;</i><br>
+<i>&gt;</i><br>
+<i>&gt;Bingo!  dir.c is declaring temporary variables to hold inode numbers, but is</i><br>
+<i>&gt;improperly using "int" as the type.  Hence, the sign bit is misinterpreted. </i><br>
+<i>&gt;Just for kicks, I checked the declaration for file-&gt;i_ino, which is in</i><br>
+<i>&gt;/usr/include/linux/fs.h:</i><br>
+<i>&gt;</i><br>
+<i>&gt;	/usr/include/linux/fs.h:        unsigned long   i_ino;</i><br>
+<i>&gt;</i><br>
+<i>&gt;Finally, I ran the command "grep -E 'inode|fileid' *.c | grep int" in</i><br>
+<i>&gt;/usr/src/linux/fs/nfs and manually searched for instances where inode and</i><br>
+<i>&gt;fileid are declared as "int":</i><br>
+<i>&gt;</i><br>
+<i>&gt;	dir.c:  int inode;</i><br>
+<i>&gt;	dir.c:  int fileid;</i><br>
+<i>&gt;	dir.c:  int fileid = file-&gt;i_ino;</i><br>
+<i>&gt;	dir.c:  slen = sprintf(silly, ".nfs%ld", inode-&gt;i_ino);</i><br>
+<i>&gt;	dir.c:  slen = sprintf(silly, ".nfs%ld", inode-&gt;i_ino);</i><br>
+<i>&gt;</i><br>
+<i>&gt;Uggh.</i><br>
+<i>&gt;</i><br>
+<i>&gt;This is by no means an exhaustive test.  It does however show that there are</i><br>
+<i>&gt;obvious bugs (at least obvious enough for me to locate) in Linux's NFS code.  I</i><br>
+<i>&gt;do not get a warm fuzzy feeling from this.</i><br>
+<i>&gt;</i><br>
+<i>&gt;					Cheers,</i><br>
+<i>&gt;						.oO Chris Oo</i><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0393.html">Alvin Starr: "glibc 2.0.[34]"</a>
+<li> <b>Previous message:</b> <a href="0391.html">Stephen Williams: "Re: Kaffe 0.9.1 compile problems"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

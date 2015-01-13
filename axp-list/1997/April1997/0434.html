@@ -1,0 +1,227 @@
+<!-- received="Thu Apr 10 00:09:38 1997 " -->
+<!-- sent="Wed, 9 Apr 1997 22:05:21 -0600 (MDT)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: 2.0.30 on the alpha?" -->
+<!-- id="199704100405.WAA16931@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="199704100012.UAA12204@alef.bogon.nul" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 2.0.30 on the alpha?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 2.0.30 on the alpha?</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Wed, 9 Apr 1997 22:05:21 -0600 (MDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#434">[ date ]</a><a href="index.html#434">[ thread ]</a><a href="subject.html#434">[ subject ]</a><a href="author.html#434">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0435.html">D. Champion: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<li> <b>Previous message:</b> <a href="0433.html">Al Potter: "2.0.30 on the alpha?"</a>
+<li> <b>In reply to:</b> <a href="0433.html">Al Potter: "2.0.30 on the alpha?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0447.html">Michael Alan Dorman: "Re: 2.0.30 on the alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; I've applied axp-diffs-2.0.21 as well as em86-patch and traparg-patch-2.0 to</i><br>
+<i>&gt; support em86 (works fine w/ 2.0.29) and the compile bails at:</i><br>
+<i>&gt; </i><br>
+<i>&gt; gcc -D__KERNEL__ -I/usr/src/linux-2.0.30/include -Wall -Wstrict-prototypes -g</i><br>
+<i>&gt; -O2 -pipe -mno-fp-regs  -c -o block_dev.o block_dev.c</i><br>
+<i>&gt; block_dev.c:25: conflicting types for `block_write'</i><br>
+.....<br>
+<p>
+Sigh, recent changes in block_dev.c indeed do not take into account<br>
+changes on Alpha.  You likely patched first Intel sources to 2.0.30 and<br>
+applied axp-diffs-2.0.21 on the top, right?  Otherwise you would get<br>
+rejects from 'patch'.<br>
+<p>
+Here are patches to block_dev.c (2.0.29, Alpha version) which mimic<br>
+changes on Intel side and maintain compatibility with axp-diffs.<br>
+<p>
+If you are patching 2.0.29-Alpha you will be left with block_dev.c.orig<br>
+after an incomplete patch.  Apply these diffs to THIS file and use<br>
+results as block_dev.c<br>
+<p>
+  Michal<br>
+<p>
+--- block_dev.c.orig	Sat Dec 21 17:58:45 1996<br>
++++ block_dev.c	Wed Apr  9 20:35:08 1997<br>
+@@ -20,21 +20,19 @@<br>
+ #define MAX_BUF_PER_PAGE (PAGE_SIZE / 512)<br>
+ #define NBUF 64<br>
+ <br>
+-long block_write(struct inode * inode, struct file * filp, const char * buf, unsigned long count)<br>
++long block_write(struct inode * inode, struct file * filp,<br>
++       const char * buf, unsigned long count)<br>
+ {<br>
+-	int blocksize, blocksize_bits, i, j, buffercount,write_error;<br>
++	int blocksize, blocksize_bits, i, buffercount,write_error;<br>
+ 	long block, blocks;<br>
+ 	loff_t offset;<br>
+ 	long chars;<br>
+ 	long written = 0;<br>
+-	int cluster_list[MAX_BUF_PER_PAGE];<br>
+ 	struct buffer_head * bhlist[NBUF];<br>
+-	int blocks_per_cluster;<br>
+ 	unsigned long size;<br>
+ 	kdev_t dev;<br>
+ 	struct buffer_head * bh, *bufferlist[NBUF];<br>
+ 	register char * p;<br>
+-	long excess;<br>
+ <br>
+ 	write_error = buffercount = 0;<br>
+ 	dev = inode-&gt;i_rdev;<br>
+@@ -51,8 +49,6 @@<br>
+ 		i &gt;&gt;= 1;<br>
+ 	}<br>
+ <br>
+-	blocks_per_cluster = PAGE_SIZE / blocksize;<br>
+-<br>
+ 	block = filp-&gt;f_pos &gt;&gt; blocksize_bits;<br>
+ 	offset = filp-&gt;f_pos &amp; (blocksize-1);<br>
+ <br>
+@@ -68,15 +64,14 @@<br>
+ 			chars=count;<br>
+ <br>
+ #if 0<br>
+-		if (chars == blocksize)<br>
+-			bh = getblk(dev, block, blocksize);<br>
+-		else<br>
+-			bh = breada(dev,block,block+1,block+2,-1);<br>
+-<br>
++		/* get the buffer head */<br>
++		{<br>
++			struct buffer_head * (*fn)(kdev_t, int, int) = getblk;<br>
++			if (chars != blocksize)<br>
++				fn = bread;<br>
++			bh = fn(dev, block, blocksize);<br>
++		}<br>
+ #else<br>
+-		for(i=0; i&lt;blocks_per_cluster; i++) cluster_list[i] = block+i;<br>
+-		if((block % blocks_per_cluster) == 0)<br>
+-		  generate_cluster(dev, cluster_list, blocksize);<br>
+ 		bh = getblk(dev, block, blocksize);<br>
+ <br>
+ 		if (chars != blocksize &amp;&amp; !buffer_uptodate(bh)) {<br>
+@@ -90,15 +85,8 @@<br>
+ 		    blocks = read_ahead[MAJOR(dev)] / (blocksize &gt;&gt; 9) / 2;<br>
+ 		    if (block + blocks &gt; size) blocks = size - block;<br>
+ 		    if (blocks &gt; NBUF) blocks=NBUF;<br>
+-		    excess = (block + blocks) % blocks_per_cluster;<br>
+-		    if ( blocks &gt; excess )<br>
+-			blocks -= excess;<br>
+ 		    bhlist[0] = bh;<br>
+ 		    for(i=1; i&lt;blocks; i++){<br>
+-		      if(((i+block) % blocks_per_cluster) == 0) {<br>
+-			for(j=0; j&lt;blocks_per_cluster; j++) cluster_list[j] = block+i+j;<br>
+-			generate_cluster(dev, cluster_list, blocksize);<br>
+-		      };<br>
+ 		      bhlist[i] = getblk (dev, block+i, blocksize);<br>
+ 		      if(!bhlist[i]){<br>
+ 			while(i &gt;= 0) brelse(bhlist[i--]);<br>
+@@ -157,7 +145,8 @@<br>
+ 	return written;<br>
+ }<br>
+ <br>
+-long block_read(struct inode * inode, struct file * filp, char * buf, unsigned long count)<br>
++long block_read(struct inode * inode, struct file * filp,<br>
++       char * buf, unsigned long count)<br>
+ {<br>
+ 	unsigned int block;<br>
+ 	loff_t offset;<br>
+@@ -165,8 +154,6 @@<br>
+ 	int blocksize_bits, i;<br>
+ 	unsigned long blocks, rblocks, left;<br>
+ 	int bhrequest, uptodate;<br>
+-	int cluster_list[MAX_BUF_PER_PAGE];<br>
+-	int blocks_per_cluster;<br>
+ 	struct buffer_head ** bhb, ** bhe;<br>
+ 	struct buffer_head * buflist[NBUF];<br>
+ 	struct buffer_head * bhreq[NBUF];<br>
+@@ -174,7 +161,6 @@<br>
+ 	loff_t size;<br>
+ 	kdev_t dev;<br>
+ 	long read;<br>
+-	long excess;<br>
+ <br>
+ 	dev = inode-&gt;i_rdev;<br>
+ 	blocksize = BLOCK_SIZE;<br>
+@@ -193,8 +179,6 @@<br>
+ 	else<br>
+ 		size = INT_MAX;<br>
+ <br>
+-	blocks_per_cluster = PAGE_SIZE / blocksize;<br>
+-<br>
+ 	if (offset &gt; size)<br>
+ 		left = 0;<br>
+ 	/* size - offset might not fit into left, so check explicitly. */<br>
+@@ -215,9 +199,6 @@<br>
+ 	if (filp-&gt;f_reada) {<br>
+ 	        if (blocks &lt; read_ahead[MAJOR(dev)] / (blocksize &gt;&gt; 9))<br>
+ 			blocks = read_ahead[MAJOR(dev)] / (blocksize &gt;&gt; 9);<br>
+-		excess = (block + blocks) % blocks_per_cluster;<br>
+-		if ( blocks &gt; excess )<br>
+-			blocks -= excess;		<br>
+ 		if (rblocks &gt; blocks)<br>
+ 			blocks = rblocks;<br>
+ 		<br>
+@@ -240,12 +221,6 @@<br>
+ 		uptodate = 1;<br>
+ 		while (blocks) {<br>
+ 			--blocks;<br>
+-#if 1<br>
+-			if((block % blocks_per_cluster) == 0) {<br>
+-			  for(i=0; i&lt;blocks_per_cluster; i++) cluster_list[i] = block+i;<br>
+-			  generate_cluster(dev, cluster_list, blocksize);<br>
+-			}<br>
+-#endif<br>
+ 			*bhb = getblk(dev, block++, blocksize);<br>
+ 			if (*bhb &amp;&amp; !buffer_uptodate(*bhb)) {<br>
+ 				uptodate = 0;<br>
+@@ -266,7 +241,6 @@<br>
+ 		/* Now request them all */<br>
+ 		if (bhrequest) {<br>
+ 			ll_rw_block(READ, bhrequest, bhreq);<br>
+-			refill_freelist(blocksize);<br>
+ 		}<br>
+ <br>
+ 		do { /* Finish off all I/O that has actually completed */<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0435.html">D. Champion: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<li> <b>Previous message:</b> <a href="0433.html">Al Potter: "2.0.30 on the alpha?"</a>
+<li> <b>In reply to:</b> <a href="0433.html">Al Potter: "2.0.30 on the alpha?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0447.html">Michael Alan Dorman: "Re: 2.0.30 on the alpha?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

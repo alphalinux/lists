@@ -1,0 +1,136 @@
+<!-- received="Fri Oct  2 22:00:46 1998 " -->
+<!-- sent="Fri, 2 Oct 1998 17:58:45 -0700 (PDT)" -->
+<!-- name="B. James Phillippe" -->
+<!-- email="bryan@terran.org" -->
+<!-- subject="Re: runaway klogd/syslogd happening now" -->
+<!-- id="199810030029.UAA15757@adder.cs.Virginia.EDU" -->
+<!-- inreplyto="199810030029.UAA15757@adder.cs.Virginia.EDU" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: runaway klogd/syslogd happening now</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: runaway klogd/syslogd happening now</h2>
+
+<b>B. James Phillippe</b> (<a href="mailto:bryan@terran.org"><i>bryan@terran.org</i></a>)<br>
+<i>Fri, 2 Oct 1998 17:58:45 -0700 (PDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1179">[ date ]</a><a href="index.html#1179">[ thread ]</a><a href="subject.html#1179">[ subject ]</a><a href="author.html#1179">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<li> <b>Previous message:</b> <a href="1178.html">Greg Lindahl: "Re: runaway klogd/syslogd happening now"</a>
+<li> <b>In reply to:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1166.html">Bret Orsburn: "Re: top/gtop for RedHat Alpha 5.1?"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 2 Oct 1998, Greg Lindahl wrote:<br>
+<p>
+<i>&gt; &gt; klogd:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; write(1, "&lt;3&gt;Oct  2 14:29:51 kernel: Canno"..., 82) = 82</i><br>
+<i>&gt; &gt; read(15913, 0x120107f84, 4096)          = -1 EBADF (Bad file descriptor)</i><br>
+<i>&gt; </i><br>
+<i>&gt; And here we see klogd is reading from a bogus file descriptor. A</i><br>
+<i>&gt; process-local bug, probably not a kernel bug.</i><br>
+<i>&gt; </i><br>
+<i>&gt; That doesn't tell you how klogd got the bogus fd, but it should be</i><br>
+<i>&gt; enough for RedHat to at least insert a workaround.</i><br>
+<p>
+The only file descriptor klogd should be reading is /proc/kmsg.  You can<br>
+verify this by:<br>
+<p>
+Get the pid of klogd; ps has it, and so does top (which he posted<br>
+output from previously).<br>
+<p>
+% ps aux|grep klog<br>
+bryan    20395  0.0  0.3   936   316  p7 S   17:32   0:00 grep klog <br>
+root       147  0.0  0.2   968   200  ?  S  Aug 25   0:00 klogd <br>
+% <br>
+<p>
+Now look in the directory /proc/PID/fd (as root).<br>
+<p>
+% ls -l /proc/147/fd<br>
+total 0<br>
+lr-x------   1 root     root           64 Oct  2 17:33 0 -&gt; [0001]:5<br>
+lrwx------   1 root     root           64 Oct  2 17:33 1 -&gt; [0000]:480<br>
+%<br>
+<p>
+There are two filedescriptors; 0 and 1.  fd0 is on device 00:01 (the /proc<br>
+filesystem) attached to inode #5, and fd1 is on device 00:00 (a UNIX domain<br>
+socket) attached to inode #480.  I can guess that fd0 is for input and fd1<br>
+is for output (based on the permissions of the files).<br>
+<p>
+netstat can find the UNIX domain socket (not that we need it; we know<br>
+there's not a problem writing, but it's fun to hunt down anyway).<br>
+<p>
+% netstat<br>
+....<br>
+Active UNIX domain sockets (w/o servers)<br>
+Proto RefCnt Flags       Type       State         I-Node Path<br>
+unix  2      [ ]         STREAM     CONNECTED     480    <br>
+unix  2      [ ]         STREAM                   481    /dev/log<br>
+........<br>
+%<br>
+<p>
+Okay, so that must be how klogd communicates with syslogd.  One down, one<br>
+to go.  We can use find to find the file matching inode #5 on device 00:01.<br>
+<p>
+% find /proc -inum 5<br>
+/proc/kmsg<br>
+%<br>
+<p>
+Ah, this is how klogd gets kernel messages.. so everything klogd said was<br>
+true; it can't read the /proc filesystem.  Can another user-space utility<br>
+open and read from this file while klogd is spinning?  For instance, when<br>
+you "cat /proc/kmsg", what do you see?<br>
+<p>
+As for the cause of this problem, I think Uncle George posted a<br>
+reasonable-sounding explanation.  IIRC, it was that use of an unimplemented<br>
+syscall returned a kernel error message that was not terminated by a<br>
+newline, many times over, and klogd trashes it's stack trying to parse it,<br>
+and ... ?  Am I warm?<br>
+<p>
+-bp<br>
+<pre>
+--
+B. James Phillippe	. <a href="mailto:bryan@terran.org">bryan@terran.org</a>
+UNIX Software Engineer	. <a href="http://www.terran.org/~bryan">http://www.terran.org/~bryan</a>
+Member since 1.1.59	. <a href="mailto:finger:bryan@earth.terran.org">finger:bryan@earth.terran.org</a>
+MOTM: Waiting for the DSL to go in :)
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<li> <b>Previous message:</b> <a href="1178.html">Greg Lindahl: "Re: runaway klogd/syslogd happening now"</a>
+<li> <b>In reply to:</b> <a href="1180.html">Paul Tomblin: "Re: runaway klogd/syslogd happening now"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1166.html">Bret Orsburn: "Re: top/gtop for RedHat Alpha 5.1?"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

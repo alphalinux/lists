@@ -1,0 +1,187 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: what does struct timeval look like on alpha ?</TITLE>
+<META NAME="Author" CONTENT="Uncle George (gatgul@voicenet.com)">
+<META NAME="Subject" CONTENT="Re: what does struct timeval look like on alpha ?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: what does struct timeval look like on alpha ?</H1>
+<HR>
+<P>
+<!-- received="Sun Jun 20 22:49:23 1999" -->
+<!-- isoreceived="19990621054923" -->
+<!-- sent="Sun, 20 Jun 1999 18:01:22 -0400" -->
+<!-- isosent="19990620220122" -->
+<!-- name="Uncle George" -->
+<!-- email="gatgul@voicenet.com" -->
+<!-- subject="Re: what does struct timeval look like on alpha ?" -->
+<!-- id="376D64B2.6642D815@voicenet.com" -->
+<!-- inreplyto="19990619205852.A8660@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: what does struct timeval look like on alpha ?<BR>
+<STRONG>From: </STRONG>Uncle George (<EM>gatgul@voicenet.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Jun 20 1999 - 15:01:22 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#421">[ date ]</A>
+<A HREF="index.html#421">[ thread ]</A>
+<A HREF="subject.html#421">[ subject ]</A>
+<A HREF="author.html#421">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0422.html">Wes Bauske: "Re: fp exceptions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0420.html">glenn murphy: "fp exceptions"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0415.html">Richard Henderson: "Re: what does struct timeval look like on alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0423.html">Richard Henderson: "Re: what does struct timeval look like on alpha ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0415.html">Uncle George: "Re: what does struct timeval look like on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Since time_t == __time_t == Long int,  there had to be another
+<BR>
+explanation. &amp; using a small sample 'c' pgm to test gettimeofday() with
+<BR>
+int/long/timeval structs, long appears to be the correct answer
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;- BUT -
+<BR>
+It appears that in my java port on RH 6.0 gettimeofday() gets binded to
+<BR>
+__gettimeofday__tv32
+<BR>
+I suppose I want __gettimeofday_tv64.  Any way to convince the dynamic
+<BR>
+linker that i'm not intel ? :-/
+<BR>
+gat
+<BR>
+<P>single instruction stepping:
+<BR>
+<P>Breakpoint 3, sysTimeMillis ()
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;at ../../../../src/genunix/java/runtime/system_md.c:66
+<BR>
+66          gettimeofday(&amp;t, 0);
+<BR>
+1: x/i $pc  0x20000197d8c &lt;sysTimeMillis+12&gt;:   clr     a1
+<BR>
+(gdb) si
+<BR>
+57      {
+<BR>
+1: x/i $pc  0x20000197d90 &lt;sysTimeMillis+16&gt;:   stq     s0,8(sp)
+<BR>
+(gdb)
+<BR>
+66          gettimeofday(&amp;t, 0);
+<BR>
+1: x/i $pc  0x20000197d94 &lt;sysTimeMillis+20&gt;:   addq    sp,0x10,a0
+<BR>
+(gdb)
+<BR>
+73          fprintf(stderr,&quot;sysTimeMillis:s=%ld&quot;, t.tv_sec);
+<BR>
+1: x/i $pc  0x20000197d98 &lt;sysTimeMillis+24&gt;:   ldq     s0,-27832(gp)
+<BR>
+(gdb)
+<BR>
+57      {
+<BR>
+1: x/i $pc  0x20000197d9c &lt;sysTimeMillis+28&gt;:   stq     ra,0(sp)
+<BR>
+(gdb)
+<BR>
+66          gettimeofday(&amp;t, 0);
+<BR>
+1: x/i $pc  0x20000197da0 &lt;sysTimeMillis+32&gt;:   ldq     t12,-28648(gp)
+<BR>
+(gdb)
+<BR>
+0x20000197da4   66          gettimeofday(&amp;t, 0);
+<BR>
+1: x/i $pc  0x20000197da4 &lt;sysTimeMillis+36&gt;:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;jsr ra,(t12),0x2000019c000 &lt;intrInitMD+352&gt;
+<BR>
+(gdb)
+<BR>
+__gettimeofday_tv32 () at __gettimeofday_tv32:2
+<BR>
+__gettimeofday_tv32:2: No such file or directory.
+<BR>
+1: x/i $pc  0x200005c53c0 &lt;__gettimeofday_tv32&gt;:        lda
+<BR>
+v0,116(zero)
+<BR>
+(gdb
+<BR>
+<P><P>Richard Henderson wrote:
+<BR>
+<P><EM>&gt; On Sun, Jun 20, 1999 at 06:07:18PM -0400, Meryem Kazanfer wrote:
+</EM><BR>
+<EM>&gt; &gt; it does in RH 6.0 with glibc2.1.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Yes.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt; In redhat 5.x, with glibc2.0.7 it doesn't.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Yes.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; &gt; If i'm not mistaken, u ssaid this was a posix change.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Yes -- timeval.tv_sec must be of type time_t.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; Are you not using &lt;sys/time.h&gt; to get the definition of struct timeval?
+</EM><BR>
+<EM>&gt; Why are you so hung up on ints and longs?
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; r~
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0422.html">Wes Bauske: "Re: fp exceptions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0420.html">glenn murphy: "fp exceptions"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0415.html">Richard Henderson: "Re: what does struct timeval look like on alpha ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0423.html">Richard Henderson: "Re: what does struct timeval look like on alpha ?"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0415.html">Uncle George: "Re: what does struct timeval look like on alpha ?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:27 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

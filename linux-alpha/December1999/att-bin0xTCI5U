@@ -1,0 +1,185 @@
+diff -rup linux/arch/alpha/mm/init.c 2.3.32/arch/alpha/mm/init.c
+--- linux/arch/alpha/mm/init.c	Wed Dec  8 22:22:17 1999
++++ 2.3.32/arch/alpha/mm/init.c	Tue Dec 14 05:31:43 1999
+@@ -308,6 +308,7 @@ mem_init(void)
+ {
+ 	max_mapnr = num_physpages = max_low_pfn;
+ 	totalram_pages += free_all_bootmem();
++	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+ 
+ 	printk_memory_info();
+ }
+diff -rup linux/drivers/char/agp/agp.h 2.3.32/drivers/char/agp/agp.h
+--- linux/drivers/char/agp/agp.h	Tue Dec 14 04:39:13 1999
++++ 2.3.32/drivers/char/agp/agp.h	Tue Dec 14 05:49:00 1999
+@@ -134,13 +134,13 @@ struct agp_bridge_data {
+ #endif
+ };
+ 
+-#define OUTREG32(mmap, addr, val)   *(volatile u32 *)(mmap + (addr)) = (val)
+-#define OUTREG16(mmap, addr, val)   *(volatile u16 *)(mmap + (addr)) = (val)
+-#define OUTREG8 (mmap, addr, val)   *(volatile u8 *) (mmap + (addr)) = (val)
++#define OUTREG32(mmap, addr, val)   __raw_writel((val), (mmap)+(addr))
++#define OUTREG16(mmap, addr, val)   __raw_writew((val), (mmap)+(addr))
++#define OUTREG8 (mmap, addr, val)   __raw_writeb((val), (mmap)+(addr))
+ 
+-#define INREG32(mmap, addr)         *(volatile u32 *)(mmap + (addr))
+-#define INREG16(mmap, addr)         *(volatile u16 *)(mmap + (addr))
+-#define INREG8 (mmap, addr)         *(volatile u8 *) (mmap + (addr))
++#define INREG32(mmap, addr)         __raw_readl((mmap)+(addr))
++#define INREG16(mmap, addr)         __raw_readw((mmap)+(addr))
++#define INREG8 (mmap, addr)         __raw_readb((mmap)+(addr))
+ 
+ #define CACHE_FLUSH	agp_bridge.cache_flush
+ #define A_SIZE_8(x)	((aper_size_info_8 *) x)
+diff -rup linux/drivers/char/agp/agpgart_be.c 2.3.32/drivers/char/agp/agpgart_be.c
+--- linux/drivers/char/agp/agpgart_be.c	Tue Dec 14 04:39:13 1999
++++ 2.3.32/drivers/char/agp/agpgart_be.c	Tue Dec 14 06:45:24 1999
+@@ -62,6 +62,26 @@ static void flush_cache(void);
+ 
+ static struct agp_bridge_data agp_bridge;
+ static int agp_try_unsupported __initdata = 0;
++
++
++static inline void flush_cache(void)
++{
++#if defined(__i386__)
++	asm volatile ("wbinvd":::"memory");
++#elif defined(__alpha__)
++	/* ??? I wonder if we'll really need to flush caches, or if the
++	   core logic can manage to keep the system coherent.  The ARM
++	   speaks only of using `cflush' to get things in memory in
++	   preparation for power failure.
++
++	   If we do need to call `cflush', we'll need a target page,
++	   as we can only flush one page at a time.  */
++	mb();
++#else
++#error "Please define flush_cache."
++#endif
++}
++
+ #ifdef __SMP__
+ static atomic_t cpus_waiting;
+ 
+@@ -87,12 +107,6 @@ static void smp_flush_cache(void)
+ #define global_cache_flush flush_cache
+ #endif				/* __SMP__ */
+ 
+-static void flush_cache(void)
+-{
+-	asm volatile ("wbinvd":::"memory");
+-}
+-
+-
+ int agp_backend_acquire(void)
+ {
+ 	atomic_inc(&agp_bridge.agp_in_use);
+@@ -1356,6 +1370,7 @@ static int amd_irongate_fetch_size(void)
+ static int amd_irongate_configure(void)
+ {
+ 	aper_size_info_32 *current_size;
++	unsigned long addr;
+ 	u32 temp;
+ 	u16 enable_reg;
+ 
+@@ -1389,8 +1404,16 @@ static int amd_irongate_configure(void)
+ 
+ 	/* Get the address for the gart region */
+ 	pci_read_config_dword(agp_bridge.dev, AMD_APBASE, &temp);
+-	temp = (temp & PCI_BASE_ADDRESS_MEM_MASK);
+-	agp_bridge.gart_bus_addr = temp;
++	addr = (temp & PCI_BASE_ADDRESS_MEM_MASK);
++#ifdef __alpha__
++	/* ??? Presumably what is wanted is the bus address as seen
++	   from the CPU side, since it appears that this value is
++	   exported to userland via an ioctl.  The terminology below
++	   is confused, mixing `physical address' with `bus address',
++	   as x86 folk are wont to do.  */
++	addr = virt_to_phys(ioremap(addr, 0));
++#endif
++	agp_bridge.gart_bus_addr = addr;
+ 	return 0;
+ }
+ 
+@@ -1894,13 +1917,10 @@ static struct agp_max_table maxes_table[
+ 
+ static int agp_find_max(void)
+ {
+-	int memory;
+-	float t;
+-	int index;
+-	int result;
++	long memory, t, index, result;
+ 
+-	memory = virt_to_phys(high_memory) / 0x100000;
+-	index = 0;
++	memory = virt_to_phys(high_memory) >> 20;
++	index = 1;
+ 
+ 	while ((memory > maxes_table[index].mem) &&
+ 	       (index < 8)) {
+@@ -1914,8 +1934,8 @@ static int agp_find_max(void)
+ 	    (t * (maxes_table[index].agp - maxes_table[index - 1].agp));
+ 
+ 	printk(KERN_INFO "agpgart: Maximum main memory to use "
+-	       "for agp memory: %dM\n", result);
+-	result = (result * 0x100000) / 4096;
++	       "for agp memory: %ldM\n", result);
++	result = result << (20 - PAGE_SHIFT);
+ 	return result;
+ }
+ 
+diff -rup linux/include/asm-alpha/io.h 2.3.32/include/asm-alpha/io.h
+--- linux/include/asm-alpha/io.h	Wed Dec  8 22:22:18 1999
++++ 2.3.32/include/asm-alpha/io.h	Tue Dec 14 06:33:56 1999
+@@ -53,10 +53,7 @@ static inline void set_hae(unsigned long
+  */
+ static inline unsigned long virt_to_phys(volatile void * address)
+ {
+-	/* Conditionalize this on the CPU?  This here is 40 bits,
+-	   whereas EV4 only supports 34.  But KSEG is farther out
+-	   so it shouldn't _really_ matter.  */
+-	return 0xffffffffffUL & (unsigned long) address;
++	return (unsigned long)address - IDENT_ADDR;
+ }
+ 
+ static inline void * phys_to_virt(unsigned long address)
+@@ -265,6 +262,11 @@ static inline void * ioremap(unsigned lo
+ static inline void iounmap(void *addr)
+ {
+ }
++
++static inline void * ioremap_nocache(unsigned long offset, unsigned long size)
++{
++	return ioremap(offset, size);
++} 
+ 
+ /* Indirect back to the macros provided.  */
+ 
+diff -rup linux/include/asm-alpha/pgtable.h 2.3.32/include/asm-alpha/pgtable.h
+--- linux/include/asm-alpha/pgtable.h	Wed Dec  8 22:22:18 1999
++++ 2.3.32/include/asm-alpha/pgtable.h	Tue Dec 14 05:36:51 1999
+@@ -296,7 +296,7 @@ extern inline pte_t mk_swap_pte(unsigned
+ #define kern_addr_valid(addr)	(1)
+ 
+ #define io_remap_page_range(start, busaddr, size, prot) \
+-	remap_page_range(start, virt_to_phys(__ioremap(busaddr)), size, prot)
++	remap_page_range(start, virt_to_phys(__ioremap(busaddr, 0)), size, prot)
+ 
+ #define pte_ERROR(e) \
+ 	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
+diff -rup linux/include/asm-alpha/system.h 2.3.32/include/asm-alpha/system.h
+--- linux/include/asm-alpha/system.h	Wed Dec  8 22:23:04 1999
++++ 2.3.32/include/asm-alpha/system.h	Tue Dec 14 05:36:51 1999
+@@ -245,6 +245,7 @@ static inline RTYPE NAME(TYPE0 arg0, TYP
+ 	return __r0;						\
+ }
+ 
++__CALL_PAL_W1(cflush, unsigned long);
+ __CALL_PAL_R0(rdmces, unsigned long);
+ __CALL_PAL_R0(rdps, unsigned long);
+ __CALL_PAL_R0(rdusp, unsigned long);
+
+--fdj2RfSjLxBAspz7--
+

@@ -1,0 +1,823 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>AXP-List Hypermail Archive: RE: Simple Device Driver</TITLE>
+<META NAME="Author" CONTENT="Grant, Iain (Iain.Grant@compaq.com)">
+<META NAME="Subject" CONTENT="RE: Simple Device Driver">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: Simple Device Driver</H1>
+<HR>
+<P>
+<!-- received="Wed Nov 10 06:53:47 1999" -->
+<!-- isoreceived="19991110155347" -->
+<!-- sent="Wed, 10 Nov 1999 15:53:12 -0000" -->
+<!-- isosent="19991110155312" -->
+<!-- name="Grant, Iain" -->
+<!-- email="Iain.Grant@compaq.com" -->
+<!-- subject="RE: Simple Device Driver" -->
+<!-- id="03D1E91FFFDFD1119BD90000F843B47502C308CF@sbueurayo1bc.ayo.dec.com" -->
+<!-- inreplyto="Simple Device Driver" -->
+<STRONG>Subject: </STRONG>RE: Simple Device Driver<BR>
+<STRONG>From: </STRONG>Grant, Iain (<EM>Iain.Grant@compaq.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Nov 10 1999 - 06:53:12 AKST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#354">[ date ]</A>
+<A HREF="index.html#354">[ thread ]</A>
+<A HREF="subject.html#354">[ subject ]</A>
+<A HREF="author.html#354">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0355.html">Roger Dooley: "6.1 for download?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0353.html">DAVID BALAZIC: "Crashes of egcs-1.1.2 on redhat-6.0/alpha"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0351.html">Grant, Iain: "Simple Device Driver"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0351.html">Grant, Iain: "RE: Simple Device Driver"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0354.html">Grant, Iain: "RE: Simple Device Driver"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+</PRE>
+<P>
+Marc,
+<BR>
+<P>I suspected that here they are
+<BR>
+<P>---------------------------------------- DEvice Driver
+<BR>
+--------------------------
+<BR>
+/* chardev.c
+<BR>
+&nbsp;* Copyright (C) 1998-1999 by Ori Pomerantz
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* Create a character device
+<BR>
+&nbsp;*/
+<BR>
+<P><P><P>/* The necessary header files */
+<BR>
+<P>/* Standard in kernel modules */
+<BR>
+#include &lt;linux/kernel.h&gt;   /* We're doing kernel work */
+<BR>
+#include &lt;linux/module.h&gt;   /* Specifically, a module */
+<BR>
+#include &lt;asm/segment.h&gt;
+<BR>
+<P>/* Deal with CONFIG_MODVERSIONS */
+<BR>
+#if CONFIG_MODVERSIONS==1
+<BR>
+#define MODVERSIONS
+<BR>
+#include &lt;linux/modversions.h&gt;
+<BR>
+#endif
+<BR>
+<P>/* For character devices */
+<BR>
+#include &lt;linux/fs.h&gt;       /* The character device
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* definitions are here */
+<BR>
+#include &lt;linux/wrapper.h&gt;  /* A wrapper which does
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* next to nothing at
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* at present, but may
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* help for compatibility
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* with future versions
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* of Linux */
+<BR>
+<P><P>/* In 2.2.3 /usr/include/linux/version.h includes
+<BR>
+&nbsp;* a macro for this, but 2.0.35 doesn't - so I add
+<BR>
+&nbsp;* it here if necessary. */
+<BR>
+#ifndef KERNEL_VERSION
+<BR>
+#define KERNEL_VERSION(a,b,c) ((a)*65536+(b)*256+(c))
+<BR>
+#endif
+<BR>
+<P>&nbsp;#define DEBUG
+<BR>
+<P><P>/* Conditional compilation. LINUX_VERSION_CODE is
+<BR>
+&nbsp;* the code (as per KERNEL_VERSION) of this version. */
+<BR>
+#if LINUX_VERSION_CODE &gt; KERNEL_VERSION(2,2,0)
+<BR>
+#include &lt;asm/uaccess.h&gt;  /* for put_user */
+<BR>
+#endif
+<BR>
+<P><P><P>#define SUCCESS 0
+<BR>
+<P><P>/* Device Declarations **************************** */
+<BR>
+<P>/* The name for our device, as it will appear
+<BR>
+&nbsp;* in /proc/devices */
+<BR>
+#define DEVICE_NAME &quot;char_dev&quot;
+<BR>
+<P><P>/* The maximum length of the message from the device */
+<BR>
+#define BUF_LEN 80
+<BR>
+<P>/* Is the device open right now? Used to prevent
+<BR>
+&nbsp;* concurent access into the same device */
+<BR>
+static int Device_Open = 0;
+<BR>
+<P>/* The message the device will give when asked */
+<BR>
+static char Message[BUF_LEN] = &quot;I told you once&quot;;
+<BR>
+<P>/* How far did the process reading the message
+<BR>
+&nbsp;* get? Useful if the message is larger than the size
+<BR>
+&nbsp;* of the buffer we get to fill in device_read. */
+<BR>
+static char *Message_Ptr;
+<BR>
+<P><P>/* This function is called whenever a process
+<BR>
+&nbsp;* attempts to open the device file */
+<BR>
+static int device_open(struct inode *inode,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct file *file)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;static int counter = 0;
+<BR>
+<P>#ifdef DEBUG
+<BR>
+&nbsp;&nbsp;printk (&quot;device_open(%p,%p)\n&quot;, inode, file);
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;/* This is how you get the minor device number in
+<BR>
+&nbsp;&nbsp;&nbsp;* case you have more than one physical device using
+<BR>
+&nbsp;&nbsp;&nbsp;* the driver. */
+<BR>
+&nbsp;&nbsp;printk(&quot;Device: %d.%d\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode-&gt;i_rdev &gt;&gt; 8, inode-&gt;i_rdev &amp; 0xFF);
+<BR>
+<P>&nbsp;&nbsp;/* We don't want to talk to two processes at the
+<BR>
+&nbsp;&nbsp;&nbsp;* same time */
+<BR>
+&nbsp;&nbsp;if (Device_Open)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return -EBUSY;
+<BR>
+<P>&nbsp;&nbsp;/* If this was a process, we would have had to be
+<BR>
+&nbsp;&nbsp;&nbsp;* more careful here.
+<BR>
+&nbsp;&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;&nbsp;* In the case of processes, the danger would be
+<BR>
+&nbsp;&nbsp;&nbsp;* that one process might have check Device_Open
+<BR>
+&nbsp;&nbsp;&nbsp;* and then be replaced by the schedualer by another
+<BR>
+&nbsp;&nbsp;&nbsp;* process which runs this function. Then, when the
+<BR>
+&nbsp;&nbsp;&nbsp;* first process was back on the CPU, it would assume
+<BR>
+&nbsp;&nbsp;&nbsp;* the device is still not open.
+<BR>
+&nbsp;&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;&nbsp;* However, Linux guarantees that a process won't be
+<BR>
+&nbsp;&nbsp;&nbsp;* replaced while it is running in kernel context.
+<BR>
+&nbsp;&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;&nbsp;* In the case of SMP, one CPU might increment
+<BR>
+&nbsp;&nbsp;&nbsp;* Device_Open while another CPU is here, right after
+<BR>
+&nbsp;&nbsp;&nbsp;* the check. However, in version 2.0 of the
+<BR>
+&nbsp;&nbsp;&nbsp;* kernel this is not a problem because there's a lock
+<BR>
+&nbsp;&nbsp;&nbsp;* to guarantee only one CPU will be kernel module at
+<BR>
+&nbsp;&nbsp;&nbsp;* the same time. This is bad in  terms of
+<BR>
+&nbsp;&nbsp;&nbsp;* performance, so version 2.2 changed it.
+<BR>
+&nbsp;&nbsp;&nbsp;* Unfortunately, I don't have access to an SMP box
+<BR>
+&nbsp;&nbsp;&nbsp;* to check how it works with SMP.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+<P>&nbsp;&nbsp;Device_Open++;
+<BR>
+<P>&nbsp;&nbsp;/* Initialize the message.
+<BR>
+&nbsp;&nbsp;sprintf(Message,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&quot;If I told you once, I told you %d times - %s&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;counter++,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&quot;Hello, world\n&quot;);*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;counter++;
+<BR>
+&nbsp;&nbsp;/* The only reason we're allowed to do this sprintf
+<BR>
+&nbsp;&nbsp;&nbsp;* is because the maximum length of the message
+<BR>
+&nbsp;&nbsp;&nbsp;* (assuming 32 bit integers - up to 10 digits
+<BR>
+&nbsp;&nbsp;&nbsp;* with the minus sign) is less than BUF_LEN, which
+<BR>
+&nbsp;&nbsp;&nbsp;* is 80. BE CAREFUL NOT TO OVERFLOW BUFFERS,
+<BR>
+&nbsp;&nbsp;&nbsp;* ESPECIALLY IN THE KERNEL!!!
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+<P>&nbsp;&nbsp;Message_Ptr = Message;
+<BR>
+<P>&nbsp;&nbsp;/* Make sure that the module isn't removed while
+<BR>
+&nbsp;&nbsp;&nbsp;* the file is open by incrementing the usage count
+<BR>
+&nbsp;&nbsp;&nbsp;* (the number of opened references to the module, if
+<BR>
+&nbsp;&nbsp;&nbsp;* it's not zero rmmod will fail)
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;MOD_INC_USE_COUNT;
+<BR>
+<P>&nbsp;&nbsp;return SUCCESS;
+<BR>
+}
+<BR>
+<P><P>/* This function is called when a process closes the
+<BR>
+&nbsp;* device file. It doesn't have a return value in
+<BR>
+&nbsp;* version 2.0.x because it can't fail (you must ALWAYS
+<BR>
+&nbsp;* be able to close a device). In version 2.2.x it is
+<BR>
+&nbsp;* allowed to fail - but we won't let it.
+<BR>
+&nbsp;*/
+<BR>
+#if LINUX_VERSION_CODE &gt;= KERNEL_VERSION(2,2,0)
+<BR>
+static int device_release(struct inode *inode,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct file *file)
+<BR>
+#else
+<BR>
+static void device_release(struct inode *inode,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct file *file)
+<BR>
+#endif
+<BR>
+{
+<BR>
+#ifdef DEBUG
+<BR>
+&nbsp;&nbsp;printk (&quot;device_release(%p,%p)\n&quot;, inode, file);
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;/* We're now ready for our next caller */
+<BR>
+&nbsp;&nbsp;Device_Open --;
+<BR>
+<P>&nbsp;&nbsp;/* Decrement the usage count, otherwise once you
+<BR>
+&nbsp;&nbsp;&nbsp;* opened the file you'll never get rid of the module.
+<BR>
+&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;MOD_DEC_USE_COUNT;
+<BR>
+<P>#if LINUX_VERSION_CODE &gt;= KERNEL_VERSION(2,2,0)
+<BR>
+&nbsp;&nbsp;return 0;
+<BR>
+#endif
+<BR>
+}
+<BR>
+<P><P>/* This function is called whenever a process which
+<BR>
+&nbsp;* have already opened the device file attempts to
+<BR>
+&nbsp;* read from it. */
+<BR>
+<P><P>#if LINUX_VERSION_CODE &gt;= KERNEL_VERSION(2,2,0)
+<BR>
+static ssize_t device_read(struct file *file,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char *buffer,    /* The buffer to fill with data */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;size_t length,   /* The length of the buffer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;loff_t *offset)  /* Our offset in the file */
+<BR>
+#else
+<BR>
+static int device_read(struct inode *inode,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct file *file,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char *buffer,   /* The buffer to fill with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* the data */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int length)     /* The length of the buffer
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* (mustn't write beyond that!) */
+<BR>
+#endif
+<BR>
+{
+<BR>
+&nbsp;&nbsp;/* Number of bytes actually written to the buffer */
+<BR>
+&nbsp;&nbsp;int bytes_read = 0;
+<BR>
+<P>&nbsp;&nbsp;/* If we're at the end of the message, return 0
+<BR>
+&nbsp;&nbsp;&nbsp;* (which signifies end of file) */
+<BR>
+&nbsp;&nbsp;if (*Message_Ptr == 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+<P>&nbsp;&nbsp;/* Actually put the data into the buffer */
+<BR>
+&nbsp;&nbsp;while (length &amp;&amp; *Message_Ptr)  {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* Because the buffer is in the user data segment,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* not the kernel data segment, assignment wouldn't
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* work. Instead, we have to use put_user which
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* copies data from the kernel data segment to the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* user data segment. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;put_user(*(Message_Ptr++), buffer++);
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;length --;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;bytes_read ++;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P>#ifdef DEBUG
+<BR>
+&nbsp;&nbsp;&nbsp;printk (&quot;Read %d bytes, %d left\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bytes_read, length);
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/* Read functions are supposed to return the number
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;* of bytes actually inserted into the buffer */
+<BR>
+&nbsp;&nbsp;return bytes_read;
+<BR>
+}
+<BR>
+<P><P><P><P>/* This function is called when somebody tries to write
+<BR>
+&nbsp;* into our device file - unsupported in this example. */
+<BR>
+#if LINUX_VERSION_CODE &gt;= KERNEL_VERSION(2,2,0)
+<BR>
+static ssize_t device_write(struct file *file,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;const char *buffer,    /* The buffer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;size_t length,   /* The length of the buffer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;loff_t *offset)  /* Our offset in the file */
+<BR>
+#else
+<BR>
+static int device_write(struct inode *inode,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct file *file,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const char *buffer,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int length)
+<BR>
+#endif
+<BR>
+{
+<BR>
+&nbsp;/* Number of bytes actually read from to the buffer */
+<BR>
+&nbsp;&nbsp;int bytes_written = 0;
+<BR>
+<P><P>#ifdef DEBUG
+<BR>
+&nbsp;&nbsp;&nbsp;printk (&quot;Entered device write\n&quot;);
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;/* If we're at the end of the message, return 0
+<BR>
+&nbsp;&nbsp;&nbsp;* (which signifies end of file) */
+<BR>
+&nbsp;&nbsp;if (*Message_Ptr == 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+<P>&nbsp;&nbsp;/* Actually put the data into the buffer */
+<BR>
+&nbsp;&nbsp;while (length &amp;&amp; *Message_Ptr)  {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* Because the buffer is in the user data segment,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* not the kernel data segment, assignment wouldn't
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* work. Instead, we have to use put_user which
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* copies data from the kernel data segment to the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* user data segment. *
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;put_user(*(Message_Ptr++), buffer++); */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;*(Message_Ptr++) = get_user( buffer++);
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;length --;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;bytes_written ++;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;printk( &quot; %s\n&quot;,Message_Ptr);
+<BR>
+<P>#ifdef DEBUG
+<BR>
+&nbsp;&nbsp;&nbsp;printk (&quot;Written %d bytes, %d left\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bytes_written, length);
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;&nbsp;/* Read functions are supposed to return the number
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;* of bytes actually inserted into the buffer */
+<BR>
+&nbsp;&nbsp;return bytes_written;
+<BR>
+&nbsp;&nbsp;/*return -EINVAL;*/
+<BR>
+}
+<BR>
+<P><P><P><P>/* Module Declarations ***************************** */
+<BR>
+<P>/* The major device number for the device. This is
+<BR>
+&nbsp;* global (well, static, which in this context is global
+<BR>
+&nbsp;* within this file) because it has to be accessible
+<BR>
+&nbsp;* both for registration and for release. */
+<BR>
+static int Major;
+<BR>
+<P>/* This structure will hold the functions to be
+<BR>
+&nbsp;* called when a process does something to the device
+<BR>
+&nbsp;* we created. Since a pointer to this structure is
+<BR>
+&nbsp;* kept in the devices table, it can't be local to
+<BR>
+&nbsp;* init_module. NULL is for unimplemented functions. */
+<BR>
+<P><P>struct file_operations Fops = {
+<BR>
+&nbsp;&nbsp;NULL,   /* seek */
+<BR>
+&nbsp;&nbsp;device_read,
+<BR>
+&nbsp;&nbsp;device_write,
+<BR>
+&nbsp;&nbsp;NULL,   /* readdir */
+<BR>
+&nbsp;&nbsp;NULL,   /* select */
+<BR>
+&nbsp;&nbsp;NULL,   /* ioctl */
+<BR>
+&nbsp;&nbsp;NULL,   /* mmap */
+<BR>
+&nbsp;&nbsp;device_open,
+<BR>
+#if LINUX_VERSION_CODE &gt;= KERNEL_VERSION(2,2,0)
+<BR>
+&nbsp;&nbsp;NULL,   /* flush */
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;device_release  /* a.k.a. close */
+<BR>
+};
+<BR>
+<P><P>/* Initialize the module - Register the character device */
+<BR>
+int init_module()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;/* Register the character device (atleast try) */
+<BR>
+&nbsp;&nbsp;Major = module_register_chrdev(0,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DEVICE_NAME,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;Fops);
+<BR>
+<P>&nbsp;&nbsp;/* Negative values signify an error */
+<BR>
+&nbsp;&nbsp;if (Major &lt; 0) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;%s device failed with %d\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;Sorry, registering the character&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Major);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;If you want to talk to the device driver,\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;you'll have to create a device file. \n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;We suggest you use:\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;mknod &lt;name&gt; c %d &lt;minor&gt;\n&quot;, Major);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;You can try different minor numbers %s&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;and see what happens.\n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return Major;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;printk (&quot;%s The major device number is %d.\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;Registeration is a success.&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Major);
+<BR>
+<P>&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P><P>/* Cleanup - unregister the appropriate file from /proc */
+<BR>
+void cleanup_module()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;int ret;
+<BR>
+<P>&nbsp;&nbsp;/* Unregister the device */
+<BR>
+&nbsp;&nbsp;ret = module_unregister_chrdev(Major, DEVICE_NAME);
+<BR>
+<P>&nbsp;&nbsp;/* If there's an error, report it */
+<BR>
+&nbsp;&nbsp;if (ret &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Error in unregister_chrdev: %d\n&quot;, ret);
+<BR>
+}
+<BR>
+<P>------------------------------------- test Program
+<BR>
+---------------------------------
+<BR>
+#! /usr/bin/perl
+<BR>
+<P><P>open(FILE, $ARGV[0]) || die (&quot;Can't open $ARGV[0]&quot;);
+<BR>
+<P>print &quot;Opened\n&quot;;
+<BR>
+<P>print &lt;FILE&gt;;
+<BR>
+close(FILE);
+<BR>
+<P>open(FILE, &quot;&gt;&gt;&quot; + $ARGV[0]);
+<BR>
+print FILE &quot;Testing &quot;;
+<BR>
+close(File);
+<BR>
+<P>open(FILE, $ARGV[0]);
+<BR>
+<P>print &quot;Opened\n&quot;;
+<BR>
+<P>print &lt;FILE&gt;;
+<BR>
+close(FILE);
+<BR>
+<P>----------------------------------- Makefile ---------------------------
+<BR>
+&nbsp;Makefile for a basic kernel module
+<BR>
+<P>CC=gcc
+<BR>
+MODCFLAGS := -O6 -Wall -DCONFIG_KERNELD -DMODULE -D__KERNEL__ -DLINUX
+<BR>
+<P>chardev.o:	chardev.c /usr/include/linux/version.h
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$(CC) $(MODCFLAGS) -c chardev.c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P>----------------------------------------
+<BR>
+<P>-----Original Message-----
+<BR>
+From: Marc Potvin [mailto:roypotvin@yahoo.com]
+<BR>
+Sent: Wednesday, November 10, 1999 3:33 PM
+<BR>
+To: axp-list@redhat.com
+<BR>
+Subject: Re: Simple Device Driver
+<BR>
+<P><P><P>Grant,
+<BR>
+<P>your attachment did not come thru...
+<BR>
+send it to me.
+<BR>
+<P>&nbsp;&nbsp;- marc
+<BR>
+<P><P><P>--- &quot;Grant, Iain&quot; &lt;Iain.Grant@compaq.com&gt; wrote:
+<BR>
+<EM>&gt; Ok Folks,
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I'm trying to write a simple device driver, at the moment I've got
+</EM><BR>
+<EM>&gt; 'Linux
+</EM><BR>
+<EM>&gt; Device Drivers' boot from O'reilly and the 'Linux Kernel Module
+</EM><BR>
+<EM>&gt; Programming
+</EM><BR>
+<EM>&gt; Guide' from Ori Pomerants.  I'm trying to modify Ori's character
+</EM><BR>
+<EM>&gt; driver code
+</EM><BR>
+<EM>&gt; to accept writes as well as reads to a device.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I can get the original program to read without any problem and
+</EM><BR>
+<EM>&gt; added code to
+</EM><BR>
+<EM>&gt; the write code section, the problem I have is that the reads work
+</EM><BR>
+<EM>&gt; but the
+</EM><BR>
+<EM>&gt; write code does not seem to be executed. It should be fairly
+</EM><BR>
+<EM>&gt; simple, maybe I
+</EM><BR>
+<EM>&gt; am missing something.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Anyone got any ideas ??
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I've attached the device driver and the test program, I don't know
+</EM><BR>
+<EM>&gt; if the
+</EM><BR>
+<EM>&gt; maillist will send it or not ?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  &lt;&lt;...OLE Obj...&gt;&gt; 
+</EM><BR>
+<EM>&gt;  &lt;&lt;...OLE Obj...&gt;&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Thanks
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Iain Grant
+</EM><BR>
+<EM>&gt; Software Engineer
+</EM><BR>
+<EM>&gt; Embedded Systems Division
+</EM><BR>
+<EM>&gt; SMART Modular Technologies
+</EM><BR>
+<EM>&gt; Ayr, Scotland
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &quot;I think, therefore I get a headache&quot;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; To unsubscribe: send e-mail to axp-list-request@redhat.com with
+</EM><BR>
+<EM>&gt; 'unsubscribe' as the subject.  Do not send it to
+</EM><BR>
+<EM>&gt; axp-list@redhat.com
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P>__________________________________________________
+<BR>
+Do You Yahoo!?
+<BR>
+Bid and sell for free at <A HREF="http://auctions.yahoo.com">http://auctions.yahoo.com</A>
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0355.html">Roger Dooley: "6.1 for download?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0353.html">DAVID BALAZIC: "Crashes of egcs-1.1.2 on redhat-6.0/alpha"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0351.html">Grant, Iain: "Simple Device Driver"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0351.html">Grant, Iain: "RE: Simple Device Driver"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0354.html">Grant, Iain: "RE: Simple Device Driver"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a23</A> 
+: <EM>Wed Nov 10 1999 - 06:53:47 AKST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

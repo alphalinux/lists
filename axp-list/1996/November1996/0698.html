@@ -1,0 +1,199 @@
+<!-- received="Fri Nov 15 12:30:18 1996 " -->
+<!-- sent="Fri, 15 Nov 1996 11:20:40 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="strlen_user &amp; 2.1.10" -->
+<!-- id="199611151720.LAA16171@atheist.tamu.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>strlen_user &amp; 2.1.10</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>strlen_user &amp; 2.1.10</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Fri, 15 Nov 1996 11:20:40 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#698">[ date ]</a><a href="index.html#698">[ thread ]</a><a href="subject.html#698">[ subject ]</a><a href="author.html#698">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0699.html">Richard Henderson: "Re: A few comments on RH 4.0"</a>
+<li> <b>Previous message:</b> <a href="0697.html">Thomas Kuerten: "Re: Jensen First install AXP150"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+As is, the access_ok for strlen_user is done too late -- the user has<br>
+already gotten the kernel to read from e.g.  memory mapped i/o ports.<br>
+The solution, as with strcpy_from_user, is to access check one byte<br>
+and trust the exception handler to trigger when we leave user space.<br>
+<p>
+And on the i386, while it is pretty cool to let gcc know about the<br>
+zero that results in ax, you've got to arrange for one to be there<br>
+on an exception as well.<br>
+<p>
+<p>
+r~<br>
+<p>
+--- arch/alpha/lib/strlen_user.S.orig	Fri Nov 15 10:47:24 1996<br>
++++ arch/alpha/lib/strlen_user.S	Fri Nov 15 10:49:26 1996<br>
+@@ -1,8 +1,8 @@<br>
+ /*<br>
+- * arch/alpha/lib/__strlen_user.S<br>
++ * arch/alpha/lib/strlen_user.S<br>
+  *<br>
+- * Just like strlen except returns -EFAULT if an exception occurs<br>
+- * before the terminator is found.<br>
++ * Return the length of the string including the NUL terminator<br>
++ * (strlen+1) or zero if an error occured.<br>
+  */<br>
+ <br>
+ #include &lt;alpha/regdef.h&gt;<br>
+@@ -13,7 +13,7 @@<br>
+ 	99: x,##y;			\<br>
+ 	.section __ex_table,"a";	\<br>
+ 	.gprel32 99b;			\<br>
+-	lda zero, $exception-99b(zero);	\<br>
++	lda v0, $exception-99b(zero);	\<br>
+ 	.text<br>
+ <br>
+ <br>
+@@ -34,7 +34,7 @@<br>
+ 	insqh   t1, a0, t1<br>
+ 	andnot  a0, 7, v0<br>
+ 	or      t1, t0, t0<br>
+-	subq	a0, 1, a0	# return "1+strlen" (0 for exception)<br>
++	subq	a0, 1, a0	# get our +1 for the return <br>
+ 	cmpbge  zero, t0, t1	# t1 &lt;- bitmask: bit i == 1 &lt;==&gt; i-th byte == 0<br>
+ 	bne     t1, $found<br>
+ <br>
+@@ -56,12 +56,8 @@<br>
+ 	addq	v0, t4, v0<br>
+ 	addq	v0, t2, v0<br>
+ 	nop			# dual issue next two on ev4 and ev5<br>
+-<br>
+ 	subq    v0, a0, v0<br>
+-	ret<br>
+-<br>
+ $exception:<br>
+-	mov	zero, v0<br>
+ 	ret<br>
+ <br>
+ 	.end __strlen_user<br>
+--- include/asm-alpha/uaccess.h.orig	Fri Nov 15 10:49:39 1996<br>
++++ include/asm-alpha/uaccess.h	Fri Nov 15 10:52:30 1996<br>
+@@ -377,14 +377,14 @@<br>
+ <br>
+ extern long __strncpy_from_user(char *__to, const char *__from, long __to_len);<br>
+ <br>
+-#define strncpy_from_user(to,from,n)					      \<br>
+-({									      \<br>
+-	char * __sfu_to = (to);						      \<br>
+-	const char * __sfu_from = (from);				      \<br>
+-	long __sfu_len = (n), __sfu_ret = -EFAULT;			      \<br>
+-	if (__access_ok(((long)__sfu_from),__sfu_len,__access_mask))	      \<br>
+-		__sfu_ret=__strncpy_from_user(__sfu_to,__sfu_from,__sfu_len); \<br>
+-	__sfu_ret;							      \<br>
++#define strncpy_from_user(to,from,n)					   \<br>
++({									   \<br>
++	char * __sfu_to = (to);						   \<br>
++	const char * __sfu_from = (from);				   \<br>
++	long __sfu_ret = -EFAULT;			      		   \<br>
++	if (__access_ok(((long)__sfu_from),1,__access_mask))		   \<br>
++		__sfu_ret = __strncpy_from_user(__sfu_to,__sfu_from,(n));  \<br>
++	__sfu_ret;							   \<br>
+ })<br>
+ <br>
+ /* Returns: 0 if bad, string length+1 (memory size) of string if ok */<br>
+@@ -392,10 +392,7 @@<br>
+ <br>
+ extern inline long strlen_user(const char *str)<br>
+ {<br>
+-	long len = __strlen_user(str);<br>
+-	if (!access_ok(VERIFY_READ, str, len))<br>
+-		len = 0;<br>
+-	return len;<br>
++	return access_ok(VERIFY_READ, str, 1) ? __strlen_user(str) : 0;<br>
+ }<br>
+ <br>
+ /*<br>
+--- include/asm-i386/uaccess.h.orig	Fri Nov 15 10:52:40 1996<br>
++++ include/asm-i386/uaccess.h	Fri Nov 15 10:57:57 1996<br>
+@@ -412,27 +412,30 @@<br>
+  *<br>
+  * Return 0 for error<br>
+  */<br>
+-extern inline long strlen_user(const char * s)<br>
++extern inline long __strlen_user(const char *s)<br>
+ {<br>
+ 	long res;<br>
+ 	__asm__ __volatile__(<br>
+-		"\n"<br>
+-		"0:\trepne ; scasb\n\t"<br>
+-		"notl %0\n"<br>
++		"0:	repne; scasb\n"<br>
++		"	notl %0\n"<br>
+ 		"1:\n"<br>
+ 		".section .fixup,\"ax\"\n"<br>
+-		"2:\txorl %0,%0\n\t"<br>
+-		"jmp 1b\n"<br>
+-		".section __ex_table,\"a\"\n\t"<br>
+-		".align 4\n\t"<br>
+-		".long 0b,2b\n"<br>
++		"2:	xorl %0,%0\n"<br>
++		"	xorl %2,%2\n"<br>
++		"	jmp 1b\n"<br>
++		".section __ex_table,\"a\"\n"<br>
++		"	.align 4\n"<br>
++		"	.long 0b,2b\n"<br>
+ 		".text"<br>
+-		:"=c" (res)<br>
+-		:"D" (s),"a" (0),"0" (0xffffffff)<br>
+-		:"di");<br>
+-	if (!access_ok(VERIFY_READ, s, res))<br>
+-		res = 0;<br>
++		: "=c"(res)<br>
++		: "D"(s), "a"(0), "0"(0xffffffff)<br>
++		: "di");<br>
+ 	return res;<br>
++}<br>
++<br>
++extern inline long strlen_user(const char * s)<br>
++{<br>
++	return access_ok(VERIFY_READ, s, 1) ? __strlen_user(s) : 0;<br>
+ }<br>
+ <br>
+ <br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0699.html">Richard Henderson: "Re: A few comments on RH 4.0"</a>
+<li> <b>Previous message:</b> <a href="0697.html">Thomas Kuerten: "Re: Jensen First install AXP150"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,326 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [PATCH] nfsd oops on alpha servers</TITLE>
+<META NAME="Author" CONTENT="Anne Milicia (milicia@missioncriticallinux.com)">
+<META NAME="Subject" CONTENT="[PATCH] nfsd oops on alpha servers">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[PATCH] nfsd oops on alpha servers</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 11 00:45:57 2000" -->
+<!-- isoreceived="20000211084557" -->
+<!-- sent="Thu, 10 Feb 2000 14:28:17 -0500" -->
+<!-- isosent="20000210192817" -->
+<!-- name="Anne Milicia" -->
+<!-- email="milicia@missioncriticallinux.com" -->
+<!-- subject="[PATCH] nfsd oops on alpha servers" -->
+<!-- id="38A31151.32E3A8DB@missioncriticallinux.com" -->
+<STRONG>Subject: </STRONG>[PATCH] nfsd oops on alpha servers<BR>
+<STRONG>From: </STRONG>Anne Milicia (<EM>milicia@missioncriticallinux.com</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Feb 10 2000 - 11:28:17 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#106">[ date ]</A>
+<A HREF="index.html#106">[ thread ]</A>
+<A HREF="subject.html#106">[ subject ]</A>
+<A HREF="author.html#106">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0107.html">Andrea Arcangeli: "2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0105.html">Andrea Arcangeli: "Re: Segfaults and sig 11 with 2.3.42+axp-patches"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+The following change for 2.3.42 fixes an oops on alpha machines when
+<BR>
+nfsd
+<BR>
+encounters an ESTALE file handle.  The problem is that find_fh_dentry()
+<BR>
+has
+<BR>
+declared &quot;err&quot; as unsigned.  The macro ERR_PTR(err) fails to sign extend
+<BR>
+<P>the -ESTALE being returned to fh_verify(), so the IS_ERR() macro fails
+<BR>
+to
+<BR>
+recognize the -ESTALE and fh_verify() uses it as a dentry pointer.
+<BR>
+<P>The result of the problem is a file handle that looks like:
+<BR>
+<P><EM>crash&gt; nfsd_attrstat fffffc0013734820
+</EM><BR>
+struct nfsd_attrstat {
+<BR>
+&nbsp;&nbsp;fh = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fh_handle = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fh_base = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_dentry = 0xfeebbaca,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_ino = 1761574,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_dirino = 1761569,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_dev = 2097,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_xdev = 2097,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_xino = 2,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fb_generation = 1789922
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fh_cookie = 0xfffffc0013734840
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;},
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fh_dentry = 0xffffffba,                  &lt;--- -ESTALE
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fh_export = 0xfffffc001445e800,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fh_locked = 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fh_dverified = 1
+<BR>
+&nbsp;&nbsp;}
+<BR>
+}
+<BR>
+<P>And an example traceback:
+<BR>
+<P><EM>crash&gt; bt
+</EM><BR>
+PID: 1131  TASK: fffffc0011e34000  CPU: 0  COMMAND: &quot;nfsd&quot;
+<BR>
+&nbsp;#0 [fffffc0011e37988] crash_save_current_state at fffffc0000333a9c
+<BR>
+&nbsp;#1 [fffffc0011e37998] panic at fffffc0000324718
+<BR>
+&nbsp;#2 [fffffc0011e37a38] die_if_kernel at fffffc00003113d0
+<BR>
+&nbsp;#3 [fffffc0011e37a68] do_page_fault at fffffc000031d550
+<BR>
+&nbsp;#4 [fffffc0011e37aa8] entMM at fffffc000031055c
+<BR>
+&nbsp;EFRAME: fffffc0011e37ae0      R24: fffffc000051b818
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R0: 00000000ffffffba      R25: 0000000000000055
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R1: 0000000000000001      R26: fffffc0000397d48  &lt;fh_verify+0x228&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R2: 0000000000000001      R27: fffffc000031bfa0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R3: fffffc0000550828      R28: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R4: fffffc0013385fa0      HAE: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R5: fffffc00004c9e60  TRAP_A0: 00000000ffffffc2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R6: fffffc0000621540  TRAP_A1: 0000000000000001
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R7: fffffc000051b818  TRAP_A2: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R8: fffffc0011e34000       PS: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R19: fffffc000061db30       PC: fffffc0000397dc8  &lt;fh_verify+0x2a8&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R20: fffffc0013384bc0       GP: fffffc0000549488
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R21: fffffc0005cb6400      R16: 0000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R22: fffffc00004c9e60      R17: fffffc00004e629c
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;R23: 000000000000014e      R18: 0000000000000607
+<BR>
+&nbsp;#5 [fffffc0011e37bc8] fh_verify at fffffc0000397dc8
+<BR>
+&nbsp;#6 [fffffc0011e37c18] nfsd_open at fffffc0000398dac
+<BR>
+&nbsp;#7 [fffffc0011e37c48] nfsd_write at fffffc000039949c
+<BR>
+&nbsp;#8 [fffffc0011e37d68] nfsd_proc_write at fffffc0000395fcc
+<BR>
+&nbsp;#9 [fffffc0011e37d88] nfsd_dispatch at fffffc00003952a8
+<BR>
+#10 [fffffc0011e37db8] svc_process at fffffc000040bbac
+<BR>
+#11 [fffffc0011e37e08] nfsd at fffffc0000394fbc
+<BR>
+#12 [fffffc0011e37e48] kernel_thread at fffffc00003107f0
+<BR>
+<P>Thanks,
+<BR>
+Anne Milicia  milicia@missioncriticallinux.com
+<BR>
+<A HREF="http://www.missioncriticallinux.com">http://www.missioncriticallinux.com</A>
+<BR>
+<P>diff -u linux-2.3.42/fs/nfsd/nfsfh.c.orig linux-2.3.42/fs/nfsd/nfsfh.c
+<BR>
+--- linux-2.3.42/fs/nfsd/nfsfh.c.orig   Thu Feb 10 10:06:53 2000
+<BR>
++++ linux-2.3.42/fs/nfsd/nfsfh.c        Thu Feb 10 10:07:23 2000
+<BR>
+@@ -301,7 +301,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct dentry *dentry, *result = NULL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct dentry *tmp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int  found =0;
+<BR>
+-       u32 err;
+<BR>
++       int err;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* This semaphore is needed to make sure that only one
+<BR>
+unconnected (free)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* dcache path ever exists, as otherwise two partial paths might
+<BR>
+get
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* joined together, which would be very confusing.
+<BR>
+<P><P><!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+The following change for 2.3.42 fixes an oops on alpha machines when nfsd
+<br>encounters an ESTALE file handle.&nbsp; The problem is that find_fh_dentry()
+has
+<br>declared "err" as unsigned.&nbsp; The macro ERR_PTR(err) fails to sign
+extend
+<br>the -ESTALE being returned to fh_verify(), so the IS_ERR() macro fails
+to
+<br>recognize the -ESTALE and fh_verify() uses it as a dentry pointer.
+<p>The result of the problem is a file handle that looks like:<font size=-1></font>
+<p><tt><font size=-1>crash> nfsd_attrstat fffffc0013734820</font></tt>
+<br><tt><font size=-1>struct nfsd_attrstat {</font></tt>
+<br><tt><font size=-1>&nbsp; fh = {</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; fh_handle = {</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fh_base = {</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_dentry
+= 0xfeebbaca,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_ino
+= 1761574,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_dirino
+= 1761569,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_dev
+= 2097,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_xdev
+= 2097,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_xino
+= 2,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fb_generation
+= 1789922</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; },</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fh_cookie = 0xfffffc0013734840</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; },</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; fh_dentry = 0xffffffba,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&lt;--- -ESTALE</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; fh_export = 0xfffffc001445e800,</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; fh_locked = 0</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; fh_dverified = 1</font></tt>
+<br><tt><font size=-1>&nbsp; }</font></tt>
+<br><tt><font size=-1>}</font></tt><tt><font size=-1></font></tt>
+<p>And an example traceback:<tt></tt>
+<p><tt><font size=-1>crash> bt</font></tt>
+<br><tt><font size=-1>PID: 1131&nbsp; TASK: fffffc0011e34000&nbsp; CPU:
+0&nbsp; COMMAND: "nfsd"</font></tt>
+<br><tt><font size=-1>&nbsp;#0 [fffffc0011e37988] crash_save_current_state
+at fffffc0000333a9c</font></tt>
+<br><tt><font size=-1>&nbsp;#1 [fffffc0011e37998] panic at fffffc0000324718</font></tt>
+<br><tt><font size=-1>&nbsp;#2 [fffffc0011e37a38] die_if_kernel at fffffc00003113d0</font></tt>
+<br><tt><font size=-1>&nbsp;#3 [fffffc0011e37a68] do_page_fault at fffffc000031d550</font></tt>
+<br><tt><font size=-1>&nbsp;#4 [fffffc0011e37aa8] entMM at fffffc000031055c</font></tt>
+<br><tt><font size=-1>&nbsp;EFRAME: fffffc0011e37ae0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R24: fffffc000051b818</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R0: 00000000ffffffba&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R25: 0000000000000055</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R1: 0000000000000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R26: fffffc0000397d48&nbsp; &lt;fh_verify+0x228></font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R2: 0000000000000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R27: fffffc000031bfa0</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R3: fffffc0000550828&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R28: 0000000000000000</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R4: fffffc0013385fa0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+HAE: 0000000000000000</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R5: fffffc00004c9e60&nbsp;
+TRAP_A0: 00000000ffffffc2</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R6: fffffc0000621540&nbsp;
+TRAP_A1: 0000000000000001</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R7: fffffc000051b818&nbsp;
+TRAP_A2: 0000000000000000</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp; R8: fffffc0011e34000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+PS: 0000000000000000</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; R19: fffffc000061db30&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+PC: fffffc0000397dc8&nbsp; &lt;fh_verify+0x2a8></font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; R20: fffffc0013384bc0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+GP: fffffc0000549488</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; R21: fffffc0005cb6400&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R16: 0000000000000000</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; R22: fffffc00004c9e60&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R17: fffffc00004e629c</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp; R23: 000000000000014e&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+R18: 0000000000000607</font></tt>
+<br><tt><font size=-1>&nbsp;#5 [fffffc0011e37bc8] fh_verify at fffffc0000397dc8</font></tt>
+<br><tt><font size=-1>&nbsp;#6 [fffffc0011e37c18] nfsd_open at fffffc0000398dac</font></tt>
+<br><tt><font size=-1>&nbsp;#7 [fffffc0011e37c48] nfsd_write at fffffc000039949c</font></tt>
+<br><tt><font size=-1>&nbsp;#8 [fffffc0011e37d68] nfsd_proc_write at fffffc0000395fcc</font></tt>
+<br><tt><font size=-1>&nbsp;#9 [fffffc0011e37d88] nfsd_dispatch at fffffc00003952a8</font></tt>
+<br><tt><font size=-1>#10 [fffffc0011e37db8] svc_process at fffffc000040bbac</font></tt>
+<br><tt><font size=-1>#11 [fffffc0011e37e08] nfsd at fffffc0000394fbc</font></tt>
+<br><tt><font size=-1>#12 [fffffc0011e37e48] kernel_thread at fffffc00003107f0</font></tt><tt><font size=-1></font></tt>
+<p>Thanks,
+<br>Anne Milicia&nbsp; milicia@missioncriticallinux.com
+<br><A HREF="http://www.missioncriticallinux.com">http://www.missioncriticallinux.com</A><tt></tt>
+<p><tt><font size=-1>diff -u linux-2.3.42/fs/nfsd/nfsfh.c.orig linux-2.3.42/fs/nfsd/nfsfh.c</font></tt>
+<br><tt><font size=-1>--- linux-2.3.42/fs/nfsd/nfsfh.c.orig&nbsp;&nbsp;
+Thu Feb 10 10:06:53 2000</font></tt>
+<br><tt><font size=-1>+++ linux-2.3.42/fs/nfsd/nfsfh.c&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Thu Feb 10 10:07:23 2000</font></tt>
+<br><tt><font size=-1>@@ -301,7 +301,7 @@</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct
+dentry *dentry, *result = NULL;</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct
+dentry *tmp;</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int&nbsp;
+found =0;</font></tt>
+<br><tt><font size=-1>-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; u32 err;</font></tt>
+<br><tt><font size=-1>+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int err;</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* This
+semaphore is needed to make sure that only one unconnected (free)</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+* dcache path ever exists, as otherwise two partial paths might get</font></tt>
+<br><tt><font size=-1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+* joined together, which would be very confusing.</font></tt>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0107.html">Andrea Arcangeli: "2.3.43 alpha broken with &gt;2g of ram"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0105.html">Andrea Arcangeli: "Re: Segfaults and sig 11 with 2.3.42+axp-patches"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Mar 01 2000 - 06:26:28 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

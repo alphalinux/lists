@@ -1,0 +1,134 @@
+<!-- received="Mon Jan  6 21:48:30 1997 " -->
+<!-- sent="Mon, 06 Jan 1997 21:40:21 -0500" -->
+<!-- name="Steven N. Hirsch" -->
+<!-- email="shirsch@ibm.net" -->
+<!-- subject="Re: compiling glibc" -->
+<!-- id="199701062109.FAA02425@tapa.admu.edu.ph" -->
+<!-- inreplyto="compiling glibc" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: compiling glibc</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: compiling glibc</h2>
+
+<b>Steven N. Hirsch</b> (<a href="mailto:shirsch@ibm.net"><i>shirsch@ibm.net</i></a>)<br>
+<i>Mon, 06 Jan 1997 21:40:21 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#135">[ date ]</a><a href="index.html#135">[ thread ]</a><a href="subject.html#135">[ subject ]</a><a href="author.html#135">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<li> <b>Previous message:</b> <a href="0134.html">Yash Khemani: "compiling glibc"</a>
+<li> <b>Maybe in reply to:</b> <a href="0134.html">Yash Khemani: "compiling glibc"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+This is a multi-part message in MIME format.<br>
+<p>
+--------------7BE1D07D1AAFD74E52260261<br>
+Content-Type: text/plain; charset=us-ascii<br>
+Content-Transfer-Encoding: 7bit<br>
+<p>
+Yash Khemani wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; hi folks,</i><br>
+<i>&gt; </i><br>
+<i>&gt; has anyone successfully compiled glibc v1.99 on a udb running rhl/axp</i><br>
+<i>&gt; v4.0?</i><br>
+<i>&gt; i get the following when it enters the sunrpc directory:</i><br>
+<i>&gt; </i><br>
+<i>&gt; LD_LIBRARY_PATH=..:../elf:../nss ../elf/ld.so.1 ./rpcgen -c</i><br>
+<i>&gt; rpcsvc/bootparam.x -</i><br>
+<i>&gt; o xbootparam.cT</i><br>
+<i>&gt; ld.so.1: memory violation at pc=00004cf4 rp=000044d4 (bad address =</i><br>
+<i>&gt; 00000000)</i><br>
+<i>&gt; make: *** [xbootparam.c] Segmentation fault</i><br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; any ideas why calling the shared lib ld.so.1 is causing a memory</i><br>
+<i>&gt; violation?</i><br>
+<i>&gt; </i><br>
+<p>
+ld.so.1 is not a shared library, it's the system dynamic loader.  I have<br>
+the same problem here.  In frustration, I hacked Makeconfig so that it<br>
+doesn't try to directly execute the loader.  Try the patch attached.<br>
+<p>
+Would someone "in the know" please comment on this?  I'm not aware that<br>
+it is ever permissable to directly execute the loader..  This will not<br>
+be the end of your problems, however.  You will find that a handful of<br>
+the tests fail.  I haven't had time to dig into this at all - maybe over<br>
+the next weekend.<br>
+<p>
+Steve<br>
+<p>
+--------------7BE1D07D1AAFD74E52260261<br>
+Content-Type: text/plain; charset=us-ascii; name="Makeconfig.diff"<br>
+Content-Transfer-Encoding: 7bit<br>
+Content-Disposition: inline; filename="Makeconfig.diff"<br>
+<p>
+*** Makeconfig.orig	Thu Dec 19 20:31:39 1996<br>
+--- Makeconfig	Sat Jan  4 22:04:56 1997<br>
+***************<br>
+*** 365,373 ****<br>
+  $(subst $(empty) ,:,$(strip $(patsubst -Wl$(comma)-rpath-link=%, %,\<br>
+  				       $(filter -Wl$(comma)-rpath-link=%,\<br>
+  						$(sysdep-LDFLAGS)))))<br>
+  define built-program-cmd<br>
+  LD_LIBRARY_PATH=$(rpath-link)$(patsubst %,:%,$(sysdep-library-path)) \<br>
+! $(elf-objpfx)$(rtld-installed-name) $(built-program-file)<br>
+  endef<br>
+  endif<br>
+  <br>
+--- 365,377 ----<br>
+  $(subst $(empty) ,:,$(strip $(patsubst -Wl$(comma)-rpath-link=%, %,\<br>
+  				       $(filter -Wl$(comma)-rpath-link=%,\<br>
+  						$(sysdep-LDFLAGS)))))<br>
++ <br>
++ # LD_LIBRARY_PATH=$(rpath-link)$(patsubst %,:%,$(sysdep-library-path)) \<br>
++ # $(elf-objpfx)$(rtld-installed-name) $(built-program-file)<br>
++ <br>
+  define built-program-cmd<br>
+  LD_LIBRARY_PATH=$(rpath-link)$(patsubst %,:%,$(sysdep-library-path)) \<br>
+! $(built-program-file)<br>
+  endef<br>
+  endif<br>
+  <br>
+<p>
+--------------7BE1D07D1AAFD74E52260261--<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<li> <b>Previous message:</b> <a href="0134.html">Yash Khemani: "compiling glibc"</a>
+<li> <b>Maybe in reply to:</b> <a href="0134.html">Yash Khemani: "compiling glibc"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

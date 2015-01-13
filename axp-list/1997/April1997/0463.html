@@ -1,0 +1,113 @@
+<!-- received="Thu Apr 10 12:06:11 1997 " -->
+<!-- sent="Thu, 10 Apr 1997 12:09:56 -0400" -->
+<!-- name="Jim Paradis" -->
+<!-- email="jrp@jrp.tiac.net" -->
+<!-- subject="Re: SIGFPE" -->
+<!-- id="199704101440.KAA25350@linux03.amt.tay1.dec.com" -->
+<!-- inreplyto="SIGFPE" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: SIGFPE</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: SIGFPE</h2>
+
+<b>Jim Paradis</b> (<a href="mailto:jrp@jrp.tiac.net"><i>jrp@jrp.tiac.net</i></a>)<br>
+<i>Thu, 10 Apr 1997 12:09:56 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#463">[ date ]</a><a href="index.html#463">[ thread ]</a><a href="subject.html#463">[ subject ]</a><a href="author.html#463">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0464.html">Robert Drotar: "RE: Firewall bug in 2.0.27 kernel"</a>
+<li> <b>Previous message:</b> <a href="0462.html">jestabro@amt.tay1.dec.com: "Re: running milo on PWS433a with AlphaBios5.25"</a>
+<li> <b>Maybe in reply to:</b> <a href="0445.html">Olaf Flebbe: "SIGFPE"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0474.html">Randy Chapman: "Re: SIGFPE"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Olaf Flebbe wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; Randy,</i><br>
+<i>&gt; </i><br>
+<i>&gt; [I did the first IEEE FPU exception things on linux/x86]</i><br>
+<i>&gt; </i><br>
+<i>&gt; Don't do a signal handler on SIGFPE, it will not work most of the time.</i><br>
+<i>&gt; On Intel processorcs the Floating point unit is decoupled from the</i><br>
+<i>&gt; Integer Unit. You will raise an floating point exception, (the kernel</i><br>
+<i>&gt; will send you a SIGFPE if you trigger souch a thing) if you access the</i><br>
+<i>&gt; floating point unit the next time *after* the exception occurs.</i><br>
+<i>&gt; Incidently gcc produces code which mixes up integer and floating point</i><br>
+<i>&gt; operations (for performance reasons) and therefore you will get an</i><br>
+<i>&gt; Exception at unpredictable times later in your code. [ In your code it</i><br>
+<i>&gt; will happen deep in the printf library code]. So don't to this, the</i><br>
+<i>&gt; argument may be correctly for other cpu/compiler combinations.</i><br>
+<p>
+What you say is only partially correct.  While it is true that Alpha<br>
+produces imprecise floating-point exceptions, if you code according to<br>
+certain rules then it is possible to backtrack from the reported<br>
+exception<br>
+PC to the actual faulting instruction.  This is all documented in the<br>
+Alpha Architecture Reference Manual.<br>
+<p>
+When you specify the "-mieee" flag to gcc, it generates recoverable<br>
+code.  The recovery code itself is in the kernel<br>
+(arch/alpha/math-emu/fp-emul.c if you want to check it out).  If <br>
+everything is working right, then the SIGFPE presented to the user<br>
+contains the CPU state at the point where the exception occurred.<br>
+<p>
+<i>&gt; The IEEE754 states that no signal should be raised on invalid</i><br>
+<i>&gt; operations. They defined a set of pseudo numbers which define the</i><br>
+<i>&gt; outcome of an invalid operations like 1./0. [BTW this is INF].</i><br>
+<i>&gt; You are free to implement exception handlers and such things, but these</i><br>
+<i>&gt; should the default behaviour.</i><br>
+<p>
+You're right.  I checked the code and found to my horror that there's<br>
+a big hole in the divide-by-zero case.  In ieee-math.c the divide<br>
+routines correctly return QNaN in the case of 0/0, but in the case of<br>
+nonzero/0 they fall through and cause a signal to be generated.  I'll<br>
+come up with a fix for this soon...<br>
+<p>
+<i>&gt; Linux/alpha should handle it correctly, not the JDK. I don't know the</i><br>
+<i>&gt; alpha, but on x86 it is an issue of correctly initialising the FPU.</i><br>
+<p>
+<pre>
+-- 
+Jim Paradis   <a href="mailto:jrp@jrp.tiac.net">jrp@jrp.tiac.net</a>  
+<a href="http://www.tiac.net/users/jrp/index.html">http://www.tiac.net/users/jrp/index.html</a>
+"It's not procrastination, it's my new Just-In-Time Workload Management
+System!"
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0464.html">Robert Drotar: "RE: Firewall bug in 2.0.27 kernel"</a>
+<li> <b>Previous message:</b> <a href="0462.html">jestabro@amt.tay1.dec.com: "Re: running milo on PWS433a with AlphaBios5.25"</a>
+<li> <b>Maybe in reply to:</b> <a href="0445.html">Olaf Flebbe: "SIGFPE"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0474.html">Randy Chapman: "Re: SIGFPE"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

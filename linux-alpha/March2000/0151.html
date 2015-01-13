@@ -1,0 +1,314 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: 2.3.99-3 axp combo patch</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="Re: 2.3.99-3 axp combo patch">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: 2.3.99-3 axp combo patch</H1>
+<HR>
+<P>
+<!-- received="Wed Mar 29 18:05:25 2000" -->
+<!-- isoreceived="20000330020525" -->
+<!-- sent="Wed, 29 Mar 2000 18:41:38 +0200 (CEST)" -->
+<!-- isosent="20000329164138" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="Re: 2.3.99-3 axp combo patch" -->
+<!-- id="Pine.LNX.4.21.0003291839320.317-100000@alpha.random" -->
+<!-- inreplyto="Pine.LNX.4.21.0003291713360.248-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>Re: 2.3.99-3 axp combo patch<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Mar 29 2000 - 08:41:38 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#151">[ date ]</A>
+<A HREF="index.html#151">[ thread ]</A>
+<A HREF="subject.html#151">[ subject ]</A>
+<A HREF="author.html#151">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0152.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0153.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is an incremental patch that allows me to boot:
+<BR>
+<P>--- 2.3.99-pre3aa1-alpha/arch/alpha/kernel/head.S.~1~	Wed Mar 29 18:02:32 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/arch/alpha/kernel/head.S	Wed Mar 29 18:14:12 2000
+<BR>
+@@ -10,8 +10,11 @@
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;asm/pal.h&gt;
+<BR>
+&nbsp;
+<BR>
++.globl swapper_pg_dir
+<BR>
++.globl _stext
+<BR>
++swapper_pg_dir=SWAPPER_PGD
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+-	.globl _stext
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl	__start
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent	__start
+<BR>
+&nbsp;_stext:
+<BR>
+--- 2.3.99-pre3aa1-alpha/arch/alpha/kernel/process.c.~1~	Wed Mar 29 18:01:58 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/arch/alpha/kernel/process.c	Wed Mar 29 18:07:03 2000
+<BR>
+@@ -59,7 +59,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= { task: INIT_TASK(init_task_union.task) };
+<BR>
+&nbsp;
+<BR>
+&nbsp;pgd_t swapper_pg_dir[1024] __attribute__((aligned(PAGE_SIZE)));
+<BR>
+-char ___zero_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* No need to acquire the kernel lock, we're entirely local..
+<BR>
+--- 2.3.99-pre3aa1-alpha/arch/alpha/kernel/setup.c.~1~	Wed Mar 29 18:01:58 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/arch/alpha/kernel/setup.c	Wed Mar 29 18:34:06 2000
+<BR>
+@@ -72,7 +72,7 @@
+<BR>
+&nbsp;&nbsp;* initialized, we need to copy things out into a more permanent
+<BR>
+&nbsp;&nbsp;* place.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+-#define PARAM			(IDENT_ADDR + 0x30A000)
+<BR>
++#define PARAM			ZERO_PGE
+<BR>
+&nbsp;#define COMMAND_LINE		((char*)(PARAM + 0x0000))
+<BR>
+&nbsp;#define COMMAND_LINE_SIZE	256
+<BR>
+&nbsp;#define INITRD_START		(*(unsigned long *) (PARAM+0x100))
+<BR>
+@@ -235,7 +235,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Find the bounds of kernel memory.  */
+<BR>
+-	start_kernel_pfn = PFN_UP(virt_to_phys(_stext));
+<BR>
++#if 0
+<BR>
++	start_kernel_pfn = PFN_DOWN(virt_to_phys(_stext));
+<BR>
++#else
+<BR>
++	start_kernel_pfn = 0;
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_kernel_pfn = PFN_UP(virt_to_phys(_end));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bootmap_start = -1;
+<BR>
+&nbsp;
+<BR>
+--- 2.3.99-pre3aa1-alpha/arch/alpha/mm/init.c.~1~	Wed Mar 29 18:01:58 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/arch/alpha/mm/init.c	Wed Mar 29 18:25:31 2000
+<BR>
+@@ -57,7 +57,7 @@
+<BR>
+&nbsp;inline pmd_t *
+<BR>
+&nbsp;__bad_pagetable(void)
+<BR>
+&nbsp;{
+<BR>
+-	return (pmd_t *) ___zero_page;
+<BR>
++	return (pmd_t *) EMPTY_PGT;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;inline pte_t 
+<BR>
+@@ -216,7 +216,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Initialize the kernel's page tables.  Linux puts the vptb in
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the last slot of the L1 page table.  */
+<BR>
+-	clear_page(___zero_page);
+<BR>
++	clear_page((void *)ZERO_PGE);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clear_page(swapper_pg_dir);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newptbr = ((unsigned long) swapper_pg_dir - PAGE_OFFSET) &gt;&gt; PAGE_SHIFT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pgd_val(swapper_pg_dir[1023]) =
+<BR>
+--- 2.3.99-pre3aa1-alpha/include/asm-alpha/pgtable.h.~1~	Wed Mar 29 18:01:58 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/include/asm-alpha/pgtable.h	Wed Mar 29 18:16:18 2000
+<BR>
+@@ -136,12 +136,11 @@
+<BR>
+&nbsp;extern pte_t __bad_page(void);
+<BR>
+&nbsp;extern pmd_t * __bad_pagetable(void);
+<BR>
+&nbsp;
+<BR>
+-extern char ___zero_page[];
+<BR>
+&nbsp;extern unsigned long __zero_page(void);
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define BAD_PAGETABLE	__bad_pagetable()
+<BR>
+&nbsp;#define BAD_PAGE	__bad_page()
+<BR>
+-#define ZERO_PAGE(vaddr)	(mem_map + MAP_NR(___zero_page))
+<BR>
++#define ZERO_PAGE(vaddr)	(mem_map + MAP_NR(ZERO_PGE))
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* number of bits that fit into a memory pointer */
+<BR>
+&nbsp;#define BITS_PER_PTR			(8*sizeof(unsigned long))
+<BR>
+--- 2.3.99-pre3aa1-alpha/include/asm-alpha/system.h.~1~	Wed Mar 29 18:01:58 2000
+<BR>
++++ 2.3.99-pre3aa1-alpha/include/asm-alpha/system.h	Wed Mar 29 18:16:18 2000
+<BR>
+@@ -10,6 +10,27 @@
+<BR>
+&nbsp;&nbsp;* files, so it does only defines, not any C code.
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
++/*
+<BR>
++ * We leave one page for the initial stack page, and one page for
+<BR>
++ * the initial process structure. Also, the console eats 3 MB for
+<BR>
++ * the initial bootloader (one of which we can reclaim later).
+<BR>
++ * With a few other pages for various reasons, we'll use an initial
+<BR>
++ * load address of PAGE_OFFSET+0x310000UL
+<BR>
++ */
+<BR>
++#define BOOT_PCB	0x20000000
+<BR>
++#define BOOT_ADDR	0x20000000
+<BR>
++/* Remove when official MILO sources have ELF support: */
+<BR>
++#define BOOT_SIZE	(16*1024)
+<BR>
++
+<BR>
++#define KERNEL_START	(PAGE_OFFSET+0x300000)
+<BR>
++#define SWAPPER_PGD	(PAGE_OFFSET+0x300000)
+<BR>
++#define INIT_STACK	(PAGE_OFFSET+0x302000)
+<BR>
++#define EMPTY_PGT	(PAGE_OFFSET+0x304000)
+<BR>
++#define EMPTY_PGE	(PAGE_OFFSET+0x308000)
+<BR>
++#define ZERO_PGE	(PAGE_OFFSET+0x30A000)
+<BR>
++
+<BR>
++#define START_ADDR	(PAGE_OFFSET+0x310000)
+<BR>
++
+<BR>
+&nbsp;#ifndef __ASSEMBLY__
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+<P><P>And yes if I change the #if 0 below to #if 1 the kernel crashes in the
+<BR>
+early boot stage. I still don't know what's going wrong...
+<BR>
+<P>+#if 0
+<BR>
++       start_kernel_pfn = PFN_DOWN(virt_to_phys(_stext));
+<BR>
++#else
+<BR>
++       start_kernel_pfn = 0;
+<BR>
++#endif
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0152.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0153.html">Richard Henderson: "Re: 2.3.99-3 axp combo patch"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0150.html">Andrea Arcangeli: "Re: 2.3.99-3 axp combo patch"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:04 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

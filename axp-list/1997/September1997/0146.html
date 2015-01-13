@@ -1,0 +1,156 @@
+<!-- received="Wed Sep 10 05:59:54 1997 " -->
+<!-- sent="Wed, 10 Sep 1997 08:59:14 -0500" -->
+<!-- name="Rob Zook" -->
+<!-- email="rzook@informix.com" -->
+<!-- subject="UDB RH 4.1 FTP problems" -->
+<!-- id="3.0.3.32.19970910085914.00a0e9a0@atlas" -->
+<!-- inreplyto="Pine.OSF.3.91.970910084009.7389A-100000@caesar.iplink.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>UDB RH 4.1 FTP problems</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>UDB RH 4.1 FTP problems</h2>
+
+<b>Rob Zook</b> (<a href="mailto:rzook@informix.com"><i>rzook@informix.com</i></a>)<br>
+<i>Wed, 10 Sep 1997 08:59:14 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#146">[ date ]</a><a href="index.html#146">[ thread ]</a><a href="subject.html#146">[ subject ]</a><a href="author.html#146">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0147.html">vlad: "UDB and Toshiba MK1926FBV"</a>
+<li> <b>Previous message:</b> <a href="0145.html">Shane DeRidder: "Re: UDB Temp / Powerup Problems"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0149.html">Terry Bayne: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0149.html">Terry Bayne: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Reply:</b> <a href="0180.html">Andi Hechtbauer: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0193.html">Christopher J. Grayce: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0272.html">richardh@towertechnology.com.au: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0273.html">richardh@towertechnology.com.au: "Re: UDB RH 4.1 FTP problems"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi all,<br>
+<p>
+I have a UDB 133Mhz, running RH 1.1. I did the base installation,<br>
+and added a couple of multimedia packages. One thing has never worked<br>
+and now it's become a serious annoyance. I can anonymously ftp to<br>
+the UDB, but I cannot ftp from my PC or another UNIX box to the UDB<br>
+using a login on the UDB.<br>
+<p>
+I tried searching for some answers on Redhat's mailing list search<br>
+page, but to my surprise a query on just the word "ftp" turned up<br>
+absolutely nothing. That seems rather unlikely, so I must guess their<br>
+search page is broken at the moment.<br>
+<p>
+If I try to FTP from a UNIX machine to the UDB I get output like this:<br>
+<p>
+jove:/home/tech/rzook% ftp babylon5<br>
+Connected to babylon5.na.informix.com.<br>
+220 babylon5.na.informix.com FTP server (Version<br>
+wu-2.4.2-academ[BETA-11](1) Wed<br>
+ Dec 18 19:19:00 UTC 1996) ready.<br>
+Name (babylon5:rzook): rzook<br>
+331 Password required for rzook.<br>
+Password:<br>
+530 Login incorrect.<br>
+Login failed.<br>
+Remote system type is UNIX.<br>
+Using binary mode to transfer files.<br>
+ftp&gt;<br>
+<p>
+rzook is a valid login on the UDB, and I have verified I am <br>
+using the correct password by doing an rlogin to the UDB. The<br>
+rlogin works fine.<br>
+<p>
+I looked thru the man page on ftpd, and found the following <br>
+about ftp user authentication:<br>
+<p>
+       Ftpd authenticates users according to four rules.<br>
+<p>
+       1)     The user name must be in the  password  data  base,<br>
+              /etc/passwd,  or  whatever  is  appropriate for the<br>
+              operating system, and  the  password  must  not  be<br>
+              null.   In this case a password must be provided by<br>
+              the client before any file operations may  be  per-<br>
+              formed.<br>
+<p>
+       2)     The   user   name  must  not  appear  in  the  file<br>
+              /etc/ftpusers.<br>
+<p>
+       3)     The user must have a  standard  shell  returned  by<br>
+              getusershell(3).<br>
+<p>
+       4)     If  the  user  name is ``anonymous'' or ``ftp'', an<br>
+              anonymous ftp account must be present in the  pass-<br>
+              word file (user ``ftp'').  In this case the user is<br>
+              allowed to log in by specifying  any  password  (by<br>
+              convention  this  is  given  as  the  client host's<br>
+<p>
+1. The user name is in /etc/passwd and the user-id is not blank.<br>
+2. The user name is not in /etc/ftpusers.<br>
+3. The user name is listed in /etc/passwd as using the bash shell.<br>
+4. The user name is not ftp or anonymous.<br>
+<p>
+I ran "netstat -an | grep 21" (21 is the ftp service port number),<br>
+and get the following:<br>
+<p>
+tcp        0      0 0.0.0.0:21              0.0.0.0:*         LISTEN<br>
+tcp        0      0 &lt;IP munged&gt;:21          &lt;IP munged&gt;:1253  ESTABLISHED<br>
+unix  2      [ ]         STREAM     CONNECTED     21683<br>
+unix  2      [ ]         STREAM                   21684  /dev/log<br>
+unix  2      [ ]         STREAM     CONNECTED     21710<br>
+unix  2      [ ]         STREAM                   21711  /dev/log<br>
+<p>
+Which shows that ftpd is listening on the correct port and some kind<br>
+connection is being established, but user authentification keeps failing.<br>
+<p>
+Has anyone have some idea what might be happening?<br>
+<p>
+Thanks,<br>
+<p>
+Rob Z.<br>
+----------------------------------------------------------<br>
+The sublime and the ridiculous are often so nearly related, <br>
+that it is difficult to class them separately. One step above <br>
+the sublime makes the ridiculous, and one step above the <br>
+ridiculous makes the sublime again.<br>
+--- Age of Reason. Part ii. note.<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0147.html">vlad: "UDB and Toshiba MK1926FBV"</a>
+<li> <b>Previous message:</b> <a href="0145.html">Shane DeRidder: "Re: UDB Temp / Powerup Problems"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0149.html">Terry Bayne: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0149.html">Terry Bayne: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Reply:</b> <a href="0180.html">Andi Hechtbauer: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0193.html">Christopher J. Grayce: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0272.html">richardh@towertechnology.com.au: "Re: UDB RH 4.1 FTP problems"</a>
+<li> <b>Maybe reply:</b> <a href="0273.html">richardh@towertechnology.com.au: "Re: UDB RH 4.1 FTP problems"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

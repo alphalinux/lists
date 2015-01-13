@@ -1,0 +1,146 @@
+<!-- received="Wed Feb  7 22:51:51 1996 " -->
+<!-- sent="Wed, 7 Feb 96 22:51:51 -0800" -->
+<!-- name="David Paul Zimmerman" -->
+<!-- email="dpz@apple.com" -->
+<!-- subject="Fixed: 2nd Ethernet on A250" -->
+<!-- id="9602080651.AA01734@alink-gw.apple.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Fixed: 2nd Ethernet on A250</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Fixed: 2nd Ethernet on A250</h2>
+
+<b>David Paul Zimmerman</b> (<a href="mailto:dpz@apple.com"><i>dpz@apple.com</i></a>)<br>
+<i>Wed, 7 Feb 96 22:51:51 -0800</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#47">[ date ]</a><a href="index.html#47">[ thread ]</a><a href="subject.html#47">[ subject ]</a><a href="author.html#47">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0048.html">Ophir Ronen: "Xemacs!"</a>
+<li> <b>Previous message:</b> <a href="0046.html">Jim_Nance@avanticorp.com: "Re: Sound v.s. Ethernet on AlphaStation 250? (fwd)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Well, after much help from Jay and bit of prowling around on my own, I <br>
+think I found the source of the problem.  The short form:<br>
+<p>
+RCS file: RCS/bios32.c,v<br>
+retrieving revision 1.2<br>
+diff -r1.2 bios32.c<br>
+626c626<br>
+&lt;               { 1,  1, -1, -1, -1}, /* idsel 13 KN25_PCI_SLOT2 */<br>
+<pre>
+---
+&gt;               { 1,  2,  1,  0,  2}, /* idsel 13 KN25_PCI_SLOT2 */
+<p>
+I'm running a kernel with that change and life seems to be very happy; 
+I'm doing general IP traffic through my eth0, with my eth1 now dealing 
+mostly with NFS on a private backend network.  All of the network 
+anomalies that I reported before are gone.  I've backed out of my 
+route_tab[] IRQ9/IRQ10 swap, since this idsel 13 change makes the 
+original route_tab[] give me IRQ10 first (in fact, with both hacks 
+installed I was getting IRQ9 again :-)
+<p>
+The long form:
+<p>
+Having done this on a wing and a prayer, I'm clearly a little concerned 
+that the results are specious.  The stock arch/alpha/kernel/bios32.c has 
+this bit for Avanti PCI bus initialization:
+<p>
+        /*
+         * The Noname board has 5 PCI slots with each of the 4
+         * interrupt pins routed to different pins on the PCI/ISA
+         * bridge (PIRQ0-PIRQ3).  The table below is based on
+         * information available at:
+         *
+         *   <a href="http://ftp.digital.com/pub/DEC/axppci/ref_interrupts.txt">http://ftp.digital.com/pub/DEC/axppci/ref_interrupts.txt</a>
+         *
+         * I have no information on the Avanti interrupt routing, but
+         * the routing seems to be identical to the Noname except
+         * that the Avanti has an additional slot whose routing I'm
+         * unsure of.
+         *
+         * pirq_tab[0] is a fake entry to deal with old PCI boards
+         * that have the interrupt pin number hardwired to 0 (meaning
+         * that they use the default INTA line, if they are interrupt
+         * driven at all).
+         */
+        static const char pirq_tab[][5] = {
+                { 3,  3,  3,  3,  3}, /* idsel  6 (53c810) */
+                {-1, -1, -1, -1, -1}, /* idsel  7 (SIO: PCI/ISA bridge) */
+                { 2,  2, -1, -1, -1}, /* idsel  8 (slot closest to ISA) */
+                {-1, -1, -1, -1, -1}, /* idsel  9 (unused) */
+                {-1, -1, -1, -1, -1}, /* idsel 10 (unused) */
+                { 0,  0,  2,  1,  0}, /* idsel 11 (slot furthest from 
+ISA) KN25_PCI_SLOT0 */
+                { 1,  1,  0,  2,  1}, /* idsel 12 (middle slot) 
+KN25_PCI_SLOT1 */
+#ifdef CONFIG_ALPHA_AVANTI
+                { 1,  1, -1, -1, -1}, /* idsel 13 KN25_PCI_SLOT2 */
+#endif /* CONFIG_ALPHA_AVANTI */
+        };
+<p>
+It occurred to me that the interrupt routing for idsel 13 looked 
+*awfully* strange, given that the other two PCI slots had "real-looking" 
+entries.  I went and referenced the file in the comment 
+(<a href="http://ftp.digital.com/pub/DEC/axppci/ref_interrupts.txt">http://ftp.digital.com/pub/DEC/axppci/ref_interrupts.txt</a>), which had the 
+following table:
+<p>
+Table 5-2 PCI Interrupt routing
+<p>
+PCI ISA Bridge  PCI
+channel         Source
+----------------------------------
+PIRQ0           PCI Slot 1 Int A
+                PCI Slot 2 Int B
+                PCI Slot 3 Int C
+                PCI Slot 1 Int D
+PIRQ1           PCI Slot 2 Int A
+                PCI Slot 3 Int B
+                PCI Slot 1 Int C
+                PCI Slot 2 Int D
+PIRQ2           PCI Slot 3 Int A
+                PCI Slot 1 Int B
+                PCI Slot 2 Int C
+                PCI Slot 3 Int D
+PIRQ3           SCSI Controller
+---------------------------------
+<p>
+Deciphering the mapping from table 5-2 to pirq_tab (PIRQn top-to-bottom 
+-&gt; pirq_tab[] right-to-left, pirq_tab[][] entry = PIRQn slot - 1) implied 
+that there was no coded mapping for PIRQ2.  Since I believed that idsel 
+13 didn't have valid interrupt routing, I simply mapped the PIRQ2 info 
+into idsel 13, leaving pirq_tab[][0] alone.  Maybe I should have changed 
+pirq_tab[][0] from "1" to "2", since idsel 8 seems to be unused?
+<p>
+dp
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0048.html">Ophir Ronen: "Xemacs!"</a>
+<li> <b>Previous message:</b> <a href="0046.html">Jim_Nance@avanticorp.com: "Re: Sound v.s. Ethernet on AlphaStation 250? (fwd)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

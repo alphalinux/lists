@@ -1,0 +1,154 @@
+<!-- received="Fri Oct 18 01:20:28 1996 " -->
+<!-- sent="Fri, 18 Oct 1996 08:16:39 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Linux-2.1.4" -->
+<!-- id="1.5.4.32.19961018030033.006feee8@tiger.avana.net" -->
+<!-- inreplyto="199610172203.RAA00640@atheist.tamu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-2.1.4</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-2.1.4</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Fri, 18 Oct 1996 08:16:39 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#695">[ date ]</a><a href="index.html#695">[ thread ]</a><a href="subject.html#695">[ subject ]</a><a href="author.html#695">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0696.html">Przemek Klosowski: "Re: Fortran compiler for Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0694.html">Szue Yan Chai: "Re: 4.0 Upgrade Problems"</a>
+<li> <b>In reply to:</b> <a href="0672.html">Richard Henderson: "Re: Linux-2.1.4"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0691.html">Szue Yan Chai: "Re: UDB Problems"</a>
+<li> <b>Reply:</b> <a href="0691.html">Szue Yan Chai: "Re: UDB Problems"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Thu, 17 Oct 1996, Richard Henderson wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; &gt; There is still issue (tought not directly related to kernel source). What</i><br>
+<i>&gt; &gt; to do with such functions when the exception occurs in the middle of</i><br>
+<i>&gt; &gt; user space cleared, copyed from or copyed to (assuming functions as</i><br>
+<i>&gt; &gt; clear_user, strncpy_from_user, strncpy_to_user) ?</i><br>
+<i>&gt; </i><br>
+<i>&gt; The copy_to_user and copy_from_user functions Linus defined to return</i><br>
+<i>&gt; the number of bytes _not_ copied.  In doing the others for the Alpha,</i><br>
+<i>&gt; I defined clear_user the same way.</i><br>
+<p>
+Right, this was what I had in mind.<br>
+<p>
+<i>&gt; As for strncpy_from_user, which Linus just mentioned but did not </i><br>
+<i>&gt; define, I did something slightly different due to the difference in</i><br>
+<i>&gt; the way the function would be used in the first place: it returnes</i><br>
+<i>&gt; -EFAULT on exception, -ENAMETOOLONG if the buffer filled before the</i><br>
+<i>&gt; terminator was copied (but it does always make sure that the kernel</i><br>
+<i>&gt; buffer is terminated!)  Otherwise, it returns the length of the string.</i><br>
+<p>
+There is one subtle issue with -ENAMETOOLONG..<br>
+<p>
+In fact, you do NOT want to zero-terminate the string, and in fact you may<br>
+not even want to return an error for this case. Your approach is the logical<br>
+one, especially when you look at "get_name()", but there are some other uses<br>
+for this function that make another return value a better choice. <br>
+<p>
+The thing I had in mind for strncpy_from_user() is not only for get_name(),<br>
+but actually even more for another timing-critical function, namely<br>
+"copy_strings()" in fs/exec.c.  That function is used to copy all the<br>
+argument and environment variables at execve() time, and that function is a<br>
+noticeable part of the overhead of execve(). <br>
+<p>
+Now, "copy_strings()" does not have any upper limit on the string length<br>
+(apart from a total limit of 32 pages worth of data: that's 256kB worth of<br>
+data. <br>
+<p>
+Now, imagine a 256kB string.. It should work, but we _obviously_ do not want<br>
+to copy it in one go, and obviously we don't. Right now we look up the length<br>
+of the string (with a byte-at-a-time algorithm, UGH), and then we copy it<br>
+into the kernel page buffers (again one byte at a time, double-UGH). I had<br>
+thought we could do this with "strncpy_from_user()" and then just do do the<br>
+proper memcpy()'s to move the _partial_ strings into the right place. <br>
+<p>
+Note the _partial_: we'd do string copies in parts. So if the string is<br>
+larger than the buffer, we do _not_ want to zero-terminate the string,<br>
+because we'll go back and copy the rest of the string into another kernel<br>
+buffer until we hit the end.. <br>
+<p>
+So I suggest that "strncpy_from_user()" do something like this:<br>
+<p>
+ - exception partway through: -EFAULT (and a partial string copy, but we <br>
+   don't care, we'll throw the string away anyway).<br>
+ - successful copy: number of bytes copied (length of string): 0 - (n-1)<br>
+ - partial copy, no zero-terminate: number of bytes copied: (n)<br>
+<p>
+With this approach, get_name() would become something like this:<br>
+<p>
+	int retval;<br>
+	unsigned long page = __get_free_page(GFP_KERNEL);<br>
+<p>
+	retval = -ENOMEM;<br>
+	if (page) {<br>
+		retval = strncpy_from_user((char *) page, ubuf, PAGE_SIZE);<br>
+		if (retval &gt;= 0) {<br>
+			if (retval &lt; PAGE_SIZE) {<br>
+				*namep = (char *) page;<br>
+				return 0;<br>
+			}<br>
+			retval = -ENAMETOOLONG;<br>
+		}<br>
+		free_page(page);<br>
+	}<br>
+	return retval;<br>
+<p>
+and the execve() set of functions should also be able to use the same<br>
+strncpy_from_user() efficiently. <br>
+<p>
+NOTE! I'm not sure that this is necessarily the right approach. For various<br>
+reasons it may be that for execve() we'd be better off with a<br>
+"strlen_from_user()" + "memcpy_from_user()", because we have to know the<br>
+length anyway before we know where to copy the string. I have no strong<br>
+opinion one way or the other on this, I just know that we definitely do not<br>
+want to do it one byte at a time. Especially not on an alpha. <br>
+<p>
+<i>&gt; Oh, and strncpy_to_user is not likely to be useful, as we usually</i><br>
+<i>&gt; already know the length of the string and so copy_to_user is better.</i><br>
+<p>
+Indeed.<br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0696.html">Przemek Klosowski: "Re: Fortran compiler for Linux/Alpha"</a>
+<li> <b>Previous message:</b> <a href="0694.html">Szue Yan Chai: "Re: 4.0 Upgrade Problems"</a>
+<li> <b>In reply to:</b> <a href="0672.html">Richard Henderson: "Re: Linux-2.1.4"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0691.html">Szue Yan Chai: "Re: UDB Problems"</a>
+<li> <b>Reply:</b> <a href="0691.html">Szue Yan Chai: "Re: UDB Problems"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

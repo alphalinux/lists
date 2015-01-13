@@ -1,0 +1,212 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: alpha versus intel performance?</TITLE>
+<META NAME="Author" CONTENT="Goswin Brederlow (goswin.brederlow@student.uni-tuebingen.de)">
+<META NAME="Subject" CONTENT="Re: alpha versus intel performance?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: alpha versus intel performance?</H1>
+<HR>
+<P>
+<!-- received="Mon Jul 19 12:37:07 1999" -->
+<!-- isoreceived="19990719193707" -->
+<!-- sent="19 Jul 1999 14:28:55 +0200" -->
+<!-- isosent="19990719122855" -->
+<!-- name="Goswin Brederlow" -->
+<!-- email="goswin.brederlow@student.uni-tuebingen.de" -->
+<!-- subject="Re: alpha versus intel performance?" -->
+<!-- id="87aessakmw.fsf@rut.informatik.uni-tuebingen.de" -->
+<!-- inreplyto="Tue, 13 Jul 1999 11:16:49 -0400 (EDT)&quot;" -->
+<STRONG>Subject: </STRONG>Re: alpha versus intel performance?<BR>
+<STRONG>From: </STRONG>Goswin Brederlow (<EM>goswin.brederlow@student.uni-tuebingen.de</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Jul 19 1999 - 05:28:55 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#112">[ date ]</A>
+<A HREF="index.html#112">[ thread ]</A>
+<A HREF="subject.html#112">[ subject ]</A>
+<A HREF="author.html#112">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0113.html">Goswin Brederlow: "Re: What's wrong with bluefish?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0111.html">Oliver.Kowalke@freudenberg.de: "PII/PIII vs. Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0083.html">Goswin Brederlow: "Re: alpha versus intel performance?"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Danny Heap &lt;danny@gibbs.med.utoronto.ca&gt; writes:
+<BR>
+<P><EM>&gt; Our lab purchased a DEC alpha lx164 recently.  We had seen benchmarks
+</EM><BR>
+<EM>&gt; (and heard comments) that suggested that it would outperform
+</EM><BR>
+<EM>&gt; similarly-clocked P-II processors, especially in floating point
+</EM><BR>
+<EM>&gt; operations.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; In fact, our experience has been the reverse: our 350MHz P-IIs
+</EM><BR>
+<EM>&gt; outperform our 533MHz alpha by at least a factor of 2.  I am including
+</EM><BR>
+<EM>&gt; a short loop in C, with lots of trig functions (I assume that this
+</EM><BR>
+<EM>&gt; should showcase floating point operations), plus the output from our
+</EM><BR>
+<EM>&gt; DEC and Intel boxes.  I am also enclosing the output of `cat
+</EM><BR>
+<EM>&gt; /proc/cpuinfo` in case that is relevant.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Any suggestions?  Are there some optimizations for the alpha that are
+</EM><BR>
+<EM>&gt; (a) still being developed, or (b) that we can pass the compiler?
+</EM><BR>
+<P>Suggestion?
+<BR>
+Write better code. Your code does just show that an alpha takes a long 
+<BR>
+time to wait for the pipeline to fill.
+<BR>
+<P><EM>&gt; -----------------------
+</EM><BR>
+<EM>&gt; This is floating.c:
+</EM><BR>
+<EM>&gt; -----------------------
+</EM><BR>
+<P><EM>&gt; #include &lt;math.h&gt;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; main(){
+</EM><BR>
+<EM>&gt; double trig1, trig2;
+</EM><BR>
+<EM>&gt; int ctr;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;  for (ctr=0; ctr&lt;1000000; ctr++){
+</EM><BR>
+<EM>&gt;    trig1 = sin(ctr);
+</EM><BR>
+convert ctr to double, wait.
+<BR>
+calculate sin, wait wait wait
+<BR>
+<EM>&gt;    trig2 = asin(trig1);
+</EM><BR>
+calculate asin, wait wait wait
+<BR>
+<EM>&gt;    trig1 = cos(trig2);
+</EM><BR>
+calculate cos, wait wait wat
+<BR>
+<EM>&gt;    trig2 = acos(trig1);
+</EM><BR>
+calculate acos, wait wait wait
+<BR>
+<EM>&gt;  }
+</EM><BR>
+<EM>&gt; }
+</EM><BR>
+<P>You allways wait for the answere of the previous line. Try the
+<BR>
+following code:
+<BR>
+<P>#include &lt;math.h&gt;
+<BR>
+<P>main(){
+<BR>
+double trig1, trig2, trig3, trig4, trig5, trig6, trig7, trig8;
+<BR>
+double ctr;
+<BR>
+<P>&nbsp;for (ctr=0; ctr&lt;1000000;){
+<BR>
+&nbsp;&nbsp;&nbsp;trig1 = sin(ctr++);
+<BR>
+&nbsp;&nbsp;&nbsp;trig3 = sin(ctr++);
+<BR>
+&nbsp;&nbsp;&nbsp;trig5 = sin(ctr++);
+<BR>
+&nbsp;&nbsp;&nbsp;trig7 = sin(ctr++);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;trig2 = asin(trig1);
+<BR>
+&nbsp;&nbsp;&nbsp;trig4 = asin(trig3);
+<BR>
+&nbsp;&nbsp;&nbsp;trig6 = asin(trig5);
+<BR>
+&nbsp;&nbsp;&nbsp;trig8 = asin(trig7);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;trig1 = cos(trig2);
+<BR>
+&nbsp;&nbsp;&nbsp;trig3 = cos(trig4);
+<BR>
+&nbsp;&nbsp;&nbsp;trig5 = cos(trig6);
+<BR>
+&nbsp;&nbsp;&nbsp;trig7 = cos(trig8);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;trig2 = acos(trig1);
+<BR>
+&nbsp;&nbsp;&nbsp;trig4 = acos(trig3);
+<BR>
+&nbsp;&nbsp;&nbsp;trig6 = acos(trig5);
+<BR>
+&nbsp;&nbsp;&nbsp;trig8 = acos(trig7);
+<BR>
+&nbsp;}
+<BR>
+}
+<BR>
+<P>I would say that the code runs much faster than your example, although 
+<BR>
+it computes the same amount of sin, asin, cos and acos.
+<BR>
+<P>It should wait far less inbetween, it can calculate 4 sin values
+<BR>
+before the result from the first is needed.
+<BR>
+<P>Another point to mention is that gcc is rather bad at optimising. The
+<BR>
+compiler from dec is said to be 30% faster in general.
+<BR>
+<P>May the Source be with you.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Goswin
+<BR>
+<P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0113.html">Goswin Brederlow: "Re: What's wrong with bluefish?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0111.html">Oliver.Kowalke@freudenberg.de: "PII/PIII vs. Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0083.html">Goswin Brederlow: "Re: alpha versus intel performance?"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:38 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,117 @@
+<!-- received="Mon Apr 14 21:51:27 1997 " -->
+<!-- sent="Tue, 15 Apr 1997 01:46:17 +0100 (BST)" -->
+<!-- name="Tim Waugh" -->
+<!-- email="tmw20@cam.ac.uk" -->
+<!-- subject="Some patches for 2.1.34" -->
+<!-- id="1.5.4.32.19970414232752.00696c8c@mars.superlink.net" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Some patches for 2.1.34</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Some patches for 2.1.34</h2>
+
+<b>Tim Waugh</b> (<a href="mailto:tmw20@cam.ac.uk"><i>tmw20@cam.ac.uk</i></a>)<br>
+<i>Tue, 15 Apr 1997 01:46:17 +0100 (BST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#671">[ date ]</a><a href="index.html#671">[ thread ]</a><a href="subject.html#671">[ subject ]</a><a href="author.html#671">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0672.html">SurferBoy: "XBanner and the Penguin"</a>
+<li> <b>Previous message:</b> <a href="0670.html">wooh@mars.superlink.net: "Re: Is this a good buy?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I don't know if these are all correct, but here they are anyway (the first<br>
+one just looks like a typo).  Something also needs to be done to entry.S<br>
+(it's referring to intr_count), but I'm not entirely sure what.<br>
+<p>
+Tim.<br>
+*/<br>
+<p>
+--- linux/include/asm-alpha/atomic.h.orig	Tue Apr 15 00:45:12 1997<br>
++++ linux/include/asm-alpha/atomic.h	Tue Apr 15 00:45:13 1997<br>
+@@ -19,5 +19,5 @@<br>
+ <br>
+ #define atomic_read(v)		((v)-&gt;counter)<br>
+-#define atomic_set(v)		(((v)-&gt;counter) = i)<br>
++#define atomic_set(v,i)		(((v)-&gt;counter) = i)<br>
+ <br>
+ /*<br>
+--- linux/include/asm-alpha/semaphore.h.orig	Tue Apr 15 00:52:48 1997<br>
++++ linux/include/asm-alpha/semaphore.h	Tue Apr 15 01:07:54 1997<br>
+@@ -8,4 +8,5 @@<br>
+  */<br>
+ <br>
++#include &lt;asm/system.h&gt;<br>
+ #include &lt;asm/atomic.h&gt;<br>
+ <br>
+@@ -24,4 +25,14 @@<br>
+ <br>
+ #define sema_init(sem, val)	atomic_set(&amp;((sem)-&gt;count), val)<br>
++<br>
++static inline void wake_one_more(struct semaphore *sem)<br>
++{<br>
++        unsigned long flags;<br>
++<br>
++        save_flags(flags);<br>
++        cli();<br>
++        atomic_inc(&amp;sem-&gt;waking);<br>
++        restore_flags(flags);<br>
++}<br>
+ <br>
+ static inline int waking_non_zero(struct semaphore *sem)<br>
+--- linux/arch/alpha/kernel/alpha_ksyms.c.orig	Tue Apr 15 02:13:12 1997<br>
++++ linux/arch/alpha/kernel/alpha_ksyms.c	Tue Apr 15 02:13:30 1997<br>
+@@ -14,4 +14,5 @@<br>
+ #include &lt;linux/in.h&gt;<br>
+ #include &lt;linux/in6.h&gt;<br>
++#include &lt;linux/interrupt.h&gt;<br>
+ <br>
+ #include &lt;asm/io.h&gt;<br>
+--- linux/arch/alpha/kernel/irq.c.orig	Tue Apr 15 02:38:03 1997<br>
++++ linux/arch/alpha/kernel/irq.c	Tue Apr 15 02:38:05 1997<br>
+@@ -330,4 +330,5 @@<br>
+ {<br>
+ 	struct irqaction * action;<br>
++	int cpu = smp_processor_id();<br>
+ <br>
+ 	if ((unsigned) irq &gt; NR_IRQS) {<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0672.html">SurferBoy: "XBanner and the Penguin"</a>
+<li> <b>Previous message:</b> <a href="0670.html">wooh@mars.superlink.net: "Re: Is this a good buy?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

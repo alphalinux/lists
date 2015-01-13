@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: Re: Questions on performance meth</TITLE>
+<META NAME="Author" CONTENT="Kazushige Goto (goto@statabo.rim.or.jp)">
+<META NAME="Subject" CONTENT="Re: Questions on performance methods">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Questions on performance methods</H1>
+<HR>
+<P>
+<!-- received="Sat Nov 28 08:53:15 1998 EST" -->
+<!-- sent="Sat, 28 Nov 1998 21:53:28 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="Re: Questions on performance methods" -->
+<!-- id="19981128215328A.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="199811270749.IAA14161@keksy.mchp.siemens.de" -->
+<STRONG>Kazushige Goto</STRONG> (<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20Questions%20on%20performance%20methods"><EM>goto@statabo.rim.or.jp</EM></A>)<BR>
+<EM>Sat, 28 Nov 1998 21:53:28 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#9">[ date ]</A>
+<A HREF="index.html#9">[ thread ]</A>
+<A HREF="subject.html#9">[ subject ]</A>
+<A HREF="author.html#9">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0010.html">Johannes G.D. Hausmann: "New blas_patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0008.html">pshimizu@fa2.so-net.ne.jp: "Re: Questions on performance methods"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0007.html">Martin Kahlert: "Questions on performance methods"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P># I'm pleased to organize ML of high performance computing.
+<BR>
+<P>From: Martin Kahlert &lt;<A HREF="mailto:martin.kahlert@mchp.siemens.de?subject=Re:%20Questions%20on%20performance%20methods">martin.kahlert@mchp.siemens.de</A>&gt;
+<BR>
+Subject: Questions on performance methods
+<BR>
+<P><EM>martin&gt; I would like to help improving the performance of Alpha software, too.
+</EM><BR>
+<EM>martin&gt; It seems to me, that Mr. Goto is  T H E  guru of alpha performance.
+</EM><BR>
+<EM>martin&gt; Hope he's listening.
+</EM><BR>
+<P>I can show/explain you how to optimize, but it's entirely dependent of 
+<BR>
+source code.  Of course, there are some common &quot;rules&quot; to get faster
+<BR>
+code,  but it'll be slightly faster than before(or almost same).
+<BR>
+<P># I'm not a guru, though :-)
+<BR>
+<P>For example,
+<BR>
+<P>From: Jonathan L Dubois &lt;<A HREF="mailto:dubois@bec.physics.udel.edu?subject=Re:%20Questions%20on%20performance%20methods">dubois@bec.physics.udel.edu</A>&gt;
+<BR>
+Subject: request for perf improvement suggestions
+<BR>
+<P>void r12(double *rij,double *x1,double *x2){
+<BR>
+&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;double tmp1,tmp2;
+<BR>
+<P>&nbsp;&nbsp;tmp2 = 0;
+<BR>
+&nbsp;&nbsp;for(i=0;i&lt;3;i++){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tmp1 = x1[i]-x2[i];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;tmp2 += tmp1*tmp1;
+<BR>
+&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;tmp2 = sqrt(tmp2);
+<BR>
+&nbsp;&nbsp;*rij = tmp2;
+<BR>
+}
+<BR>
+<P>First, you must check your routines(with profile(-pg option), you can
+<BR>
+check No.1 and 2 easily).
+<BR>
+<P>&nbsp;&nbsp;1. find the bottle-necked subroutine.
+<BR>
+<P>&nbsp;&nbsp;2. check whether this(bottle-necked) routine is called a few times,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;or many times.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If this routine is called many times,  the overhead is important, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;therefore using &quot;inline function&quot; or macro is good way to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;improve.
+<BR>
+<P>&nbsp;&nbsp;3. check if this routine calls other subroutines.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alpha has many registers, but we can not use enough registers
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if subroutine calls other subroutines(egcs/gcc is not good at
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;optimizing such a case).
+<BR>
+<P><P>Obviosly, the subroutine &quot;r12&quot; is called many times and calles sqrt
+<BR>
+routine and bottle neck is sqrt.  Of course, you can modify as 
+<BR>
+Mr. Stefan Schroepfer said,  but it'll be only slightly faster(5 to
+<BR>
+10%).
+<BR>
+<P>Actually, sqrt routine is pretty &quot;sparse&quot; because of calculation
+<BR>
+dependencies.  If it's possible to store temporary array in the lump,
+<BR>
+you may use my sqrtv(vectorlized sqrt) routine. This sqrtv routine is
+<BR>
+5 times faster than normal sqrt routine. But you showed only kernel
+<BR>
+routine, so I do not know whether it's possible to be faster or not.
+<BR>
+In this case,  it's important &quot;how to call&quot; r12 routine. 
+<BR>
+<P>So, you should show the routines which call r12 routine.
+<BR>
+<P><P><EM>martin&gt; How good is the scheduling of egcs these days on alpha?
+</EM><BR>
+<EM>martin&gt; Can I describe something like 'the alpha can do an floating point
+</EM><BR>
+<EM>martin&gt; add a fp mult and two int ops in one cycle, when they are in a block
+</EM><BR>
+<EM>martin&gt; starting on an x-Byte boundary' to the egcs-scheduler? Or is this even
+</EM><BR>
+<EM>martin&gt; implemented?
+</EM><BR>
+<P>Now, egcs has a good scheduler except for complex value, I think.  We
+<BR>
+need optimized pre-processor like KAP(SUIF is freely available, but
+<BR>
+it's not good enough).
+<BR>
+<P>Thanks,
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20Questions%20on%20performance%20methods">goto@statabo.rim.or.jp</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0010.html">Johannes G.D. Hausmann: "New blas_patch"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0008.html">pshimizu@fa2.so-net.ne.jp: "Re: Questions on performance methods"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0007.html">Martin Kahlert: "Questions on performance methods"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sat Nov 28 1998 - 08:53:21 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

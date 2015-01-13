@@ -1,0 +1,280 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: 2.3.18 patch to get alphas to boot</TITLE>
+<META NAME="Author" CONTENT="jamesm@gtwn.net (jamesm@gtwn.net)">
+<META NAME="Subject" CONTENT="2.3.18 patch to get alphas to boot">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>2.3.18 patch to get alphas to boot</H1>
+<HR>
+<P>
+<!-- received="Wed Sep 15 03:45:32 1999" -->
+<!-- isoreceived="19990915104532" -->
+<!-- sent="Tue, 14 Sep 1999 19:43:17 -0500 (CDT)" -->
+<!-- isosent="19990915004317" -->
+<!-- name="jamesm@gtwn.net" -->
+<!-- email="jamesm@gtwn.net" -->
+<!-- subject="2.3.18 patch to get alphas to boot" -->
+<!-- id="199909150033.TAA26222@gtwn.net" -->
+<STRONG>Subject: </STRONG>2.3.18 patch to get alphas to boot<BR>
+<EM>jamesm@gtwn.net</EM><BR>
+<STRONG>Date: </STRONG>Tue Sep 14 1999 - 17:43:17 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#252">[ date ]</A>
+<A HREF="index.html#252">[ thread ]</A>
+<A HREF="subject.html#252">[ subject ]</A>
+<A HREF="author.html#252">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0253.html">Michal Jaegermann: "Re: em86 broken with 2.2.12 and above"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0251.html">Daniel Potts: "Re: Problem with 100Mbit ethernet and de4x5 driver"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+The following patch against 2.3.18 allows the kernel to compile on
+<BR>
+alphas (I have only tested it on my ruffian).  It boots fine, but the
+<BR>
+sym53C8xx driver fails to initialize correctly on my machine.  This is
+<BR>
+my first patch, so be gentle.  I am not aware of a patch that fixes
+<BR>
+these problems, but I apologize if one already exists.
+<BR>
+<P>-James McCollough
+<BR>
+<P>diff -u --recursive linux/drivers/char/pc_keyb.c linux-2.3.18ac2/drivers/char/pc_keyb.c
+<BR>
+--- linux/drivers/char/pc_keyb.c        Tue Sep 14 17:53:42 1999
+<BR>
++++ linux-2.3.18ac2/drivers/char/pc_keyb.c      Tue Sep 14 17:51:24 1999
+<BR>
+@@ -37,6 +37,8 @@
+<BR>
+&nbsp;#include &lt;asm/irq.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;
+<BR>
++#include &lt;asm/io.h&gt;
+<BR>
++
+<BR>
+&nbsp;/* Some configuration switches are present in the include file... */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/pc_keyb.h&gt;
+<BR>
+diff -u --recursive linux/include/asm-alpha/keyboard.h linux-2.3.18ac2/include/asm-alpha/keyboard.h
+<BR>
+--- linux/include/asm-alpha/keyboard.h  Mon Apr 26 12:54:25 1999
+<BR>
++++ linux-2.3.18ac2/include/asm-alpha/keyboard.h        Tue Sep 14 17:49:17 1999
+<BR>
+@@ -37,6 +37,31 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define SYSRQ_KEY 0x54
+<BR>
+&nbsp;
+<BR>
++/* resource allocation */
+<BR>
++#define kbd_request_region()
+<BR>
++#define kbd_request_irq(handler) request_irq(KEYBOARD_IRQ, handler, 0, \
+<BR>
++                                             &quot;keyboard&quot;, NULL)
+<BR>
++
+<BR>
++/* How to access the keyboard macros on this platform.  */
+<BR>
++#define kbd_read_input() inb(KBD_DATA_REG)
+<BR>
++#define kbd_read_status() inb(KBD_STATUS_REG)
+<BR>
++#define kbd_write_output(val) outb(val, KBD_DATA_REG)
+<BR>
++#define kbd_write_command(val) outb(val, KBD_CNTL_REG)
+<BR>
++
+<BR>
++/* Some stoneage hardware needs delays after some operations.  */
+<BR>
++#define kbd_pause() do { } while(0)
+<BR>
++
+<BR>
++/*
+<BR>
++ * Machine specific bits for the PS/2 driver
+<BR>
++ */
+<BR>
++
+<BR>
++#define AUX_IRQ 12
+<BR>
++
+<BR>
++#define aux_request_irq(hand, dev_id)                                  \
+<BR>
++       request_irq(AUX_IRQ, hand, SA_SHIRQ, &quot;PS/2 Mouse&quot;, dev_id)
+<BR>
++
+<BR>
++#define aux_free_irq(dev_id) free_irq(AUX_IRQ, dev_id)
+<BR>
++
+<BR>
+&nbsp;#endif /* __KERNEL__ */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* __ASMalpha_KEYBOARD_H */
+<BR>
+diff -u --recursive linux/include/asm-alpha/pgtable.h linux-2.3.18ac2/include/asm-alpha/pgtable.h
+<BR>
+--- linux/include/asm-alpha/pgtable.h   Wed Sep  8 13:54:14 1999
+<BR>
++++ linux-2.3.18ac2/include/asm-alpha/pgtable.h Tue Sep 14 17:49:46 1999
+<BR>
+@@ -622,6 +622,6 @@
+<BR>
+&nbsp;#define kern_addr_valid(addr)  (1)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define io_remap_page_range(start, busaddr, size, prot) \
+<BR>
+-       remap_page_range(start, virt_to_phys(ioremap(busaddr)), size, prot)
+<BR>
++       remap_page_range(start, virt_to_phys(__ioremap(busaddr)), size, prot)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* _ALPHA_PGTABLE_H */
+<BR>
+diff -u --recursive linux/include/asm-alpha/processor.h linux-2.3.18ac2/include/asm-alpha/processor.h
+<BR>
+--- linux/include/asm-alpha/processor.h Wed Aug  4 17:48:00 1999
+<BR>
++++ linux-2.3.18ac2/include/asm-alpha/processor.h       Tue Sep 14 17:50:03 1999
+<BR>
+@@ -114,6 +114,8 @@
+<BR>
+&nbsp;/* Do necessary setup to start up a newly executed thread.  */
+<BR>
+&nbsp;extern void start_thread(struct pt_regs *, unsigned long, unsigned long);
+<BR>
+&nbsp;
+<BR>
++struct task_struct;
+<BR>
++
+<BR>
+&nbsp;/* Free all resources held by a thread. */
+<BR>
+&nbsp;extern void release_thread(struct task_struct *);
+<BR>
+<P>diff -u --recursive linux/include/asm-alpha/socket.h linux-2.3.18ac2/include/asm-alpha/socket.h
+<BR>
+--- linux/include/asm-alpha/socket.h    Sun Dec 21 19:41:24 1997
+<BR>
++++ linux-2.3.18ac2/include/asm-alpha/socket.h  Tue Sep 14 17:50:28 1999
+<BR>
+@@ -48,4 +48,18 @@
+<BR>
+&nbsp;#define SO_SECURITY_ENCRYPTION_TRANSPORT       20
+<BR>
+&nbsp;#define SO_SECURITY_ENCRYPTION_NETWORK         21
+<BR>
+&nbsp;
+<BR>
++#ifdef __KERNEL__
+<BR>
++/* Socket types. */
+<BR>
++#define SOCK_STREAM    1               /* stream (connection) socket   */
+<BR>
++#define SOCK_DGRAM     2               /* datagram (conn.less) socket  */
+<BR>
++#define SOCK_RAW       3               /* raw socket                   */
+<BR>
++#define SOCK_RDM       4               /* reliably-delivered message   */
+<BR>
++#define SOCK_SEQPACKET 5               /* sequential packet socket     */
+<BR>
++#define SOCK_PACKET    10              /* linux specific way of        */
+<BR>
++                                       /* getting packets at the dev   */
+<BR>
++                                       /* level.  For writing rarp and */
+<BR>
++                                       /* other similar things on the  */
+<BR>
++                                       /* user level.                  */
+<BR>
++#endif                                 
+<BR>
++
+<BR>
+&nbsp;#endif /* _ASM_SOCKET_H */
+<BR>
+diff -u --recursive linux/net/core/datagram.c linux-2.3.18ac2/net/core/datagram.c
+<BR>
+--- linux/net/core/datagram.c   Fri Sep  3 16:17:43 1999
+<BR>
++++ linux-2.3.18ac2/net/core/datagram.c Tue Sep 14 18:06:49 1999
+<BR>
+@@ -27,6 +27,7 @@
+<BR>
+&nbsp;#include &lt;linux/kernel.h&gt;
+<BR>
+&nbsp;#include &lt;asm/uaccess.h&gt;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
++#include &lt;asm/socket.h&gt;
+<BR>
+&nbsp;#include &lt;linux/mm.h&gt;
+<BR>
+&nbsp;#include &lt;linux/interrupt.h&gt;
+<BR>
+&nbsp;#include &lt;linux/in.h&gt;
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0253.html">Michal Jaegermann: "Re: em86 broken with 2.2.12 and above"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0251.html">Daniel Potts: "Re: Problem with 100Mbit ethernet and de4x5 driver"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Oct 04 1999 - 12:44:52 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

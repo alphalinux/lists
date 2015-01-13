@@ -1,0 +1,93 @@
+diff -rup linux/drivers/pci/setup-bus.c 2.4.0-11-1/drivers/pci/setup-bus.c
+--- linux/drivers/pci/setup-bus.c	Wed Nov  8 01:24:16 2000
++++ 2.4.0-11-1/drivers/pci/setup-bus.c	Wed Nov  8 01:04:17 2000
+@@ -20,7 +20,7 @@
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+ #include <linux/cache.h>
+-#include <linux/vmalloc.h>
++#include <linux/slab.h>
+ 
+ 
+ #define DEBUG_CONFIG 1
+@@ -56,31 +56,50 @@ pbus_assign_resources_sorted(struct pci_
+ 			mem_reserved += 32*1024*1024;
+ 			continue;
+ 		}
++
++		if (dev->class >> 8 == PCI_CLASS_DISPLAY_VGA)
++			found_vga = 1;
++
+ 		pdev_sort_resources(dev, &head_io, IORESOURCE_IO);
+ 		pdev_sort_resources(dev, &head_mem, IORESOURCE_MEM);
+ 	}
++
+ 	for (list = head_io.next; list;) {
+ 		res = list->res;
+ 		idx = res - &list->dev->resource[0];
+-		if (pci_assign_resource(list->dev, idx) == 0)
++		if (pci_assign_resource(list->dev, idx) == 0
++		    && ranges->io_end < res->end)
+ 			ranges->io_end = res->end;
+ 		tmp = list;
+ 		list = list->next;
+-		vfree(tmp);
++		kfree(tmp);
+ 	}
+ 	for (list = head_mem.next; list;) {
+ 		res = list->res;
+ 		idx = res - &list->dev->resource[0];
+-		if (pci_assign_resource(list->dev, idx) == 0)
++		if (pci_assign_resource(list->dev, idx) == 0
++		    && ranges->mem_end < res->end)
+ 			ranges->mem_end = res->end;
+ 		tmp = list;
+ 		list = list->next;
+-		vfree(tmp);
++		kfree(tmp);
+ 	}
++
+ 	ranges->io_end += io_reserved;
+ 	ranges->mem_end += mem_reserved;
++
++	/* ??? How to turn off a bus from responding to, say, I/O at
++	   all if there are no I/O ports behind the bus?  Turning off
++	   PCI_COMMAND_IO doesn't seem to do the job.  So we must
++	   allow for at least one unit.  */
++	if (ranges->io_end == ranges->io_start)
++		ranges->io_end += 1;
++	if (ranges->mem_end == ranges->mem_start)
++		ranges->mem_end += 1;
++
+ 	ranges->io_end = ROUND_UP(ranges->io_end, 4*1024);
+ 	ranges->mem_end = ROUND_UP(ranges->mem_end, 1024*1024);
++
+ 	return found_vga;
+ }
+ 
+diff -rup linux/drivers/pci/setup-res.c 2.4.0-11-1/drivers/pci/setup-res.c
+--- linux/drivers/pci/setup-res.c	Wed Nov  8 01:24:16 2000
++++ 2.4.0-11-1/drivers/pci/setup-res.c	Wed Nov  8 00:21:13 2000
+@@ -22,10 +22,10 @@
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+ #include <linux/cache.h>
+-#include <linux/vmalloc.h>
++#include <linux/slab.h>
+ 
+ 
+-#define DEBUG_CONFIG 0
++#define DEBUG_CONFIG 1
+ #if DEBUG_CONFIG
+ # define DBGC(args)     printk args
+ #else
+@@ -146,7 +146,7 @@ pdev_sort_resources(struct pci_dev *dev,
+ 			if (ln)
+ 				size = ln->res->end - ln->res->start;
+ 			if (r->end - r->start > size) {
+-				tmp = vmalloc(sizeof(*tmp));
++				tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
+ 				tmp->next = ln;
+ 				tmp->res = r;
+ 				tmp->dev = dev;
+

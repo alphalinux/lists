@@ -1,0 +1,145 @@
+<!-- received="Thu Sep  5 23:42:50 1996 " -->
+<!-- sent="Tue, 3 Sep 1996 01:19:35 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="two oopses with 2.0.17" -->
+<!-- id="m0uxopk-0001uvC@atheist.tamu.edu" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>two oopses with 2.0.17</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>two oopses with 2.0.17</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Tue, 3 Sep 1996 01:19:35 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#121">[ date ]</a><a href="index.html#121">[ thread ]</a><a href="subject.html#121">[ subject ]</a><a href="author.html#121">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0122.html">Maurice Hilarius: "Re: Commercial applications query"</a>
+<li> <b>Previous message:</b> <a href="0120.html">David A Rusling: "Re: BT-956C problems"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0038.html">Linus Torvalds: "Re: two oopses with 2.0.17"</a>
+<li> <b>Reply:</b> <a href="0038.html">Linus Torvalds: "Re: two oopses with 2.0.17"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I should also mention that the 2.0.17 includes David's 2.0.16.<br>
+Unfortunately, the one time I remove -g from the build flags,<br>
+it turns out I need it.  Go figure.<br>
+<p>
+I believe I was messing with the shared libraries at the time<br>
+the system lost stability.<br>
+<p>
+It was sort of odd... first sign of trouble was init dying.  (Yikes!)<br>
+Then sync wouldn't work (first recorded oops).  Then I noticed that<br>
+syslogd wasn't running, and tried to start that (second recorded<br>
+oops).  All the while I am able to poke around with ps, ls, cat,<br>
+and gdb (no less!).<br>
+<p>
+Anyway, here's what I could recover.<br>
+<p>
+<p>
+r~<br>
+<p>
+----------------------------------------------------------------------<br>
+Unable to handle kernel paging request at virtual address 0000000000000015<br>
+sync(23010): Oops 0<br>
+pc = [&lt;fffffc0000338a94&gt;] ps = 0000<br>
+rp = [&lt;fffffc00003390f8&gt;] sp = fffffc0000749ed0<br>
+r0=0 r1=5 r2=fffffc000102f4dd r3=0<br>
+r8=fffffc00037d4dd8<br>
+r16=fffffc000102f3e8 r17=0 r18=400 r19=400<br>
+r20=7 r21=7 r22=ffff r23=fffffc000033cd28<br>
+r24=a80e r25=fff1 r26=fffffc00003390f8 r27=fffffc000031abe0<br>
+r28=1 r29=fffffc0000463ea0 r30=fffffc0000749ed0<br>
+Code: e4200004  a4210020  e4200002 &lt;a4210010&gt; f4200005  2c2900f5  413eb402  48220041  3c2900f5<br>
+Segmentation fault<br>
+(gdb) x/6i 0xfffffc0000338a94-8<br>
+0xfffffc0000338a8c &lt;write_inode..ng+92&gt;:<br>
+        a4210020  ldq        t0,32(t0)<br>
+0xfffffc0000338a90 &lt;write_inode..ng+96&gt;:<br>
+        e4200002  beq        t0,0xfffffc0000338a9c &lt;write_inode..ng+108&gt;<br>
+0xfffffc0000338a94 &lt;write_inode..ng+100&gt;:<br>
+        a4210010  ldq        t0,16(t0)<br>
+0xfffffc0000338a98 &lt;write_inode..ng+104&gt;:<br>
+        f4200005  bne        t0,0xfffffc0000338ab0 &lt;write_inode..ng+128&gt;<br>
+0xfffffc0000338a9c &lt;write_inode..ng+108&gt;:<br>
+        2c2900f5  ldq_u      t0,245(s0)<br>
+0xfffffc0000338aa0 &lt;write_inode..ng+112&gt;:<br>
+        413eb402  addq       s0,0xf5,t1<br>
+[turns out to be inode.c:242]<br>
+(gdb) x/i 0xfffffc00003390f8<br>
+0xfffffc00003390f8 &lt;sync_inodes..ng+168&gt;:<br>
+        a43d97c8  ldq        t0,-26680(gp)<br>
+[turns out to be inode.c:400]<br>
+----------------------------------------------------------------------<br>
+[root@twiddle /root]# syslogd<br>
+fcntl_setlk() called by process 23076 (syslogd) with broken flock() emulation<br>
+Unable to handle kernel paging request at virtual address 0000000000000178<br>
+syslogd(23075): Oops 1<br>
+pc = [&lt;fffffc0000322e44&gt;] ps = 0000<br>
+rp = [&lt;fffffc0000322dcc&gt;] sp = fffffc00017fbcf0<br>
+r0=7 r1=0 r2=fffffc0000024420 r3=fffffc0000c02c10<br>
+r8=7<br>
+r16=0 r17=fffffc0000c02c10 r18=1 r19=0<br>
+r20=0 r21=0 r22=0 r23=1<br>
+r24=8a00000000000000 r25=12003c6e8 r26=fffffc0000322dcc r27=fffffc000031ad88<br>
+r28=0 r29=fffffc0000463ea0 r30=fffffc00017fbcf0<br>
+Code: a4290168  a4210170  b4290180 &lt;b5210178&gt; a4290168  b5210170  a4290000  4020<br>
+7521  f4200002<br>
+Segmentation fault<br>
+(gdb) x/6i 0xfffffc0000322e44-8<br>
+0xfffffc0000322e3c &lt;exit_notify..ng+420&gt;:<br>
+        a4210170  ldq        t0,368(t0)<br>
+0xfffffc0000322e40 &lt;exit_notify..ng+424&gt;:<br>
+        b4290180  stq        t0,384(s0)<br>
+0xfffffc0000322e44 &lt;exit_notify..ng+428&gt;:<br>
+        b5210178  stq        s0,376(t0)<br>
+0xfffffc0000322e48 &lt;exit_notify..ng+432&gt;:<br>
+        a4290168  ldq        t0,360(s0)<br>
+0xfffffc0000322e4c &lt;exit_notify..ng+436&gt;:<br>
+        b5210170  stq        s0,368(t0)<br>
+0xfffffc0000322e50 &lt;exit_notify..ng+440&gt;:<br>
+        a4290000  ldq        t0,0(s0)<br>
+[turns out to be exit.c:541]<br>
+(gdb) x/i 0xfffffc0000322dcc<br>
+0xfffffc0000322dcc &lt;exit_notify..ng+308&gt;:<br>
+        a42a0000  ldq        t0,0(s1)<br>
+[turns out to be exit.c:532 -- i.e. invalid]<br>
+----------------------------------------------------------------------<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0122.html">Maurice Hilarius: "Re: Commercial applications query"</a>
+<li> <b>Previous message:</b> <a href="0120.html">David A Rusling: "Re: BT-956C problems"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0038.html">Linus Torvalds: "Re: two oopses with 2.0.17"</a>
+<li> <b>Reply:</b> <a href="0038.html">Linus Torvalds: "Re: two oopses with 2.0.17"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

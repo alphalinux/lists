@@ -1,0 +1,131 @@
+<!-- received="Wed Feb 11 15:44:27 1998 " -->
+<!-- sent="Wed, 11 Feb 1998 20:38:05 +0100" -->
+<!-- name="Stefan Traby" -->
+<!-- email="stefan@sime.com" -->
+<!-- subject="Re: Length of UID and GID in Alpha-Linux" -->
+<!-- id="199802111938.UAA05294@stefan.sime.com" -->
+<!-- inreplyto="Length of UID and GID in Alpha-Linux" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Length of UID and GID in Alpha-Linux</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Length of UID and GID in Alpha-Linux</h2>
+
+<b>Stefan Traby</b> (<a href="mailto:stefan@sime.com"><i>stefan@sime.com</i></a>)<br>
+<i>Wed, 11 Feb 1998 20:38:05 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#72">[ date ]</a><a href="index.html#72">[ thread ]</a><a href="subject.html#72">[ subject ]</a><a href="author.html#72">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0073.html">Michal Jaegermann: "An annoying buglet in emacs/RH 5.0"</a>
+<li> <b>Previous message:</b> <a href="0071.html">Richard Henderson: "Re: Length of UID and GID in Alpha-Linux"</a>
+<li> <b>Maybe in reply to:</b> <a href="0066.html">Dr. Andreas S. Tomiak: "Length of UID and GID in Alpha-Linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Andreas !<br>
+<p>
+<i>&gt; drwxr-xr-x   2 42949672 42949672     1536 Feb 11 14:01 worknotes</i><br>
+<p>
+<i>&gt; drwxr-xr-x   2 nobody   nogroup      1536 Feb 11 14:01 worknotes</i><br>
+<p>
+<i>&gt; (nobody/nogroup is defined there as -2 in /etc/passwd and /etc/group)</i><br>
+<p>
+<i>&gt; I think 42949672 is a special creation from 4294967274, -2 witten as unsigned</i><br>
+<i>&gt; integer with 32 bits. Since then I thought Unix is using 16 bit UIDs, but does</i><br>
+<p>
+Yes, the last two digits are cutted of because names are normally<br>
+not longer than 8 characters and 10 characters would destroy the<br>
+nice formatted output , but ...<br>
+<p>
+<i>&gt; Alpha-Linux uses 32 bits now? Maybe a workaround for better alignment?</i><br>
+<p>
+... why did you ask ?<br>
+<p>
+simply compare<br>
+/usr/src/linux/include/asm-i386/stat.h<br>
+against<br>
+/usr/src/linux/include/asm-alpha/stat.h<br>
+<p>
+You see "unsigned short st_uid" for i386 and "unsigned int st_uid" for<br>
+alpha.<br>
+<p>
+Also note that uid_t is different on both systems, so getuid() and friends <br>
+return "unsigned short" on i386 and "unsigned int" on alpha, but<br>
+both systems return uid_t (the definition of uid_t may be different on <br>
+different systems and POSIX says only that uid_t will be returned).<br>
+Some systems may have signed and some unsigned UID's. <br>
+<p>
+On your system it looks like:<br>
+   i386     &lt;-&gt;       VFS&lt;-&gt;NFS&lt;-&gt;VFS         &lt;-&gt; alpha<br>
+16Bit-Short &lt;-&gt; sign extended to 32 Bit (!?!) &lt;-&gt; displayed as unsigned 32) <br>
+<p>
+The sign extension is wanted for negative numbers, but reduces the <br>
+usable range for unsigned 16Bit UID-Systems because clean unsigned systems<br>
+don't need to force a sign extension !! <br>
+<p>
+I think that for portability reasons it's not a good idea to use signed <br>
+UID's at all. The unsigned numbers within signed 16 Bit range (0-32767) <br>
+would be a great idea and UID -2 (nobody)  GID -2 (no[group|body]) isn't <br>
+hardcoded in todays programs (getpwnam/_r(...)).<br>
+<p>
+RH 5.0 uses 99:99 for nobody:nobody and it's a ok so.<br>
+I think that you don't have a UID of -2 on your AXP-RedHat System, so <br>
+if you add one, you problem is solved but not the portable way.<br>
+The better way is of curse to change your i386-S.u.S.E system.<br>
+NFS uses UID numbers and not "user names". You should have<br>
+a correct mapping.<br>
+<p>
+Hal Stern (author of "Managing NFS and NIS") says that 65534 should be<br>
+used for systems that only accept unsigned UID's (this is -2  if interpreted<br>
+as a 16Bit two's complement number); but I think that he simply missed the <br>
+portability point and he had only 16bit-UID systems in mind.<br>
+<p>
+BTW, i386 and alpha GNU-Linux-Systems have only 8-Bit minor/major numbers <br>
+so you can expect problems if you make a NFS-root tree on a GNU-Linux machine<br>
+for a system with 16-Bit minor/major numbers... <br>
+<p>
+<pre>
+-- 
+  ciao - 
+    Stefan
+<p>
+Stefan Traby                            phone:  +43-3133-6107-2
+Mitterlasznitzstr. 13                     fax:  +43-3133-6107-9
+8302 Nestelbach                        <a href="mailto://stefan@sime.com">mailto://stefan@sime.com</a>
+Austria
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0073.html">Michal Jaegermann: "An annoying buglet in emacs/RH 5.0"</a>
+<li> <b>Previous message:</b> <a href="0071.html">Richard Henderson: "Re: Length of UID and GID in Alpha-Linux"</a>
+<li> <b>Maybe in reply to:</b> <a href="0066.html">Dr. Andreas S. Tomiak: "Length of UID and GID in Alpha-Linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,121 @@
+<!-- received="Fri Oct 17 02:25:43 1997 " -->
+<!-- sent="17 Oct 97 12:24:12 +0100" -->
+<!-- name="Christoph Zens" -->
+<!-- email="e9126506@student.tuwien.ac.at" -->
+<!-- subject="Re: Unaligned traps..." -->
+<!-- id="1777.229T629T7444030@student.tuwien.ac.at" -->
+<!-- inreplyto="v03020900b06c3a5771bd@[207.26.68.23]" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Unaligned traps...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Unaligned traps...</h2>
+
+<b>Christoph Zens</b> (<a href="mailto:e9126506@student.tuwien.ac.at"><i>e9126506@student.tuwien.ac.at</i></a>)<br>
+<i>17 Oct 97 12:24:12 +0100</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#260">[ date ]</a><a href="index.html#260">[ thread ]</a><a href="subject.html#260">[ subject ]</a><a href="author.html#260">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0261.html">Uncle George: "Re: Vendor experiences wanted."</a>
+<li> <b>Previous message:</b> <a href="0259.html">SuperQ: god of geek: "Re: Disappointing performance of UDB!"</a>
+<li> <b>In reply to:</b> <a href="0246.html">David Goldstein: "Unaligned traps..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;However I also get</i><br>
+<i>&gt;Oct 16 05:43:30 where kernel: netstat(15228): unaligned trap at</i><br>
+<i>&gt;0000000000000029: 000000011ffff88c 2d 10</i><br>
+<p>
+<i>&gt;Perhaps show a before and after of the kind of error (like is there a</i><br>
+<i>&gt;sample program that will cause these errors and then the solution program?)</i><br>
+<p>
+If your program defines something like:<br>
+<p>
+long *foo;<br>
+char bar[32];<br>
+<p>
+and then attempts to do this:<br>
+<p>
+foo = (long *)&amp;bar[3];<br>
+*foo = 1234;<br>
+<p>
+then you will get an unaligned trap at runtime. In a nutshell:<br>
+You should not try to do longword accesses at an odd memory address.<br>
+The best (and safest) way is to align every access on a byte-address<br>
+that is an integral multiple of the byte-size that you deal with.<br>
+For the above example, this leads to:<br>
+<p>
+foo = (long *)&amp;bar[4];<br>
+*foo = 1234;<br>
+<p>
+on x86-based machines ("long" is four bytes in length), BUT:<br>
+<p>
+foo = (long *)&amp;bar[8];<br>
+*foo = 1234;<br>
+<p>
+for alpha-based maschines, where "long" consists of eight bytes.<br>
+<p>
+Perhaps you want to change some variable declarations within your code<br>
+from "long" to "int", as "int" on the alpha is four bytes long and<br>
+thus, could eventually remove your unaligned trap.<br>
+<p>
+Another frequently seen thing at compile time is:<br>
+"warning: casting pointer to integer of different size"<br>
+<p>
+Every program, that makes the assumption that an "integer" is the same size<br>
+as a pointer, runs into such problems on an alpha. Things to watch out for:<br>
+<p>
+int foo;<br>
+something *bar;<br>
+<p>
+foo = (int)bar;<br>
+<p>
+To correct this, you will have to use "long" to declare "foo" and cast the<br>
+pointer to long which has the same size as the pointer itself (eight bytes).<br>
+<p>
+hope that helps.<br>
+<p>
+<pre>
+--
+    _
+ _ //
+ \X/  Christoph Zens &lt;<a href="mailto:e9126506@student.tuwien.ac.at">e9126506@student.tuwien.ac.at</a>&gt;
+<p>
+Hofstaeter's law: It takes always longer than you think,
+                  even if you take into account Hofstaeter's law.
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0261.html">Uncle George: "Re: Vendor experiences wanted."</a>
+<li> <b>Previous message:</b> <a href="0259.html">SuperQ: god of geek: "Re: Disappointing performance of UDB!"</a>
+<li> <b>In reply to:</b> <a href="0246.html">David Goldstein: "Unaligned traps..."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

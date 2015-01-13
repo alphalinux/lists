@@ -1,0 +1,132 @@
+<!-- received="Sat Dec 14 17:52:19 1996 " -->
+<!-- sent="Sat, 14 Dec 1996 23:43:42 +0100 (MET)" -->
+<!-- name="Andreas Johansson" -->
+<!-- email="ajo@wopr.campus.luth.se" -->
+<!-- subject="Re: Redhat 4.0 - Kernel Modules - PCMCIA" -->
+<!-- id="199612142231.QAA00178@atheist.tamu.edu" -->
+<!-- inreplyto="199612142205.SAA25970@M3.ips.ca" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Redhat 4.0 - Kernel Modules - PCMCIA</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Redhat 4.0 - Kernel Modules - PCMCIA</h2>
+
+<b>Andreas Johansson</b> (<a href="mailto:ajo@wopr.campus.luth.se"><i>ajo@wopr.campus.luth.se</i></a>)<br>
+<i>Sat, 14 Dec 1996 23:43:42 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#602">[ date ]</a><a href="index.html#602">[ thread ]</a><a href="subject.html#602">[ subject ]</a><a href="author.html#602">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0603.html">Don Munroe: "Re: Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<li> <b>Previous message:</b> <a href="0601.html">Richard Henderson: "Re: g77 status? PVM, traps etc."</a>
+<li> <b>In reply to:</b> <a href="0599.html">Don Munroe: "Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0603.html">Don Munroe: "Re: Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sat, 14 Dec 1996, Don Munroe wrote:<br>
+<p>
+<i>&gt; There are a few warnings like...</i><br>
+<i>&gt;    &lt;warning: cast to pointer from integer of different size&gt;</i><br>
+<i>&gt; but I think I read on this list that this is not serious (is this</i><br>
+<i>&gt; true?)</i><br>
+<p>
+Most of those are harmless, yes. But if you get any problems with the<br>
+module once it's installed you should look those warnings up and see if<br>
+they make any 32 bit assumptions.<br>
+<p>
+<i>&gt; After commanding &lt;insmod pcmcia_core.o&gt; I get:</i><br>
+<i>&gt;    insmod: module is xxxxx bytes long (expected xxxxx)</i><br>
+<i>&gt;    insmod: forgot to specify -dc when linking pcmcia_core.o?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Then I noticed that the same message occurs when trying to insert</i><br>
+<i>&gt; dummy.o, bsd_comp.o, and new_tunnel.o but ipx.o and smbfs.o work</i><br>
+<i>&gt; fine!</i><br>
+<i>&gt; </i><br>
+<i>&gt; Do I have a problem with kernel modules in general, the pcmica</i><br>
+<i>&gt; package, or both?  </i><br>
+<p>
+Modules in general. There are to my knowledge two ways to get around this.<br>
+1) Do a <br>
+	strip -x pcmcia_core.o<br>
+   on your compiled module. This makes insmod accept it.<br>
+<p>
+2) Recompile insmod and remove the check which produces this<br>
+   error-message. This seems to work well for me atleast.<br>
+   The source for insmod is available at<br>
+   <a href="http://ftp.azstarnet.com/pub/linux/axp/sys/insmod-bfd-0.2.tar.gz">http://ftp.azstarnet.com/pub/linux/axp/sys/insmod-bfd-0.2.tar.gz</a><br>
+   Here is a patch for removing the check:<br>
+   (apply with  patch -p0 &lt; patchfile  in the insmod-bfd-0.2 directory)<br>
+------------------------------- snip ------------------------------------<br>
+--- insmod.c~   Sun Sep  1 17:34:45 1996<br>
++++ insmod.c    Sat Dec 14 23:40:46 1996<br>
+@@ -639,20 +639,6 @@<br>
+     code = xmalloc(code_size);<br>
+     check_size = 0;<br>
+     bfd_map_over_sections (abfd, load_module, &amp;check_size);<br>
+-    if (check_size != code_size) {<br>
+-       if (check_size &gt; code_size) {<br>
+-           fprintf (stderr,<br>
+-                    "%s: module is %ld bytes long (expected %ld)\n"<br>
+-                    "%s: forgot to specify -dc when linking %s?\n",<br>
+-                    prog_name, check_size, code_size, prog_name,<br>
+file_name);<br>
+-           clean_exit(1);<br>
+-       }<br>
+-       if (verbose) {<br>
+-           fprintf (stderr,<br>
+-                    "%s:warning: module only %ld bytes long (expected<br>
+%ld)\n",<br>
+-                    prog_name, check_size, code_size);<br>
+-       }<br>
+-    }<br>
+     if (!versioned_kernel) {<br>
+        /*<br>
+--------------------------------- snip ---------------------------------<br>
+<p>
+/Andreas<br>
+<pre>
+--
+<p>
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+: E-mail: <a href="mailto:ajo@wopr.campus.luth.se">ajo@wopr.campus.luth.se</a>                                       :
+: S-mail: Andreas Johansson, Karhusvagen 5  6:618, 977 54 Lulea, SWEDEN :
+:     Have you had your dose of 261.62 BogoMIPS today? - Run Alpha!     :
+&lt;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-&gt;
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0603.html">Don Munroe: "Re: Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<li> <b>Previous message:</b> <a href="0601.html">Richard Henderson: "Re: g77 status? PVM, traps etc."</a>
+<li> <b>In reply to:</b> <a href="0599.html">Don Munroe: "Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0603.html">Don Munroe: "Re: Redhat 4.0 - Kernel Modules - PCMCIA"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

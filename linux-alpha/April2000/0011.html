@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: RE: Alpha clock problem</TITLE>
+<META NAME="Author" CONTENT="Soohoon Lee (Soohoon.Lee@alpha-processor.com)">
+<META NAME="Subject" CONTENT="RE: Alpha clock problem">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: Alpha clock problem</H1>
+<HR>
+<P>
+<!-- received="Mon Apr 24 04:34:26 2000" -->
+<!-- isoreceived="20000424113426" -->
+<!-- sent="Sun, 23 Apr 2000 22:19:00 -0400" -->
+<!-- isosent="20000424021900" -->
+<!-- name="Soohoon Lee" -->
+<!-- email="Soohoon.Lee@alpha-processor.com" -->
+<!-- subject="RE: Alpha clock problem" -->
+<!-- id="278EEF4F1348D211940600A0C95BCF7F3B21AB@yellow-fin" -->
+<!-- inreplyto="Alpha clock problem" -->
+<STRONG>Subject: </STRONG>RE: Alpha clock problem<BR>
+<STRONG>From: </STRONG>Soohoon Lee (<EM>Soohoon.Lee@alpha-processor.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Apr 23 2000 - 19:19:00 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#11">[ date ]</A>
+<A HREF="index.html#11">[ thread ]</A>
+<A HREF="subject.html#11">[ subject ]</A>
+<A HREF="author.html#11">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0012.html">Jeff Garzik: "Re: Lattest kernel blows up on Alpha.."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Frank van Maarseveen: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0008.html">Soohoon Lee: "Alpha clock problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0014.html">Richard Henderson: "Re: Alpha clock problem"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0008.html">Soohoon Lee: "RE: Alpha clock problem"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I've modified time.c like this
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* If the given value is within 1% of what we calculated,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;accept it.  Otherwise, use what we found.  */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cycle_freq = hwrpb-&gt;cycle_freq;
+<BR>
+&lt;       one_percent = cycle_freq / 100;
+<BR>
+<EM>&gt;       one_percent = cycle_freq / 10000;
+</EM><BR>
+<P>Almost always ignore hwrpb-&gt;cycle_freq
+<BR>
+and works much better. Allowing 1% means 864sec error/day.
+<BR>
+I think comparing hwrpb-&gt;cycle_freq and calculated one is
+<BR>
+meaningless, It's like saying &quot;measured value can be wrong&quot;.
+<BR>
+And it means using rpcc can also be wrong.
+<BR>
+<P>Anyway differences btw. hwrpb and estimated were
+<BR>
+599769920 - 598802395 =  967525 0.16%
+<BR>
+699300699 - 698843222 =  457477 0.06%
+<BR>
+751879699 - 749712100 = 2167599 0.2%
+<BR>
+<P>I thought alpha has different archtecture.
+<BR>
+A company hw designer said nautilus has 100MHz base clock and
+<BR>
+CPU clock is multiple of that. And, unfortunately,
+<BR>
+I have DP264 with 500MHz CPU and it's cpuinfo looks
+<BR>
+<P>cycle frequency [Hz]    : 500000000 
+<BR>
+platform string         : AlphaPC 264DP 500 MHz
+<BR>
+<P>The system is being up for more than a month and clock is accurate.
+<BR>
+Perfect~!
+<BR>
+So I guessed It's different from PC, they are not multiple of
+<BR>
+33.333333, CPU clock is well rounded so 699300699 is a wrong one.
+<BR>
+<P>Anyway we still have chance to get 8.6sec error/day, 
+<BR>
+and there's measurement error usually 2000 counts btw min and max.
+<BR>
+So why don't we synch with cmos clock once a day or so? 
+<BR>
+If we can't trust cmos then measuring cycle frequency
+<BR>
+based on cmos is meaningless. Let LX alone.
+<BR>
+<P>Soohoon.
+<BR>
+<P>-----Original Message-----
+<BR>
+From: Richard Henderson [mailto:rth@twiddle.net]
+<BR>
+Sent: Saturday, April 22, 2000 6:43 PM
+<BR>
+To: Soohoon Lee
+<BR>
+Cc: Software; Ruth Shelley; 'linux-alpha@vger.rutgers.edu'
+<BR>
+Subject: Re: Alpha clock problem
+<BR>
+<P><P>On Thu, Apr 20, 2000 at 11:27:56PM -0400, Soohoon Lee wrote:
+<BR>
+<EM>&gt; Here's an example.
+</EM><BR>
+<EM>&gt; CPU clock is 700MHz but /proc/cpuinfo reports
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; cycle frequency [Hz]    : 699300699 
+</EM><BR>
+<EM>&gt; platform string         : API UP1000 699 MHz
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; the freq. must be 700000000 so diff. btw those two are
+</EM><BR>
+<EM>&gt; 700000000 - 699300699 = 699301
+</EM><BR>
+<EM>&gt; approx. 700000 error per sec. it's
+</EM><BR>
+<EM>&gt; 700000/700000000 = 0.001sec error/sec
+</EM><BR>
+<EM>&gt; 0.001 * 24 * 60 * 60 = 86.400 sec errir/day.
+</EM><BR>
+<P>So you're asserting that your CPU's crystal runs at *exactly* 700MHz?
+<BR>
+You assert that there is no variance in the manufacturing process?
+<BR>
+<P>Have you hooked that crystal up to an osciliscope (or other analysis
+<BR>
+tool) to see that the actual frequency of that crystal is closer to
+<BR>
+700MHz than to 699.3MHz?
+<BR>
+<P><EM>&gt; I think we cannot measure the frequency accurately always. 
+</EM><BR>
+<P>Perhaps not, but there's very little else we can do I'm afraid.
+<BR>
+<P><EM>&gt; So what about rounding off the frequency count?
+</EM><BR>
+<P>That would almost certainly do more harm than good.  
+<BR>
+<P><P>r~
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0012.html">Jeff Garzik: "Re: Lattest kernel blows up on Alpha.."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0010.html">Frank van Maarseveen: "Re: non-executable stack on alpha (was Re: Security in general ..)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0008.html">Soohoon Lee: "Alpha clock problem"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0014.html">Richard Henderson: "Re: Alpha clock problem"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0008.html">Soohoon Lee: "RE: Alpha clock problem"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon May 01 2000 - 18:42:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: I've yet to get a 2.4 kernel to work on</TITLE>
+<META NAME="Author" CONTENT="Christopher C. Chimelis (chris@debian.org)">
+<META NAME="Subject" CONTENT="Re: I've yet to get a 2.4 kernel to work on my DS20">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: I've yet to get a 2.4 kernel to work on my DS20</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 13 04:08:27 2001" -->
+<!-- isoreceived="20010713110827" -->
+<!-- sent="Thu, 12 Jul 2001 10:58:19 -0400 (EDT)" -->
+<!-- isosent="20010712145819" -->
+<!-- name="Christopher C. Chimelis" -->
+<!-- email="chris@debian.org" -->
+<!-- subject="Re: I've yet to get a 2.4 kernel to work on my DS20" -->
+<!-- id="Pine.LNX.4.21.0107121057470.22278-100000@spawn.hockeyfiend.com" -->
+<!-- inreplyto="E15Kh8I-0001fq-00@thorax.bg.ic.ac.uk" -->
+<STRONG>Subject: </STRONG>Re: I've yet to get a 2.4 kernel to work on my DS20<BR>
+<STRONG>From: </STRONG>Christopher C. Chimelis (<EM>chris@debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Jul 12 2001 - 07:58:19 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#38">[ date ]</A>
+<A HREF="index.html#38">[ thread ]</A>
+<A HREF="subject.html#38">[ subject ]</A>
+<A HREF="author.html#38">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Ryan Kirkpatrick: "Re: Alpha xl266"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Edgar Denny: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0037.html">Edgar Denny: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0037.html">Christopher C. Chimelis: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Thu, 12 Jul 2001, Edgar Denny wrote:
+<BR>
+<P><EM>&gt; Thankyou very much.
+</EM><BR>
+<P>Here you go...it's against 2.4.5, but it should easily apply to any 2.4
+<BR>
+kernel...
+<BR>
+<P>Index: arch/alpha/kernel/smp.c
+<BR>
+===================================================================
+<BR>
+RCS file: /home/CVSROOT/linux-24/arch/alpha/kernel/smp.c,v
+<BR>
+retrieving revision 1.1.1.3
+<BR>
+diff -u -b -r1.1.1.3 smp.c
+<BR>
+--- arch/alpha/kernel/smp.c	1 Jun 2001 17:40:18 -0000	1.1.1.3
+<BR>
++++ arch/alpha/kernel/smp.c	28 Jun 2001 14:47:53 -0000
+<BR>
+@@ -72,7 +72,6 @@
+<BR>
+&nbsp;int smp_num_probed;		/* Internal processor count */
+<BR>
+&nbsp;int smp_num_cpus = 1;		/* Number that came online.  */
+<BR>
+&nbsp;int smp_threads_ready;		/* True once the per process idle is forked. */
+<BR>
+-cycles_t cacheflush_time;
+<BR>
+&nbsp;
+<BR>
+&nbsp;int __cpu_number_map[NR_CPUS];
+<BR>
+&nbsp;int __cpu_logical_map[NR_CPUS];
+<BR>
+@@ -205,62 +204,6 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+- * Rough estimation for SMP scheduling, this is the number of cycles it
+<BR>
+- * takes for a fully memory-limited process to flush the SMP-local cache.
+<BR>
+- *
+<BR>
+- * We are not told how much cache there is, so we have to guess.
+<BR>
+- */
+<BR>
+-static void __init
+<BR>
+-smp_tune_scheduling (void)
+<BR>
+-{
+<BR>
+-	struct percpu_struct *cpu;
+<BR>
+-	unsigned long on_chip_cache;
+<BR>
+-	unsigned long freq;
+<BR>
+-
+<BR>
+-	cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb-&gt;processor_offset);
+<BR>
+-	switch (cpu-&gt;type)
+<BR>
+-	{
+<BR>
+-	case EV45_CPU:
+<BR>
+-		on_chip_cache = 16 + 16;
+<BR>
+-		break;
+<BR>
+-
+<BR>
+-	case EV5_CPU:
+<BR>
+-	case EV56_CPU:
+<BR>
+-		on_chip_cache = 8 + 8 + 96;
+<BR>
+-		break;
+<BR>
+-
+<BR>
+-	case PCA56_CPU:
+<BR>
+-		on_chip_cache = 16 + 8;
+<BR>
+-		break;
+<BR>
+-
+<BR>
+-	case EV6_CPU:
+<BR>
+-	case EV67_CPU:
+<BR>
+-		on_chip_cache = 64 + 64;
+<BR>
+-		break;
+<BR>
+-
+<BR>
+-	default:
+<BR>
+-		on_chip_cache = 8 + 8;
+<BR>
+-		break;
+<BR>
+-	}
+<BR>
+-
+<BR>
+-	freq = hwrpb-&gt;cycle_freq ? : est_cycle_freq;
+<BR>
+-
+<BR>
+-#if 0
+<BR>
+-	/* Magic estimation stolen from x86 port.  */
+<BR>
+-	cacheflush_time = freq / 1024L * on_chip_cache / 5000L;
+<BR>
+-
+<BR>
+-        printk(&quot;Using heuristic of %d cycles.\n&quot;,
+<BR>
+-               cacheflush_time);
+<BR>
+-#else
+<BR>
+-	/* Magic value to force potential preemption of other CPUs.  */
+<BR>
+-	cacheflush_time = INT_MAX;
+<BR>
+-
+<BR>
+-        printk(&quot;Using heuristic of %d cycles.\n&quot;,
+<BR>
+-               cacheflush_time);
+<BR>
+-#endif
+<BR>
+-}
+<BR>
+-
+<BR>
+-/*
+<BR>
+&nbsp;&nbsp;* Send a message to a secondary's console.  &quot;START&quot; is one such
+<BR>
+&nbsp;&nbsp;* interesting message.  ;-)
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+@@ -599,7 +542,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current-&gt;processor = boot_cpuid;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_store_cpu_info(boot_cpuid);
+<BR>
+-	smp_tune_scheduling();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;smp_setup_percpu_timer(boot_cpuid);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_idle();
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0039.html">Ryan Kirkpatrick: "Re: Alpha xl266"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0037.html">Edgar Denny: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0037.html">Edgar Denny: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0037.html">Christopher C. Chimelis: "Re: I've yet to get a 2.4 kernel to work on my DS20"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Aug 01 2001 - 06:11:43 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

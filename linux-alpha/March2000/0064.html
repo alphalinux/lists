@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: Re: new IRQ scalability changes in 2.3.48</TITLE>
+<META NAME="Author" CONTENT="Ingo Molnar (mingo@chiara.csoma.elte.hu)">
+<META NAME="Subject" CONTENT="Re: new IRQ scalability changes in 2.3.48">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: new IRQ scalability changes in 2.3.48</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 14 13:53:12 2000" -->
+<!-- isoreceived="20000314215312" -->
+<!-- sent="Mon, 13 Mar 2000 19:56:53 +0100 (CET)" -->
+<!-- isosent="20000313185653" -->
+<!-- name="Ingo Molnar" -->
+<!-- email="mingo@chiara.csoma.elte.hu" -->
+<!-- subject="Re: new IRQ scalability changes in 2.3.48" -->
+<!-- id="Pine.LNX.4.10.10003131943380.5886-100000@chiara.csoma.elte.hu" -->
+<!-- inreplyto="Pine.LNX.4.10.10003130915470.1257-100000@penguin.transmeta.com" -->
+<STRONG>Subject: </STRONG>Re: new IRQ scalability changes in 2.3.48<BR>
+<STRONG>From: </STRONG>Ingo Molnar (<EM>mingo@chiara.csoma.elte.hu</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 13 2000 - 10:56:53 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#64">[ date ]</A>
+<A HREF="index.html#64">[ thread ]</A>
+<A HREF="subject.html#64">[ subject ]</A>
+<A HREF="author.html#64">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0065.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0063.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0066.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0066.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, 13 Mar 2000, Linus Torvalds wrote:
+<BR>
+<P>[agreed about the UP case]
+<BR>
+<P><EM>&gt; NOTE NOTE NOTE! You must NOT change the SMP case at all, including the
+</EM><BR>
+<EM>&gt; &quot;are we in the kernel&quot; test. Not only do we not have a global
+</EM><BR>
+<EM>&gt; spinlock_count (and we don't want one - it would be cache-line death),
+</EM><BR>
+<EM>&gt; but even if we used the above heuristic it would be seriously wrong on
+</EM><BR>
+<EM>&gt; SMP, because it would mean that anything that caches the value of
+</EM><BR>
+<EM>&gt; &quot;current CPU&quot; would need to lock. Which is just too expensive to even
+</EM><BR>
+<EM>&gt; think about, because it happens all over the place. On UP, that just
+</EM><BR>
+<EM>&gt; isn't a problem ;)
+</EM><BR>
+<P>oops, i missed that indeed, darn. Hm., there are not all that many such
+<BR>
+places though, and the value itself is cached in current-&gt;processor anyway
+<BR>
+(and 'current' can be cached across reschedules). I cannot see any easy
+<BR>
+way to avoid this bug in any 'automatic' way though. How can we prevent
+<BR>
+writing a 'semi-constant' to a local variable, possibly at compile-time?
+<BR>
+<P>The impact seems to be moderate i believe: out of 1150 driver-modules only
+<BR>
+5 use smp_processor_id() directly. I've checked all these places and none
+<BR>
+of them is unsafe (smp_processor_id() is never saved to the stack). I've
+<BR>
+also checked the networking code which uses smp_processor_id() in some
+<BR>
+places, and only a small amount of code would break: netif_rx saves it to
+<BR>
+a local variable and while it's mostly called from IRQ contexts, it can be
+<BR>
+called from syscall level as well. Most other places use
+<BR>
+smp_processor_id() under some spinlock. But yes, these would be subtle
+<BR>
+bugs if unfixed.
+<BR>
+<P><EM>&gt; There probably are numerous nasty small details that would crop up, but
+</EM><BR>
+<EM>&gt; I'd give it a 15% chance of just working on the first try.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Oh, and it's not going to be really really efficient. It's going to
+</EM><BR>
+<EM>&gt; increment and decrement global_spinlock_count a lot more than strictly
+</EM><BR>
+<EM>&gt; necessary, but any &quot;clever&quot; approach is just going to be too painful to
+</EM><BR>
+<EM>&gt; think about, and would make the UP locking too different from the SMP
+</EM><BR>
+<EM>&gt; case.
+</EM><BR>
+<P>hm, current-&gt;spinlock_depth should work pretty well i believe, no? That
+<BR>
+one is SMP-safe as well. It doesnt have any global cacheline problems
+<BR>
+either.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ingo
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0065.html">yodaiken@fsmlabs.com: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0063.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0066.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0055.html">Linus Torvalds: "Re: new IRQ scalability changes in 2.3.48"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0066.html">Ingo Molnar: "Re: new IRQ scalability changes in 2.3.48"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Apr 01 2000 - 04:15:03 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

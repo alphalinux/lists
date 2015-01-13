@@ -1,0 +1,179 @@
+<!-- received="Mon Jan  6 22:30:08 1997 " -->
+<!-- sent="Mon, 6 Jan 1997 22:17:55 -0500 (EST)" -->
+<!-- name="Paul B. Brown" -->
+<!-- email="pbrown@btc.btechnet.com" -->
+<!-- subject="Re: pppd help on UDB" -->
+<!-- id="199701062109.FAA02425@tapa.admu.edu.ph" -->
+<!-- inreplyto="3.0.32.19970105194317.00e1c820@dcfnet.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: pppd help on UDB</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: pppd help on UDB</h2>
+
+<b>Paul B. Brown</b> (<a href="mailto:pbrown@btc.btechnet.com"><i>pbrown@btc.btechnet.com</i></a>)<br>
+<i>Mon, 6 Jan 1997 22:17:55 -0500 (EST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#137">[ date ]</a><a href="index.html#137">[ thread ]</a><a href="subject.html#137">[ subject ]</a><a href="author.html#137">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Thomas Mason: "adaptec 2940UW support?"</a>
+<li> <b>Previous message:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<li> <b>In reply to:</b> <a href="0105.html">Yash Khemani: "Re: Yggdrasil 8-CD set"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0122.html">Eric Smith: "Re: Yggdrasil 8-CD set"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+ppp-on:<br>
+#!/bin/sh<br>
+#<br>
+# Script to initiate a ppp connection. This is the first part of the<br>
+# pair of scripts. This is not a secure pair of scripts as the codes<br>
+# are visible with the 'ps' command.  However, it is simple.<br>
+#<br>
+# These are the parameters. Change as needed.<br>
+TELEPHONE=555-1212	# The telephone number for the connection<br>
+ACCOUNT=login_name	# The account name for logon<br>
+PASSWORD=yomama		# The password for this account<br>
+LOCAL_IP=204.99.99.999	# Local IP address if known. Dynamic = 0.0.0.0<br>
+REMOTE_IP=0.0.0.0	# Remote IP address if desired. Normally 0.0.0.0<br>
+NETMASK=255.255.255.0	# The proper netmask if needed<br>
+#<br>
+# Export them so that they will be available at 'ppp-on-dialer' time.<br>
+export TELEPHONE ACCOUNT PASSWORD<br>
+# <br>
+# This is the location of the script which dials the phone and logs<br>
+# in.  Please use the absolute file name as the $PATH variable is not<br>
+# used on the connect option.  (To do so on a 'root' account would be<br>
+# a security hole so don't ask.)<br>
+#<br>
+DIALER_SCRIPT=/etc/ppp/ppp-on-dialer<br>
+#<br>
+# Initiate the connection<br>
+# <br>
+# I put most of the common options on this command. Please, don't<br>
+# forget the 'lock' option or some programs such as mgetty will not<br>
+# work. The asyncmap and escape will permit the PPP link to work with<br>
+# a telnet or rlogin connection. You are welcome to make any changes<br>
+# as desired. Don't use the 'defaultroute' option if you currently<br>
+# have a default route to an ethernet gateway.<br>
+#<br>
+exec /usr/sbin/pppd debug lock modem crtscts /dev/ttyS1 38400 \<br>
+	asyncmap 20A0000 escape FF kdebug 0 $LOCAL_IP:$REMOTE_IP \<br>
+	noipdefault netmask $NETMASK defaultroute connect $DIALER_SCRIPT<br>
+<p>
+==========================================================================<br>
+ppp-off:<br>
+<p>
+#!/bin/sh<br>
+######################################################################<br>
+#<br>
+# Determine the device to be terminated.<br>
+#<br>
+if [ "$1" = "" ]; then<br>
+	DEVICE=ppp0<br>
+else<br>
+	DEVICE=$1<br>
+fi<br>
+<p>
+######################################################################<br>
+#<br>
+# If the ppp0 pid file is present then the program is running. Stop it.<br>
+if [ -r /var/run/$DEVICE.pid ]; then<br>
+        kill -INT `cat /var/run/$DEVICE.pid`<br>
+#<br>
+# If the kill did not work then there is no process running for this<br>
+# pid. It may also mean that the lock file will be left. You may wish<br>
+# to delete the lock file at the same time.<br>
+        if [ ! "$?" = "0" ]; then<br>
+                rm -f /var/run/$DEVICE.pid<br>
+                echo "ERROR: Removed stale pid file"<br>
+                exit 1<br>
+        fi<br>
+#<br>
+# Success. Let pppd clean up its own junk.<br>
+        echo "PPP link to $DEVICE terminated."<br>
+        exit 0<br>
+fi<br>
+#<br>
+# The ppp process is not running for ppp0<br>
+echo "ERROR: PPP link is not active on $DEVICE"<br>
+exit 1<br>
+<p>
+=========================================================================<br>
+<p>
+Enjoy . . . .<br>
+<p>
+---------------------------------------------------------------------------<br>
+Paul B. Brown                          "Sailing is a state of mind . . . ."<br>
+<a href="mailto:pbrown@btechnet.com">pbrown@btechnet.com</a>                    Unix Systems Administration<br>
+---------------------------------------------------------------------------<br>
+<p>
+On Sun, 5 Jan 1997, DCFNET wrote:<br>
+<p>
+<i>&gt; Hello:</i><br>
+<i>&gt; </i><br>
+<i>&gt; I have installed ppp-2_2_0f-2.axp.rpm... I don't seem to have an ppp-on,</i><br>
+<i>&gt; ppp-off or most importantly, an 'ip-up' script...</i><br>
+<i>&gt; </i><br>
+<i>&gt; Could someone please e-mail me their copies of these scripts so that I can</i><br>
+<i>&gt; hack them to fit my system.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Thank you much !</i><br>
+<i>&gt; </i><br>
+<i>&gt; David		<a href="mailto:david@dcfnet.com">david@dcfnet.com</a></i><br>
+<i>&gt;                  \\\\|/////</i><br>
+<i>&gt;                   ( o  o ) </i><br>
+<i>&gt;          ---oO0o------U------oO0o---</i><br>
+<i>&gt; </i><br>
+<i>&gt;                <a href="mailto:david@dcfnet.com">david@dcfnet.com</a></i><br>
+<i>&gt;                <a href="mailto:cathy@dcfnet.com">cathy@dcfnet.com</a></i><br>
+<i>&gt; </i><br>
+<i>&gt;  DCFNET                  (757)440-9003		</i><br>
+<i>&gt;  David &amp; Cathy Francis   <a href="http://www.dcfnet.com/php.cgi/">http://www.dcfnet.com/php.cgi/</a>	</i><br>
+<i>&gt;  409 North Shore Road    <a href="http://www.dcfnet.com/php.cgi/home/">http://www.dcfnet.com/php.cgi/home/</a>	</i><br>
+<i>&gt;  Norfolk, VA 23505       <a href="http://www.dcfnet.com/php.cgi/melody/">http://www.dcfnet.com/php.cgi/melody/</a></i><br>
+<i>&gt; 					</i><br>
+<i>&gt;        For WEB services point your browser to</i><br>
+<i>&gt;           <a href="http://www.dcfnet.com/php.cgi/">http://www.dcfnet.com/php.cgi/</a></i><br>
+<i>&gt; </i><br>
+<i>&gt; --</i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0138.html">Thomas Mason: "adaptec 2940UW support?"</a>
+<li> <b>Previous message:</b> <a href="0136.html">Yash Khemani: "Re: compiling glibc"</a>
+<li> <b>In reply to:</b> <a href="0105.html">Yash Khemani: "Re: Yggdrasil 8-CD set"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0122.html">Eric Smith: "Re: Yggdrasil 8-CD set"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

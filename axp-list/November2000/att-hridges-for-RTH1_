@@ -1,0 +1,199 @@
+diff -urp 2.4.0t11/arch/alpha/kernel/pci.c linux/arch/alpha/kernel/pci.c
+--- 2.4.0t11/arch/alpha/kernel/pci.c	Mon Nov 20 17:10:19 2000
++++ linux/arch/alpha/kernel/pci.c	Mon Nov 20 16:41:36 2000
+@@ -264,7 +264,7 @@ pcibios_fixup_bus(struct pci_bus *bus)
+ 				&dev->resource[PCI_BRIDGE_RESOURCES+i];
+ 			bus->resource[i]->name = bus->name;
+ 		}
+-		bus->resource[0]->flags |= IORESOURCE_IO;
++		bus->resource[0]->flags |= pci_bridge_check_io(dev);
+ 		bus->resource[1]->flags |= IORESOURCE_MEM;
+ 		/* For now, propogate hose limits to the bus;
+ 		   we'll adjust them later. */
+diff -urp 2.4.0t11/drivers/pci/setup-bus.c linux/drivers/pci/setup-bus.c
+--- 2.4.0t11/drivers/pci/setup-bus.c	Mon Nov 20 17:10:19 2000
++++ linux/drivers/pci/setup-bus.c	Mon Nov 20 16:55:43 2000
+@@ -45,21 +45,29 @@ pbus_assign_resources_sorted(struct pci_
+ 	head_io.next = head_mem.next = NULL;
+ 	for (ln=bus->devices.next; ln != &bus->devices; ln=ln->next) {
+ 		struct pci_dev *dev = pci_dev_b(ln);
++		u16 cmd;
+ 
+-		/* Skip PCI-PCI bridges */
+-		if (dev->class >> 8 == PCI_CLASS_BRIDGE_PCI)
+-			continue;
+-
+-		/* ??? Reserve some resources for CardBus */
++		/* First, disable the device to avoid side
++		   effects of possibly overlapping I/O and
++		   memory ranges.
++		   Except the VGA - for obvious reason. :-)  */
++		if (dev->class >> 8 == PCI_CLASS_DISPLAY_VGA)
++			found_vga = 1;
++		else {
++			pci_read_config_word(dev, PCI_COMMAND, &cmd);
++			cmd &= ~(PCI_COMMAND_IO | PCI_COMMAND_MEMORY
++						| PCI_COMMAND_MASTER);
++			pci_write_config_word(dev, PCI_COMMAND, cmd);
++		}
++ 
++		/* Reserve some resources for CardBus.
++		   Are these values reasonable? */
+ 		if (dev->class >> 8 == PCI_CLASS_BRIDGE_CARDBUS) {
+ 			io_reserved += 8*1024;
+ 			mem_reserved += 32*1024*1024;
+ 			continue;
+ 		}
+ 
+-		if (dev->class >> 8 == PCI_CLASS_DISPLAY_VGA)
+-			found_vga = 1;
+-
+ 		pdev_sort_resources(dev, &head_io, IORESOURCE_IO);
+ 		pdev_sort_resources(dev, &head_mem, IORESOURCE_MEM);
+ 	}
+@@ -88,15 +96,20 @@ pbus_assign_resources_sorted(struct pci_
+ 	ranges->io_end += io_reserved;
+ 	ranges->mem_end += mem_reserved;
+ 
+-	/* ??? How to turn off a bus from responding to, say, I/O at
+-	   all if there are no I/O ports behind the bus?  Turning off
+-	   PCI_COMMAND_IO doesn't seem to do the job.  So we must
+-	   allow for at least one unit.  */
++	/* PCI-to-PCI Bridge Architecture Specification rev. 1.1 (1998)
++	   requires that if there is no I/O ports or memory behind the
++	   bridge, corresponding range must be turned off by writing base
++	   value greater than limit to the bridge's base/limit registers.  */
++#if 1
++	/* But assuming that some hardware designed before 1998 might
++	   not support this (very unlikely - at least all DEC bridges
++	   are ok and I believe that was standard de-facto. -ink), we
++	   must allow for at least one unit.  */
+ 	if (ranges->io_end == ranges->io_start)
+ 		ranges->io_end += 1;
+ 	if (ranges->mem_end == ranges->mem_start)
+ 		ranges->mem_end += 1;
+-
++#endif
+ 	ranges->io_end = ROUND_UP(ranges->io_end, 4*1024);
+ 	ranges->mem_end = ROUND_UP(ranges->mem_end, 1024*1024);
+ 
+@@ -123,10 +136,6 @@ pci_setup_bridge(struct pci_bus *bus)
+ 	DBGC(("  IO window: %04lx-%04lx\n", ranges.io_start, ranges.io_end));
+ 	DBGC(("  MEM window: %08lx-%08lx\n", ranges.mem_start, ranges.mem_end));
+ 
+-	/* Set the cache line correctly.  */
+-	pci_write_config_byte(bridge, PCI_CACHE_LINE_SIZE,
+-				      (L1_CACHE_BYTES / sizeof(u32)));
+-
+ 	/* Set up the top and bottom of the PCI I/O segment for this bus. */
+ 	pci_read_config_dword(bridge, PCI_IO_BASE, &l);
+ 	l &= 0xffff0000;
+@@ -134,14 +143,9 @@ pci_setup_bridge(struct pci_bus *bus)
+ 	l |= ranges.io_end & 0xf000;
+ 	pci_write_config_dword(bridge, PCI_IO_BASE, l);
+ 
+-#if 0
+-	/* Set up upper 16 bits of I/O base/limit. */
+-	l = (ranges.io_start >> 16) & 0xffff;
+-	l |= ranges.io_end & 0xffff0000;
+-	pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, l);
+-#else
++	/* Clear upper 16 bits of I/O base/limit. */
+ 	pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, 0);
+-#endif
++
+ 	/* Clear out the upper 32 bits of PREF base/limit. */
+ 	pci_write_config_dword(bridge, PCI_PREF_BASE_UPPER32, 0);
+ 	pci_write_config_dword(bridge, PCI_PREF_LIMIT_UPPER32, 0);
+@@ -160,15 +164,7 @@ pci_setup_bridge(struct pci_bus *bus)
+ 	/* Check if we have VGA behind the bridge.
+ 	   Enable ISA in either case. */
+ 	l = (bus->resource[0]->flags & IORESOURCE_BUS_HAS_VGA) ? 0x0c : 0x04;
+-	pci_write_config_byte(bridge, PCI_BRIDGE_CONTROL, l);
+-
+-	/*
+-	 * Clear status bits,
+-	 * turn on I/O    enable (for downstream I/O),
+-	 * turn on memory enable (for downstream memory),
+-	 * turn on master enable (for upstream memory and I/O).
+-	 */
+-	pci_write_config_dword(bridge, PCI_COMMAND, 0xffff0007);
++	pci_write_config_word(bridge, PCI_BRIDGE_CONTROL, l);
+ }
+ 
+ static void __init
+@@ -225,4 +221,25 @@ pci_assign_unassigned_resources(void)
+ 	pci_for_each_dev(dev) {
+ 		pdev_enable_device(dev);
+ 	}
++}
++
++/* Check whether the bridge supports I/O forwarding.
++   If not, its I/O base/limit register must be
++   read-only and read as 0. */
++unsigned long __init
++pci_bridge_check_io(struct pci_dev *bridge)
++{
++	u16 io;
++
++	pci_read_config_word(bridge, PCI_IO_BASE, &io);
++	if (!io) {
++		pci_write_config_word(bridge, PCI_IO_BASE, 0xf0f0);
++		pci_read_config_word(bridge, PCI_IO_BASE, &io);
++		pci_write_config_word(bridge, PCI_IO_BASE, 0x0);
++	}
++	if (io)
++		return IORESOURCE_IO;
++	printk(KERN_WARNING "PCI: bridge %s does not support I/O forwarding!\n",
++				bridge->name);
++	return 0;
+ }
+diff -urp 2.4.0t11/drivers/pci/setup-res.c linux/drivers/pci/setup-res.c
+--- 2.4.0t11/drivers/pci/setup-res.c	Mon Nov 20 17:10:19 2000
++++ linux/drivers/pci/setup-res.c	Mon Nov 20 16:42:05 2000
+@@ -120,7 +120,8 @@ pci_assign_resource(struct pci_dev *dev,
+ 		}
+ 	}
+ 
+-	DBGC(("  got res[%lx:%lx] for resource %d\n", res->start, res->end, i));
++	DBGC(("  got res[%lx:%lx] for resource %d of %s\n", res->start,
++						res->end, i, dev->name));
+ 
+ 	return 0;
+ }
+@@ -136,6 +137,12 @@ pdev_sort_resources(struct pci_dev *dev,
+ 		struct resource *r;
+ 		struct resource_list *list, *tmp;
+ 
++		/* PCI-PCI bridges may have I/O ports or
++		   memory on the primary bus */
++		if (dev->class >> 8 == PCI_CLASS_BRIDGE_PCI &&
++						i >= PCI_BRIDGE_RESOURCES)
++			continue;
++
+ 		r = &dev->resource[i];
+ 		if (!(r->flags & type_mask) || r->parent)
+ 			continue;
+@@ -201,6 +208,10 @@ pdev_enable_device(struct pci_dev *dev)
+ 	/* ??? Always turn on bus mastering.  If the device doesn't support
+ 	   it, the bit will go into the bucket. */
+ 	cmd |= PCI_COMMAND_MASTER;
++
++	/* Set the cache line and default latency (32).  */
++	pci_write_config_word(dev, PCI_CACHE_LINE_SIZE,
++			(32 << 8) | (L1_CACHE_BYTES / sizeof(u32)));
+ 
+ 	/* Enable the appropriate bits in the PCI command register.  */
+ 	pci_write_config_word(dev, PCI_COMMAND, cmd);
+diff -urp 2.4.0t11/include/linux/pci.h linux/include/linux/pci.h
+--- 2.4.0t11/include/linux/pci.h	Mon Nov 20 17:10:31 2000
++++ linux/include/linux/pci.h	Mon Nov 20 16:41:36 2000
+@@ -536,6 +536,7 @@ int pci_claim_resource(struct pci_dev *,
+ void pci_assign_unassigned_resources(void);
+ void pdev_enable_device(struct pci_dev *);
+ void pdev_sort_resources(struct pci_dev *, struct resource_list *, u32);
++unsigned long pci_bridge_check_io(struct pci_dev *);
+ void pci_fixup_irqs(u8 (*)(struct pci_dev *, u8 *),
+ 		    int (*)(struct pci_dev *, u8, u8));
+ 
+

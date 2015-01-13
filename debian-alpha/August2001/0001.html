@@ -1,0 +1,246 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: RE: A few patches for 2.4.x for Alpha...</TITLE>
+<META NAME="Author" CONTENT="Daniel Potts (Daniel.Potts@api-networks.com)">
+<META NAME="Subject" CONTENT="RE: A few patches for 2.4.x for Alpha...">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>RE: A few patches for 2.4.x for Alpha...</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 02 00:56:24 2001" -->
+<!-- isoreceived="20010802075624" -->
+<!-- sent="Wed, 1 Aug 2001 18:53:17 -0400 " -->
+<!-- isosent="20010801225317" -->
+<!-- name="Daniel Potts" -->
+<!-- email="Daniel.Potts@api-networks.com" -->
+<!-- subject="RE: A few patches for 2.4.x for Alpha..." -->
+<!-- id="C3C5B71D8EB6D411B53700902732B4343F7AFD@fergus.alpha-processor.com" -->
+<!-- inreplyto="A few patches for 2.4.x for Alpha..." -->
+<STRONG>Subject: </STRONG>RE: A few patches for 2.4.x for Alpha...<BR>
+<STRONG>From: </STRONG>Daniel Potts (<EM>Daniel.Potts@api-networks.com</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Aug 01 2001 - 15:53:17 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1">[ date ]</A>
+<A HREF="index.html#1">[ thread ]</A>
+<A HREF="subject.html#1">[ subject ]</A>
+<A HREF="author.html#1">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Christopher C. Chimelis: "RE: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0002.html">Christopher C. Chimelis: "RE: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0000.html">Daniel Potts: "RE: A few patches for 2.4.x for Alpha..."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Attached is a (possibly temporary) patch for another 2.4 bug I found. This
+<BR>
+time, executing something like the following code will cause a crash to srm
+<BR>
+or an oops:
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned long *myaddr = 0xffffffffffffc000;
+<BR>
+&nbsp;&nbsp;*myaddr = 7; /* bye bye */
+<BR>
+}
+<BR>
+<P>It appears to me that the self-mapping entry in each task page table is
+<BR>
+somehow getting corrupted, causing user mode permission bits to be set. I
+<BR>
+don't even know why we have this mapping because a running kernel does not
+<BR>
+use it. While the patch does make it go away, I'm still concerned that
+<BR>
+something just happened to trash that memory. This one needs to be examined
+<BR>
+closer.
+<BR>
+<P>Line 63 of linux-2.4.7/arch/alpha/mm/init.c
+<BR>
+<P>Btw, the clrfen and illop bug patch (entry.S/proto.h/traps.c) need to be
+<BR>
+applied to 2.2.x kernels also!
+<BR>
+<P>Cheers,
+<BR>
+Daniel
+<BR>
+<P><EM>&gt; -----Original Message-----
+</EM><BR>
+<EM>&gt; From: Christopher C. Chimelis [mailto:chris@debian.org]
+</EM><BR>
+<EM>&gt; Sent: Wednesday, August 01, 2001 5:59 PM
+</EM><BR>
+<EM>&gt; To: Andrea Arcangeli
+</EM><BR>
+<EM>&gt; Cc: daniel.potts@api-networks.com; rick.gorton@api-networks.com;
+</EM><BR>
+<EM>&gt; debian-alpha@lists.debian.org
+</EM><BR>
+<EM>&gt; Subject: A few patches for 2.4.x for Alpha...
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I seem to be VERY unsuccessful in getting patches into the 
+</EM><BR>
+<EM>&gt; kernel anymore,
+</EM><BR>
+<EM>&gt; so I figured I'd try sending them to you first due to your 
+</EM><BR>
+<EM>&gt; high success
+</EM><BR>
+<EM>&gt; rate :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Attached is a patch that does three things:
+</EM><BR>
+<EM>&gt; * drivers/char/rtc.c:
+</EM><BR>
+<EM>&gt;   Removes MIPS DECstation epoch support for non-MIPS machines and adds
+</EM><BR>
+<EM>&gt;   standard PC (1900) epoch support in its place (which will act
+</EM><BR>
+<EM>&gt;   as a pre-2000 VMS epoch support patch as well).  It also 
+</EM><BR>
+<EM>&gt; adds post-2000
+</EM><BR>
+<EM>&gt;   VMS epoch support.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   My testing so far has shown that, with this patch, I can 
+</EM><BR>
+<EM>&gt; NEVER seem to
+</EM><BR>
+<EM>&gt;   guess the year incorrectly, regardless of where it was set.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; * arch/alpha/kernel/smp.c:
+</EM><BR>
+<EM>&gt;   Removed smp_tune_scheduling() function and the cacheflush_time var
+</EM><BR>
+<EM>&gt;   since they weren't being used.  I also ran into a few machine types 
+</EM><BR>
+<EM>&gt;   where this function being executed on an SMP machine during 
+</EM><BR>
+<EM>&gt; boot caused
+</EM><BR>
+<EM>&gt;   an oops.  I didn't bother looking into it too much (since the entire
+</EM><BR>
+<EM>&gt;   purpose of the function was to determine cacheflush_time, which is
+</EM><BR>
+<EM>&gt;   unused in the 2.4 scheduler code), but deleting the 
+</EM><BR>
+<EM>&gt; function works in
+</EM><BR>
+<EM>&gt;   getting SMP systems to boot 2.4 SMP kernels.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; * arch/alpha/kernel/entry.S:
+</EM><BR>
+<EM>&gt;   arch/alpha/kernel/proto.h:
+</EM><BR>
+<EM>&gt;   arch/alpha/kernel/traps.c:
+</EM><BR>
+<EM>&gt;   This patch is from Daniel Potts (a coworker) who found out 
+</EM><BR>
+<EM>&gt; that, if the
+</EM><BR>
+<EM>&gt;   user invokes the crlfen PALcode call, the kernel is unable 
+</EM><BR>
+<EM>&gt; to cope with
+</EM><BR>
+<EM>&gt;   not having access to the FP registers.  He wrote two asm stubs to
+</EM><BR>
+<EM>&gt;   basically skip FP register access in these cases.  The 
+</EM><BR>
+<EM>&gt; problem was found
+</EM><BR>
+<EM>&gt;   to be extremely rare, but definite is a way for a user (non-root) to
+</EM><BR>
+<EM>&gt;   crash a running Alpha.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;   There's also a small patch from Rick Gorton (also a coworker) that
+</EM><BR>
+<EM>&gt;   allows an illop trap to be handled correctly by the kernel.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If you have any questions about the patches, feel free to ask :-)  I'm
+</EM><BR>
+<EM>&gt; extremely concerned about the problems that Daniel found 
+</EM><BR>
+<EM>&gt; (with the ability
+</EM><BR>
+<EM>&gt; of a common user to crash a running machine by just disabling FP
+</EM><BR>
+<EM>&gt; registers), so the sooner this goes in, the better off we all 
+</EM><BR>
+<EM>&gt; will be :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Thanks!
+</EM><BR>
+<EM>&gt; C
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<P><P><P><HR>
+<UL>
+<LI>application/octet-stream attachment: <A HREF="att-bin16DCmOw">linux-2.4.7-selfmap.patch</A>
+</UL>
+<!-- attachment="att-bin16DCmOw" -->
+<P><HR>
+<UL>
+<LI>application/octet-stream attachment: <A HREF="att-bin2qGQkRd">clrfen-2.2.19-API.patch</A>
+</UL>
+<!-- attachment="att-bin2qGQkRd" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0002.html">Christopher C. Chimelis: "RE: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0000.html">Christopher C. Chimelis: "A few patches for 2.4.x for Alpha..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0002.html">Christopher C. Chimelis: "RE: A few patches for 2.4.x for Alpha..."</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0000.html">Daniel Potts: "RE: A few patches for 2.4.x for Alpha..."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Sep 06 2001 - 05:03:49 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

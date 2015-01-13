@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: netdate bug</TITLE>
+<META NAME="Author" CONTENT="Michael Stroucken (stroucki@master.debian.org)">
+<META NAME="Subject" CONTENT="netdate bug">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>netdate bug</H1>
+<HR>
+<P>
+<!-- received="Wed Aug 11 14:28:04 1999" -->
+<!-- isoreceived="19990811212804" -->
+<!-- sent="Wed, 11 Aug 1999 01:28:06 -0500 (CDT)" -->
+<!-- isosent="19990811062806" -->
+<!-- name="Michael Stroucken" -->
+<!-- email="stroucki@master.debian.org" -->
+<!-- subject="netdate bug" -->
+<!-- id="Pine.LNX.3.96.990811010434.29169A-100000@master.debian.org" -->
+<STRONG>Subject: </STRONG>netdate bug<BR>
+<STRONG>From: </STRONG>Michael Stroucken (<EM>stroucki@master.debian.org</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Aug 10 1999 - 23:28:06 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#45">[ date ]</A>
+<A HREF="index.html#45">[ thread ]</A>
+<A HREF="subject.html#45">[ subject ]</A>
+<A HREF="author.html#45">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0046.html">Sanzo Miyazawa: "Re: Dec fortran for slink ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0044.html">Christopher C Chimelis: "Re: Dec fortran for slink ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0072.html">Goswin Brederlow: "Re: netdate bug"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I use the netdate program of the netstd package to set my clock
+<BR>
+every so often, and recently it started failing. The reason apparently was
+<BR>
+that the program ignored the RFC868 standard which specifies a 32 bit
+<BR>
+reply from the remote host. It checked if the number of octets received
+<BR>
+was less than sizeof(tv_sec), and if so, returned an error.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv_sec is defined in time.h as long int, which on the Alpha is 64
+<BR>
+bits wide. I'm not sure if that violates POSIX, but that's out of scope.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Furthermore, the code took additional octets as tv_usec, which
+<BR>
+violates the standard. I don't know if some hosts do send time back like
+<BR>
+that (they shouldn't), but that would have probably set the clock to a
+<BR>
+wild value.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Anyway, following this is a patch to the debian version of
+<BR>
+netdate, which bails if it doesn't read exactly 4 octets. I also tried to
+<BR>
+make it ANSI compliant, but sigjmp_buf is undefined at compile time.
+<BR>
+<P>Greetings,
+<BR>
+Michael.
+<BR>
+--- netdate.c.orig	Wed Aug 11 02:41:40 1999
+<BR>
++++ netdate.c	Wed Aug 11 01:55:14 1999
+<BR>
+@@ -84,7 +84,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;void	usage (void);
+<BR>
+&nbsp;int	setproto (char *, struct timehost *);
+<BR>
+-void	main (int, char **);
+<BR>
++int	main (int, char **);
+<BR>
+&nbsp;int	getdiff (struct timehost *);
+<BR>
+&nbsp;int	getdate (struct timehost *);
+<BR>
+&nbsp;void	printit (struct timehost *);
+<BR>
+@@ -118,7 +118,8 @@
+<BR>
+&nbsp;int verbose = 0;
+<BR>
+&nbsp;int debug = 0;
+<BR>
+&nbsp;
+<BR>
+-void
+<BR>
++/* main returns int according to ansi standard */
+<BR>
++int
+<BR>
+&nbsp;main (int argc, char **argv)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;extern char *rindex();
+<BR>
+@@ -391,6 +392,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;abs(diff-&gt;tv_sec), abs(diff-&gt;tv_usec) / 1000);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++/* where does sigjmp_buf get defined? did not get def'd from setjmp.h */
+<BR>
+&nbsp;static	sigjmp_buf jb;
+<BR>
+&nbsp;void
+<BR>
+&nbsp;timeout()
+<BR>
+@@ -465,14 +467,18 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void)gettimeofday (&amp;thishost -&gt; acked, (struct timezone *)0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(void)alarm(0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;now = thishost -&gt; acked;
+<BR>
+-	if (nread &lt; sizeof(thishost -&gt; then.tv_sec)) {
+<BR>
++	if (nread != 4) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perror (&quot;netdate: read&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto bad;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* RFC 868 only allows seconds, but what the hell */
+<BR>
++/* it's just a standard, you know. -ms */
+<BR>
++/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (nread == sizeof(thishost -&gt; then))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thishost -&gt; then.tv_usec = ntohl(thishost -&gt; then.tv_usec);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
++*/
+<BR>
++/* above text removed for standards compliance */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thishost -&gt; then.tv_usec = 0L;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;thishost -&gt; then.tv_sec = ntohl (thishost -&gt; then.tv_sec) - NETBASE;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return (1);	/* don't close before returning to avoid delays */
+<BR>
+<P><P><P>--  
+<BR>
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+<BR>
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0046.html">Sanzo Miyazawa: "Re: Dec fortran for slink ?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0044.html">Christopher C Chimelis: "Re: Dec fortran for slink ?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0072.html">Goswin Brederlow: "Re: netdate bug"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:06 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

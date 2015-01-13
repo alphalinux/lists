@@ -1,0 +1,165 @@
+<!-- received="Fri Jun 20 20:12:39 1997 " -->
+<!-- sent="Fri, 20 Jun 1997 17:06:49 +0800" -->
+<!-- name="Michael B. Schmitz" -->
+<!-- email="mbs@yoda.veritas.com" -->
+<!-- subject="Matrox X-Server Startup" -->
+<!-- id="199706210006.RAA11651@yoda.veritas.com" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Matrox X-Server Startup</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Matrox X-Server Startup</h2>
+
+<b>Michael B. Schmitz</b> (<a href="mailto:mbs@yoda.veritas.com"><i>mbs@yoda.veritas.com</i></a>)<br>
+<i>Fri, 20 Jun 1997 17:06:49 +0800</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#655">[ date ]</a><a href="index.html#655">[ thread ]</a><a href="subject.html#655">[ subject ]</a><a href="author.html#655">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0656.html">Anthony Pardini: "Syslog and Redhat 4.2"</a>
+<li> <b>Previous message:</b> <a href="0654.html">D. Steven Daniel: "Cheap monitor for UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+The following function comes from the XFree86-3.3 source code.  I have<br>
+a Matrox millenium which fails to work with the X server.  The server loops<br>
+forever at the lines marked with an 'X' below.  Again, I am puzzled.  Could<br>
+this have anything to do with the preceding message?<br>
+<p>
+						<a href="mailto:mbs@veritas.com">mbs@veritas.com</a><br>
+						415 335 8452<br>
+<p>
+/*<br>
+ * MGATi3026SetMCLK - Set the memory clock (MCLK) PLL.<br>
+ *<br>
+ * HISTORY<br>
+ *   January 11, 1997 - [aem] Andrew E. Mileski<br>
+ *   Written and tested.<br>
+ */<br>
+static void<br>
+MGATi3026SetMCLK( f_out )<br>
+	long f_out;<br>
+{<br>
+	double f_pll;<br>
+	int mclk_m, mclk_n, mclk_p;<br>
+	int pclk_m, pclk_n, pclk_p;<br>
+	int mclk_ctl, rfhcnt;<br>
+<p>
+	f_pll = MGATi3026CalcClock(<br>
+		f_out, TI_MAX_MCLK_FREQ,<br>
+		&amp; mclk_m, &amp; mclk_n, &amp; mclk_p<br>
+	);<br>
+<p>
+	/* Save PCLK settings */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfc );<br>
+	pclk_n = inTi3026( TVP3026_PIX_CLK_DATA );<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfd );<br>
+	pclk_m = inTi3026( TVP3026_PIX_CLK_DATA );<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfe );<br>
+	pclk_p = inTi3026( TVP3026_PIX_CLK_DATA );<br>
+	<br>
+	/* Stop PCLK (PLLEN = 0, PCLKEN = 0) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfe );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, 0x00 );<br>
+	<br>
+	/* Set PCLK to the new MCLK frequency (PLLEN = 1, PCLKEN = 0 ) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfc );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, ( mclk_n &amp; 0x3f ) | 0xc0 );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, mclk_m &amp; 0x3f );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, ( mclk_p &amp; 0x03 ) | 0xb0 );<br>
+	<br>
+	/* Loop here forever -- mbs */<br>
+<p>
+	/* Wait for PCLK PLL to lock on frequency */<br>
+X	while (( inTi3026( TVP3026_PIX_CLK_DATA ) &amp; 0x40 ) == 0 ) {<br>
+X		;<br>
+X	}<br>
+	<br>
+	/* Output PCLK on MCLK pin */<br>
+	mclk_ctl = inTi3026( TVP3026_MCLK_CTL );<br>
+	outTi3026( TVP3026_MCLK_CTL, 0, mclk_ctl &amp; 0xe7 ); <br>
+	outTi3026( TVP3026_MCLK_CTL, 0, ( mclk_ctl &amp; 0xe7 ) | 0x08 );<br>
+	<br>
+	/* Stop MCLK (PLLEN = 0 ) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfb );<br>
+	outTi3026( TVP3026_MEM_CLK_DATA, 0, 0x00 );<br>
+	<br>
+	/* Set MCLK to the new frequency (PLLEN = 1) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xf3 );<br>
+	outTi3026( TVP3026_MEM_CLK_DATA, 0, ( mclk_n &amp; 0x3f ) | 0xc0 );<br>
+	outTi3026( TVP3026_MEM_CLK_DATA, 0, mclk_m &amp; 0x3f );<br>
+	outTi3026( TVP3026_MEM_CLK_DATA, 0, ( mclk_p &amp; 0x03 ) | 0xb0 );<br>
+	<br>
+	/* Wait for MCLK PLL to lock on frequency */<br>
+	while (( inTi3026( TVP3026_MEM_CLK_DATA ) &amp; 0x40 ) == 0 ) {<br>
+		;<br>
+	}<br>
+	<br>
+	/* Set the WRAM refresh divider */<br>
+	rfhcnt = ( 332.0 * f_pll / 1280000.0 );<br>
+	if ( rfhcnt &gt; 15 )<br>
+		rfhcnt = 0;<br>
+	pciWriteLong( MGAPciTag, PCI_OPTION_REG, ( rfhcnt &lt;&lt; 16 ) |<br>
+		( pciReadLong( MGAPciTag, PCI_OPTION_REG ) &amp; ~0xf0000 ));<br>
+<p>
+#ifdef DEBUG<br>
+	ErrorF( "rfhcnt=%d\n", rfhcnt );<br>
+#endif<br>
+<p>
+	/* Output MCLK PLL on MCLK pin */<br>
+	outTi3026( TVP3026_MCLK_CTL, 0, ( mclk_ctl &amp; 0xe7 ) | 0x10 );<br>
+	outTi3026( TVP3026_MCLK_CTL, 0, ( mclk_ctl &amp; 0xe7 ) | 0x18 );<br>
+	<br>
+	/* Stop PCLK (PLLEN = 0, PCLKEN = 0 ) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfe );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, 0x00 );<br>
+	<br>
+	/* Restore PCLK (PLLEN = ?, PCLKEN = ?) */<br>
+	outTi3026( TVP3026_PLL_ADDR, 0, 0xfc );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, pclk_n );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, pclk_m );<br>
+	outTi3026( TVP3026_PIX_CLK_DATA, 0, pclk_p );<br>
+	<br>
+	/* Wait for PCLK PLL to lock on frequency */<br>
+	while (( inTi3026( TVP3026_PIX_CLK_DATA ) &amp; 0x40 ) == 0 ) {<br>
+		;<br>
+	}<br>
+}<br>
+<p>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0656.html">Anthony Pardini: "Syslog and Redhat 4.2"</a>
+<li> <b>Previous message:</b> <a href="0654.html">D. Steven Daniel: "Cheap monitor for UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,563 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Unknown HZ value! (2048) Assume 1024.</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: Unknown HZ value! (2048) Assume 1024.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Unknown HZ value! (2048) Assume 1024.</H1>
+<HR>
+<P>
+<!-- received="Wed Sep 08 21:46:25 1999" -->
+<!-- isoreceived="19990909044625" -->
+<!-- sent="Wed, 8 Sep 1999 17:14:49 -0600 (MDT)" -->
+<!-- isosent="19990908231449" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Unknown HZ value! (2048) Assume 1024." -->
+<!-- id="199909082314.RAA00197@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="Pine.LNX.4.10.9909081801480.631-100000@iceland.sidefx.com" -->
+<STRONG>Subject: </STRONG>Re: Unknown HZ value! (2048) Assume 1024.<BR>
+<STRONG>From: </STRONG>Michal Jaegermann (<EM>michal@ellpspace.math.ualberta.ca</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Sep 08 1999 - 16:14:49 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#49">[ date ]</A>
+<A HREF="index.html#49">[ thread ]</A>
+<A HREF="subject.html#49">[ subject ]</A>
+<A HREF="author.html#49">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0050.html">Rebuck, Gregory: "RE: I did a very stupid thing today.."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0048.html">Eran Guendelman: "Unknown HZ value! (2048) Assume 1024."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0048.html">Eran Guendelman: "Unknown HZ value! (2048) Assume 1024."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0056.html">Richard Henderson: "Re: Unknown HZ value! (2048) Assume 1024."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0048.html">Michal Jaegermann: "Re: Unknown HZ value! (2048) Assume 1024."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Eran Guendelman wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; What does that message mean?
+</EM><BR>
+<P>It may mean that your 'udelay' loop got unlucky and has fallen in
+<BR>
+the wrong place.  There was a patch posted on linux-kernel list.
+<BR>
+Here it is:
+<BR>
+<P>&nbsp;From: &quot;Olsen, Jim&quot; &lt;Jim.Olsen@compaq.com&gt;
+<BR>
+&nbsp;Date: Tue, 7 Sep 1999 20:12:17 -0400 
+<BR>
+&nbsp;Subject: [PATCH] udelay() for Alpha
+<BR>
+<P>&nbsp;Here is a patch for udelay() on alpha.  It uses the processor cycle counter
+<BR>
+&nbsp;to time the delay.  It should fix the problem on EV6 processors where
+<BR>
+&nbsp;udelay(1000) was sometimes delaying for 2 milliseconds.  On my DS20 this
+<BR>
+&nbsp;caused the ncr53c8xx driver to miscalculate the speed of the ncr53c875 chip.
+<BR>
+<P>&nbsp;The problem is due to the alignment of the __delay() loop instructions
+<BR>
+&nbsp;differing between the calibration loop and a particular instance of the
+<BR>
+&nbsp;macro expansion.  I have included a test program below.
+<BR>
+<P>&nbsp;I left the __delay() macro intact because various drives still use it
+<BR>
+&nbsp;directly.  However, I believe its use should be deprecated.  In particular
+<BR>
+&nbsp;the video drivers that contain &quot;__delay(200)&quot; need to convert to an
+<BR>
+&nbsp;appropriate udelay() before faster processors shrink the delay too much.
+<BR>
+<P>&nbsp;Thank you for your consideration,
+<BR>
+<P>&nbsp;Jim Olsen
+<BR>
+<P>--- linux-2.2.12/arch/alpha/kernel/alpha_ksyms.c	Wed Aug 25 20:29:45
+<BR>
+1999
+<BR>
++++ patch-2.2.12/arch/alpha/kernel/alpha_ksyms.c	Tue Sep  7 17:39:22
+<BR>
+1999
+<BR>
+@@ -29,6 +29,7 @@
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
+&nbsp;#include &lt;asm/semaphore.h&gt;
+<BR>
++#include &lt;asm/delay.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define __KERNEL_SYSCALLS__
+<BR>
+&nbsp;#include &lt;asm/unistd.h&gt;
+<BR>
+@@ -97,6 +98,7 @@
+<BR>
+&nbsp;EXPORT_SYMBOL(__memset);
+<BR>
+&nbsp;EXPORT_SYMBOL(__memsetw);
+<BR>
+&nbsp;EXPORT_SYMBOL(__constant_c_memset);
+<BR>
++EXPORT_SYMBOL(__udelay);
+<BR>
+&nbsp;
+<BR>
+&nbsp;EXPORT_SYMBOL(dump_thread);
+<BR>
+&nbsp;EXPORT_SYMBOL(dump_fpu);
+<BR>
+<P>--- linux-2.2.12/arch/alpha/lib/Makefile	Sat Jan 16 20:02:51 1999
+<BR>
++++ patch-2.2.12/arch/alpha/lib/Makefile	Fri Sep  3 15:51:42 1999
+<BR>
+@@ -7,7 +7,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat.o strcpy.o strncat.o strncpy.o stxcpy.o stxncpy.o \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strchr.o strrchr.o \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;copy_user.o clear_user.o strncpy_from_user.o strlen_user.o \
+<BR>
+-	csum_ipv6_magic.o strcasecmp.o semaphore.o \
+<BR>
++	csum_ipv6_magic.o strcasecmp.o semaphore.o delay.o \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;srm_dispatch.o srm_fixup.o srm_puts.o srm_printk.o
+<BR>
+&nbsp;
+<BR>
+&nbsp;lib.a: $(OBJS)
+<BR>
+<P>--- linux-2.2.12/include/asm-alpha/delay.h	Tue Sep  7 15:48:56 1999
+<BR>
++++ patch-2.2.12/include/asm-alpha/delay.h	Tue Sep  7 16:34:42 1999
+<BR>
+@@ -1,8 +1,6 @@
+<BR>
+&nbsp;#ifndef __ALPHA_DELAY_H
+<BR>
+&nbsp;#define __ALPHA_DELAY_H
+<BR>
+&nbsp;
+<BR>
+-#include &lt;asm/smp.h&gt;
+<BR>
+-
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Copyright (C) 1993 Linus Torvalds
+<BR>
+&nbsp;&nbsp;*
+<BR>
+@@ -12,59 +10,13 @@
+<BR>
+&nbsp;extern __inline__ void
+<BR>
+&nbsp;__delay(unsigned long loops)
+<BR>
+&nbsp;{
+<BR>
+-	__asm__ __volatile__(&quot;.align 3\n&quot;
+<BR>
++	__asm__ __volatile__(&quot;.align 4\n\tnop\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;1:\tsubq %0,1,%0\n\t&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;bge %0,1b&quot;: &quot;=r&quot; (loops) : &quot;0&quot; (loops));
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-/*
+<BR>
+- * division by multiplication: you don't have to worry about
+<BR>
+- * loss of precision.
+<BR>
+- *
+<BR>
+- * Use only for very small delays ( &lt; 1 msec).  Should probably use a
+<BR>
+- * lookup table, really, as the multiplications take much too long with
+<BR>
+- * short delays.  This is a &quot;reasonable&quot; implementation, though (and the
+<BR>
+- * first constant multiplications gets optimized away if the delay is
+<BR>
+- * a constant).
+<BR>
+- *
+<BR>
+- * Optimize small constants further by exposing the second multiplication
+<BR>
+- * to the compiler.  In addition, mulq is 2 cycles faster than umulh.
+<BR>
+- */
+<BR>
+-
+<BR>
+-extern __inline__ void
+<BR>
+-__udelay(unsigned long usecs, unsigned long lps)
+<BR>
+-{
+<BR>
+-	/* compute (usecs * 2**64 / 10**6) * loops_per_sec / 2**64 */
+<BR>
+-
+<BR>
+-	usecs *= 0x000010c6f7a0b5edUL;		/* 2**64 / 1000000 */
+<BR>
+-	__asm__(&quot;umulh %1,%2,%0&quot; :&quot;=r&quot; (usecs) :&quot;r&quot; (usecs),&quot;r&quot; (lps));
+<BR>
+-	__delay(usecs);
+<BR>
+-}
+<BR>
+-
+<BR>
+-extern __inline__ void
+<BR>
+-__small_const_udelay(unsigned long usecs, unsigned long lps)
+<BR>
+-{
+<BR>
+-	/* compute (usecs * 2**32 / 10**6) * loops_per_sec / 2**32 */
+<BR>
+-
+<BR>
+-        usecs *= 0x10c6;                /* 2^32 / 10^6 */
+<BR>
+-	usecs *= lps;
+<BR>
+-	usecs &gt;&gt;= 32;
+<BR>
+-	__delay(usecs);
+<BR>
+-}
+<BR>
+-
+<BR>
+-#ifdef __SMP__
+<BR>
+-#define udelay(usecs)						\
+<BR>
+-	(__builtin_constant_p(usecs) &amp;&amp; usecs &lt; 0x100000000UL	\
+<BR>
+-	 ? __small_const_udelay(usecs,				\
+<BR>
+-		cpu_data[smp_processor_id()].loops_per_sec)	\
+<BR>
+-	 : __udelay(usecs,					\
+<BR>
+-		cpu_data[smp_processor_id()].loops_per_sec))
+<BR>
+-#else
+<BR>
+-#define udelay(usecs)						\
+<BR>
+-	(__builtin_constant_p(usecs) &amp;&amp; usecs &lt; 0x100000000UL	\
+<BR>
+-	 ? __small_const_udelay(usecs, loops_per_sec)		\
+<BR>
+-	 : __udelay(usecs, loops_per_sec))
+<BR>
+-#endif
+<BR>
++extern void __udelay(unsigned long usecs);
+<BR>
+&nbsp;
+<BR>
++#define udelay(usecs) (__udelay(usecs))
+<BR>
+&nbsp;
+<BR>
+&nbsp;#endif /* defined(__ALPHA_DELAY_H) */
+<BR>
+<P>--- /dev/null	Tue May  5 16:32:27 1998
+<BR>
++++ patch-2.2.12/arch/alpha/lib/delay.c	Tue Sep  7 17:24:01 1999
+<BR>
+@@ -0,0 +1,40 @@
+<BR>
++/*
+<BR>
++ *  linux/arch/alpha/kernel/delay.c
+<BR>
++ *
+<BR>
++ *  Copyright (C) 1999 Jim Olsen &lt;jim.olsen@compaq.com &lt;mailto:jim.olsen@compaq.com&gt; &gt;
+<BR>
++ *
+<BR>
++ *  Delay loop for alpha processors.
+<BR>
++ *
+<BR>
++ */
+<BR>
++
+<BR>
++#include &lt;linux/delay.h&gt;
+<BR>
++#include &lt;asm/hwrpb.h&gt;
+<BR>
++#include &lt;asm/uaccess.h&gt;
+<BR>
++
+<BR>
++static inline __u32 rpcc(void)
+<BR>
++{
+<BR>
++    __u32 result;
+<BR>
++    asm volatile (&quot;rpcc %0&quot; : &quot;=r&quot;(result));
+<BR>
++    return result;
+<BR>
++}
+<BR>
++
+<BR>
++void __udelay(unsigned long usecs)
+<BR>
++{
+<BR>
++    unsigned long  start, now, count, mhz;
+<BR>
++
+<BR>
++    start = (unsigned long)rpcc();
+<BR>
++    mhz = hwrpb-&gt;cycle_freq / 1000000;
+<BR>
++    count = 0;
+<BR>
++
+<BR>
++    do {
+<BR>
++        now = (unsigned long)rpcc();
+<BR>
++	if ( start &gt; now ) {
+<BR>
++	    count += 0x100000000UL;
+<BR>
++	}
+<BR>
++	count += (now - start);
+<BR>
++	while( count &gt; mhz &amp;&amp; --usecs ) {
+<BR>
++	    count -= mhz;
+<BR>
++	}
+<BR>
++	start = now;
+<BR>
++    } while( usecs );
+<BR>
++}
+<BR>
+<P>============================================================================
+<BR>
+=
+<BR>
+<P>/*
+<BR>
+&nbsp;* time.c - test udelay() on alpha processors.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* try various compile options:
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* gcc -O1 -c -o time.o time.c
+<BR>
+&nbsp;* gcc -O2 -mcpu=ev5 -Wa,-mev6 -c -o time.o time.c
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* insmod time.o; rmmod time
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* obviously every udelay(1000) should be ~1000 usec.
+<BR>
+&nbsp;*
+<BR>
+&nbsp;* 2.2.12 on DS20:                    after udelay patch:
+<BR>
+&nbsp;*     u1: 1007 usec                        u1: 1000 usec
+<BR>
+&nbsp;*     u2: 998 usec                         u2: 1000 usec
+<BR>
+&nbsp;*     u3: 1997 usec                        u3: 1000 usec
+<BR>
+&nbsp;*     d1: 1996 usec                        d1: 1006 usec
+<BR>
+&nbsp;*     d2: 999 usec                         d2: 997 usec
+<BR>
+&nbsp;*     d3: 2019 usec                        d3: 998 usec
+<BR>
+&nbsp;*     2045 jiffies per udelay(1000000)     1023 jiffies per udelay(1000000)
+<BR>
+&nbsp;*/
+<BR>
+<P>#define __KERNEL__
+<BR>
+#define MODULE
+<BR>
+#include &lt;linux/module.h&gt;
+<BR>
+#include &lt;linux/kernel.h&gt;
+<BR>
+#include &lt;linux/delay.h&gt;
+<BR>
+#include &lt;linux/time.h&gt;
+<BR>
+#include &lt;asm/timex.h&gt;
+<BR>
+#include &lt;asm/hwrpb.h&gt;
+<BR>
+<P>extern unsigned long volatile jiffies;
+<BR>
+<P>void pcc_time(char *string, unsigned long start, unsigned long end) 
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if ( start &gt; end ) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end += 0x100000000UL;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;%s: %d usec\n&quot;, string,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(int)((end-start)/(hwrpb-&gt;cycle_freq/1000000)));
+<BR>
+}
+<BR>
+<P><P>int init_module(void) 
+<BR>
+{ 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned long start, end;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;udelay(1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;u1&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(&quot;.align 4&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;udelay(1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;u2&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(&quot;.align 4&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;udelay(1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;u3&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__delay(loops_per_sec/1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;d1&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(&quot;.align 4&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__delay(loops_per_sec/1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;d2&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;start = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__asm__ __volatile__(&quot;.align 4&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__delay(loops_per_sec/1000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;end = get_cycles();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;pcc_time( &quot;d3&quot;, start, end);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;start = jiffies;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;udelay(1000000);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printk (&quot;%d jiffies per udelay(1000000)\n&quot;, jiffies-start);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P>void cleanup_module(void) { printk(&quot;.\n&quot;); }
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0050.html">Rebuck, Gregory: "RE: I did a very stupid thing today.."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0048.html">Eran Guendelman: "Unknown HZ value! (2048) Assume 1024."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0048.html">Eran Guendelman: "Unknown HZ value! (2048) Assume 1024."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0056.html">Richard Henderson: "Re: Unknown HZ value! (2048) Assume 1024."</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0048.html">Michal Jaegermann: "Re: Unknown HZ value! (2048) Assume 1024."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Oct 04 1999 - 12:44:50 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

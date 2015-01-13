@@ -1,0 +1,161 @@
+<!-- received="Thu Oct 30 14:44:24 1997 " -->
+<!-- sent="Thu, 30 Oct 1997 12:32:50 -0700" -->
+<!-- name="John Bowman" -->
+<!-- email="bowman@math.ualberta.ca" -->
+<!-- subject="alpha PC164LX: fixed clock utility" -->
+<!-- id="199710301932.MAA06023@merlin.math.ualberta.ca" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>alpha PC164LX: fixed clock utility</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>alpha PC164LX: fixed clock utility</h2>
+
+<b>John Bowman</b> (<a href="mailto:bowman@math.ualberta.ca"><i>bowman@math.ualberta.ca</i></a>)<br>
+<i>Thu, 30 Oct 1997 12:32:50 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#561">[ date ]</a><a href="index.html#561">[ thread ]</a><a href="subject.html#561">[ subject ]</a><a href="author.html#561">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0562.html">Andreas Johansson: "Re: Alphastation 500 ethernet"</a>
+<li> <b>Previous message:</b> <a href="0560.html">Jay.Estabrook@digital.com: "Re: tulip.c, em86, netscape, quake -- help? pointers?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+I recently built a 533MHz AlphaPC 21164LX system and I am experiencing a<br>
+problem with the clock utility. Roughly every 10 or so "clock -Au" commands<br>
+return the constant value <br>
+<p>
+Wed Oct 10 04:10:10 1990<br>
+<p>
+I'm told that this was already fixed with the clock.pc164 on the Digital<br>
+FTP server, but that binary core dumps on my system and I didn't find any<br>
+source for it.<br>
+<p>
+The fix is to pause briefly after the UIP flag goes low before reading the<br>
+CMOS clock. I removed the "low (high?)-risk programming" loop, which didn't<br>
+work anyway. Attached is a patch relative to Version 1.4.2axp. <br>
+<p>
+Cheers,<br>
+<p>
+-- John Bowman<br>
+<p>
+John Bowman<br>
+Department of Mathematical Sciences<br>
+University of Alberta<br>
+Edmonton, Alberta<br>
+Canada T6G 2G1<br>
+<p>
+Office: CAB 521<br>
+Phone: +1 403 492 0532<br>
+FAX:   +1 403 492 6826<br>
+WWW: <a href="http://www.math.ualberta.ca/~bowman">http://www.math.ualberta.ca/~bowman</a><br>
+Email: <a href="mailto:bowman@math.ualberta.ca">bowman@math.ualberta.ca</a><br>
+<p>
+--- old/clock.c	Thu Oct 30 11:36:21 1997<br>
++++ clock.c	Thu Oct 30 11:50:18 1997<br>
+@@ -133,9 +133,13 @@<br>
+  * V1.4.2axp: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a> (Jay Estabrook)<br>
+  *	 Wed Jan 10 1996, modified to use /dev/port, not inb/outb.<br>
+  *       Reason: LIBC support for inb/outb is hardwired to Alpha EV4 CPU.<br>
++ *<br>
++ * V1.4.2jcb: <a href="mailto:bowman@math.ualberta.ca">bowman@math.ualberta.ca</a> (John Bowman)<br>
++ *   Wed Oct 29 17:33:51 MST 1997 fixed reading of CMOS clock on <br>
++ *   AlphaPC 164LX.<br>
+  */<br>
+ <br>
+-#define VERSION "1.4.2axp"<br>
++#define VERSION "1.4.2jcb"<br>
+ <br>
+ #define USE_DEV_PORT<br>
+ <br>
+@@ -215,6 +219,13 @@<br>
+   exit(1);<br>
+ }<br>
+ <br>
++void delay(unsigned long loops)<br>
++{<br>
++	asm volatile (".align 3\n"<br>
++				  "1:\tsubq %0,1,%0\n\t"<br>
++				  "bge %0,1b": "=r" (loops) : "0" (loops));<br>
++}<br>
++<br>
+ unsigned long op_read(unsigned long reg, unsigned long arg2)<br>
+ {<br>
+   unsigned char v;<br>
+@@ -366,22 +377,16 @@<br>
+       int i;<br>
+ <br>
+ /* read RTC exactly on falling edge of update flag */<br>
+-/* Wait for rise.... (may take upto 1 second) */<br>
++/* Wait for rise.... (may take up to 1 second) */<br>
+ <br>
+-      for (i = 0; i &lt; 10000000; i++)	<br>
+-	if (cmos_read (10) &amp; 0x80)<br>
+-	  break;<br>
++	  while(!(cmos_read (10) &amp; 0x80));<br>
+ <br>
+-/* Wait for fall.... (must try at least 2.228 ms) */<br>
++/* Wait for fall.... */<br>
++	  while(cmos_read (10) &amp; 0x80);<br>
+ <br>
+-      for (i = 0; i &lt; 1000000; i++)	<br>
+-	if (!(cmos_read (10) &amp; 0x80))<br>
+-	  break;<br>
++/* Wait for line to settle */<br>
++	  delay(1000000);<br>
+ <br>
+-/* The purpose of the "do" loop is called "low-risk programming" */<br>
+-/* In theory it should never run more than once */<br>
+-      do<br>
+-	{ <br>
+ 	  tm.tm_sec = cmos_read (0);<br>
+ 	  tm.tm_min = cmos_read (2);<br>
+ 	  tm.tm_hour = cmos_read (4);<br>
+@@ -389,8 +394,7 @@<br>
+ 	  tm.tm_mday = cmos_read (7);<br>
+ 	  tm.tm_mon = cmos_read (8);<br>
+ 	  tm.tm_year = cmos_read (9);<br>
+-	}<br>
+-      while (tm.tm_sec != cmos_read (0));<br>
++<br>
+       if (arcit) { /* Alpha ARC console */<br>
+ 	tm.tm_year += 80;<br>
+       } else {<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0562.html">Andreas Johansson: "Re: Alphastation 500 ethernet"</a>
+<li> <b>Previous message:</b> <a href="0560.html">Jay.Estabrook@digital.com: "Re: tulip.c, em86, netscape, quake -- help? pointers?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,137 @@
+<!-- received="Tue Nov 26 05:41:14 1996 " -->
+<!-- sent="Tue, 26 Nov 1996 10:34:27 +0000" -->
+<!-- name="David A Rusling" -->
+<!-- email="rusling@linux.reo.dec.com" -->
+<!-- subject="Re: Can't get my PC164 to boot" -->
+<!-- id="199611261034.KAA00429@linux.reo.dec.com" -->
+<!-- inreplyto="Can't get my PC164 to boot" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Can't get my PC164 to boot</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Can't get my PC164 to boot</h2>
+
+<b>David A Rusling</b> (<a href="mailto:rusling@linux.reo.dec.com"><i>rusling@linux.reo.dec.com</i></a>)<br>
+<i>Tue, 26 Nov 1996 10:34:27 +0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1172">[ date ]</a><a href="index.html#1172">[ thread ]</a><a href="subject.html#1172">[ subject ]</a><a href="author.html#1172">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1173.html">Anthony Wesley: "DEC Multia (aka UDB) - problems booting"</a>
+<li> <b>Previous message:</b> <a href="1171.html">Scott Manley: "Xanim (again!)"</a>
+<li> <b>Maybe in reply to:</b> <a href="1133.html">Dave Golden: "Can't get my PC164 to boot"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1212.html">Dave Golden: "Re: Can't get my PC164 to boot"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+ Jay Estabrook said:<br>
+ <br>
+<i>&gt; No, MILO does not use SRM PALcode. Only the Evaluation Board PALcode sets</i><br>
+<i>&gt; are available as source, which is what the MILOs are built with. And yes,</i><br>
+<i>&gt; those boxes that aren't EB's are run with modified EB PALcode, like AVANTI</i><br>
+<i>&gt; and MIKASA.</i><br>
+<i>&gt; </i><br>
+<i>&gt; The EB PALcodes are pretty simple, as they don't worry much about</i><br>
+<i>&gt; interrupts, expecting the kernel to take care of finding the interrupt</i><br>
+<i>&gt; summary registers and dispatching to the appropriate handler. See all the</i><br>
+<i>&gt; grotty details in arch/alpha/kernel/irq.c.</i><br>
+<i>&gt; </i><br>
+<i>&gt; When configured for running under SRM console and PALcode, the interrupt</i><br>
+<i>&gt; handling of the kernel expects to be told *which* interrupt has occurred.</i><br>
+<i>&gt; One can't, unfortunately, use the non-SRM interrupt handling routines, like</i><br>
+<i>&gt; alcor_and_xlt_device_interrupt(), when running under SRM, as the interrupt</i><br>
+<i>&gt; summary registers have been changed by the SRM PALcode when *it* decodes the</i><br>
+<i>&gt; interrupt, and so will no longer indicate the appropriate state.  However,</i><br>
+<i>&gt; the update_hw() routine needs to know all the grotty details about where the</i><br>
+<i>&gt; interrupt registers are, under SRM as well as MILO, to properly manage the</i><br>
+<i>&gt; interrupt mask.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Note that the AXPpci33 (NONAME) PALcode built into that MILO, actually</i><br>
+<i>&gt; delivers interrupts the same way as SRM PALcode, so the same kernel will</i><br>
+<i>&gt; run under MILO and SRM PALcodes.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Someday, get Dave Rusling to explain why its beneficial to have the kernel</i><br>
+<i>&gt; know all the interrupt details, as under the EB PALcode.</i><br>
+<i>&gt; </i><br>
+<i>&gt; --Jay++</i><br>
+<p>
+OK, I'll rise to the bait.  Jay says it himself when he makes the point that even<br>
+in the SRM case the kernel has to know an awful lot about the configuration of the<br>
+interrupt handling/routing.<br>
+<p>
+Almost every AXP system produced so far has different interrupt handling and routing.<br>
+Personally I think that several hardware designers should be taken out and shot for<br>
+randomly reinventing interrupt handling.  There are a lot of grotty things about the<br>
+general PC architecture but at least you can pretty much rely on a consistant aproach<br>
+from one Intel box to another.  Take a look at /arch/i386/kernel/irq.c and compare that<br>
+with /arch/alpha/kernel/irq.c and you'll see that the Alpha case is a lot more confusing.<br>
+I would, in a better world, favour a bank of interrupt masks and registers at known I/O<br>
+locations but even that does not help you with routing the PCI interrupts to those<br>
+registers.  Again that differs from board to board, see /arch/alpha/kernel/bios32.c for<br>
+details.<br>
+<p>
+So, for each AXP based system, there has to be software somewhere which understands how<br>
+to set interrupts and how to figure out what caused interrupts.  This interrupt handling<br>
+code cannot all live in the PALcode as it is 'architected' - you may note that Digital<br>
+Unix running on the same boxes as Linux also has different kernels for the different<br>
+boxes.  It has them for exactly the same reasons as Linux does - to route and handle <br>
+interrupts.  This is despite having SRM PALcode which only helps with the interrupt<br>
+delivery and is not freely redistributable.  In other words, we couldn't use the SRM<br>
+PALcode with Linux and not use the SRM.<br>
+<p>
+I believe that the interrupt handling software should be in the kernel.   That way,<br>
+it's all in one place and it's easier to write/debug/port/understand.  However, in<br>
+the early days of AXP Linux we used to have multi-platform kernels by including<br>
+all of the interrupt handling for each {CPU, support chipset} combination in a single<br>
+kernel and using the HWRPB information set up by MILO to call the correct interrupt <br>
+handler.  Maybe we should re-invent this mechanism.<br>
+<p>
+Dave<br>
+<p>
+----------------------------------------------------------------------<br>
+David A Rusling				Principal Engineer<br>
+European Semiconductor Applications	Digital Equipment Co Ltd.,<br>
+	Engineering			PO Box 121,<br>
+					Imperial Way,<br>
+					Worton Grange<br>
+					Reading RG2 0TU<br>
+Linux, Alpha, StrongArm, PCI		Tel: UK-(0)1734-204380<br>
+					Fax: UK-(0)1734-203133<br>
+----------------------------------------------------------------------<br>
+<p>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1173.html">Anthony Wesley: "DEC Multia (aka UDB) - problems booting"</a>
+<li> <b>Previous message:</b> <a href="1171.html">Scott Manley: "Xanim (again!)"</a>
+<li> <b>Maybe in reply to:</b> <a href="1133.html">Dave Golden: "Can't get my PC164 to boot"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1212.html">Dave Golden: "Re: Can't get my PC164 to boot"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

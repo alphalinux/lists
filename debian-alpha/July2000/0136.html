@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: Potato/Xfree401/mutlihead problems</TITLE>
+<META NAME="Author" CONTENT="Thomas W. (kirk@colinet.de)">
+<META NAME="Subject" CONTENT="Re: Potato/Xfree401/mutlihead problems">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Potato/Xfree401/mutlihead problems</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 21 14:34:05 2000" -->
+<!-- isoreceived="20000721213405" -->
+<!-- sent="Fri, 21 Jul 2000 09:16:20 +0200" -->
+<!-- isosent="20000721071620" -->
+<!-- name="Thomas W." -->
+<!-- email="kirk@colinet.de" -->
+<!-- subject="Re: Potato/Xfree401/mutlihead problems" -->
+<!-- id="kirk-1000721091620.A09376@hydra.colinet.de" -->
+<!-- inreplyto="20000720103841.A1177@linux04.mro.dec.com" -->
+<STRONG>Subject: </STRONG>Re: Potato/Xfree401/mutlihead problems<BR>
+<STRONG>From: </STRONG>Thomas W. (<EM>kirk@colinet.de</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Jul 21 2000 - 00:16:20 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#136">[ date ]</A>
+<A HREF="index.html#136">[ thread ]</A>
+<A HREF="subject.html#136">[ subject ]</A>
+<A HREF="author.html#136">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0137.html">Qin Tao: "problem with &quot;man&quot;"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0135.html">Jean-Paul Blaquiere: "Re: login.defs + su"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0129.html">Jay Estabrook: "Re: Potato/Xfree401/mutlihead problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0121.html">Robert Martinovic: "Re: Potato/Xfree401/mutlihead problems"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0129.html">Thomas W.: "Re: Potato/Xfree401/mutlihead problems"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P><EM>&gt; [...]
+</EM><BR>
+<EM>&gt; Another way is to find cards with a VGA-disable switch; this allows
+</EM><BR>
+<EM>&gt; them to be put on bus 0 and not have the BIOS run. Cards that fit this
+</EM><BR>
+<EM>&gt; criterion are the Millennium I's and ELSA Synergys (Permedia 2) that
+</EM><BR>
+<EM>&gt; we (COMPAQ) have sold in the past. Apparently, most commercial versions
+</EM><BR>
+<EM>&gt; (as opposed to our OEM versions) do NOT have this switch.
+</EM><BR>
+<P>I was aware of this. Unfortunately, the G200's don't have a switch like
+<BR>
+that. There is a little ( DOS ) utillity, that allows you to &quot;turn off&quot;
+<BR>
+the BIOS via software. Although - strictly technically speaking - I can
+<BR>
+imagine ways of making this work, I don't know if this really prevents the
+<BR>
+SRM-x86 emulator from touching it during POST- YMMV ;-)
+<BR>
+I have found, that the card *with BIOS disabled* does not show any video
+<BR>
+signal in an x86 machine ( as mentioned in my first posting ), but still
+<BR>
+gets touched by SRM - weird enough, it produces a Pchip error on bus 0
+<BR>
+( I tried it there since SRM only touches it there ) generating a PCI
+<BR>
+parity error - well, yes, this *is* weird.
+<BR>
+Unluckily, I don't have and cannot get hold of Millenium I's anymore 
+<BR>
+here in Germany - believe me, I tried ;-)
+<BR>
+<P><EM>&gt; One other observation: the XFree86 4.0 code is NOT clean WRT handling
+</EM><BR>
+<EM>&gt; cards on multiple primary PCI buses, though it can detect them (as
+</EM><BR>
+<EM>&gt; mentioned in previous postings). The problem area is not the
+</EM><BR>
+<EM>&gt; memory-mapped registers or framebuffers on other than bus 0, but the
+</EM><BR>
+<EM>&gt; use of explicit &quot;legacy&quot; VGA addresses in the code, which will be
+</EM><BR>
+<EM>&gt; forced to bus 0 and NOT the correct bus. We are working on patches for
+</EM><BR>
+<EM>&gt; this situation, and have had some success - one system with an AGP bus
+</EM><BR>
+<EM>&gt; plus 3 PCI buses has had an adapter on each. However, the patches are
+</EM><BR>
+<EM>&gt; not ready for prime time just yet, and do depend on additional kernel
+</EM><BR>
+<EM>&gt; patches to work.
+</EM><BR>
+<P>I even have some more strange bits on this:
+<BR>
+XFree 4.0 did not see the second PCI Bus at all on my UP2000, due to
+<BR>
+a bug in libscanpci - thus X -scanpci and the tool scanpci did not
+<BR>
+see *any* cards on PCI #1. Yes, /proc/pci showed all cards in #1 and
+<BR>
+they were working ( my 3com Ethernet sits there ).
+<BR>
+<P>XFree 4.0.1 does fix this, but generates a kernel Oops on my machine.
+<BR>
+I deleved into this and found out, that they use the pciconfig_read
+<BR>
+call to get the cards from the kernel. Somehow, they got the number
+<BR>
+of available buses wrong. Thus, after successfully calling pciconfig_read
+<BR>
+for buses 0 and 1, they attemped the call for bus 2, which obviously
+<BR>
+isn't there. Just for the reference, I included the Oops below.
+<BR>
+I fixed ( kludged ;-) it, by limiting the max allowed number of PCI
+<BR>
+buses from 32 to 2 - at least that way, I got the scanpci to work correct
+<BR>
+in my setup. See (in Xfree 401 sources ):
+<BR>
+programs/Xserver/hw/xfree86/os-support/bus/Pci.h, line 89 
+<BR>
+and
+<BR>
+programs/Xserver/hw/xfree86/os-support/bus/axpPci.c
+<BR>
+<P>The Oopses were generated on kernels 2.2.14/15/16. I haven't tried 2.3.* or
+<BR>
+even 2.4.0-test* - I feel somewhat reluctant to use unstable kernels on
+<BR>
+my *primary* server/work system, if I see Alan Cox's todo list in the
+<BR>
+kernel-mailing list 8-)
+<BR>
+However, if there are compelling reasons to believe, that my problems are
+<BR>
+fixed with 2.3.x or 2.4.0-*, I might give it a try.
+<BR>
+<P>In the mean time, I probably will use an older x86 system as a multihead
+<BR>
+X-terminal for the Alpha, but I consider this a kludge ( my window-manager
+<BR>
+of choice, fvwm2, crashes frequently if run on a server called via
+<BR>
+X -query &lt;hostname&gt; , but that's another problem ;-).
+<BR>
+<P>So, I am still open to new ideas and suggestions.
+<BR>
+<P>Anyway, thanks for the input :-)
+<BR>
+<P><P>Sincerely,
+<BR>
+Thomas Weyergraf
+<BR>
+<P><PRE>
+-- 
+Thomas Weyergraf                                                kirk@colinet.de
+My Favorite IA64 Opcode-guess ( see arch/ia64/lib/memset.S )
+&quot;br.ret.spnt.few&quot; - got back from getting beer, did not spend a lot.
+<P><P><P>-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0137.html">Qin Tao: "problem with &quot;man&quot;"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0135.html">Jean-Paul Blaquiere: "Re: login.defs + su"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0129.html">Jay Estabrook: "Re: Potato/Xfree401/mutlihead problems"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0121.html">Robert Martinovic: "Re: Potato/Xfree401/mutlihead problems"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0129.html">Thomas W.: "Re: Potato/Xfree401/mutlihead problems"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Aug 01 2000 - 04:53:14 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

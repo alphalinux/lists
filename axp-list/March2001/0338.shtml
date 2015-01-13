@@ -1,0 +1,230 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> Re: memchr bug?  Request for enlightenment (lowercase 'e')</H1> 
+	
+<!-- received="Mon Mar 26 20:47:48 2001" -->
+<!-- isoreceived="20010327044748" -->
+<!-- sent="Mon, 26 Mar 2001 14:37:37 -0600" -->
+<!-- isosent="20010326203737" -->
+<!-- name="Chris Eleveld (Sector 7 Group)" -->
+<!-- email="Chris_Eleveld@sector7.com" -->
+<!-- subject="Re: memchr bug?  Request for enlightenment (lowercase 'e')" -->
+<!-- id="20010326143737.J13715@taarna.sector7.com" -->
+<!-- inreplyto="15039.41702.809052.794191@fuggles.cam.nist.gov" -->
+<STRONG>Subject: </STRONG>Re: memchr bug?  Request for enlightenment (lowercase 'e')<BR>
+<STRONG>From: </STRONG>Chris Eleveld (Sector 7 Group) (<EM>Chris_Eleveld@sector7.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Mar 26 12:37:37 2001
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#338">[ date ]</A>
+<A HREF="index.shtml#338">[ thread ]</A>
+<A HREF="subject.shtml#338">[ subject ]</A>
+<A HREF="author.shtml#338">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0339.shtml">W Bauske: "Re: OT: tape backup"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0337.shtml">michael.donahue@nist.gov: "memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0337.shtml">michael.donahue@nist.gov: "memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0340.shtml">michael.donahue@nist.gov: "Re: memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0337.shtml">Chris Eleveld (Sector 7 Group): "Re: memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Actually this may not be.  You allocate 9 bytes.  Memchr is probably
+<BR>
+implemented using full word or longword fetches.  As such it can be optimized
+<BR>
+to 3 32bit fetches and bit shifts.  Or even 2 64 bit on an alpha.  Since you
+<BR>
+lied and siad your buffer was 79 bytes long.  If on the other hand you used
+<BR>
+9 instead of 79 you could call this a bug.
+<BR>
+<P>On Mon, Mar 26, 2001 at 03:13:26PM -0500, michael.donahue@nist.gov wrote:
+<BR>
+<EM>&gt; While doing some code testing with Electric Fence, I came across the
+</EM><BR>
+<EM>&gt; following curiosity, on a stock RedHat 6.2/AXP system.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Consider the short test program:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    #include &lt;string.h&gt;
+</EM><BR>
+<EM>&gt;    #include &lt;stdlib.h&gt;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    #define TESTSTRING &quot;12345678&quot;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    int main()
+</EM><BR>
+<EM>&gt;    {
+</EM><BR>
+<EM>&gt;      char *p = (char *)malloc(strlen(TESTSTRING)+1);
+</EM><BR>
+<EM>&gt;      strcpy(p,TESTSTRING);
+</EM><BR>
+<EM>&gt;      memchr(p,'\0',79);
+</EM><BR>
+<EM>&gt;      free(p);
+</EM><BR>
+<EM>&gt;      return 0;
+</EM><BR>
+<EM>&gt;    }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; When I compile and run I get
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    $ gcc memchr-test.c -lefence
+</EM><BR>
+<EM>&gt;    $ ./a.out
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;      Electric Fence 2.0.5 Copyright (C) 1987-1998 Bruce Perens.
+</EM><BR>
+<EM>&gt;    Segmentation fault
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It appears that memchr is reading memory past the end of the malloc'ed
+</EM><BR>
+<EM>&gt; region.  I don't know if this is actually a problem or not, but I don't
+</EM><BR>
+<EM>&gt; see this behavior on Linux/x86 or Solaris.  Incidentally, I can replace
+</EM><BR>
+<EM>&gt; '\0' above with '5', '6', '7' or '8' with the same results.  OTOH, '4'
+</EM><BR>
+<EM>&gt; is okay, and I see no segfault with strlen().
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; So, is this a bug?  Has it been fixed in newer libc?
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; BTW, the *printf family uses memchr in its %.ns conversions, e.g.,
+</EM><BR>
+<EM>&gt; the following code exhibits the same behavior:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    #include &lt;stdio.h&gt;
+</EM><BR>
+<EM>&gt;    #include &lt;string.h&gt;
+</EM><BR>
+<EM>&gt;    #include &lt;stdlib.h&gt;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    #define TESTSTRING &quot;12345678&quot;
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt;    int main()
+</EM><BR>
+<EM>&gt;    {
+</EM><BR>
+<EM>&gt;      char *p = (char *)malloc(strlen(TESTSTRING)+1);
+</EM><BR>
+<EM>&gt;      strcpy(p,TESTSTRING);
+</EM><BR>
+<EM>&gt;      printf(&quot;%.79s\n&quot;,p);
+</EM><BR>
+<EM>&gt;      free(p);
+</EM><BR>
+<EM>&gt;      return 0;
+</EM><BR>
+<EM>&gt;    }
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -m
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; Michael J. Donahue
+</EM><BR>
+<EM>&gt; National Institute of Standards and Technology
+</EM><BR>
+<EM>&gt; Mathematical &amp; Computational Sciences Division
+</EM><BR>
+<EM>&gt; 100 Bureau Dr Stop 8910
+</EM><BR>
+<EM>&gt; Gaithersburg, MD 20899-8910
+</EM><BR>
+<EM>&gt; email: michael.donahue@nist.gov
+</EM><BR>
+<EM>&gt; voice: (301) 975-5424
+</EM><BR>
+<EM>&gt;   fax: (301) 990-4127
+</EM><BR>
+<EM>&gt;   web: <A HREF="http://math.nist.gov/~MDonahue/">http://math.nist.gov/~MDonahue/</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; _______________________________________________
+</EM><BR>
+<EM>&gt; Axp-list mailing list
+</EM><BR>
+<EM>&gt; Axp-list@redhat.com
+</EM><BR>
+<EM>&gt; https://listman.redhat.com/mailman/listinfo/axp-list
+</EM><BR>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0339.shtml">W Bauske: "Re: OT: tape backup"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0337.shtml">michael.donahue@nist.gov: "memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0337.shtml">michael.donahue@nist.gov: "memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0340.shtml">michael.donahue@nist.gov: "Re: memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0337.shtml">Chris Eleveld (Sector 7 Group): "Re: memchr bug?  Request for enlightenment (lowercase 'e')"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Tue Apr 10 10:35:32 2001 PDT <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

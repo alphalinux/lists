@@ -1,0 +1,151 @@
+<!-- received="Wed Nov 13 17:57:50 1996 " -->
+<!-- sent="Wed, 13 Nov 1996 17:40:34 -0500" -->
+<!-- name="Przemek Klosowski" -->
+<!-- email="przemek@rrdjazz.nist.gov" -->
+<!-- subject="Re: profiles of gcc available" -->
+<!-- id="199611132240.RAA19556@rrdjazz.nist.gov" -->
+<!-- inreplyto="profiles of gcc available" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: profiles of gcc available</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: profiles of gcc available</h2>
+
+<b>Przemek Klosowski</b> (<a href="mailto:przemek@rrdjazz.nist.gov"><i>przemek@rrdjazz.nist.gov</i></a>)<br>
+<i>Wed, 13 Nov 1996 17:40:34 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#627">[ date ]</a><a href="index.html#627">[ thread ]</a><a href="subject.html#627">[ subject ]</a><a href="author.html#627">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0628.html">David Morton: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0626.html">Robert Williams: "Milo on pc164"</a>
+<li> <b>Maybe in reply to:</b> <a href="0562.html">Jim Nance: "profiles of gcc available"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+   A simple example suffices - compile the following on your x86 box  <br>
+   and on an ALPHA, say with -O2:<br>
+<p>
+   void copy(char *s, char *d)<br>
+   {<br>
+	   while (*d++ = *s++)<br>
+		   ;<br>
+   }<br>
+<p>
+   This code uses three instructions in the loop on my m68k machine -  <br>
+   including the jump (which is one more than necessary).  I would be  <br>
+   surprised if the number of instructions on an ALPHA would be less  <br>
+   than ten.  On the granddaddy of supercomputers, the Cray Y-MP, it  <br>
+   takes over 80 instructions.<br>
+<p>
+That is an interesting exercise in watching compiler microoptimization.<br>
+On Intel, gcc 2.7.2 -O2, this is translated to<br>
+.L7:<br>
+        movb (%ecx),%al<br>
+        movb %al,(%edx)<br>
+        incl %ecx<br>
+        incl %edx<br>
+        testb %al,%al<br>
+        jne .L7<br>
+<p>
+Since there is no autoincrement mode on Intel, the increments have to be there.<br>
+I don't know enough of Intel assembly language to tell if it can be improved upon.<br>
+<p>
+BTW, gcc without optimization does a jump to a jump at the end of the loop; the<br>
+rest of the code is identical.<br>
+<p>
+On Alpha/Linux, using the same version of gcc, the above code is<br>
+$34:<br>
+        ldq_u $3,0($16)<br>
+        ldq_u $2,0($17)<br>
+        extbl $3,$16,$3<br>
+        mskbl $2,$17,$2<br>
+        insbl $3,$17,$1<br>
+        addq $16,1,$16<br>
+        bis $1,$2,$1<br>
+        stq_u $1,0($17)<br>
+        addq $17,1,$17<br>
+        bne $3,$34<br>
+<p>
+while on Alpha/Digital using DEC cc:<br>
+<p>
+ #    3         while (*d++ = *s++)<br>
+        .set     noat<br>
+        lda     $28, 1($16)<br>
+        ldq_u   $0, 0($16)<br>
+        extqh   $0, $28, $0<br>
+        sra     $0, 56, $0<br>
+        .set     at<br>
+        .set     noat<br>
+        ldq_u   $28, 0($17)<br>
+        insbl   $0, $17, $1<br>
+        mskbl   $28, $17, $28<br>
+        bis     $28, $1, $28<br>
+        stq_u   $28, 0($17)<br>
+        .set     at<br>
+        addq    $17, 1, $17<br>
+        addq    $16, 1, $16<br>
+        beq     $0, $33<br>
+        .align  3<br>
+$32:<br>
+        .loc    2 4<br>
+ #    4                 ;<br>
+        .set     noat<br>
+        lda     $28, 1($16)<br>
+        ldq_u   $0, 0($16)<br>
+        extqh   $0, $28, $0<br>
+        sra     $0, 56, $0<br>
+        .set     at<br>
+        .set     noat<br>
+        ldq_u   $28, 0($17)<br>
+        insbl   $0, $17, $2<br>
+        mskbl   $28, $17, $28<br>
+        bis     $28, $2, $28<br>
+        stq_u   $28, 0($17)<br>
+        .set     at<br>
+        addq    $17, 1, $17<br>
+        addq    $16, 1, $16<br>
+        bne     $0, $32<br>
+        .loc    2 5<br>
+ #    5 }<br>
+$33:<br>
+<p>
+Funny, the DEC version doesn't strike me as faster, even if it fills<br>
+latencies/scheduling better (I haven't timed it, though).<br>
+<p>
+	p<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0628.html">David Morton: "Re: Red Hat vs Craftworks Linux AXP"</a>
+<li> <b>Previous message:</b> <a href="0626.html">Robert Williams: "Milo on pc164"</a>
+<li> <b>Maybe in reply to:</b> <a href="0562.html">Jim Nance: "profiles of gcc available"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

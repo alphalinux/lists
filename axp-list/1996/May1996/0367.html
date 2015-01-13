@@ -1,0 +1,188 @@
+<!-- received="Thu May 23 12:16:52 1996 " -->
+<!-- sent="Thu, 23 May 1996 12:16:52 +0200" -->
+<!-- name="Martin Ostermann" -->
+<!-- email="ost@comnets.rwth-aachen.de" -->
+<!-- subject="`/sbin/clock' for the Jensen" -->
+<!-- id="199605231016.MAA05656@smeagol.comnets.rwth-aachen.de" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>`/sbin/clock' for the Jensen</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>`/sbin/clock' for the Jensen</h2>
+
+<b>Martin Ostermann</b> (<a href="mailto:ost@comnets.rwth-aachen.de"><i>ost@comnets.rwth-aachen.de</i></a>)<br>
+<i>Thu, 23 May 1996 12:16:52 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#367">[ date ]</a><a href="index.html#367">[ thread ]</a><a href="subject.html#367">[ subject ]</a><a href="author.html#367">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0368.html">Martin Ostermann: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<li> <b>Previous message:</b> <a href="0366.html">David Mosberger-Tang: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0369.html">David Mosberger-Tang: "Re: `/sbin/clock' for the Jensen"</a>
+<li> <b>Maybe reply:</b> <a href="0369.html">David Mosberger-Tang: "Re: `/sbin/clock' for the Jensen"</a>
+<li> <b>Maybe reply:</b> <a href="0371.html">Martin Ostermann: "Re: `/sbin/clock' for the Jensen"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+last night I patched `clock' to add an option for Jensen systems. If<br>
+the `-J' option is supplied, it will now use port 0x170 instead of<br>
+0x70 as the base for the real-time-clock. Seems to work fine. The<br>
+patch is based on util-linux-2.5-10.src.rpm. This does _not_ address<br>
+the 20 years off problem of the old firmware, though.<br>
+<p>
+A binary version is available from<br>
+<p>
+	<a href="http://www.comnets.rwth-aachen.de/~ost/alpha/alpha.html">http://www.comnets.rwth-aachen.de/~ost/alpha/alpha.html</a><br>
+<p>
+Have fun, Martin<br>
+<p>
+<p>
+<p>
+<p>
+diff -rbu util-linux-2.5/sys-utils/clock.8 util-linux-2.5axp-3/sys-utils/clock.8<br>
+--- util-linux-2.5/sys-utils/clock.8	Wed May 22 23:16:44 1996<br>
++++ util-linux-2.5axp-3/sys-utils/clock.8	Wed May 22 23:08:21 1996<br>
+@@ -24,6 +24,9 @@<br>
+ .B \-A<br>
+ Indicates that the clock is in the ARC Console's time<br>
+ .TP<br>
++.B \-J<br>
++Indicates that the system is a Jensen/Axp machine<br>
++.TP<br>
+ .B \-r<br>
+ Read CMOS clock and print the result to stdout.<br>
+ .TP<br>
+diff -rbu util-linux-2.5/sys-utils/clock.c util-linux-2.5axp-3/sys-utils/clock.c<br>
+--- util-linux-2.5/sys-utils/clock.c	Wed May 22 23:16:45 1996<br>
++++ util-linux-2.5axp-3/sys-utils/clock.c	Wed May 22 23:01:29 1996<br>
+@@ -133,9 +133,13 @@<br>
+  * V1.4.2axp: <a href="mailto:jestabro@amt.tay1.dec.com">jestabro@amt.tay1.dec.com</a> (Jay Estabrook)<br>
+  *	 Wed Jan 10 1996, modified to use /dev/port, not inb/outb.<br>
+  *       Reason: LIBC support for inb/outb is hardwired to Alpha EV4 CPU.<br>
++ *<br>
++ * V1.4.3axp: <a href="mailto:ost@coments.rwth-aachen.de">ost@coments.rwth-aachen.de</a> (Martin Ostermann)<br>
++ *	 Wed May 22 1996, modified to support J option for the Jensen<br>
++ *       Reason: on a Jensen the RTC is at 0x170 instead of 0x70 <br>
+  */<br>
+ <br>
+-#define VERSION "1.4.2axp"<br>
++#define VERSION "1.4.3axp"<br>
+ <br>
+ #define USE_DEV_PORT<br>
+ <br>
+@@ -165,6 +169,7 @@<br>
+ int universal = 0;<br>
+ int debug = 0;<br>
+ int arcit = 0;<br>
++int jensen = 0;<br>
+ const char *pgm_name;<br>
+ <br>
+ #ifdef USE_DEV_PORT<br>
+@@ -182,6 +187,7 @@<br>
+     "  a: get system time and adjust CMOS clock\n"<br>
+     "  u: CMOS clock is in universal time\n"<br>
+     "  A: CMOS clock is in Alpha ARC console time\n"<br>
++    "  J: we are running on an Alpha Jensen\n"<br>
+     "  v: print version (" VERSION ") and exit\n", pgm_name<br>
+   );<br>
+   exit (1);<br>
+@@ -221,14 +227,14 @@<br>
+ <br>
+ #ifdef USE_DEV_PORT<br>
+   v = reg | 0x80;<br>
+-  lseek(dev_port_fd, 0x70, 0);<br>
++  lseek(dev_port_fd, 0x70 + jensen, 0);<br>
+   write(dev_port_fd, &amp;v, 1);<br>
+-  lseek(dev_port_fd, 0x71, 0);<br>
++  lseek(dev_port_fd, 0x71 + jensen, 0);<br>
+   read(dev_port_fd, &amp;v, 1);<br>
+   return v;<br>
+ #else<br>
+-  outb (reg | 0x80, 0x70);<br>
+-  return inb (0x71);<br>
++  outb (reg | 0x80, 0x70 + jensen);<br>
++  return inb (0x71 + jensen);<br>
+ #endif<br>
+ }<br>
+ <br>
+@@ -238,14 +244,14 @@<br>
+ <br>
+ #ifdef USE_DEV_PORT<br>
+   v = reg | 0x80;<br>
+-  lseek(dev_port_fd, 0x70, 0);<br>
++  lseek(dev_port_fd, 0x70 + jensen, 0);<br>
+   write(dev_port_fd, &amp;v, 1);<br>
+   v = val &amp; 0xff;<br>
+-  lseek(dev_port_fd, 0x71, 0);<br>
++  lseek(dev_port_fd, 0x71 + jensen, 0);<br>
+   write(dev_port_fd, &amp;v, 1);<br>
+ #else<br>
+-  outb (reg | 0x80, 0x70);<br>
+-  outb (val, 0x71);<br>
++  outb (reg | 0x80, 0x70 + jensen);<br>
++  outb (val, 0x71 + jensen);<br>
+ #endif<br>
+   return 0;<br>
+ }<br>
+@@ -303,7 +309,7 @@<br>
+   int adjustment = 0;<br>
+ <br>
+   pgm_name = argv[0];<br>
+-  while ((arg = getopt (argc, argv, "rwsuaADv")) != -1)<br>
++  while ((arg = getopt (argc, argv, "rwsuaAJDv")) != -1)<br>
+     {<br>
+       switch (arg)<br>
+ 	{<br>
+@@ -324,6 +330,9 @@<br>
+ 	  break;<br>
+         case 'A':<br>
+ 	  arcit = 1;<br>
++	  break;<br>
++        case 'J':<br>
++	  jensen = 0x100;<br>
+ 	  break;<br>
+         case 'D':<br>
+ 	  debug = 1;<br>
+<p>
+<p>
+<pre>
+-- 
+Martin Ostermann                | <a href="mailto:ost@comnets.rwth-aachen.de">mailto:ost@comnets.rwth-aachen.de</a>
+Communication Networks          | <a href="http://www.comnets.rwth-aachen.de/~ost">http://www.comnets.rwth-aachen.de/~ost</a>
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0368.html">Martin Ostermann: "Re: Relply-To: Header, was: Re: Jensen Firmware: apologies!"</a>
+<li> <b>Previous message:</b> <a href="0366.html">David Mosberger-Tang: "Re: gdb improvement for printing FP values, and Linux/Alpha FP bug?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0369.html">David Mosberger-Tang: "Re: `/sbin/clock' for the Jensen"</a>
+<li> <b>Maybe reply:</b> <a href="0369.html">David Mosberger-Tang: "Re: `/sbin/clock' for the Jensen"</a>
+<li> <b>Maybe reply:</b> <a href="0371.html">Martin Ostermann: "Re: `/sbin/clock' for the Jensen"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

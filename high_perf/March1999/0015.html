@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance List: Re: sqrt performance</TITLE>
+<META NAME="Author" CONTENT="Joachim Wesner (Joachim.Wesner@frankfurt.netsurf.de)">
+<META NAME="Subject" CONTENT="Re: sqrt performance">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: sqrt performance</H1>
+<HR>
+<P>
+<!-- received="Thu Mar 04 19:59:00 1999 PST" -->
+<!-- sent="Thu, 04 Mar 1999 19:30:32 +0100" -->
+<!-- name="Joachim Wesner" -->
+<!-- email="Joachim.Wesner@frankfurt.netsurf.de" -->
+<!-- subject="Re: sqrt performance" -->
+<!-- id="36DED148.2FC2AF00@frankfurt.netsurf.de" -->
+<!-- inreplyto="199903040515.WAA19477@ellpspace.math.ualberta.ca" -->
+<STRONG>Joachim Wesner</STRONG> (<A HREF="mailto:Joachim.Wesner@frankfurt.netsurf.de?subject=Re:%20sqrt%20performance"><EM>Joachim.Wesner@frankfurt.netsurf.de</EM></A>)<BR>
+<EM>Thu, 04 Mar 1999 19:30:32 +0100</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#15">[ date ]</A>
+<A HREF="index.html#15">[ thread ]</A>
+<A HREF="subject.html#15">[ subject ]</A>
+<A HREF="author.html#15">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Joachim Wesner: "Re: sqrt performance, further comment."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0012.html">Michal Jaegermann: "Re: sqrt performance"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Michal Jaegermann wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; esci wrote:
+</EM><BR>
+<EM>&gt; &gt;
+</EM><BR>
+<EM>&gt; &gt; I'm currently looking into using a table driven Taylor's series expansion.
+</EM><BR>
+<EM>&gt; &gt; Hint's and suggestions *very* welcome.  I need to do this over the range
+</EM><BR>
+<EM>&gt; &gt; from 0 to 100,000,000  w/ the roots off by less than 1
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If you reduce that to an interval [0,1) this would mean that you
+</EM><BR>
+<EM>&gt; need 10 decimal places.  A decent polynomial approximation plus one
+</EM><BR>
+<EM>&gt; step of a Newton iteration should bring you in that range, I think.
+</EM><BR>
+<P>Not necessarily, at least not for high (aka. full 16 digits). There is a
+<BR>
+reason that there is no polynomial based approximation for sqrt in
+<BR>
+libffm.
+<BR>
+<P>First, you want uniform *relative* precision for the function over the
+<BR>
+full range, so 0..1 won't work. However, you can take acount of the
+<BR>
+floating point format and only operate on the mantissa and 0.25..1 or
+<BR>
+0.5..1 using frexp and ldexp (which however, are notoriously ineffective
+<BR>
+when using the C lib routine, clearly, you NEED assembler here).
+<BR>
+Unfortunatelly, sqrt is notoriusly ugly in approximating even for small
+<BR>
+intervalls, you need much higher orders (and large coefficients for the
+<BR>
+high orders, i.e. bad with respect to numerical stability) compared to
+<BR>
+say sin(), which is much more well behaved.
+<BR>
+<P>However, assuming you go for 0.5..1 where you probably need to adjust
+<BR>
+the result by sqrt(0.5) (further slowdown, you need to test it and
+<BR>
+decide) and you want 1e-10 final *relative* precision, you need better
+<BR>
+1e-5 rel. precision before the final Newton step.
+<BR>
+<P>If anybody wants to give it a try, here are the coefficients for a
+<BR>
+(nearly) minimax relative prec. polynomial:
+<BR>
+<P>For better 1e-5 rel. precision from 0.5..1 you already need a 5th order
+<BR>
+polynomial with the coefficients
+<BR>
+<P>A 0: 
+<BR>
+2.07200449623728886e-001                                                  
+<BR>
+A 1: 
+<BR>
+1.45700060266363978e+000                                                  
+<BR>
+A 2:
+<BR>
+-1.34960056099104825e+000                                                  
+<BR>
+A 3: 
+<BR>
+1.11173630566745442e+000                                                  
+<BR>
+A 4:
+<BR>
+-5.38779078465377500e-001                                                  
+<BR>
+A 5: 
+<BR>
+1.12443059720350031e-001                                                  
+<BR>
+<P>(i.e. A0 + x*A1 + x*x*A2 ...)
+<BR>
+<P>which gives you better than ~ 1.4e-6 rel. precision.
+<BR>
+<P>If you go for only forth order, you get
+<BR>
+<P>A 0: 
+<BR>
+2.30280650419599074e-001                                                  
+<BR>
+A 1: 
+<BR>
+1.29379894493964541e+000                                                  
+<BR>
+A 2:
+<BR>
+-8.94996784387289337e-001                                                  
+<BR>
+A 3: 
+<BR>
+4.88028708781137845e-001                                                  
+<BR>
+A 4:
+<BR>
+-1.17117604514064883e-001                                                  
+<BR>
+&nbsp;&nbsp;
+<BR>
+however, max. rel. error here is  just above the range, i.e. 1.1e-5
+<BR>
+<P>Compared to that, for 1e-8 or better 1e-9 initial rel. precision for a
+<BR>
+full prec. version, you need &gt;= 9th order, slow to evaluate on a machine
+<BR>
+with pipled floating point unit. You can &quot;vectorize&quot; it by some tricks,
+<BR>
+that are actually usued in libffm, but you have to further sacrifice
+<BR>
+some precision for that.
+<BR>
+<P><P>I would be interested in the result you get, however, I fear, you won't
+<BR>
+be able to beat the new libcpml speed !?
+<BR>
+<P>Best wishes,
+<BR>
+<P>Joachim
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0014.html">Joachim Wesner: "Re: sqrt performance, further comment."</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0012.html">Michal Jaegermann: "Re: sqrt performance"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Mar 04 1999 - 12:00:17 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

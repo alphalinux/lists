@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: how to get at SRM flash ROM?</TITLE>
+<META NAME="Author" CONTENT="Quant-X Alpha Linux Support (stefan@sime.com)">
+<META NAME="Subject" CONTENT="Re: how to get at SRM flash ROM?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: how to get at SRM flash ROM?</H1>
+<HR>
+<P>
+<!-- received="Thu Apr 29 15:50:25 1999 PDT" -->
+<!-- sent="Thu, 29 Apr 1999 10:08:32 +0200" -->
+<!-- name="Quant-X Alpha Linux Support" -->
+<!-- email="stefan@sime.com" -->
+<!-- subject="Re: how to get at SRM flash ROM?" -->
+<!-- id="19990429100832.A1538@stefan.sime.com" -->
+<!-- inreplyto="19990428224316.A5738@snowball.ucd.ie" -->
+<STRONG>Quant-X Alpha Linux Support</STRONG> (<A HREF="mailto:stefan@sime.com?subject=Re:%20how%20to%20get%20at%20SRM%20flash%20ROM?"><EM>stefan@sime.com</EM></A>)<BR>
+<EM>Thu, 29 Apr 1999 10:08:32 +0200</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#815">[ date ]</A>
+<A HREF="index.html#815">[ thread ]</A>
+<A HREF="subject.html#815">[ subject ]</A>
+<A HREF="author.html#815">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0814.html">Jeff DeMaagd: "Cheap multias?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi Nikita, Jack !
+<BR>
+<P>On Wed, Apr 28, 1999 at 10:43:16PM +0100, Nikita Schmidt wrote:
+<BR>
+<EM>&gt; On Wednesday, 28 Apr, Jack Wathey wrote:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; My question: Is there any way to read and write the values in
+</EM><BR>
+<EM>&gt; &gt; these SRM environment variables from a C program running under
+</EM><BR>
+<EM>&gt; &gt; Linux (i.e., after the kernel has booted and the system is up
+</EM><BR>
+<EM>&gt; &gt; and running)?  If so, how?
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; If you boot straight from SRM (not via MILO), the answer seems to be
+</EM><BR>
+<EM>&gt; yes, although the procedure is not very simple.  You need to write a
+</EM><BR>
+<EM>&gt; kernel module that would call srm_dispatch(CCB_..._ENV, ...) for you.
+</EM><BR>
+<EM>&gt; See &lt;asm/console.h&gt; for details and arch/alpha/boot/main.c for examples.
+</EM><BR>
+<EM>&gt; I don't know if srm_fixup is needed or not; hopefully not.
+</EM><BR>
+<P>A complete different idea ...
+<BR>
+... even if it doesn't solve exactly Jack's problem.
+<BR>
+<P>Write an expect-like script and do the settings on serial console.
+<BR>
+Here an (bad ?) example:
+<BR>
+<P>It set's up SRM for diskless/headless booting and also grabs the MAC address
+<BR>
+(needed for bootptab on the server).
+<BR>
+<P>I normally start the script this way.
+<BR>
+<P>./DislessCFG &lt; /dev/ttyS0 &gt; /dev/ttyS0 2&gt;&gt;mac.out 
+<BR>
+<P>----------------------------------------
+<BR>
+<P>#!/usr/bin/expectk -f
+<BR>
+<P>proc sput { str } {
+<BR>
+&nbsp;&nbsp;.l configure -text &quot;$str&quot;
+<BR>
+&nbsp;&nbsp;exp_send  &quot;$str\r&quot;
+<BR>
+&nbsp;&nbsp;expect &quot;&gt;&gt;&gt;&quot;
+<BR>
+<P>}
+<BR>
+<P>proc GetMAC { } {
+<BR>
+exp_send &quot;sh dev ewa0\r&quot;
+<BR>
+# catching command echo
+<BR>
+expect  &quot;\r&quot;
+<BR>
+# catching MAC
+<BR>
+expect  -re &quot;.* .* (.*)\r&quot;
+<BR>
+.l configure -text &quot;$expect_out(1,string)&quot;
+<BR>
+puts stderr &quot;$expect_out(1,string)&quot;
+<BR>
+expect &quot;&gt;&gt;&gt;&quot;
+<BR>
+}
+<BR>
+<P>proc ConfigureSystem { } {
+<BR>
+set timeout -1
+<BR>
+&nbsp;&nbsp;.l configure -text &quot;*** dedecting machine ***&quot;
+<BR>
+sput &quot;&quot;
+<BR>
+sput &quot;&quot;
+<BR>
+&nbsp;&nbsp;.l configure -text &quot;*** starting configuration process ***&quot;
+<BR>
+sput &quot;set oem_string \&quot;Another Quant-X Beowulf Cluster\&quot;&quot;
+<BR>
+sput &quot;set console serial&quot;
+<BR>
+sput &quot;set ewa0_protocols bootp&quot;
+<BR>
+sput &quot;set ewa0_mode FastFD&quot;
+<BR>
+sput &quot;set ewa0_bootp_tries 9999&quot;
+<BR>
+sput &quot;set ewa0_tftp_tries 9999&quot;
+<BR>
+sput &quot;set bootdef_dev ewa0&quot;
+<BR>
+sput &quot;set boot_osflags \&quot;root=/dev/nfs console=ttyS0\&quot;&quot;
+<BR>
+sput &quot;set auto_action RESTART&quot;
+<BR>
+GetMAC
+<BR>
+&nbsp;&nbsp;.l configure -text &quot;*** Done ***&quot;
+<BR>
+}
+<BR>
+<P>proc main {} {
+<BR>
+button .r -text &quot;Configure&quot; -command ConfigureSystem
+<BR>
+button .b -text &quot;... goto hell&quot; -command exit
+<BR>
+label .l -text &quot;--- uninitialized ---&quot; -width 80
+<BR>
+pack .r .b .l
+<BR>
+<P>}
+<BR>
+<P>main
+<BR>
+<P>----------------------------------------
+<BR>
+<P>Unlike older kernels, nfsroot now mounts r/o by default
+<BR>
+so you need to change the script a bit (or hack the kernel).
+<BR>
+<P>For shure, this is not a good solution if you have already
+<BR>
+a running system, because you must interrupt SRM while auto-booting
+<BR>
+(by sending Ctrl-C).
+<BR>
+<P><PRE>
+-- 
+  ciao -
+    Stefan Traby
+    Quant-X Alpha Linux Support
+<P>   Quant-X Service &amp;                         Ph:  (+43) 4212 90555-0
+   Consulting Ges.m.b.H.                     Fax: (+43) 4212 90555-555
+   <A HREF="http://www.quant-x.com">http://www.quant-x.com</A>                    Email: <A HREF="mailto:support@quant-x.com?subject=Re:%20how%20to%20get%20at%20SRM%20flash%20ROM?">support@quant-x.com</A>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20how%20to%20get%20at%20SRM%20flash%20ROM?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20how%20to%20get%20at%20SRM%20flash%20ROM?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0814.html">Jeff DeMaagd: "Cheap multias?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Apr 29 1999 - 09:00:10 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

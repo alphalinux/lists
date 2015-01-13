@@ -1,0 +1,317 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: how to optimize dgemm? No.4</TITLE>
+<META NAME="Author" CONTENT="Kazushige Goto (goto@statabo.rim.or.jp)">
+<META NAME="Subject" CONTENT="how to optimize dgemm? No.4">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>how to optimize dgemm? No.4</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:35 1999 EST" -->
+<!-- sent="Sun, 20 Dec 1998 23:43:22 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="how to optimize dgemm? No.4" -->
+<!-- id="19981220234322A.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="19981219000636T.goto@statabo.rim.or.jp" -->
+<STRONG>Kazushige Goto</STRONG> (<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.4"><EM>goto@statabo.rim.or.jp</EM></A>)<BR>
+<EM>Sun, 20 Dec 1998 23:43:22 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#30">[ date ]</A>
+<A HREF="index.html#30">[ thread ]</A>
+<A HREF="subject.html#30">[ subject ]</A>
+<A HREF="author.html#30">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0031.html">Adam C. Powell: "Re: little unrolling trick"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0029.html">Jonathan L Dubois: "slightly off topic: gdb and stepping over doubles"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is a 4th part document of DGEMM.
+<BR>
+<P>6. Alpha assembler instruction
+<BR>
+<P>Alpha is a load-store architecture, so instructions are pretty simple.
+<BR>
+<P>&nbsp;&nbsp;load(ldt)  -&gt;  multiply(mult)  -&gt;  add(addt)  -&gt;  store(stt)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(simplify of matrix-matrix multiply)
+<BR>
+<P>(a) registers
+<BR>
+<P>Alpha has 32 integer($0, $1, ... , $31) and 32 floating point
+<BR>
+registers($f0, $f1, ..., $f31).  All of registers are available
+<BR>
+architecturaly.  But there are some limitations on Linux or Digital
+<BR>
+UNIX.
+<BR>
+<P>Integer Registers
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$0  - $8, $22 - $25, $28	: Free, $0 is a return value
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$9  - $15			: need to be saved if you use
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$16 - $21			: Free, but used as argument value
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$26				: return address
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$27				: entry address but you may use.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$29				: Global Pointer
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$30				: Stack Pointer
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$31				: Zero register.
+<BR>
+<P>Floating point Registers
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$f0,$f1,$f10-$f15,$f22-$f30	: Free, $f0 is a return value
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$f2  - $f9			: need to be saved if you use
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$f16 - $f21			: Free, but used as argument value
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;$f31			: Zero register.
+<BR>
+<P><P>(b) load instruction
+<BR>
+<P>&nbsp;example
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Correspond to C source
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ldt  $f0,  0($1)		# $f0 = *($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ldt  $f1,  8($1)		# $f1 = *($1 + 1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ldt  $f2, 16($1)		# $f2 = *($1 + 2)
+<BR>
+<P>This mean, $1 is a base address, and 0, 8, 16 are offset from $1, and
+<BR>
+load to $f0, $f1, $f2 from memory.  Two &quot;ldt&quot; instruction can issue in 
+<BR>
+one clock.  
+<BR>
+<P>Therefore, this example takes 2 clocks, but we do not know how long
+<BR>
+it takes until $f0 - $f2 are available.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data in 1st level cache :   2 clocks
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data in 2nd level cache :   8 clocks
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data in 3rd level cache :  27 clocks(21164A 600MHz, PC164LX)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data in main memory     : 134 clocks(21164A 600MHz, PC164LX)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Page fault/DTB miss     : ???
+<BR>
+<P>So, we must issue load instruction in advance(8 clocks or more) if
+<BR>
+we want to use 2nd cache enough without stall.
+<BR>
+<P><P>(b) multiply and add instruction
+<BR>
+<P>21164 can issue mutliply and add instruction on one clock except for 
+<BR>
+resource conflicts.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+<P>But it takes 4 clocks until $f2 and $f5 are available(latency).  So,
+<BR>
+we must put other useful instructions. For example,
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f6,  $f7,  $f8	# $f8  = $f6 * $f7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f9,  $f10, $f11    # $f11 = $f9 + $f10
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f12, $f13, $f14	# $f14 = $f12 * $f13
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f15, $f16, $f17    # $f17 = $f15 + $f16
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f18, $f19, $f20	# $f20 = $f18 * $f19
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f21, $f22, $f23    # $f23 = $f21 + $f22
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$f2 and $f5 are available at last.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f2,  $f5,  $f24	# $f24 = $f2 * $f5
+<BR>
+<P>There are some examples about mutiply and add instructions.
+<BR>
+<P>ex.1 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 5 clocks, because $f2 is conflicted */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f2,  $f4,  $f5     # $f5 = $f2 + $f4
+<BR>
+<P>ex.2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock if $f0 and $f1 are available */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f0,  $f1,  $f3     # $f3 = $f0 + $f1
+<BR>
+<P>ex.3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock, I use a lot of this case in gemm routine */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f0,  $f1,  $f0     # $f0 = $f0 + $f1
+<BR>
+<P>ex.4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 2 clocks */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f3     # $f3 = $f0 * $f1
+<BR>
+<P><P>(c) store instruction
+<BR>
+<P>Store instrucion is almost same as load instruction, but can issue
+<BR>
+only one instruction in one clock.  21164 can not issue load and store 
+<BR>
+instructions simultaneously.
+<BR>
+<P><P>(d) slot
+<BR>
+<P>21164 simultaneously issues instructions with a &quot;slot&quot; which consist
+<BR>
+of 2-integerinstruction(includes load/store instructions) and
+<BR>
+2-floating point operation unless any resource conflicts.
+<BR>
+<P>The combination of inter instruction is pretty flexible, but one of
+<BR>
+floating point instruction is limited(see above).
+<BR>
+<P>ex.1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f0, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addq  $1, 8, $1
+<BR>
+<P>ex.2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f0, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f3, 8($1)
+<BR>
+<P>ex.3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 1 clock */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f0, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f3, 8($1)
+<BR>
+<P>ex.4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 3 clocks or more over */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f0, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f3, 8($1)
+<BR>
+<P>ex.5
+<BR>
+/* 2 clocks, because can not issue load and tore instrucions simultaneously */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt   $f0, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt   $f6, 8($1)
+<BR>
+<P>ex.6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* 2 clocks, because can not issue 2-store instrucions simultaneously */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt   $f4, 0($1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt   $f6, 8($1)
+<BR>
+<P><P>Continue to No. 5
+<BR>
+<P>Thanks,
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20how%20to%20optimize%20dgemm?%20No.4">goto@statabo.rim.or.jp</A>
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0031.html">Adam C. Powell: "Re: little unrolling trick"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0029.html">Jonathan L Dubois: "slightly off topic: gdb and stepping over doubles"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0032.html">Kazushige Goto: "how to optimize dgemm? No.5"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:40 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

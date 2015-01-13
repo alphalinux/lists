@@ -1,0 +1,385 @@
+<!-- received="Sun Jan 26 16:22:44 1997 " -->
+<!-- sent="Sun, 26 Jan 1997 13:18:57 -0800 (PST)" -->
+<!-- name="a sun" -->
+<!-- email="asun@zoology.washington.edu" -->
+<!-- subject="clocks and axp" -->
+<!-- id="199701262118.NAA25759@zoogx.zoology.washington.edu" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redh" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>clocks and axp</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>clocks and axp</h2>
+
+<b>a sun</b> (<a href="mailto:asun@zoology.washington.edu"><i>asun@zoology.washington.edu</i></a>)<br>
+<i>Sun, 26 Jan 1997 13:18:57 -0800 (PST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#787">[ date ]</a><a href="index.html#787">[ thread ]</a><a href="subject.html#787">[ subject ]</a><a href="author.html#787">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0788.html">Mikael Nykvist: "Re: digital I/O audio on Alpha/Linux"</a>
+<li> <b>Previous message:</b> <a href="0786.html">Gregory Boduch: "digital I/O audio on Alpha/Linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+i've gone ahead and modified my real-time clock diffs to apply to<br>
+2.0.28. if you're confused by the year 2017 or ARC sometimes complains<br>
+about the time being set incorrectly, these patches are for you. these<br>
+patches are also for you if you want to use the rtc without freezing<br>
+the system. <br>
+<p>
+if you apply these patches, you'll need to get util-linux-2.6 and<br>
+compile the clock or hwclock programs included in there. there are<br>
+definitely a few changes that need to be made to get hwclock to<br>
+compile due to 386 specificity. i'm not sure if that's true for clock.<br>
+<p>
+anyways, this should also simplify the startup script for clock. all<br>
+it needs to do is check for UTC now. i would really appreciate it if<br>
+people would test this out, especially the red-hat folks as it has the<br>
+potential to dramatically reduce initial confusion with the redhat<br>
+installation.<br>
+<p>
+<p>
+# apply with patch -p1 -d /usr/src/linux<br>
+--- linux/include/linux/timex.h.orig	Sat May  4 09:39:22 1996<br>
++++ linux/include/linux/timex.h	Sat Jan 25 23:26:24 1997<br>
+@@ -17,6 +17,9 @@<br>
+ /*<br>
+  * Modification history timex.h<br>
+  *<br>
++ *  9 Jan 97    Adrian Sun<br>
++ *      Shifted LATCH define to allow access to alpha machines.<br>
++ *<br>
+  * 26 Sep 94	David L. Mills<br>
+  *	Added defines for hybrid phase/frequency-lock loop.<br>
+  *<br>
+@@ -122,15 +125,17 @@<br>
+ #define PPS_VALID 120		/* pps signal watchdog max (s) */<br>
+ #define MAXGLITCH 30		/* pps signal glitch max (s) */<br>
+ <br>
++/* LATCH is used in the interval timer and ftape setup. based on the RTC,<br>
++ * CLOCK_TICK_RATE results in ~1050HZ instead of 1024HZ on the alpha. */<br>
++#define CLOCK_TICK_RATE	1193180 /* Underlying HZ */<br>
++#define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)	/* For divider */<br>
++<br>
+ #ifndef __alpha__<br>
+ /*<br>
+  * This definitively is wrong for the Alpha and none of the<br>
+  * kernel code seems to reference this anymore.<br>
+  */<br>
+-#define CLOCK_TICK_RATE	1193180 /* Underlying HZ */<br>
+ #define CLOCK_TICK_FACTOR	20	/* Factor of both 1000000 and CLOCK_TICK_RATE */<br>
+-#define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)	/* For divider */<br>
+-<br>
+ #define FINETUNE ((((((long)LATCH * HZ - CLOCK_TICK_RATE) &lt;&lt; SHIFT_HZ) * \<br>
+ 	(1000000/CLOCK_TICK_FACTOR) / (CLOCK_TICK_RATE/CLOCK_TICK_FACTOR)) \<br>
+ 		&lt;&lt; (SHIFT_SCALE-SHIFT_HZ)) / HZ)<br>
+--- linux/drivers/char/rtc.c.orig	Mon May 27 21:39:18 1996<br>
++++ linux/drivers/char/rtc.c	Sat Jan 25 23:26:24 1997<br>
+@@ -55,6 +55,13 @@<br>
+ #include &lt;asm/segment.h&gt;<br>
+ #include &lt;asm/system.h&gt;<br>
+ <br>
++/* Adjust starting epoch if ARC console time is being used */<br>
++#ifdef CONFIG_RTC_ARC<br>
++#define ARCFUDGE 20 <br>
++#else<br>
++#define ARCFUDGE 0<br>
++#endif<br>
++<br>
+ /*<br>
+  *	We sponge a minor off of the misc major. No need slurping<br>
+  *	up another valuable major dev number for this.<br>
+@@ -335,7 +342,7 @@<br>
+ <br>
+ 			memcpy_fromfs(&amp;rtc_tm, (struct rtc_time*)arg, sizeof(struct rtc_time));<br>
+ <br>
+-			yrs = rtc_tm.tm_year + 1900;<br>
++			yrs = rtc_tm.tm_year + 1900 + ARCFUDGE;<br>
+ 			mon = rtc_tm.tm_mon + 1;   /* tm_mon starts at zero */<br>
+ 			day = rtc_tm.tm_mday;<br>
+ 			hrs = rtc_tm.tm_hour;<br>
+@@ -725,6 +732,9 @@<br>
+ 	 */<br>
+ 	if (rtc_tm-&gt;tm_year &lt;= 69)<br>
+ 		rtc_tm-&gt;tm_year += 100;<br>
++<br>
++	/* if ARCFUDGE == 0, the optimizer should do away with this */<br>
++	rtc_tm-&gt;tm_year -= ARCFUDGE;<br>
+ <br>
+ 	rtc_tm-&gt;tm_mon--;<br>
+ }<br>
+--- linux/arch/alpha/kernel/irq.c.orig	Sat Aug 10 00:03:14 1996<br>
++++ linux/arch/alpha/kernel/irq.c	Sat Jan 25 23:26:24 1997<br>
+@@ -26,7 +26,12 @@<br>
+ #include &lt;asm/bitops.h&gt;<br>
+ #include &lt;asm/dma.h&gt;<br>
+ <br>
+-extern void timer_interrupt(struct pt_regs * regs);<br>
++#define RTC_IRQ    8<br>
++#ifdef CONFIG_RTC<br>
++#define TIMER_IRQ  0        /* timer is the pit */<br>
++#else<br>
++#define TIMER_IRQ  RTC_IRQ  /* the timer is, in fact, the rtc */<br>
++#endif<br>
+ <br>
+ #if NR_IRQS &gt; 64<br>
+ #  error Unable to handle more than 64 irq levels.<br>
+@@ -133,6 +138,7 @@<br>
+ /*<br>
+  * Initial irq handlers.<br>
+  */<br>
++static struct irqaction timer_irq = { NULL, 0, 0, NULL, NULL, NULL};<br>
+ static struct irqaction *irq_action[NR_IRQS];<br>
+ <br>
+ int get_irq_list(char *buf)<br>
+@@ -144,7 +150,7 @@<br>
+ 		action = irq_action[i];<br>
+ 		if (!action) <br>
+ 			continue;<br>
+-		len += sprintf(buf+len, "%2d: %8d %c %s",<br>
++		len += sprintf(buf+len, "%2d: %10u %c %s",<br>
+ 			i, kstat.interrupts[i],<br>
+ 			(action-&gt;flags &amp; SA_INTERRUPT) ? '+' : ' ',<br>
+ 			action-&gt;name);<br>
+@@ -212,7 +218,10 @@<br>
+ 		shared = 1;<br>
+ 	}<br>
+ <br>
+-	action = (struct irqaction *)kmalloc(sizeof(struct irqaction),<br>
++        if (irq == TIMER_IRQ)<br>
++ 		action = &amp;timer_irq;<br>
++        else<br>
++		action = (struct irqaction *)kmalloc(sizeof(struct irqaction),<br>
+ 					     GFP_KERNEL);<br>
+ 	if (!action)<br>
+ 		return -ENOMEM;<br>
+@@ -646,7 +655,9 @@<br>
+ {<br>
+ 	int i;<br>
+ 	<br>
+-	irqs &amp;= irq_mask &amp; ~1;	/* always mask out irq 0---it's the unused timer */<br>
++        /* as irq 0 &amp; 8 handling don't use this function, i didn't<br>
++	 * bother changing the following: */<br>
++        irqs &amp;= irq_mask &amp; ~1;  /* always mask out irq 0---it's the unused timer */<br>
+ #ifdef CONFIG_ALPHA_P2K<br>
+ 	irqs &amp;= ~(1 &lt;&lt; 8);	/* mask out irq 8 since that's the unused RTC input to PIC */<br>
+ #endif<br>
+@@ -686,7 +697,7 @@<br>
+ 			printk("Interprocessor interrupt? You must be kidding\n");<br>
+ 			break;<br>
+ 		case 1:<br>
+-			timer_interrupt(&amp;regs);<br>
++		        handle_irq(RTC_IRQ, &amp;regs);<br>
+ 			return;<br>
+ 		case 2:<br>
+ 			machine_check(vector, la_ptr, &amp;regs);<br>
+--- linux/arch/alpha/kernel/time.c.orig	Sun Mar 24 02:09:35 1996<br>
++++ linux/arch/alpha/kernel/time.c	Sat Jan 25 23:26:24 1997<br>
+@@ -10,6 +10,8 @@<br>
+  * 1995-03-26    Markus Kuhn<br>
+  *      fixed 500 ms bug at call to set_rtc_mmss, fixed DS12887<br>
+  *      precision CMOS clock update<br>
++ * 1997-01-09    Adrian Sun<br>
++ *      use interval timer if CONFIG_RTC=y<br>
+  */<br>
+ #include &lt;linux/errno.h&gt;<br>
+ #include &lt;linux/sched.h&gt;<br>
+@@ -25,7 +27,11 @@<br>
+ #include &lt;linux/mc146818rtc.h&gt;<br>
+ #include &lt;linux/timex.h&gt;<br>
+ <br>
+-#define TIMER_IRQ 0<br>
++#ifdef CONFIG_RTC <br>
++#define TIMER_IRQ 0  /* using pit for timer */<br>
++#else <br>
++#define TIMER_IRQ 8  /* using rtc for timer */<br>
++#endif<br>
+ <br>
+ extern struct hwrpb_struct *hwrpb;<br>
+ <br>
+@@ -61,7 +67,7 @@<br>
+  * timer_interrupt() needs to keep up the real-time clock,<br>
+  * as well as call the "do_timer()" routine every clocktick<br>
+  */<br>
+-void timer_interrupt(struct pt_regs * regs)<br>
++void timer_interrupt(int irq, void *dev, struct pt_regs * regs)<br>
+ {<br>
+ 	__u32 delta, now;<br>
+ <br>
+@@ -125,6 +131,10 @@<br>
+ <br>
+ void time_init(void)<br>
+ {<br>
++#ifdef CONFIG_RTC<br>
++	unsigned char save_control;<br>
++#endif<br>
++        void (*irq_handler)(int, void *, struct pt_regs *);<br>
+ 	unsigned int year, mon, day, hour, min, sec;<br>
+ 	int i;<br>
+ <br>
+@@ -178,6 +188,21 @@<br>
+ 	state.scaled_ticks_per_cycle = ((unsigned long) HZ &lt;&lt; FIX_SHIFT) / hwrpb-&gt;cycle_freq;<br>
+ 	state.max_cycles_per_tick = (2 * hwrpb-&gt;cycle_freq) / HZ;<br>
+ 	state.last_rtc_update = 0;<br>
++<br>
++#ifdef CONFIG_RTC <br>
++	/* turn off RTC interrupts before /dev/rtc is initialized */<br>
++	save_control = CMOS_READ(RTC_CONTROL);<br>
++        save_control &amp;= ~RTC_PIE;<br>
++        save_control &amp;= ~RTC_AIE;<br>
++        save_control &amp;= ~RTC_UIE;<br>
++        CMOS_WRITE(save_control, RTC_CONTROL);<br>
++        CMOS_READ(RTC_INTR_FLAGS);<br>
++#endif<br>
++<br>
++	/* setup timer */ <br>
++        irq_handler = timer_interrupt;<br>
++        if (request_irq(TIMER_IRQ, irq_handler, 0, "timer", NULL))<br>
++	  panic("Could not allocate timer IRQ!");<br>
+ }<br>
+ <br>
+ /*<br>
+--- linux/arch/alpha/kernel/process.c.orig	Tue Aug 20 23:18:07 1996<br>
++++ linux/arch/alpha/kernel/process.c	Sat Jan 25 23:26:24 1997<br>
+@@ -27,6 +27,10 @@<br>
+ #include &lt;linux/mman.h&gt;<br>
+ #include &lt;linux/elfcore.h&gt;<br>
+ <br>
++#ifdef CONFIG_RTC<br>
++#include &lt;linux/mc146818rtc.h&gt;<br>
++#endif<br>
++<br>
+ #include &lt;asm/reg.h&gt;<br>
+ #include &lt;asm/segment.h&gt;<br>
+ #include &lt;asm/system.h&gt;<br>
+@@ -54,6 +58,24 @@<br>
+ <br>
+ void hard_reset_now(void)<br>
+ {<br>
++#ifdef CONFIG_RTC  /* reset rtc to defaults */<br>
++	unsigned char control;<br>
++	unsigned long flags;<br>
++<br>
++	/* i'm not sure if i really need to disable interrupts here */<br>
++	save_flags(flags);<br>
++	cli();<br>
++ 	/* reset periodic interrupt frequency */<br>
++        CMOS_WRITE(0x26, RTC_FREQ_SELECT);<br>
++<br>
++	/* turn on periodic interrupts */<br>
++	control = CMOS_READ(RTC_CONTROL);<br>
++	control |= RTC_PIE;<br>
++	CMOS_WRITE(control, RTC_CONTROL);	<br>
++        CMOS_READ(RTC_INTR_FLAGS);<br>
++	restore_flags(flags);<br>
++#endif<br>
++<br>
+ #if defined(CONFIG_ALPHA_SRM) &amp;&amp; defined(CONFIG_ALPHA_ALCOR)<br>
+ 	/* who said DEC engineer's have no sense of humor? ;-)) */<br>
+ 	*(int *) GRU_RESET = 0x0000dead;<br>
+--- linux/arch/alpha/kernel/setup.c.orig	Tue Aug 20 23:18:07 1996<br>
++++ linux/arch/alpha/kernel/setup.c	Sat Jan 25 23:28:15 1997<br>
+@@ -23,6 +23,11 @@<br>
+ #include &lt;linux/delay.h&gt;<br>
+ #include &lt;linux/config.h&gt;	/* CONFIG_ALPHA_LCA etc */<br>
+ <br>
++#ifdef CONFIG_RTC<br>
++#include &lt;linux/ioport.h&gt;<br>
++#include &lt;linux/timex.h&gt;<br>
++#endif<br>
++<br>
+ #include &lt;asm/segment.h&gt;<br>
+ #include &lt;asm/pgtable.h&gt;<br>
+ #include &lt;asm/system.h&gt;<br>
+@@ -84,9 +89,17 @@<br>
+     outb(0x18, 0x41);<br>
+ #endif<br>
+ <br>
++#ifdef CONFIG_RTC /* setup interval timer if /dev/rtc is being used */<br>
++    outb(0x34, 0x43);  /* binary, mode 2, LSB/MSB, ch 0 */<br>
++    outb(LATCH &amp; 0xff, 0x40); /* LSB */<br>
++    outb(LATCH &gt;&gt; 8, 0x40); /* MSB */<br>
++    request_region(0x40, 0x20, "timer"); /* reserve pit */<br>
++#else<br>
+     outb(0x36, 0x43);	/* counter 0: system timer */<br>
+     outb(0x00, 0x40);<br>
+     outb(0x00, 0x40);<br>
++    request_region(0x70, 0x10, "timer"); /* reserve rtc */<br>
++#endif<br>
+ <br>
+     outb(0xb6, 0x43);	/* counter 2: speaker */<br>
+     outb(0x31, 0x42);<br>
+--- linux/arch/alpha/config.in.orig	Mon Aug  5 00:13:50 1996<br>
++++ linux/arch/alpha/config.in	Sat Jan 25 23:26:24 1997<br>
+@@ -144,6 +144,9 @@<br>
+ source fs/Config.in<br>
+ <br>
+ source drivers/char/Config.in<br>
++if [ "$CONFIG_RTC" != "n" ]; then<br>
++  bool '  ARC console time' CONFIG_RTC_ARC y <br>
++fi<br>
+ <br>
+ mainmenu_option next_comment<br>
+ comment 'Sound'<br>
+--- linux/arch/alpha/defconfig.orig	Tue Oct 29 17:42:40 1996<br>
++++ linux/arch/alpha/defconfig	Sat Jan 25 23:26:24 1997<br>
+@@ -218,6 +218,7 @@<br>
+ # CONFIG_APM is not set<br>
+ # CONFIG_WATCHDOG is not set<br>
+ # CONFIG_RTC is not set<br>
++CONFIG_RTC_ARC=y<br>
+ <br>
+ #<br>
+ # Sound<br>
+--- linux/Documentation/Configure.help.orig	Sun Dec  1 05:58:05 1996<br>
++++ linux/Documentation/Configure.help	Sat Jan 25 23:26:25 1997<br>
+@@ -3529,6 +3529,12 @@<br>
+   (such as periodic data sampling), then say Y here, and go read the<br>
+   file Documentation/rtc.txt for details.<br>
+ <br>
++ARC console time<br>
++CONFIG_RTC_ARC<br>
++  If you boot your Alpha using the ARC firmware, say Y here. This option<br>
++  adjusts the RTC clock to take into account the different starting epoch<br>
++  used by ARC.<br>
++<br>
+ Sound card support<br>
+ CONFIG_SOUND<br>
+   If you have a Sound Card in your Computer, i.e. if it can say more<br>
+<p>
+------- End of forwarded message -------<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0788.html">Mikael Nykvist: "Re: digital I/O audio on Alpha/Linux"</a>
+<li> <b>Previous message:</b> <a href="0786.html">Gregory Boduch: "digital I/O audio on Alpha/Linux"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,224 @@
+<!-- received="Sun Jun 28 04:23:22 1998 " -->
+<!-- sent="Wed, 24 Jun 1998 10:51:03 +0200" -->
+<!-- name="Martin Kahlert" -->
+<!-- email="martin.kahlert@mchp.siemens.de" -->
+<!-- subject="Performance measurements" -->
+<!-- id="199806240851.KAA06049@keksy.mchp.siemens.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Performance measurements</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Performance measurements</h2>
+
+<b>Martin Kahlert</b> (<a href="mailto:martin.kahlert@mchp.siemens.de"><i>martin.kahlert@mchp.siemens.de</i></a>)<br>
+<i>Wed, 24 Jun 1998 10:51:03 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#180">[ date ]</a><a href="index.html#180">[ thread ]</a><a href="subject.html#180">[ subject ]</a><a href="author.html#180">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0181.html">Jay.Estabrook@digital.com: "Re: /proc/cpuinfo"</a>
+<li> <b>Previous message:</b> <a href="0179.html">Steve Frampton: "Re: X is very unstable ;-("</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0142.html">Robert Wilhelm: "Re: Performance measurements"</a>
+<li> <b>Reply:</b> <a href="0142.html">Robert Wilhelm: "Re: Performance measurements"</a>
+<li> <b>Maybe reply:</b> <a href="0150.html">Wes Bauske: "Re: Performance measurements"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+i tried to compare different compilers on my numerical code.<br>
+Therefore i extracted a FPU intensive function and surrounded<br>
+it with a loop while measuring the execution time.<br>
+<p>
+I will provide the source and the Makefile at the end of this mail.<br>
+<p>
+I work on a Linux 2.0.34 SMP Kernel (libc5). My hardware is a<br>
+dual Pentium Pro 200MHz system with 128MB RAM.<br>
+<p>
+pgcc is the portland group compiler and <br>
+tcc the free Tendra compiler system<br>
+(from <a href="http://alph.dera.gov.uk/TenDRA/">http://alph.dera.gov.uk/TenDRA/</a>)<br>
+<p>
+Here are my results:<br>
+%&gt; make<br>
+pgcc:<br>
+90.11 MFLOPS<br>
+gcc-2.7.2.1:<br>
+95.46 MFLOPS<br>
+gcc-without double align:<br>
+23.52 MFLOPS<br>
+egcs-2.91.42:<br>
+69.96 MFLOPS<br>
+tcc:<br>
+92.33 MFLOPS<br>
+<p>
+- The difference -malign-double makes on gcc-2.7.2.1 is very <br>
+  impressive. On egcs it doesn't change the result.<br>
+<p>
+- egcs seems to produce worse code than gcc-2.7.2.1<br>
+- During my experience, pgcc produces very good code and is very<br>
+  reliable. The code usually runs about 25% faster than egcs-code.<br>
+- For tcc i have to say, that the result is very dependent on the <br>
+  order, you declare the variables:<br>
+  If you put the declarations int i,j; and double *wksph=wksp+n/2;<br>
+  in front of the one for c[], the result drops down to 24.70 MFLOPS.<br>
+  For all other compilers, this doesn't make much difference.<br>
+<p>
+Could anybody comment on that?<br>
+<p>
+If anyone is interested in the asm code that pgcc produces, i <br>
+can send it offline (388 lines of asm statements are too <br>
+long for the list)<br>
+<p>
+<p>
+For the axp list: It would be very kind, if anybody could provide<br>
+some values for a Linux Alpha (e.g. 533MHz) for comparison.<br>
+<p>
+Thanks in advance,<br>
+Martin<br>
+<p>
+<p>
+Here is the testfile m.c:<br>
+#include &lt;stdio.h&gt;<br>
+#include &lt;stdlib.h&gt;<br>
+#include &lt;string.h&gt;<br>
+#include &lt;time.h&gt;<br>
+#include &lt;math.h&gt;<br>
+<p>
+#define N 1024<br>
+<p>
+void trafo(double *a,const int n,double *wksp,double *const ops)<br>
+{<br>
+ double c[]={ 3.52262918857095333469e-02,<br>
+             -8.54412738820266443041e-02,<br>
+             -1.35011020010254584323e-01,<br>
+              4.59877502118491543470e-01,<br>
+              8.06891509311092547385e-01,<br>
+              3.32670552950082631938e-01 };<br>
+ int i,j;<br>
+ double *wksph=wksp+n/2;<br>
+<p>
+ if(n&lt;6)<br>
+    return;<br>
+<p>
+ for(i=j=0;i&lt;n/2-2;i++,j+=2)<br>
+    {wksph[i]= c[0]*a[j]+c[1]*a[j+1]<br>
+     +c[2]*a[j+2]+c[3]*a[j+3]<br>
+         +c[4]*a[j+4]+c[5]*a[j+5];<br>
+     wksp[i] = c[5]*a[j]-c[4]*a[j+1]<br>
+         +c[3]*a[j+2]-c[2]*a[j+3]<br>
+         +c[1]*a[j+4]-c[0]*a[j+5];<br>
+    }<br>
+ wksph[i]= c[0]*a[j]+c[1]*a[j+1]<br>
+     +c[2]*a[j+2]+c[3]*a[j+3]<br>
+     +c[4]*a[0]+c[5]*a[1];<br>
+ wksp[i] = c[5]*a[j]-c[4]*a[j+1]<br>
+     +c[3]*a[j+2]-c[2]*a[j+3]<br>
+     +c[1]*a[0]-c[0]*a[1];<br>
+ i++;j+=2;<br>
+ wksph[i]= c[0]*a[j]+c[1]*a[j+1]<br>
+     +c[2]*a[0]+c[3]*a[1]<br>
+     +c[4]*a[2]+c[5]*a[3];<br>
+ wksp[i] = c[5]*a[j]-c[4]*a[j+1]<br>
+     +c[3]*a[0]-c[2]*a[1]<br>
+     +c[1]*a[2]-c[0]*a[3];<br>
+<p>
+ memcpy(a,wksp,sizeof(double)*n);<br>
+ (*ops)+=((double)11)*n;<br>
+ return;<br>
+}<br>
+<p>
+int main(int argc,const char *argv[])<br>
+{<br>
+ double *x,h,ops=0;<br>
+ int i;<br>
+ clock_t start;<br>
+<p>
+ if(!(x=malloc(2*N*sizeof(double))))<br>
+    {<br>
+     fputs("out of memory\n",stderr);<br>
+     return EXIT_FAILURE;<br>
+    }<br>
+<p>
+ for(i=0;i&lt;N;i++)<br>
+    {<br>
+     h=(double)i;<br>
+     x[i]=sin(h*PI/(double)N);<br>
+    }<br>
+<p>
+ start=clock();<br>
+ for(i=0;i&lt;10000;i++)<br>
+     trafo(x,N,x+N,&amp;ops);<br>
+ h=(double)(clock()-start)/(double)CLOCKS_PER_SEC;<br>
+ printf("%.2f MFLOPS\n",1.0e-6*ops/h);<br>
+<p>
+ free(x);<br>
+ return 0;<br>
+}<br>
+<p>
+And here is the Makefile:<br>
+<p>
+EXECUTABLES = m.pgcc m.egcs-2.91.42 m.gcc-2.7.2.1 m.not_aligned m.tcc<br>
+GCC_OPTS = -O3 -malign-double -fomit-frame-pointer -Wall -malign-loops=2 -malign-jumps=2 -malign-functions=2<br>
+all: $(EXECUTABLES) test<br>
+clean:<br>
+	rm -f  $(EXECUTABLES)<br>
+test:<br>
+	@echo "pgcc:"<br>
+	@m.pgcc<br>
+	@echo "gcc-2.7.2.1:"<br>
+	@m.gcc-2.7.2.1<br>
+	@echo "gcc-without double align:"<br>
+	@m.not_aligned<br>
+	@echo "egcs-2.91.42:"<br>
+	@m.egcs-2.91.42<br>
+	@echo "tcc:"<br>
+	@m.tcc<br>
+m.pgcc: m.c<br>
+	pgcc -O2 -tp p6 -Mnoframe -o $@ $&lt; -lm<br>
+m.gcc-2.7.2.1: m.c<br>
+	/usr/bin/gcc $(GCC_OPTS) -o $@ $&lt; -lm<br>
+m.not_aligned: m.c<br>
+	/usr/bin/gcc -O3 -fomit-frame-pointer -Wall -malign-loops=2 -malign-jumps=2 -malign-functions=2 -o $@ $&lt; -lm<br>
+m.egcs-2.91.42: m.c<br>
+	/sw/egcs/bin/gcc $(GCC_OPTS) -o $@ $&lt; -lm<br>
+m.tcc: m.c<br>
+	tcc -Ysystem -O2 -o $@ $&lt; -lm<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0181.html">Jay.Estabrook@digital.com: "Re: /proc/cpuinfo"</a>
+<li> <b>Previous message:</b> <a href="0179.html">Steve Frampton: "Re: X is very unstable ;-("</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0142.html">Robert Wilhelm: "Re: Performance measurements"</a>
+<li> <b>Reply:</b> <a href="0142.html">Robert Wilhelm: "Re: Performance measurements"</a>
+<li> <b>Maybe reply:</b> <a href="0150.html">Wes Bauske: "Re: Performance measurements"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

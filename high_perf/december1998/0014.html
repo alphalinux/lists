@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance Alpha Linux: Re: Optimizing CRS-Matrix routines</TITLE>
+<META NAME="Author" CONTENT="Adam C. Powell, IV (adam.powell@nist.gov)">
+<META NAME="Subject" CONTENT="Re: Optimizing CRS-Matrix routines">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Optimizing CRS-Matrix routines</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 21 21:41:34 1999 EST" -->
+<!-- sent="Fri, 04 Dec 1998 14:52:16 -0500" -->
+<!-- name="Adam C. Powell, IV" -->
+<!-- email="adam.powell@nist.gov" -->
+<!-- subject="Re: Optimizing CRS-Matrix routines" -->
+<!-- id="36683D70.5A8AEAF2@nist.gov" -->
+<!-- inreplyto="3667cc2e2696002@u8455.bs.ptb.de" -->
+<STRONG>Adam C. Powell, IV</STRONG> (<A HREF="mailto:adam.powell@nist.gov?subject=Re:%20Optimizing%20CRS-Matrix%20routines"><EM>adam.powell@nist.gov</EM></A>)<BR>
+<EM>Fri, 04 Dec 1998 14:52:16 -0500</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#14">[ date ]</A>
+<A HREF="index.html#14">[ thread ]</A>
+<A HREF="subject.html#14">[ subject ]</A>
+<A HREF="author.html#14">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0015.html">pshimizu@fa2.so-net.ne.jp: "Re: Optimizing CRS-Matrix routines"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0013.html">Thomas Bruns: "Optimizing CRS-Matrix routines"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0015.html">pshimizu@fa2.so-net.ne.jp: "Re: Optimizing CRS-Matrix routines"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Thomas Bruns wrote:
+<BR>
+<P><EM>&gt; Hi,
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; recently I modified the code of a FEM-Application due to the
+</EM><BR>
+<EM>&gt; information on loop otimization from Mr. Goto, and it was a real
+</EM><BR>
+<EM>&gt; improvement.
+</EM><BR>
+<EM>&gt; But those optimization base on fixed loop-boundaries.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; How can I optimize code as it is used in sparse matrix applications
+</EM><BR>
+<EM>&gt; where the index of the non-zero-elements is a an array of it`s own
+</EM><BR>
+<EM>&gt; like:
+</EM><BR>
+<EM>&gt; ---------------------------
+</EM><BR>
+<EM>&gt; double vector[MatrixDimension];
+</EM><BR>
+<EM>&gt; double vector[MatrixDimension];
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; double matrix[NumberOfNonZeroElements]; /* only nze of matrix */
+</EM><BR>
+<EM>&gt; int matrix_idx[NumberOfNonZeroElements];     /* col_idxt */
+</EM><BR>
+<EM>&gt; int matrix_ptr[MatrixDimension+1];      /* start of row */
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; for (row=0; row&lt;MaxRow; row++)
+</EM><BR>
+<EM>&gt;         for(ptr=matrix_ptr[row];  ptr&lt;matrixptr[row+1]; ptr++)
+</EM><BR>
+<EM>&gt;                 vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]]
+</EM><BR>
+<EM>&gt; ---------------------------
+</EM><BR>
+<EM>&gt; You can't do manual loop-unrolling here, can you ?!?!
+</EM><BR>
+<P>Why not just:
+<BR>
+<P>for (row=0; row&lt;MaxRow; row++) {
+<BR>
+&nbsp;&nbsp;for(ptr=matrix_ptr[row];  ptr&lt;matrix_ptr[row+1]-5; ptr+=6) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr+1]] += matrix[ptr+1]*vector[matrix_idx[ptr+1]];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr+2]] += matrix[ptr+2]*vector[matrix_idx[ptr+2]];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr+3]] += matrix[ptr+3]*vector[matrix_idx[ptr+3]];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr+4]] += matrix[ptr+4]*vector[matrix_idx[ptr+4]];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr+5]] += matrix[ptr+5]*vector[matrix_idx[ptr+5]]; }
+<BR>
+&nbsp;&nbsp;while(ptr&lt;matrix_ptr[row+1]) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]]; ptr++; }}
+<BR>
+<P>(Untested, just threw it together, I hope Netscape doesn't line-wrap it to
+<BR>
+death!)  Now, I don't know how much this will speed things up, if at all, because
+<BR>
+of C's assumptions (see the case for fortran on the alphalinux.org high
+<BR>
+performance page).  An assembler version could be massively faster though...
+<BR>
+<P>To optimize further, blocking (using some messy conditions in the for loop)
+<BR>
+*might* help for some vectors of size &gt;10000; but for FEM, the matrices tend to
+<BR>
+be at least somewhat &quot;blocked&quot; anyway (depending on the node ordering) so I'm not
+<BR>
+convinced it would help much.
+<BR>
+<P>But the point is, I think you do have fixed loop boundaries, because you know
+<BR>
+matrix_ptr[row] and [row+1] in advance.  Right?
+<BR>
+<P>Anyone interested in collaborating on some fast sparse matrix routines? :-)
+<BR>
+<P>Zeen,
+<BR>
+<P>-Adam `Cold Fusion' Powell, IV <A HREF="http://www.ctcms.nist.gov/~powell/">http://www.ctcms.nist.gov/~powell/</A> ____
+<BR>
+USDoC, National Institute of Standards &amp; Technology (NIST)  |\ ||&lt;  |
+<BR>
+Center for Theoretical and Computational Materials Science  | \||_&gt; |
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0015.html">pshimizu@fa2.so-net.ne.jp: "Re: Optimizing CRS-Matrix routines"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0013.html">Thomas Bruns: "Optimizing CRS-Matrix routines"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0015.html">pshimizu@fa2.so-net.ne.jp: "Re: Optimizing CRS-Matrix routines"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Jan 21 1999 - 21:41:39 EST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,130 @@
+<!-- received="Fri May 23 11:28:06 1997 " -->
+<!-- sent="22 May 1997 15:53:57 -0400" -->
+<!-- name="Derek Atkins" -->
+<!-- email="warlord@MIT.EDU" -->
+<!-- subject="Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)" -->
+<!-- id="199705221959.TAA15764@whale.st.usm.edu" -->
+<!-- inreplyto="Thu, 22 May 1997 17:57:17 +0200 (CEST)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)</h2>
+
+<b>Derek Atkins</b> (<a href="mailto:warlord@MIT.EDU"><i>warlord@MIT.EDU</i></a>)<br>
+<i>22 May 1997 15:53:57 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#706">[ date ]</a><a href="index.html#706">[ thread ]</a><a href="subject.html#706">[ subject ]</a><a href="author.html#706">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0707.html">John Banghart: "4.0 Install on AS200 continued"</a>
+<li> <b>Previous message:</b> <a href="0705.html">John Banghart: "[Fwd: Still no luck: 4.0 on AS200]"</a>
+<li> <b>In reply to:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Andreas Johansson &lt;<a href="mailto:ajo@wopr.campus.luth.se">ajo@wopr.campus.luth.se</a>&gt; writes:<br>
+<p>
+<i>&gt; To me it seems like a bug in Linux/alpha, see below.</i><br>
+<p>
+Not surprising...<br>
+<p>
+<i>&gt; So it seems gp is f*cked up (not loaded in ret_from_sys_call()). I remember</i><br>
+<i>&gt; a similar problem with the nfs module some time ago (concerning </i><br>
+<i>&gt; kernel_thread()). I even have the patch for that problem left:</i><br>
+<p>
+That sounds reasonable...<br>
+<p>
+[patch removed]<br>
+<p>
+I applied what of this patch I could to the 2.0.27 kernel..  No<br>
+problems here.  But this didn't solve the problem (not surprising --<br>
+it shouldn't have solved it).<br>
+<p>
+<i>&gt; My guess as to fixing your problem is this small patch:</i><br>
+<i>&gt; </i><br>
+<i>&gt; -----------------------------------------------------------------------</i><br>
+<i>&gt; --- arch/alpha/kernel/entry.S.orig	Thu May 22 17:38:29 1997</i><br>
+<i>&gt; +++ arch/alpha/kernel/entry.S	Thu May 22 17:41:24 1997</i><br>
+<i>&gt; @@ -521,6 +521,7 @@</i><br>
+<i>&gt;  	cmovne	$26,0,$19		/* $19 = 0 =&gt; non-restartable */</i><br>
+<i>&gt; +	ldgp    $29,0($27)</i><br>
+<i>&gt;  	/* check bottom half interrupts */</i><br>
+<i>&gt;  	bne	$1,ret_from_handle_bh</i><br>
+<i>&gt;  	ldq	$3,bh_active</i><br>
+<i>&gt;  	ldq	$4,bh_mask</i><br>
+<i>&gt;  	and	$3,$4,$2</i><br>
+<i>&gt; -----------------------------------------------------------------------</i><br>
+<p>
+This unfortunately sends the machine into a looping sereis of oopses.<br>
+So, no, this didn't work.  However...<br>
+<p>
+<i>&gt; I have no idea if ret_from_sys_call looks the same in 2.0.27, but if not,</i><br>
+<i>&gt; just try to add</i><br>
+<i>&gt; 	ldgp	$29,0($27)</i><br>
+<i>&gt; in the beginning of the function.</i><br>
+<p>
+...I tried following this suggestion by putting the ldgp before the<br>
+cmovne...  But again it just looped in a series of oopses.  So, thanks<br>
+for the idea, but it didn't work.<br>
+<p>
+Any other ideas?<br>
+<p>
+<i>&gt; I am only guessing here, I am not pretending to be an expert on kernel</i><br>
+<i>&gt; issues. Try this patch on your own risk, I haven't even tried it myself :)</i><br>
+<i>&gt; If you are having great difficulcy compiling your own kernel I could be</i><br>
+<i>&gt; persuaded to try the patch myself.</i><br>
+<p>
+Thats ok.. I appreciate the help.  To whom should I report this bug<br>
+to get it put into 2.0.31/2.1.x as appropriate???<br>
+<p>
+<i>&gt; I think you should add the -mno-fp-regs compile flag. This is used on all</i><br>
+<i>&gt; modules in the kernel, and I have had modules malfunctioning without it.</i><br>
+<i>&gt; This does not solve your problem though.</i><br>
+<p>
+Shouldn't matter...  I suspect that all -mno-fp-regs does is speed<br>
+things up a bit, rather than functionally change anything.<br>
+<p>
+-derek<br>
+<p>
+<pre>
+-- 
+       Derek Atkins, SB '93 MIT EE, SM '95 MIT Media Laboratory
+       Member, MIT Student Information Processing Board  (SIPB)
+       URL: <a href="http://web.mit.edu/warlord/">http://web.mit.edu/warlord/</a>      PP-ASEL      N1NWH
+       <a href="mailto:warlord@MIT.EDU">warlord@MIT.EDU</a>                        PGP key available
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0707.html">John Banghart: "4.0 Install on AS200 continued"</a>
+<li> <b>Previous message:</b> <a href="0705.html">John Banghart: "[Fwd: Still no luck: 4.0 on AS200]"</a>
+<li> <b>In reply to:</b> <a href="0711.html">Andreas Johansson: "Re: LKMs and installing syscalls on Linux/alpha 2.0.27 (resend)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

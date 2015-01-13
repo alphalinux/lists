@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> new patch for EV6 cache line</H1> 
+	
+<!-- received="Thu Mar 23 07:12:39 2000" -->
+<!-- isoreceived="20000323151239" -->
+<!-- sent="Wed, 22 Mar 2000 21:16:49 -0800" -->
+<!-- isosent="20000323051649" -->
+<!-- name="werner@darkwing.uoregon.edu" -->
+<!-- email="werner@darkwing.uoregon.edu" -->
+<!-- subject="new patch for EV6 cache line" -->
+<!-- id="38D9A8C1.125F3147@darkwing.uoregon.edu" -->
+<STRONG>Subject: </STRONG>new patch for EV6 cache line<BR>
+<EM>werner@darkwing.uoregon.edu</EM><BR>
+<STRONG>Date: </STRONG>Wed Mar 22 21:16:49 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#491">[ date ]</A>
+<A HREF="index.shtml#491">[ thread ]</A>
+<A HREF="subject.shtml#491">[ subject ]</A>
+<A HREF="author.shtml#491">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0492.shtml">David Webb: "Re: slocate-2.0-3.alpha.rpm"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0490.shtml">Praveen Srinivasan: "Re: slocate-2.0-3.alpha.rpm"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0493.shtml">Richard Henderson: "Re: new patch for EV6 cache line"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This patch is what I think Linus wanted rather than cpu testing in
+<BR>
+cache.h
+<BR>
+<P><P>
+--- linux/arch/alpha/config.in.orig	Wed Mar 22 20:57:38 2000
+<BR>
++++ linux/arch/alpha/config.in	Wed Mar 22 21:00:59 2000
+<BR>
+@@ -61,6 +61,7 @@
+<BR>
+&nbsp;unset CONFIG_ALPHA_TSUNAMI CONFIG_ALPHA_MCPCIA
+<BR>
+&nbsp;unset CONFIG_ALPHA_IRONGATE
+<BR>
+&nbsp;unset CONFIG_ALPHA_BROKEN_IRQ_MASK
+<BR>
++unset CONFIG_L1_CACHELINE
+<BR>
+&nbsp;# Most of these machines have ISA slots; not exactly sure which don't,
+<BR>
+&nbsp;# and this doesn't activate hordes of code, so do it always.
+<BR>
+&nbsp;define_bool CONFIG_ISA y
+<BR>
+@@ -68,6 +69,7 @@
+<BR>
+&nbsp;if [ &quot;$CONFIG_ALPHA_GENERIC&quot; = &quot;y&quot; ]
+<BR>
+&nbsp;then
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;define_bool CONFIG_PCI y
+<BR>
++	define_int CONFIG_L1_CACHELINE 32
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;if [ &quot;$CONFIG_ALPHA_BOOK1&quot; = &quot;y&quot; ]
+<BR>
+&nbsp;then
+<BR>
+@@ -155,6 +157,14 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;define_bool CONFIG_PCI y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;define_bool CONFIG_ALPHA_EV6 y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;define_bool CONFIG_ALPHA_IRONGATE y
+<BR>
++fi
+<BR>
++if [ &quot;$CONFIG_ALPHA_EV4&quot; = &quot;y&quot; -o &quot;$CONFIG_ALPHA_EV5&quot; = &quot;y&quot; ]
+<BR>
++then
+<BR>
++        define_int CONFIG_L1_CACHELINE 32
+<BR>
++fi
+<BR>
++if [ &quot;$CONFIG_ALPHA_EV6&quot; = &quot;y&quot; ]
+<BR>
++then
+<BR>
++	define_int CONFIG_L1_CACHELINE 64
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;if [ &quot;$CONFIG_ALPHA_CABRIOLET&quot; = &quot;y&quot; -o &quot;$CONFIG_ALPHA_AVANTI&quot; = &quot;y&quot; \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-o &quot;$CONFIG_ALPHA_EB64P&quot; = &quot;y&quot; -o &quot;$CONFIG_ALPHA_JENSEN&quot; = &quot;y&quot; \
+<BR>
+<P><P>
+--- linux/include/asm-alpha/cache.h.orig	Wed Mar 22 21:07:52 2000
+<BR>
++++ linux/include/asm-alpha/cache.h	Wed Mar 22 21:03:40 2000
+<BR>
+@@ -1,12 +1,35 @@
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* include/asm-alpha/cache.h
+<BR>
++ *
+<BR>
+&nbsp;&nbsp;*/
+<BR>
++
+<BR>
+&nbsp;#ifndef __ARCH_ALPHA_CACHE_H
+<BR>
+&nbsp;#define __ARCH_ALPHA_CACHE_H
+<BR>
+&nbsp;
+<BR>
+-/* Bytes per L1 (data) cache line.  Both EV4 and EV5 are write-through,
+<BR>
+-   read-allocate, direct-mapped, physical. */
+<BR>
+-#define L1_CACHE_BYTES     32
+<BR>
++#include &lt;linux/config.h&gt;
+<BR>
++
+<BR>
++/* L1_CACHE_BYTES is Bytes per L1 (data) cache line. */  
+<BR>
++
+<BR>
++/*
+<BR>
++ *  EV5 has a dual-read-ported, single-write-ported, 8KB data cache. 
+<BR>
++ *  It is a write-through, read-allocate, direct-mapped, physical cache
+<BR>
++ *  with 32-byte blocks. 
+<BR>
++ *  See 21164 and 21164PC Alpha Microprocessor Data Sheets.  
+<BR>
++ */
+<BR>
++
+<BR>
++/* 
+<BR>
++ *  EV6 has a virtually-indexed, physically-tagged two-way associative 
+<BR>
++ *  write-back, read/write allocate  64KB data cache.
+<BR>
++ *  See 21264 Alpha Microprocessor Data Sheet at
+<BR>
++ *  <A HREF="http://ftp.digital.com/pub/Digital/info/semiconductor/literature/dsc-library.html">http://ftp.digital.com/pub/Digital/info/semiconductor/literature/dsc-library.html</A>
+<BR>
++ *
+<BR>
++ *  Avoid touching data that is 32KB apart. 
+<BR>
++ *  The 21264 can have only one memory operation in progress at a time
+<BR>
++ *  that maps to any one cache index. Otherwise a replay trap may result.
+<BR>
++ *  See 21264 Compilers Writers Guide for more information.
+<BR>
++ */
+<BR>
++
+<BR>
++#define L1_CACHE_BYTES     CONFIG_L1_CACHELINE
+<BR>
+&nbsp;#define L1_CACHE_ALIGN(x)  (((x)+(L1_CACHE_BYTES-1))&amp;~(L1_CACHE_BYTES-1))
+<BR>
+&nbsp;#define SMP_CACHE_BYTES    L1_CACHE_BYTES
+<BR>
+&nbsp;
+<BR>
+<P>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0492.shtml">David Webb: "Re: slocate-2.0-3.alpha.rpm"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0490.shtml">Praveen Srinivasan: "Re: slocate-2.0-3.alpha.rpm"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0493.shtml">Richard Henderson: "Re: new patch for EV6 cache line"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Sat Apr  1 04:15:01 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

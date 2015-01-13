@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: patch_v3: emulating missing instructions on Alpha</TITLE>
+<META NAME="Author" CONTENT="Luke Deller (luked@cse.unsw.edu.au)">
+<META NAME="Subject" CONTENT="Re: patch_v3: emulating missing instructions on Alpha">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: patch_v3: emulating missing instructions on Alpha</H1>
+<HR>
+<P>
+<!-- received="Mon Oct 25 02:32:15 1999" -->
+<!-- isoreceived="19991025093215" -->
+<!-- sent="Mon, 25 Oct 1999 11:22:03 +1000 (EST)" -->
+<!-- isosent="19991025012203" -->
+<!-- name="Luke Deller" -->
+<!-- email="luked@cse.unsw.edu.au" -->
+<!-- subject="Re: patch_v3: emulating missing instructions on Alpha" -->
+<!-- id="Pine.OSF.3.95.991025103821.27250H-100000@ganter.disy.cse.unsw.EDU.AU" -->
+<!-- inreplyto="19991023135544.B15599@twiddle.net" -->
+<STRONG>Subject: </STRONG>Re: patch_v3: emulating missing instructions on Alpha<BR>
+<STRONG>From: </STRONG>Luke Deller (<EM>luked@cse.unsw.edu.au</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Oct 24 1999 - 18:22:03 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#614">[ date ]</A>
+<A HREF="index.html#614">[ thread ]</A>
+<A HREF="subject.html#614">[ subject ]</A>
+<A HREF="author.html#614">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0615.html">Lance A. Brown: "Re: AS2100 boot attempt failure"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0613.html">Goonetilleke,  Anthony: "Alpha XL300 and redhat"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0592.html">Richard Henderson: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0810.html">Richard Henderson: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0592.html">Luke Deller: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Sat, 23 Oct 1999, Richard Henderson wrote:
+<BR>
+<P><EM>&gt; On Fri, Oct 22, 1999 at 02:23:22AM +1000, Luke Deller wrote:
+</EM><BR>
+<EM>&gt; &gt; +	srl	$0,LOG2_TASKSIZE,$5 /* if addr is not in userland, */
+</EM><BR>
+<EM>&gt; &gt; +	cmovne	$5,$31,$0       /* then force a segfault by putting addr=0 */
+</EM><BR>
+<EM>&gt; &gt; +	ldq_u	$3,0($0)
+</EM><BR>
+<EM>&gt; &gt; +	ldq_u	$5,1($0)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; This is not sufficient to be safe.  Examine the extended
+</EM><BR>
+<EM>&gt; measures taken by the uaccess.h code.
+</EM><BR>
+<P>Actually I wrote this code after reading include/asm-alpha/uaccess.h ..
+<BR>
+I must be missing something.  Let me explain why I think this is safe, then
+<BR>
+you can point out where I'm mistaken :)
+<BR>
+<P>First let me acknowledge that I need to put some entries in the __ex_table
+<BR>
+section for a segfault here to be handled correctly as a user-level segfault
+<BR>
+(resulting in a SIGSEGV being sent) rather than a kernel bug segfault
+<BR>
+(resulting in the user process being killed).  However this is not a
+<BR>
+security hole; merely error handling that's too heavy handed (that I can
+<BR>
+fix soon).
+<BR>
+<P>Now, the macro for reading from user memory in uaccess.h is:
+<BR>
+&nbsp;&nbsp;#define get_user(x,ptr) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;__get_user_check((x),(ptr),sizeof(*(ptr)),get_fs())
+<BR>
+<P>and the macro __get_user_check does its security check by calling:
+<BR>
+&nbsp;&nbsp;__access_ok((long)__gu_addr,size,segment)
+<BR>
+<P>which is defined as:
+<BR>
+&nbsp;&nbsp;#define __access_ok(addr,size,segment) \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(((segment).seg &amp; (addr | size | (addr+size))) == 0)
+<BR>
+<P>Now &quot;segment&quot; in this last line is obtained from the &quot;get_fs()&quot; macro
+<BR>
+which according to comments at the top of uaccess.h should be equal
+<BR>
+to USER_DS or KERNEL_DS:
+<BR>
+&nbsp;&nbsp;#define KERNEL_DS       ((mm_segment_t) { 0UL })
+<BR>
+&nbsp;&nbsp;#define USER_DS         ((mm_segment_t) { -0x40000000000UL })
+<BR>
+<P>By inspecting the code for __access_ok, I see that checking is only
+<BR>
+performed if get_fs()==USER_DS.  So the check performed for reading from
+<BR>
+user space is:
+<BR>
+<P>(0xfffffc0000000000UL &amp; (addr | size | (addr+size))) == 0
+<BR>
+<P>[ Strictly speaking I think the check should use (addr+size-1) rather than
+<BR>
+&nbsp;&nbsp;(addr+size), but it's probably not worth the extra cycle ]
+<BR>
+<P>According to this check, userland addresses must have the most significant
+<BR>
+22 bits equal to zero.  For size==1 and size==2, I'll simplify the check
+<BR>
+to:
+<BR>
+<P>(0xfffffc0000000000UL &amp; addr) == 0
+<BR>
+or equivalently: (addr &gt;&gt; 42) == 0
+<BR>
+<P>This is no problem for size==1; but for size==2 it allows the user to access
+<BR>
+the byte at address 0x400000000000.  However I believe that this is no
+<BR>
+problem since the kernel seems to use only addresses from
+<BR>
+0xfffffc0000000000 and above.  Would you agree?
+<BR>
+<P>So can you see a hole in my understanding?
+<BR>
+Thanks for your help,
+<BR>
+- Luke
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0615.html">Lance A. Brown: "Re: AS2100 boot attempt failure"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0613.html">Goonetilleke,  Anthony: "Alpha XL300 and redhat"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0592.html">Richard Henderson: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0810.html">Richard Henderson: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0592.html">Luke Deller: "Re: patch_v3: emulating missing instructions on Alpha"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:53 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

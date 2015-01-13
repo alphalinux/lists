@@ -1,0 +1,236 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: getdtablesize() / DU-loader (reason why netscape DU b</TITLE>
+<META NAME="Author" CONTENT="Herbert Valerio Riedel (hvr@hvrlab.ml.org)">
+<META NAME="Subject" CONTENT="getdtablesize() / DU-loader (reason why netscape DU binaries don't work anymore with 2.1.131)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>getdtablesize() / DU-loader (reason why netscape DU binaries don't work anymore with 2.1.131)</H1>
+<HR>
+<P>
+<!-- received="Tue Dec 08 16:28:58 1998 PST" -->
+<!-- sent="Tue, 8 Dec 1998 16:17:44 +0100 (CET)" -->
+<!-- name="Herbert Valerio Riedel" -->
+<!-- email="hvr@hvrlab.ml.org" -->
+<!-- subject="getdtablesize() / DU-loader (reason why netscape DU binaries don't work anymore with 2.1.131)" -->
+<!-- id="Pine.LNX.4.04.9812081606060.649-100000@phoenix.twisted.hvrlab.ml.org" -->
+<!-- inreplyto="19981208073537.A24193@xcski.com" -->
+<STRONG>Herbert Valerio Riedel</STRONG> (<A HREF="mailto:hvr@hvrlab.ml.org?subject=Re:%20getdtablesize()%20/%20DU-loader%20(reason%20why%20netscape%20DU%20binaries%20don't%20work%20anymore%20with%202.1.131)"><EM>hvr@hvrlab.ml.org</EM></A>)<BR>
+<EM>Tue, 8 Dec 1998 16:17:44 +0100 (CET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#317">[ date ]</A>
+<A HREF="index.html#317">[ thread ]</A>
+<A HREF="subject.html#317">[ subject ]</A>
+<A HREF="author.html#317">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0318.html">Joakim Roubert: "CD-wrtiers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0316.html">Paul Tomblin: "Re: jikes"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0314.html">Stephane Casset: "Re: jikes"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi all
+<BR>
+<P>consider this:
+<BR>
+<P><P>#include &lt;stdio.h&gt;
+<BR>
+#include &lt;unistd.h&gt;
+<BR>
+<P>int main(int argc, char *argv[])
+<BR>
+{
+<BR>
+&nbsp;&nbsp;int size = getdtablesize();
+<BR>
+<P>&nbsp;&nbsp;printf(&quot;getdtablesize() = %i\n&quot;, size);
+<BR>
+<P>&nbsp;&nbsp;return 0;
+<BR>
+}
+<BR>
+<P>output of the above compiled under axp-linux with linux-gcc and run under
+<BR>
+2.1.131-ac5:
+<BR>
+<P>getdtablesize() = 1024
+<BR>
+<P>output of the above compiled under DU4 with DU-gcc and run under
+<BR>
+2.1.131-ac5:
+<BR>
+<P>getdtablesize() = 1048576 
+<BR>
+<P>(I am quite sure although I haven't verified, that the behaviour has
+<BR>
+changed since 2.1.130) 
+<BR>
+<P>btw: 2.1.131-ac5 was compiled with egcs-1.1.1 and runs fine except for 
+<BR>
+that one thing...
+<BR>
+<P>----------------------------------------------------------------------
+<BR>
+<P>here are the corresponding strace-logs:
+<BR>
+<P>execve(&quot;./dtable-linux&quot;, [&quot;./dtable-linux&quot;], [/* 29 vars */]) = 0
+<BR>
+brk(0)                                  = 0x120100a30
+<BR>
+open(&quot;/etc/ld.so.preload&quot;, O_RDONLY)    = -1 ENOENT (No such file or directory)
+<BR>
+open(&quot;/etc/ld.so.cache&quot;, O_RDONLY)      = 4
+<BR>
+fstat(4, {st_mode=01, st_size=913129959, ...}) = 0
+<BR>
+mmap(0, 4831835312, PROT_READ, 0 /* MAP_??? */, 0, 0) = 0x20000010000
+<BR>
+close(4)                                = 0
+<BR>
+open(&quot;/lib/libc.so.6.1&quot;, O_RDONLY)      = 4
+<BR>
+mmap(0, 0, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x20000016000
+<BR>
+munmap(0x20000016000, 8192)             = 0
+<BR>
+mmap(0, 8192, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x20000110000
+<BR>
+mprotect(0x200001d8000, 1153256, PROT_NONE) = 0
+<BR>
+mmap(0x200002d0000, 1153256, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x200002d0000
+<BR>
+mmap(0x200002e8000, 1153256, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x200002e8000
+<BR>
+close(4)                                = 0
+<BR>
+munmap(0x20000010000, 17665)            = 0
+<BR>
+personality(PER_LINUX)                  = 0
+<BR>
+osf_getsysinfo(0x2d, 0x11ffffaf0, 0x11ffffb58, 0, 0x2) = 0
+<BR>
+osf_setsysinfo(0xe, 0x11ffffaf0, 0x11ffffb58, 0, 0x2) = 0
+<BR>
+getxpid()                               = 1055
+<BR>
+getrlimit(RLIMIT_NOFILE, {rlim_cur=1024, rlim_max=1024}) = 0
+<BR>
+fstat(1, {st_mode=01, st_size=913129959, ...}) = 0
+<BR>
+mmap(0, 4831834800, 0x1ffffb58, 0 /* MAP_??? */, 2, 0) = 0x20000010000
+<BR>
+ioctl(1, TCGETS, {B38400 opost isig icanon echo ...}) = 0
+<BR>
+write(1, &quot;getdtablesize() = 1024 \n&quot;, 24) = 24
+<BR>
+munmap(0x20000010000, 8192)             = 0
+<BR>
+exit(0)                                 = ?
+<BR>
+<P>--------------------------------------------------------------
+<BR>
+<P>execve(&quot;./dtable-du-gcc&quot;, [&quot;./dtable-du-gcc&quot;], [/* 29 vars */]) = 0
+<BR>
+getpagesize()                           = 0x2000
+<BR>
+getpagesize()                           = 0x2000
+<BR>
+getrlimit(RLIMIT_DATA, {rlim_cur=RLIM_INFINITY, rlim_max=RLIM_INFINITY}) = 0
+<BR>
+mmap(0x3ffc0004000, 4831836648, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x3ffc0004000
+<BR>
+getrlimit(RLIMIT_DATA, {rlim_cur=RLIM_INFINITY, rlim_max=RLIM_INFINITY}) = 0
+<BR>
+mmap(0x3ffc0006000, 4831836648, PROT_NONE, 0 /* MAP_??? */, 0, 0) = 0x3ffc0006000
+<BR>
+open(&quot;./dtable-du-gcc&quot;, O_RDONLY)       = 4
+<BR>
+getxuid()                               = 500
+<BR>
+getxgid(0x3ffc0002800)                  = 500
+<BR>
+getxuid()                               = 500
+<BR>
+getxgid(0x3ffc0002800)                  = 500
+<BR>
+read(4, &quot;\203\1\21\0\316&gt;m6\0@\0\0\0\0\0\0&quot;..., 2664) = 2664
+<BR>
+mmap(0x120000000, 4831834176, 0xa68, 0 /* MAP_??? */, 0, 0) = 0x120000000
+<BR>
+mmap(0x140000000, 4831834176, 0xa68, 0 /* MAP_??? */, 0, 0) = 0x140000000
+<BR>
+open(&quot;/usr/shlib/libc.so&quot;, O_RDONLY)    = 5
+<BR>
+read(5, &quot;\203\1\23\0\372\341\3373\0\200\22&quot;..., 2664) = 2664
+<BR>
+mmap(0x3ff80080000, 4831833920, 0xa68, 0 /* MAP_??? */, 0, 0) = 0x3ff80080000
+<BR>
+mmap(0x3ffc0080000, 4831833920, 0xa68, 0 /* MAP_??? */, 0, 0) = 0x3ffc0080000
+<BR>
+mmap(0x3ffc0090000, 4831833920, 0xa68, 0 /* MAP_??? */, 0, 0) = 0x3ffc0090000
+<BR>
+close(5)                                = 0
+<BR>
+stat(&quot;/usr/shlib/libc.so&quot;, {st_mode=01, st_size=913129995, ...}) = 0
+<BR>
+SYS_43(0x120000000, 0x2000, 0x140000000, 0x1a0, 0) = 0
+<BR>
+close(4)                                = 0
+<BR>
+getpagesize()                           = 0x2000
+<BR>
+brk(0x14000e1a0)                        = 0x14000e1a0
+<BR>
+getdtablesize()                         = 1048576
+<BR>
+ioctl(1, TIOCGETP, 0x11ffff2d8)         = 0
+<BR>
+write(1, &quot;getdtablesize() = 1048576 \n&quot;, 27) = 27
+<BR>
+close(0)                                = 0
+<BR>
+close(1)                                = 0
+<BR>
+close(2)                                = 0
+<BR>
+sigprocmask(SIG_BLOCK, ~[ILL EMT FPE BUS SEGV SYS]) = 0 (old mask [])
+<BR>
+exit(0)                                 = ?
+<BR>
+<P><PRE>
+--
+&quot;The idea that Bill Gates has appeared like a knight in shining armour to
+lead all customers out of a mire of  technological chaos neatly ignores the
+fact that it was he who, by peddling second-rate technology, led them into
+it in the first place.&quot; - Douglas Adams, on Windows '95.
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20getdtablesize()%20/%20DU-loader%20(reason%20why%20netscape%20DU%20binaries%20don't%20work%20anymore%20with%202.1.131)">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20getdtablesize()%20/%20DU-loader%20(reason%20why%20netscape%20DU%20binaries%20don't%20work%20anymore%20with%202.1.131)">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0318.html">Joakim Roubert: "CD-wrtiers"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0316.html">Paul Tomblin: "Re: jikes"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0314.html">Stephane Casset: "Re: jikes"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Dec 08 1998 - 09:00:22 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,172 @@
+<!-- received="Sat Apr 20 02:19:26 1996 " -->
+<!-- sent="Sat, 20 Apr 1996 02:19:26 -0500 (CDT)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="axp in-line assembly improvements" -->
+<!-- id="m0uAWx4-0001pUC@atheist.tamu.edu" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>axp in-line assembly improvements</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>axp in-line assembly improvements</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Sat, 20 Apr 1996 02:19:26 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#297">[ date ]</a><a href="index.html#297">[ thread ]</a><a href="subject.html#297">[ subject ]</a><a href="author.html#297">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0298.html">Ken Rice: "ALPHA and Oracle 7"</a>
+<li> <b>Previous message:</b> <a href="0296.html">Richard Henderson: "Re: EB164 extreme wierdness"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here are a couple of things that I noticed going through the<br>
+header files the other day.  There are a few more that seem<br>
+to tell gcc that it needs more registers than it should, but<br>
+my fixes cause gcc to bitch.  I think these are bugs that I<br>
+shall eventually look into, however....<br>
+<p>
+<p>
+r~<br>
+-----<br>
+--- bitops.h.asm	Fri Apr 19 15:20:51 1996<br>
++++ bitops.h	Fri Apr 19 17:20:42 1996<br>
+@@ -82,36 +82,38 @@<br>
+ <br>
+ extern __inline__ unsigned long test_bit(int nr, const void * addr)<br>
+ {<br>
+-	return 1UL &amp; (((int *) addr)[nr &gt;&gt; 5] &gt;&gt; (nr &amp; 31));<br>
++	return 1UL &amp; (((const int *) addr)[nr &gt;&gt; 5] &gt;&gt; (nr &amp; 31));<br>
+ }<br>
+ <br>
+ /*<br>
+  * ffz = Find First Zero in word. Undefined if no zero exists,<br>
+  * so code should check against ~0UL first..<br>
+  *<br>
+- * This uses the cmpbge insn to check which byte contains the zero.<br>
+- * I don't know if that's actually a good idea, but it's fun and the<br>
+- * resulting LBS tests should be natural on the alpha.. Besides, I'm<br>
+- * just teaching myself the asm of the alpha anyway.<br>
++ * Do a binary search on the bits.  Due to the nature of large<br>
++ * constants on the alpha, it is worthwhile to split the search.<br>
+  */<br>
++extern inline unsigned long ffz_b(unsigned long x)<br>
++{<br>
++	unsigned long sum = 0;<br>
++<br>
++	x = ~x &amp; -~x;		/* set first 0 bit, clear others */<br>
++	if (x &amp; 0xF0) sum += 4;<br>
++	if (x &amp; 0xCC) sum += 2;<br>
++	if (x &amp; 0xAA) sum += 1;<br>
++<br>
++	return sum;<br>
++}<br>
++<br>
+ extern inline unsigned long ffz(unsigned long word)<br>
+ {<br>
+-	unsigned long result = 0;<br>
+-	unsigned long tmp;<br>
++	unsigned long bits, qofs, bofs;<br>
++<br>
++	__asm__("cmpbge %1,%2,%0" : "=r"(bits) : "r"(word), "r"(~0UL));<br>
++	qofs = ffz_b(bits);<br>
++	__asm__("extbl %1,%2,%0" : "=r"(bits) : "r"(word), "r"(qofs));<br>
++	bofs = ffz_b(bits);<br>
+ <br>
+-	__asm__("cmpbge %1,%0,%0"<br>
+-		:"=r" (tmp)<br>
+-		:"r" (word), "0" (~0UL));<br>
+-	while (tmp &amp; 1) {<br>
+-		word &gt;&gt;= 8;<br>
+-		tmp &gt;&gt;= 1;<br>
+-		result += 8;<br>
+-	}<br>
+-	while (word &amp; 1) {<br>
+-		result++;<br>
+-		word &gt;&gt;= 1;<br>
+-	}<br>
+-	return result;<br>
++	return qofs*8 + bofs;<br>
+ }<br>
+ <br>
+ /*<br>
+--- system.h.asm	Fri Apr 19 17:12:22 1996<br>
++++ system.h	Fri Apr 19 17:25:23 1996<br>
+@@ -118,33 +118,29 @@<br>
+ <br>
+ extern __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)<br>
+ {<br>
+-	unsigned long dummy, dummy2;<br>
+-<br>
++	unsigned long dummy;<br>
+ 	__asm__ __volatile__(<br>
+ 		"\n1:\t"<br>
+-		"ldl_l %0,0(%1)\n\t"<br>
+-		"bis %2,%2,%3\n\t"<br>
+-		"stl_c %3,0(%1)\n\t"<br>
+-		"beq %3,1b\n"<br>
+-		: "=r" (val), "=r" (m), "=r" (dummy), "=r" (dummy2)<br>
+-		: "1" (m), "2" (val)<br>
+-		: "memory");<br>
++		"ldl_l %0,%2\n\t"<br>
++		"bis %3,%3,%1\n\t"<br>
++		"stl_c %1,%2\n\t"<br>
++		"beq %1,1b\n"<br>
++		: "=&amp;r" (val), "=&amp;r" (dummy), "=m" (*m)<br>
++		: "r" (val), "m" (*m));<br>
+ 	return val;<br>
+ }<br>
+ <br>
+ extern __inline__ unsigned long xchg_u64(volatile long * m, unsigned long val)<br>
+ {<br>
+-	unsigned long dummy, dummy2;<br>
+-<br>
++	unsigned long dummy;<br>
+ 	__asm__ __volatile__(<br>
+ 		"\n1:\t"<br>
+-		"ldq_l %0,0(%1)\n\t"<br>
+-		"bis %2,%2,%3\n\t"<br>
+-		"stq_c %3,0(%1)\n\t"<br>
+-		"beq %3,1b\n"<br>
+-		: "=r" (val), "=r" (m), "=r" (dummy), "=r" (dummy2)<br>
+-		: "1" (m), "2" (val)<br>
+-		: "memory");<br>
++		"ldq_l %0,%2\n\t"<br>
++		"bis %3,%3,%1\n\t"<br>
++		"stq_c %1,%2\n\t"<br>
++		"beq %1,1b\n"<br>
++		: "=&amp;r" (val), "=&amp;r" (dummy), "=m" (*m)<br>
++		: "r" (val), "m" (*m));<br>
+ 	return val;<br>
+ }<br>
+ <br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0298.html">Ken Rice: "ALPHA and Oracle 7"</a>
+<li> <b>Previous message:</b> <a href="0296.html">Richard Henderson: "Re: EB164 extreme wierdness"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,186 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: rpcc</TITLE>
+<META NAME="Author" CONTENT="Christoph Dworzak (axp@amazing.ch)">
+<META NAME="Subject" CONTENT="rpcc">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>rpcc</H1>
+<HR>
+<P>
+<!-- received="Tue Jan 12 02:56:38 1999 PST" -->
+<!-- sent="Tue, 12 Jan 1999 03:55:00 GMT" -->
+<!-- name="Christoph Dworzak" -->
+<!-- email="axp@amazing.ch" -->
+<!-- subject="rpcc" -->
+<!-- id="278e88a7.u10t12e.df8c-axp@amazing.ch" -->
+<!-- inreplyto="" -->
+<STRONG>Christoph Dworzak</STRONG> (<A HREF="mailto:axp@amazing.ch?subject=Re:%20rpcc"><EM>axp@amazing.ch</EM></A>)<BR>
+<EM>Tue, 12 Jan 1999 03:55:00 GMT</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#576">[ date ]</A>
+<A HREF="index.html#576">[ thread ]</A>
+<A HREF="subject.html#576">[ subject ]</A>
+<A HREF="author.html#576">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0577.html">Peter Petrakis: "Re: rpcc"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0575.html">Robb Romans: "Re: console problems &gt; 2.1.131"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0577.html">Peter Petrakis: "Re: rpcc"</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi
+<BR>
+<P>With some help from this list, I'm getting better
+<BR>
+with axp-asm :)
+<BR>
+<P>Now my next question is, how do I measure the speed
+<BR>
+of my code?
+<BR>
+<P>My test looks like this:
+<BR>
+<P>--------------------------------------------------------
+<BR>
+unsigned long c1, c2, ccm=~0UL, ccs=0, n;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+for (n=0; n&lt;(1UL&lt;&lt;19); n++){
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;asm volatile(&quot;rpcc %0&quot; : &quot;=r&quot;(c1) : : &quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;core();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;asm volatile(&quot;rpcc %0&quot; : &quot;=r&quot;(c2) : : &quot;memory&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;c1 = (c1 + (c1&lt;&lt;32)) &gt;&gt; 32;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;c2 = (c2 + (c2&lt;&lt;32)) &gt;&gt; 32;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;c2 = (c2&gt;c1) ? c2-c1 : c2+(1UL&lt;&lt;32)-c1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;ccs += c2;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (c2&lt;ccm) ccm = c2;
+<BR>
+}
+<BR>
+printf(&quot;\nMin=%ld Avg=%ld\n\n&quot;, ccm, ccs/n;
+<BR>
+--------------------------------------------------------
+<BR>
+<P>When I run this several times, I get strange results
+<BR>
+(see end of my mail)
+<BR>
+<P><P>Why does it take up to 50% longer sometimes? (it really
+<BR>
+does, checking with my wrist-watch.)
+<BR>
+<P>Of course I know, there are some task-switches or interupts,
+<BR>
+but I would expect, that at least one loop out of one million
+<BR>
+runs uninteruptet on full speed...
+<BR>
+<P>Has it something to do with alignment of the code in memory
+<BR>
+and if so, how could I place the code so it runs at full speed?
+<BR>
+<P>Bye
+<BR>
+&nbsp;dworz
+<BR>
+<P>--------------------------------------------------------
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=6063 Avg=6552
+<BR>
+<P>13.85user 0.00system 0:15.11elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=6065 Avg=6546
+<BR>
+<P>13.84user 0.00system 0:15.54elapsed 89%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=7961 Avg=8975
+<BR>
+<P>18.93user 0.00system 0:20.66elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=6063 Avg=6532
+<BR>
+<P>13.80user 0.00system 0:15.52elapsed 88%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=7975 Avg=8970
+<BR>
+<P>18.92user 0.00system 0:20.66elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=6062 Avg=6477
+<BR>
+<P>13.69user 0.00system 0:14.96elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+[[dworz@really speed]# time ./speedtest
+<BR>
+<P>Min=6063 Avg=6520
+<BR>
+<P>13.78user 0.00system 0:15.06elapsed 91%CPU (0avgtext+0avgdata 0maxresident)k
+<BR>
+0inputs+0outputs (69major+14minor)pagefaults 0swaps
+<BR>
+--------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20rpcc">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20rpcc">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0577.html">Peter Petrakis: "Re: rpcc"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0575.html">Robb Romans: "Re: console problems &gt; 2.1.131"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0577.html">Peter Petrakis: "Re: rpcc"</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:49 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

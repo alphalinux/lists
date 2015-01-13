@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alph</TITLE>
+<META NAME="Author" CONTENT="Richard Henderson (rth@twiddle.net)">
+<META NAME="Subject" CONTENT="Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)</H1>
+<HR>
+<P>
+<!-- received="Tue Jul 13 10:09:32 1999" -->
+<!-- isoreceived="19990713170932" -->
+<!-- sent="Tue, 13 Jul 1999 02:11:23 -0700" -->
+<!-- isosent="19990713091123" -->
+<!-- name="Richard Henderson" -->
+<!-- email="rth@twiddle.net" -->
+<!-- subject="Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)" -->
+<!-- id="19990713021123.A5788@twiddle.net" -->
+<!-- inreplyto="378A6429.B183164A@frankfurt.netsurf.de" -->
+<STRONG>Subject: </STRONG>Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)<BR>
+<STRONG>From: </STRONG>Richard Henderson (<EM>rth@twiddle.net</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Jul 13 1999 - 02:11:23 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#214">[ date ]</A>
+<A HREF="index.html#214">[ thread ]</A>
+<A HREF="subject.html#214">[ subject ]</A>
+<A HREF="author.html#214">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0215.html">Phil Carmody: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0213.html">phil-lists@tazenda.demon.co.uk: "Re: QuickCam on DEC Multia"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0199.html">Joachim Wesner: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0193.html">Richard Henderson: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0199.html">Richard Henderson: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On Mon, Jul 12, 1999 at 11:54:49PM +0200, Joachim Wesner wrote:
+<BR>
+<EM>&gt; YEP, but actually I'd say this is a feature, not a bug !  If I remember
+</EM><BR>
+<EM>&gt; correctly written somewhere in C standard, a temporary double arg, that
+</EM><BR>
+<EM>&gt; will be passed in a *register*, as you **will** like it to happen a
+</EM><BR>
+<EM>&gt; maximum optimization, simply has **NO** address to pass to memcpy.
+</EM><BR>
+<P>Hush, you're scaring the natives.
+<BR>
+<P>No optimizing compiler should generate incorrect code for
+<BR>
+his put_8.  It's a perfectly well formed standard-conforming
+<BR>
+function.  Just too bad there was a bug in egcs 1.1 after I
+<BR>
+tried to do some optimizations on memcpy.
+<BR>
+<P><EM>&gt; ... I don't think/expect there to exist a compiler smart enough to
+</EM><BR>
+<EM>&gt; replace your case with one single optimized inline register to memory
+</EM><BR>
+<EM>&gt; store or whatever. Or ???
+</EM><BR>
+<P>Certainly there is.  That's what I'd been after in the first place.
+<BR>
+And with the buglet corrected, we get a single aligned load, 
+<BR>
+followed by an unaligned store (due to the generalized char* buf
+<BR>
+argument) --
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq_u $3,7($17)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq_u $1,0($17)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $2,0($4)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mskqh $3,$17,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mskql $1,$17,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;insqh $2,$17,$4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;insql $2,$17,$2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $3,$4,$3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bis $1,$2,$1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq_u $3,7($17)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq_u $1,0($17)
+<BR>
+&nbsp;
+<BR>
+<P><P>r~
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0215.html">Phil Carmody: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0213.html">phil-lists@tazenda.demon.co.uk: "Re: QuickCam on DEC Multia"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0199.html">Joachim Wesner: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0193.html">Richard Henderson: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0199.html">Richard Henderson: "Re: an evil memcpy() optimizer bug! (egcs-1.1.2, alphaev6, linux)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sun Aug 01 1999 - 06:12:35 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

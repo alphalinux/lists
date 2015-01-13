@@ -1,0 +1,306 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Unaligned wrapper</TITLE>
+<META NAME="Author" CONTENT="Sean Hunter (sean@uncarved.co.uk)">
+<META NAME="Subject" CONTENT="Unaligned wrapper">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Unaligned wrapper</H1>
+<HR>
+<P>
+<!-- received="Thu Aug 19 22:58:00 1999" -->
+<!-- isoreceived="19990820055800" -->
+<!-- sent="Thu, 19 Aug 1999 23:54:06 +0100" -->
+<!-- isosent="19990819225406" -->
+<!-- name="Sean Hunter" -->
+<!-- email="sean@uncarved.co.uk" -->
+<!-- subject="Unaligned wrapper" -->
+<!-- id="19990819235406.A7784@henry.uncarved.co.uk" -->
+<STRONG>Subject: </STRONG>Unaligned wrapper<BR>
+<STRONG>From: </STRONG>Sean Hunter (<EM>sean@uncarved.co.uk</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Aug 19 1999 - 15:54:06 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#456">[ date ]</A>
+<A HREF="index.html#456">[ thread ]</A>
+<A HREF="subject.html#456">[ subject ]</A>
+<A HREF="author.html#456">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0457.html">Uncle George: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0455.html">Praveen Srinivasan: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0467.html">Phillip Ezolt: "Re: Unaligned wrapper"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here is the wrapper program I wrote to assist with the debugging of
+<BR>
+unaligned traps.  Its the bastard child of something similar Richard
+<BR>
+Henderson posted here, and the execcap program that Andrew Morgan
+<BR>
+wrote for the libcap package, with a few bits of mine thrown in.
+<BR>
+Thanks to Michal Jaegermann for the pointers.
+<BR>
+<P>Basically, it runs the program given on the commandline in gdb with
+<BR>
+the given arguments, but sets the flags so that the program will
+<BR>
+recieve a SIGBUS on encountering an unaligned trap.  What you do is
+<BR>
+compile the code below thussly...
+<BR>
+<P>gcc unaligned.c -o unaligned
+<BR>
+<P>...then you run your naughty program.  Say I want to debug the horrid 
+<BR>
+&quot;ping&quot; program that came with redhat 6 (yes I know there's an update,
+<BR>
+this is just an example).  What you do is get the source, build it
+<BR>
+(without stripping the debugging symbols), change to the directory so
+<BR>
+that gdb can find the relevant source files (in this case the
+<BR>
+directory is called &quot;ping&quot;), and go
+<BR>
+<P>unaligned ping harold
+<BR>
+<P>... the &quot;harold&quot; is because I'm testing it by pinging one of the hosts 
+<BR>
+on my network here.  You'd substitute a suitable alternative.
+<BR>
+<P>You'll see the following....
+<BR>
+<P>Extra arguments passed to gdb in file /tmp/file6krPqZ.
+<BR>
+Be sure to delete it when you're done.
+<BR>
+<P>GNU gdb 4.17.0.11 with Linux support
+<BR>
+Copyright 1998 Free Software Foundation, Inc.
+<BR>
+GDB is free software, covered by the GNU General Public License, and you are
+<BR>
+welcome to change it and/or distribute copies of it under certain conditions.
+<BR>
+Type &quot;show copying&quot; to see the conditions.
+<BR>
+There is absolutely no warranty for GDB.  Type &quot;show warranty&quot; for details.
+<BR>
+This GDB was configured as &quot;alpha-redhat-linux&quot;.
+<BR>
+PING harold.uncarved.co.uk (10.0.1.1): 56 data bytes
+<BR>
+<P>Program received signal SIGBUS, Bus error.
+<BR>
+0x12000359c in tvsub (out=0x11ffffa30, in=0x1201187fc) at ping.c:885
+<BR>
+885		if ((out-&gt;tv_usec -= in-&gt;tv_usec) &lt; 0) {
+<BR>
+(gdb)
+<BR>
+<P>In other words, gdb has run the program and helpfully stopped at the
+<BR>
+offending line.  Now, you just have to figure out how to fix the
+<BR>
+error...
+<BR>
+<P>Sean
+<BR>
+<P>BTW, I'm providing this in the hope that someone will find this
+<BR>
+useful, and that more people will fix the unaligned traps on alpha.
+<BR>
+If it doesn't work for you, please mail me and I'll do my best to
+<BR>
+help.
+<BR>
+<P><P><P>#include &lt;errno.h&gt;
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+<P>#ifndef __linux__
+<BR>
+#include &lt;sys/sysinfo.h&gt;
+<BR>
+#else
+<BR>
+#include &lt;asm/sysinfo.h&gt;
+<BR>
+#include &lt;asm/unistd.h&gt;
+<BR>
+<P>static int setsysinfo(unsigned long op, void *buffer, unsigned long size,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int *start, void *arg, unsigned long flag)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;syscall(__NR_osf_setsysinfo, op, buffer, size, start, arg, flag);
+<BR>
+}
+<BR>
+#endif
+<BR>
+<P><P>static void usage(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr,
+<BR>
+&quot;usage: unaligned  &lt;command-path&gt; [command-args...]\n\n&quot;
+<BR>
+&quot;  This program is designed to assist debugging of\n&quot;
+<BR>
+&quot;  unaligned traps by running the program in gdb\n&quot;
+<BR>
+&quot;  and causing it to get SIGBUS when it encounters\n&quot;
+<BR>
+&quot;  an unaligned trap.\n\n&quot;
+<BR>
+&quot;  It is free software written by Sean Hunter &lt;sean@uncarved.co.uk&gt;\n&quot;
+<BR>
+&quot;  based on code by Richard Henderson and Andrew Morgan.  It is provided\n&quot;
+<BR>
+&quot;  under the gnu public license without warrantees of any kind.\n\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);
+<BR>
+}
+<BR>
+<P><P>void trap_unaligned(void)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;unsigned int buf[2];
+<BR>
+&nbsp;&nbsp;buf[0] = SSIN_UACPROC;
+<BR>
+&nbsp;&nbsp;buf[1] = UAC_SIGBUS | UAC_NOPRINT;
+<BR>
+&nbsp;&nbsp;setsysinfo(SSI_NVPAIRS, buf, 1, 0, 0, 0);
+<BR>
+<P>}
+<BR>
+<P><P>int main(int argc, char **argv)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char* tmp_filename;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;char* my_debugger = &quot;/usr/bin/gdb&quot;;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;FILE* tmp_file;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int curr_arg;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* check that we have at least 1 argument */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if (argc &lt; 2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;usage();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;trap_unaligned();
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if (argc &gt; 2) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* add the extra args to a file to pass to gdb */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename = tmpnam(NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_file = fopen(tmp_filename, &quot;w+&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!tmp_file) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;Unable to create temp file %s reason: %s\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strerror(errno));
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;file %s\n&quot;, argv[1]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;set args&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(curr_arg = 2; curr_arg &lt; argc; curr_arg++) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot; %s&quot;, argv[curr_arg]);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;\n&quot;);
+<BR>
+#ifndef NOAUTORUN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf(tmp_file, &quot;run\n&quot;);
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fclose(tmp_file);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Extra arguments passed to gdb in file %s.\n&quot;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;Be sure to delete it when you're done.\n\n&quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tmp_filename);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;execlp(my_debugger, argv[1], &quot;-x&quot;, tmp_filename, NULL);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;execlp(my_debugger, argv[1], NULL);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}	
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* if we fall through to here, our exec failed -- announce the fact */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fprintf(stderr, &quot;Unable to execute command: %s\n&quot;, strerror(errno));
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;usage();
+<BR>
+<P>}
+<BR>
+<P>/* use gcc unaligned.c -o unaliged to compile.  Add -DNOAUTORUN if you
+<BR>
+don't want gdb to automatically run the program */
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0457.html">Uncle George: "Re: Big filesystems (for big discs...)"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0455.html">Praveen Srinivasan: "Re: Linux 2.2.11 and XFree-3.3.4 results in high CPU util?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0467.html">Phillip Ezolt: "Re: Unaligned wrapper"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Sep 07 1999 - 16:15:02 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

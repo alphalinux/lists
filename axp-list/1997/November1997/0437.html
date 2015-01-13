@@ -1,0 +1,179 @@
+<!-- received="Mon Nov 17 07:34:16 1997 " -->
+<!-- sent="Mon, 17 Nov 1997 11:32:28 -0500" -->
+<!-- name="Mike Howard" -->
+<!-- email="mike@clove.com" -->
+<!-- subject="Re: kernel sees disk, fdisk doesn't" -->
+<!-- id="199711171632.LAA23675@clove.com" -->
+<!-- inreplyto="kernel sees disk, fdisk doesn't" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: kernel sees disk, fdisk doesn't</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: kernel sees disk, fdisk doesn't</h2>
+
+<b>Mike Howard</b> (<a href="mailto:mike@clove.com"><i>mike@clove.com</i></a>)<br>
+<i>Mon, 17 Nov 1997 11:32:28 -0500</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#437">[ date ]</a><a href="index.html#437">[ thread ]</a><a href="subject.html#437">[ subject ]</a><a href="author.html#437">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0438.html">Murray Stokely: "Digital Unix on XL-300 systems"</a>
+<li> <b>Previous message:</b> <a href="0436.html">Mike Howard: "Re: [Q] compile error for aboot."</a>
+<li> <b>Maybe in reply to:</b> <a href="0387.html">Don Kitchen: "kernel sees disk, fdisk doesn't"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Just for the record, I have built a working, bootable Linux on an<br>
+as255 using SRM console.  This is RH 4.2 installed on /dev/sdb [not<br>
+/dev/sda].  Dec UNIX is on /dev/sda.<br>
+<p>
+This has been derived via trial and error, reading this list, the<br>
+howto's and the RH doc [lame as it is].  RH tech support was no help;<br>
+they didn't even try to fake wrong answers.<br>
+<p>
+Here's what I did.  Your mileage may vary.<br>
+<p>
+0. buy a floppy drive.<br>
+<p>
+1. Create boot and ramdisk floppies by copying the images in the<br>
+IMAGES directory of RH cdrom disk1.  use `avanti-s.img' and<br>
+`ramdisk.img'.  [the hint here is that the -s extensions refer to SRM<br>
+console.]<br>
+<p>
+2. Boot the system as follows:<br>
+<p>
+ a. at the srm prompt:<br>
+<i>  &gt;&gt;&gt; boot dva1</i><br>
+<p>
+  This will boot up `aboot' in interactive mode.  You are supposed to<br>
+be able to pass parameters to aboot - and you can - but aboot has to<br>
+deduce device names and partitions and this does not always work<br>
+correctly.  I've found this is more forgiving of spelling mistakes.<br>
+<p>
+ b. at the aboot prompt, boot the kernel:<br>
+  aboot: vmlinux.gz root=/dev/fd0 load_ramdisk=1 prompt_ramdisk=1<br>
+<p>
+ when prompted, load the ramdisk.<br>
+<p>
+ this takes you into the RH install.<br>
+<p>
+3. RH install will use fdisk to partition the disk.  I found that I<br>
+could start the first partition a few cylinders in from the start of<br>
+the disk.<br>
+<p>
+Important: write down the cylinder, head, and sector numbers.  I found<br>
+it convenient to change the fdisk units to blocks and write down the<br>
+fdisk table using raw block numbers.  I needed this because I had to<br>
+go back and rebuild the disk label using the BSD compatibility mode of<br>
+fdisk in order for `aboot' to be able to find things on the disk.<br>
+<p>
+Question: it seems to me that you have to have BOTH an fdisk partition<br>
+table and a BSD compatible disk label on the disk in order for things<br>
+to work correctly.  Does anyone know if this is really true?<br>
+<p>
+4. Finish the install.<br>
+<p>
+At the end of the install, you are told to remove the floppy and<br>
+reboot the system.  This will not work.<br>
+<p>
+5. Insert the floppy and boot the installed system using the floppy.<br>
+<p>
+  a. at the SRM prompt:<br>
+<i>  &gt;&gt;&gt; boot dva1</i><br>
+<p>
+  b. at the aboot prompt:<br>
+<i>  &gt;&gt;&gt; vmlinux.gz root=/dev/sdb1</i><br>
+ or wherever you put your system: e.g. /dev/sda1, etc.<br>
+<p>
+6. Create the BSD disk label.  You do this by typing `fdisk /dev/sdb'<br>
+or `fdisk /dev/sda' or whatever.  Go to the BSD compatible section and<br>
+create your partitions.  I did it like this:<br>
+<p>
+ a. changed the cylinder, head, and sectors/track numbers to match the<br>
+fdisk numbers I used.<br>
+ b. created an `unused' partition for partition `a' which spanned the<br>
+disk blocks I omitted from the `fdisk' partition table.<br>
+    created a `b' partition which spanned my Linux Native partition<br>
+    created a `c' partition which spans the whole disk - kind of a<br>
+      tradition<br>
+    created a `d' partition which spans my swap space.<br>
+  c. wrote the label to disk and exited.<br>
+<p>
+This clobbers the disk geometry parameters for my `fdisk' partition<br>
+table, but it doesn't seem to matter.<br>
+<p>
+7. Install the aboot package.  When I did it, the RH install did not<br>
+install aboot.  So:<br>
+  a. mount /mnt/cdrom<br>
+  b. cd /mnt/cdrom/RedHat/RPMS<br>
+  c. rpm -i aboot-0.5-1.axp.rpm<br>
+<p>
+8. Install aboot using swriteboot:<br>
+<p>
+Since my system is on /dev/sdb, I wrote:<br>
+<p>
+ # swriteboot -f1 -f3 -v /dev/sdb /boot/bootlx /vmlinux.gz<br>
+<p>
+You need the -f's in order to `force' overwriting partitions `a' and<br>
+`c'.  The -v is just so you can see the messages.<br>
+<p>
+9. sync the disks and reboot.<br>
+<p>
+This time, at the SRM prompt type:<br>
+<i>  &gt;&gt;&gt;boot dka1</i><br>
+<p>
+This should boot `aboot'.  At the aboot prompt, I have to type:<br>
+  aboot: 0/vmlinux.gz root=/dev/sdb1<br>
+<p>
+NOTES:<br>
+<p>
+I installed vmlinux.gz in the boot block because that is the only way<br>
+aboot can find it other than on a floppy.  This is because I built an<br>
+ABNORMAL system by putting Linux on /dev/sdb.  `aboot' knows about<br>
+/dev/sda and is (supposed to be to) able to find vmlinux.gz on a<br>
+specified partition - read the aboot doc.  This doesn't work if your<br>
+system is not on /dev/sda, however - read the code.<br>
+<p>
+Similarly, I have to specify where the root partition is every time.<br>
+Maybe I'll build a kernel and hack an aboot, and maybe not.<br>
+<p>
+Hope this helps<br>
+<p>
+<pre>
+-- 
+Mike Howard &lt;<a href="mailto:mike@clove.com">mike@clove.com</a>&gt;
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0438.html">Murray Stokely: "Digital Unix on XL-300 systems"</a>
+<li> <b>Previous message:</b> <a href="0436.html">Mike Howard: "Re: [Q] compile error for aboot."</a>
+<li> <b>Maybe in reply to:</b> <a href="0387.html">Don Kitchen: "kernel sees disk, fdisk doesn't"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

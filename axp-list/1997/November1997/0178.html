@@ -1,0 +1,118 @@
+<!-- received="Mon Nov 10 12:29:57 1997 " -->
+<!-- sent="Mon, 10 Nov 1997 21:45:35 +0200 (EET)" -->
+<!-- name="Matti Aarnio" -->
+<!-- email="matti.aarnio@tele.fi" -->
+<!-- subject="DEC PWS433a and 2.1.61VGER don't match..." -->
+<!-- id="19971110194538Z231598-216+4@mea.tmt.tele.fi" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>DEC PWS433a and 2.1.61VGER don't match...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>DEC PWS433a and 2.1.61VGER don't match...</h2>
+
+<b>Matti Aarnio</b> (<a href="mailto:matti.aarnio@tele.fi"><i>matti.aarnio@tele.fi</i></a>)<br>
+<i>Mon, 10 Nov 1997 21:45:35 +0200 (EET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#178">[ date ]</a><a href="index.html#178">[ thread ]</a><a href="subject.html#178">[ subject ]</a><a href="author.html#178">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0179.html">Jay.Estabrook@digital.com: "RE: AlphaBIOS and milo"</a>
+<li> <b>Previous message:</b> <a href="0177.html">Koos van den Hout _U nix and we all_: "firewalling failing ?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<li> <b>Maybe reply:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi,<br>
+<p>
+	Apparently I am one of the rare people running 2.1 series<br>
+	kernels on Alpha, as all questions we see are about 2.0 ...<br>
+<p>
+	That said, I have DEC PWS 433a which system is also known<br>
+	as MIATA and the chipset is PYXIS.<br>
+<p>
+	Linus' 2.1.61 does not (so far) contain support for this<br>
+	model, but luckily the so called VGER series has included<br>
+	patches for it.<br>
+<p>
+	I have been wondering, why my test kernels of VGER series<br>
+	have rather consistently failed to boot with AIC7XXX SCSI <br>
+	controller, and today I finally found a small difference<br>
+	between working arch/alpha/kernel/pyxis.c, and failing one<br>
+	(on VGER series):<br>
+<p>
+#define vuip  volatile unsigned int *<br>
+<p>
+Ok:   *((vuip)SOME_ADDRESS) = ...<br>
+Fail: *(viup)SOME_ADDRESS = ...<br>
+<p>
+	Having done that change the system boots fine, but then I found<br>
+	out that there is something amiss in top-level Makefile/Rules.make<br>
+	and generated modules don't load due to mismatched symbols...<br>
+	Namely on Alpha the file  &lt;linux/modversions.h&gt;  does not get<br>
+	&lt;linux/modules/alpha_ksyms.ver&gt; into it automatically.<br>
+	Removing  include/linux/modversions.h  and doing:<br>
+		make clean boot modules modules_install<br>
+	regenerates the file with missing entry, and generates working<br>
+	ksyms.<br>
+<p>
+	Anybody with good ideas to get that to work without that manual<br>
+	intervention ?<br>
+<p>
+	The reason why I want to use 2.1.X series is IPv6, and there<br>
+	too is something amiss.  Module ipv6 is missing  csum_ipv6_magic<br>
+	which is defined in arch/alpha/lib/, but never linked in with<br>
+	the module.  Does any portable way exist for doing this type<br>
+	of architecture specific linkages on modules, or should we just<br>
+	yield, and add things like this on  net/ipv6/Makefile:<br>
+<p>
+ifeq ($(ARCH),alpha)<br>
+IPV6_OBJS += ../../arch/alpha/lib/csum_ipv6_magic.o<br>
+endif<br>
+<p>
+	Oh yes, syslogd is throwing exceptions at  __copy_user<br>
+	(copy_user.S, line 55, or line 69, depending which address<br>
+	 you refer to at the exception message):<br>
+<p>
+syslogd: Exception at [&lt;fffffc000041b860&gt;] (fffffc000041b91c)<br>
+<p>
+	I am way too tired to figure this one out today..<br>
+<p>
+/Matti Aarnio &lt;<a href="mailto:matti.aarnio@tele.fi">matti.aarnio@tele.fi</a>&gt;<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0179.html">Jay.Estabrook@digital.com: "RE: AlphaBIOS and milo"</a>
+<li> <b>Previous message:</b> <a href="0177.html">Koos van den Hout _U nix and we all_: "firewalling failing ?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<li> <b>Maybe reply:</b> <a href="0190.html">David S. Miller: "Re: DEC PWS433a and 2.1.61VGER don't match..."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

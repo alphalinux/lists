@@ -1,0 +1,214 @@
+diff -burN linux-2.4.7/arch/alpha/kernel/entry.S linux-247-patched/arch/alpha/kernel/entry.S
+--- linux-2.4.7/arch/alpha/kernel/entry.S	Thu Jul 26 16:45:31 2001
++++ linux-247-patched/arch/alpha/kernel/entry.S	Wed Aug  1 17:28:50 2001
+@@ -290,6 +290,8 @@
+ .end	__kernel_execve
+ 
+ .align 3
++.globl do_switch_fp_start
++.globl do_switch_fp_end	
+ .ent	do_switch_stack
+ do_switch_stack:
+ 	lda	$30,-SWITCH_STACK_SIZE($30)
+@@ -301,6 +303,7 @@
+ 	stq	$14,40($30)
+ 	stq	$15,48($30)
+ 	stq	$26,56($30)
++do_switch_fp_start:		
+ 	stt	$f0,64($30)
+ 	stt	$f1,72($30)
+ 	stt	$f2,80($30)
+@@ -335,10 +338,13 @@
+ 	stt	$f30,304($30)
+ 	stt	$f0,312($30)	# save fpcr in slot of $f31
+ 	ldt	$f0,64($30)	# dont let "do_switch_stack" change fp state.
++do_switch_fp_end:		
+ 	ret	$31,($1),1
+ .end do_switch_stack
+ 
+ .align 3
++.globl undo_switch_fp_start
++.globl undo_switch_fp_end		
+ .ent	undo_switch_stack
+ undo_switch_stack:
+ 	ldq	$9,0($30)
+@@ -349,6 +355,7 @@
+ 	ldq	$14,40($30)
+ 	ldq	$15,48($30)
+ 	ldq	$26,56($30)
++undo_switch_fp_start:		
+ 	ldt	$f30,312($30)	# get saved fpcr
+ 	ldt	$f0,64($30)
+ 	ldt	$f1,72($30)
+@@ -382,6 +389,7 @@
+ 	ldt	$f28,288($30)
+ 	ldt	$f29,296($30)
+ 	ldt	$f30,304($30)
++undo_switch_fp_end:	
+ 	lda	$30,SWITCH_STACK_SIZE($30)
+ 	ret	$31,($1),1
+ .end undo_switch_stack
+diff -burN linux-2.4.7/arch/alpha/kernel/proto.h linux-247-patched/arch/alpha/kernel/proto.h
+--- linux-2.4.7/arch/alpha/kernel/proto.h	Thu Jul 26 16:16:37 2001
++++ linux-247-patched/arch/alpha/kernel/proto.h	Wed Aug  1 17:28:54 2001
+@@ -134,6 +134,11 @@
+ extern void entUna(void);
+ extern void entDbg(void);
+ 
++extern void do_switch_fp_start(void);
++extern void do_switch_fp_end(void);
++extern void undo_switch_fp_start(void);
++extern void undo_switch_fp_end(void);
++
+ /* process.c */
+ extern void cpu_idle(void) __attribute__((noreturn));
+ 
+diff -burN linux-2.4.7/arch/alpha/kernel/smp.c linux-247-patched/arch/alpha/kernel/smp.c
+--- linux-2.4.7/arch/alpha/kernel/smp.c	Thu Jul 26 16:41:17 2001
++++ linux-247-patched/arch/alpha/kernel/smp.c	Wed Aug  1 17:28:58 2001
+@@ -72,7 +72,6 @@
+ int smp_num_probed;		/* Internal processor count */
+ int smp_num_cpus = 1;		/* Number that came online.  */
+ int smp_threads_ready;		/* True once the per process idle is forked. */
+-cycles_t cacheflush_time;
+ 
+ int __cpu_number_map[NR_CPUS];
+ int __cpu_logical_map[NR_CPUS];
+@@ -205,62 +204,6 @@
+ 
+ 
+ /*
+- * Rough estimation for SMP scheduling, this is the number of cycles it
+- * takes for a fully memory-limited process to flush the SMP-local cache.
+- *
+- * We are not told how much cache there is, so we have to guess.
+- */
+-static void __init
+-smp_tune_scheduling (void)
+-{
+-	struct percpu_struct *cpu;
+-	unsigned long on_chip_cache;
+-	unsigned long freq;
+-
+-	cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb->processor_offset);
+-	switch (cpu->type)
+-	{
+-	case EV45_CPU:
+-		on_chip_cache = 16 + 16;
+-		break;
+-
+-	case EV5_CPU:
+-	case EV56_CPU:
+-		on_chip_cache = 8 + 8 + 96;
+-		break;
+-
+-	case PCA56_CPU:
+-		on_chip_cache = 16 + 8;
+-		break;
+-
+-	case EV6_CPU:
+-	case EV67_CPU:
+-		on_chip_cache = 64 + 64;
+-		break;
+-
+-	default:
+-		on_chip_cache = 8 + 8;
+-		break;
+-	}
+-
+-	freq = hwrpb->cycle_freq ? : est_cycle_freq;
+-
+-#if 0
+-	/* Magic estimation stolen from x86 port.  */
+-	cacheflush_time = freq / 1024L * on_chip_cache / 5000L;
+-
+-        printk("Using heuristic of %d cycles.\n",
+-               cacheflush_time);
+-#else
+-	/* Magic value to force potential preemption of other CPUs.  */
+-	cacheflush_time = INT_MAX;
+-
+-        printk("Using heuristic of %d cycles.\n",
+-               cacheflush_time);
+-#endif
+-}
+-
+-/*
+  * Send a message to a secondary's console.  "START" is one such
+  * interesting message.  ;-)
+  */
+@@ -599,7 +542,6 @@
+ 	current->processor = boot_cpuid;
+ 
+ 	smp_store_cpu_info(boot_cpuid);
+-	smp_tune_scheduling();
+ 	smp_setup_percpu_timer(boot_cpuid);
+ 
+ 	init_idle();
+diff -burN linux-2.4.7/arch/alpha/kernel/traps.c linux-247-patched/arch/alpha/kernel/traps.c
+--- linux-2.4.7/arch/alpha/kernel/traps.c	Thu Jul 26 16:45:31 2001
++++ linux-247-patched/arch/alpha/kernel/traps.c	Wed Aug  1 17:29:01 2001
+@@ -188,6 +188,23 @@
+ 	 unsigned long a2, unsigned long a3, unsigned long a4,
+ 	 unsigned long a5, struct pt_regs regs)
+ {
++	if (type == 3 && !(regs.ps & 8) ) {
++		/*
++		 * Handle a rare case where the user has disabled floating
++		 * point using the clrfen PALcall and the kernel is attempting
++		 * to view floating point state. This happens in two asm stubs:
++		 * do_switch_stack and undo_switch_stack. 
++		 * If this is the case, we modify the return value to pass
++		 * over this section and resume from there. 
++		 */
++		if (regs.pc == (unsigned long) do_switch_fp_start) {
++			regs.pc = (unsigned long) do_switch_fp_end;
++			return;
++		} else if (regs.pc == (unsigned long) undo_switch_fp_start) {
++			regs.pc = (unsigned long) undo_switch_fp_end;
++			return;
++		}
++	}
+ 	die_if_kernel((type == 1 ? "Kernel Bug" : "Instruction fault"),
+ 		      &regs, type, 0);
+ 
+@@ -252,6 +269,10 @@
+ 			if (alpha_fp_emul(regs.pc-4))
+ 				return;
+ 		}
++		send_sig(SIGILL, current, 1);
++		break;
++
++	      case 5: /* illop */
+ 		send_sig(SIGILL, current, 1);
+ 		break;
+ 
+diff -burN linux-2.4.7/drivers/char/rtc.c linux-247-patched/drivers/char/rtc.c
+--- linux-2.4.7/drivers/char/rtc.c	Thu Jul 26 16:41:08 2001
++++ linux-247-patched/drivers/char/rtc.c	Wed Aug  1 17:48:57 2001
+@@ -710,15 +710,24 @@
+ 	if (!(ctrl & RTC_DM_BINARY) || RTC_ALWAYS_BCD)
+ 		BCD_TO_BIN(year);       /* This should never happen... */
+ 	
+-	if (year >= 20 && year < 48) {
++	if (year < 20) {
++		epoch = 2000;
++		guess = "SRM (post-2000)";
++	} else if (year >= 20 && year < 48) {
+ 		epoch = 1980;
+ 		guess = "ARC console";
+ 	} else if (year >= 48 && year < 70) {
+ 		epoch = 1952;
+ 		guess = "Digital UNIX";
++#if defined(__mips__)
+ 	} else if (year >= 70 && year < 100) {
+ 		epoch = 1928;
+ 		guess = "Digital DECstation";
++#else
++	} else if (year >= 70) {
++		epoch = 1900;
++		guess = "Standard PC (1900)";
++#endif
+ 	}
+ 	if (guess)
+ 		printk(KERN_INFO "rtc: %s epoch (%lu) detected\n", guess, epoch);

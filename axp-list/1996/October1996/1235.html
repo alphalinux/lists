@@ -1,0 +1,109 @@
+<!-- received="Tue Oct 29 04:09:34 1996 " -->
+<!-- sent="29 Oct 1996 10:01:27 -0000" -->
+<!-- name="Eric Smith" -->
+<!-- email="eric@brouhaha.com" -->
+<!-- subject="UDB flash and failsafe loader experiments" -->
+<!-- id="199610290402.XAA01082@alpha0.estabrook.org" -->
+<!-- inreplyto="èÖ	@èÖ	@unsubscribe axp-list-request@redhat." -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>UDB flash and failsafe loader experiments</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>UDB flash and failsafe loader experiments</h2>
+
+<b>Eric Smith</b> (<a href="mailto:eric@brouhaha.com"><i>eric@brouhaha.com</i></a>)<br>
+<i>29 Oct 1996 10:01:27 -0000</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1235">[ date ]</a><a href="index.html#1235">[ thread ]</a><a href="subject.html#1235">[ subject ]</a><a href="author.html#1235">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1236.html">Castelijn, Maurice: "RE: DEC/Alpha network question..."</a>
+<li> <b>Previous message:</b> <a href="1234.html">Eric Smith: "Re: UDB Drive Replacements?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Now that DEC has made the Multia/UDB Failsafe Loader and Firmware Update<br>
+disk images available:<br>
+	<a href="ftp://ftp.digital.com/pub/DEC/Alpha/firmware/interim/udb/">ftp://ftp.digital.com/pub/DEC/Alpha/firmware/interim/udb/</a><br>
+<p>
+I decided to start experimenting with the Flash, with the goal of eventually<br>
+running Milo from flash (as is commonly done on some other platforms).<br>
+<p>
+The UDB has three Intel 28F020 flash chips, each of which store 256 Kbytes.<br>
+The SRM console firmware normally occupies the first two chips, and the ARC<br>
+console normally occupies the third.<br>
+<p>
+The SRM console knows the three chips as the files rom0flash, rom1flash, and<br>
+rom2flash.  It also knows the first two together as roms01flash, the last two<br>
+together as roms12flash, and all three together as roms012flash.  And srmflash<br>
+and arcflash may be used in place of roms01flash and rom2flash (even if you<br>
+rearrange the flash contents).<br>
+<p>
+<i>&gt;From the SRM console, I found that I could save the current flash contents</i><br>
+to a formatted floppy (FAT filesystem) by giving these commands:<br>
+<p>
+<i>&gt;&gt;&gt;cat srmflash &gt;fat:srm.exe/dva0</i><br>
+<i>&gt;&gt;&gt;cat arcflash &gt;fat:arc.exe/dva0</i><br>
+<p>
+I've always wondered why the UDB boots SRM first, then switches to ARC.  So I<br>
+experimented with swapping the order of the firmware by using the update<br>
+command.<br>
+<p>
+After power cycling the UDB, it went directly into ARC.  I surmise that the SROM<br>
+code jumps to the first valid firmware image that it can find.  Perhaps it even<br>
+requires that the boot image resides at the start of flash; I didn't try wiping<br>
+out rom0flash.<br>
+<p>
+However, you probably don't want to do this because there doesn't appear to be<br>
+any way to get the ARC console to load and execute the SRM console.  With this<br>
+flash configuration if you tell ARC to set the default environment to Unix or<br>
+VMS, it claims to do it.  But when you try to reboot, you still get arc.<br>
+<p>
+I then tried the fail safe loader.  By moving a jumper from W10 to W11 (in a<br>
+VX42, for a VX40 move the jumper from W8 to W7), the system booted SRM from the<br>
+fail safe loader disk.  I was then able to restore my original flash contents<br>
+by giving these commands:<br>
+<p>
+<i>&gt;&gt;&gt;update -path fat:srm.exe -target srmflash</i><br>
+<i>&gt;&gt;&gt;update -path fat:arc.exe -target arcflash</i><br>
+<p>
+And everything was back to normal.<br>
+<p>
+Now that I am confident that I can reload the flash if I screw it up, I'm<br>
+going to try to get Milo and FMU to use it.<br>
+<p>
+Cheers,<br>
+Eric<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1236.html">Castelijn, Maurice: "RE: DEC/Alpha network question..."</a>
+<li> <b>Previous message:</b> <a href="1234.html">Eric Smith: "Re: UDB Drive Replacements?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

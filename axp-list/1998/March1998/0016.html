@@ -1,0 +1,133 @@
+<!-- received="Sun Mar  1 21:28:40 1998 " -->
+<!-- sent="Sun, 1 Mar 1998 18:24:00 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: Modem troubles" -->
+<!-- id="199803020124.SAA30016@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="01BD4530.D1073860@adialup55.ptld.uswest.net" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Modem troubles</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Modem troubles</h2>
+
+<b>Michal Jaegermann</b> (<a href="mailto:michal@ellpspace.math.ualberta.ca"><i>michal@ellpspace.math.ualberta.ca</i></a>)<br>
+<i>Sun, 1 Mar 1998 18:24:00 -0700 (MST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#16">[ date ]</a><a href="index.html#16">[ thread ]</a><a href="subject.html#16">[ subject ]</a><a href="author.html#16">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0017.html">Michal Jaegermann: "Re: PCMCIA on UDB"</a>
+<li> <b>Previous message:</b> <a href="0015.html">Christopher Curtis: "PCMCIA on UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; </i><br>
+<i>&gt; I have linked /dev/modem to /dev/cua1</i><br>
+<i>&gt; 	lrwxrwxrwx  1 root  root  4 Feb 12 08:55 /dev/modem -&gt; cua1</i><br>
+<p>
+Ok, once again it looks like it is a time for a periodic post.  I wonder<br>
+when a need for this will vanish.  In case somebody wonders Ted Ts'o<br>
+authored, among other things, a serial port code for Linux.<br>
+<p>
+Ah, don't tell me that Red Hat tools set your modem on cuaXX interface<br>
+as well. Red Hat also could use some reading time once in a while.<br>
+<p>
+ From: "Theodore Y. Ts'o" &lt;<a href="mailto:tytso@mit.edu">tytso@mit.edu</a>&gt;<br>
+ To: Tony Nugent &lt;<a href="mailto:tonyn@sctnugen.ppp.gu.edu.au">tonyn@sctnugen.ppp.gu.edu.au</a>&gt;<br>
+ Cc: <a href="mailto:linux-net@vger.rutgers.edu">linux-net@vger.rutgers.edu</a>, linux-ppp@vger.rutgers.edu<br>
+ Subject: Re: /dev/cua? Vs /dev/ttyS? (was: Re: co-existance of pppd and mgetty ?)<br>
+ Date: Mon, 13 May 1996 19:51:04 +0200<br>
+ Status: ROr<br>
+<p>
+    Date:        Mon, 13 May 1996 07:57:09 +1000<br>
+    From: Tony Nugent &lt;tonyn@sctnugen.ppp.gu.edu.au&gt;<br>
+<p>
+    Can someone kindly explain the difference between the /dev/cua? and<br>
+    /dev/ttyS? devices?<br>
+<p>
+ /dev/ttySxx devices are fully POSIX-compliant TTY devices.  If you are<br>
+ only going to be using one set of tty devices, you should be using<br>
+ /dev/ttySxx. <br>
+<p>
+ /dev/cuaXX devices are different from /dev/ttySXX in two ways --- first<br>
+ of all, they will allow you to open the device even if CLOCAL is not set<br>
+ and the O_NONBLOCK flag was not given to the open device.  This allows<br>
+ programs that don't use the POSIX-mondated interface for opening<br>
+ /dev/ttySxx devices to be able to use /dev/cuaXX to make outgoing phone<br>
+ calls on their modem (cu stands for "callout", and is taken from SunOS).<br>
+<p>
+ The second way in which /dev/cuaXX differs from /dev/ttySXX is that if<br>
+ they are used, they will trigger a simplistic kernel-based locking<br>
+ scheme:  If /dev/ttySXX is opened by one or more processes, then an<br>
+ attempt to open /dev/cuaXX will return EAGAIN.  If /dev/cuaXX is opened<br>
+ by one or more processes, then an attempt to open /dev/ttySXX will<br>
+ result the open blocking until /dev/cuaXX is closed, and the carrier<br>
+ detect line goes high.<br>
+<p>
+ While this will allow for simple lockouts between a user using a modem<br>
+ for callout and a getty listening on the line for logins, it doesn't<br>
+ work if you need to arbitrate between multiple programs wanting to do<br>
+ dialout --- for example, users wanting to do dialout and UUCP.<br>
+<p>
+ I originally implemented the cuaXX/ttySXX lockout mechanism back before<br>
+ FSSTND established a standard convention for the use of tty lock files.<br>
+ Now that it's there, people should use the tty lock files and not try<br>
+ using /dev/cuaXX.  The only reason why /dev/cuaXX hasn't disappeared yet<br>
+ is for backwards compatibility reasons.<br>
+<p>
+						 - Ted<br>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Problems:</i><br>
+<i>&gt; When I start minicom (with the -s option), minicom launches then hangs during the initialization</i><br>
+<i>&gt; of the modem phase.</i><br>
+<p>
+Cannot tell that for sure, as I did not have an opportunity to test it,<br>
+but I would be not surprised at all if glibs, which follows closesly<br>
+POSIX standards, would break /dev/cuaXX interfaces for good.<br>
+<p>
+On the other hand I cannot exclude that serial ports in 5.0 are simply<br>
+broken.  Just do not know.<br>
+<p>
+  Michal<br>
+<p>
+p.s. Could you please hit &lt;return&gt; once for a while.  Lines well over 70<br>
+characters in lengths are quite unreadable and not acceptable according<br>
+to long established customs of netiquette.  When confronted with a<br>
+message with such long lines more often than not I simply chuck it to<br>
+a bit-bucket without even trying to read it.<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0017.html">Michal Jaegermann: "Re: PCMCIA on UDB"</a>
+<li> <b>Previous message:</b> <a href="0015.html">Christopher Curtis: "PCMCIA on UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

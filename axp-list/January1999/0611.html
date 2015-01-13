@@ -1,0 +1,570 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: problems with 5.1</TITLE>
+<META NAME="Author" CONTENT="Michal Jaegermann (michal@ellpspace.math.ualberta.ca)">
+<META NAME="Subject" CONTENT="Re: problems with 5.1">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: problems with 5.1</H1>
+<HR>
+<P>
+<!-- received="Tue Jan 12 17:30:50 1999 PST" -->
+<!-- sent="Tue, 12 Jan 1999 10:29:53 -0700 (MST)" -->
+<!-- name="Michal Jaegermann" -->
+<!-- email="michal@ellpspace.math.ualberta.ca" -->
+<!-- subject="Re: problems with 5.1" -->
+<!-- id="199901121729.KAA06789@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="369AF07D.41C6@prr.mpi-stuttgart.mpg.de" -->
+<STRONG>Michal Jaegermann</STRONG> (<A HREF="mailto:michal@ellpspace.math.ualberta.ca?subject=Re:%20problems%20with%205.1"><EM>michal@ellpspace.math.ualberta.ca</EM></A>)<BR>
+<EM>Tue, 12 Jan 1999 10:29:53 -0700 (MST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#611">[ date ]</A>
+<A HREF="index.html#611">[ thread ]</A>
+<A HREF="subject.html#611">[ subject ]</A>
+<A HREF="author.html#611">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0612.html">Adam C. Powell, IV: "Re: Help!  Can't recover!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0610.html">B. James Phillippe: "Re: archives of this list?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0574.html">Larry Snyder: "Re: archives of this list?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Roman Martonak wrote:
+<BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Michal Jaegermann wrote:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt; Replacing gcc/combine.c
+</EM><BR>
+<EM>&gt; &gt; with a one from a snapshot (any will do starting from some early
+</EM><BR>
+<EM>&gt; &gt; November) and recompiling will fix your compiler.
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I took combine.c from snapshot egcs-19981206 and got the following error
+</EM><BR>
+<P>Looks like that my advice was a bit off and there are more differences
+<BR>
+in combine.c that it seemed to me on the first glance. Sorry.
+<BR>
+<P>Anyway - here is a patch for combine.c from 1.1.1 (it may mention &quot;fuzz&quot;
+<BR>
+while patching - disregard).
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Michal
+<BR>
+<P>--- combine.c.rth	Wed Oct 21 19:54:11 1998
+<BR>
++++ combine.c	Wed Oct 21 19:54:31 1998
+<BR>
+@@ -3048,103 +3048,154 @@
+<BR>
+&nbsp;&nbsp;&nbsp;if (COMBINE_RTX_EQUAL_P (x, to))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return to;
+<BR>
+&nbsp;
+<BR>
+-  len = GET_RTX_LENGTH (code);
+<BR>
+-  fmt = GET_RTX_FORMAT (code);
+<BR>
++  /* Parallel asm_operands need special attention because all of the
+<BR>
++     inputs are shared across the arms.  Furthermore, unsharing the
+<BR>
++     rtl results in recognition failures.  Failure to handle this case
+<BR>
++     specially can result in circular rtl.
+<BR>
++
+<BR>
++     Solve this by doing a normal pass across the first entry of the
+<BR>
++     parallel, and only processing the SET_DESTs of the subsequent
+<BR>
++     entries.  Ug.  */
+<BR>
++
+<BR>
++  if (code == PARALLEL
+<BR>
++      &amp;&amp; GET_CODE (XVECEXP (x, 0, 0)) == SET
+<BR>
++      &amp;&amp; GET_CODE (SET_SRC (XVECEXP (x, 0, 0))) == ASM_OPERANDS)
+<BR>
++    {
+<BR>
++      new = subst (XVECEXP (x, 0, 0), from, to, 0, unique_copy);
+<BR>
+&nbsp;
+<BR>
+-  /* We don't need to process a SET_DEST that is a register, CC0, or PC, so
+<BR>
+-     set up to skip this common case.  All other cases where we want to
+<BR>
+-     suppress replacing something inside a SET_SRC are handled via the
+<BR>
+-     IN_DEST operand.  */
+<BR>
+-  if (code == SET
+<BR>
+-      &amp;&amp; (GET_CODE (SET_DEST (x)) == REG
+<BR>
+-        || GET_CODE (SET_DEST (x)) == CC0
+<BR>
+-        || GET_CODE (SET_DEST (x)) == PC))
+<BR>
+-    fmt = &quot;ie&quot;;
+<BR>
+-
+<BR>
+-  /* Get the mode of operand 0 in case X is now a SIGN_EXTEND of a
+<BR>
+-     constant.  */
+<BR>
+-  if (fmt[0] == 'e')
+<BR>
+-    op0_mode = GET_MODE (XEXP (x, 0));
+<BR>
++      /* If this substitution failed, this whole thing fails.  */
+<BR>
++      if (GET_CODE (new) == CLOBBER
+<BR>
++	  &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
++	return new;
+<BR>
+&nbsp;
+<BR>
+-  for (i = 0; i &lt; len; i++)
+<BR>
+-    {
+<BR>
+-      if (fmt[i] == 'E')
+<BR>
++      SUBST (XVECEXP (x, 0, 0), new);
+<BR>
++
+<BR>
++      for (i = XVECLEN (x, 0) - 1; i &gt;= 1; i--)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	  register int j;
+<BR>
+-	  for (j = XVECLEN (x, i) - 1; j &gt;= 0; j--)
+<BR>
++	  rtx dest = SET_DEST (XVECEXP (x, 0, i));
+<BR>
++	  
+<BR>
++	  if (GET_CODE (dest) != REG
+<BR>
++	      &amp;&amp; GET_CODE (dest) != CC0
+<BR>
++	      &amp;&amp; GET_CODE (dest) != PC)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	      if (COMBINE_RTX_EQUAL_P (XVECEXP (x, i, j), from))
+<BR>
+-		{
+<BR>
+-		  new = (unique_copy &amp;&amp; n_occurrences ? copy_rtx (to) : to);
+<BR>
+-		  n_occurrences++;
+<BR>
+-		}
+<BR>
+-	      else
+<BR>
+-		{
+<BR>
+-		  new = subst (XVECEXP (x, i, j), from, to, 0, unique_copy);
+<BR>
++	      new = subst (dest, from, to, 0, unique_copy);
+<BR>
+&nbsp;
+<BR>
+-		  /* If this substitution failed, this whole thing fails.  */
+<BR>
+-		  if (GET_CODE (new) == CLOBBER &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
+-		    return new;
+<BR>
+-		}
+<BR>
++	      /* If this substitution failed, this whole thing fails.  */
+<BR>
++	      if (GET_CODE (new) == CLOBBER
+<BR>
++		  &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
++		return new;
+<BR>
+&nbsp;
+<BR>
+-	      SUBST (XVECEXP (x, i, j), new);
+<BR>
++	      SUBST (SET_DEST (XVECEXP (x, 0, i)), new);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-      else if (fmt[i] == 'e')
+<BR>
++    }
+<BR>
++  else
+<BR>
++    {
+<BR>
++      len = GET_RTX_LENGTH (code);
+<BR>
++      fmt = GET_RTX_FORMAT (code);
+<BR>
++
+<BR>
++      /* We don't need to process a SET_DEST that is a register, CC0,
+<BR>
++	 or PC, so set up to skip this common case.  All other cases
+<BR>
++	 where we want to suppress replacing something inside a
+<BR>
++	 SET_SRC are handled via the IN_DEST operand.  */
+<BR>
++      if (code == SET
+<BR>
++	  &amp;&amp; (GET_CODE (SET_DEST (x)) == REG
+<BR>
++	      || GET_CODE (SET_DEST (x)) == CC0
+<BR>
++	      || GET_CODE (SET_DEST (x)) == PC))
+<BR>
++	fmt = &quot;ie&quot;;
+<BR>
++
+<BR>
++      /* Get the mode of operand 0 in case X is now a SIGN_EXTEND of a
+<BR>
++	 constant.  */
+<BR>
++      if (fmt[0] == 'e')
+<BR>
++	op0_mode = GET_MODE (XEXP (x, 0));
+<BR>
++
+<BR>
++      for (i = 0; i &lt; len; i++)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	  if (COMBINE_RTX_EQUAL_P (XEXP (x, i), from))
+<BR>
++	  if (fmt[i] == 'E')
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{
+<BR>
+-	      /* In general, don't install a subreg involving two modes not
+<BR>
+-		 tieable.  It can worsen register allocation, and can even
+<BR>
+-		 make invalid reload insns, since the reg inside may need to
+<BR>
+-		 be copied from in the outside mode, and that may be invalid
+<BR>
+-		 if it is an fp reg copied in integer mode.
+<BR>
+-
+<BR>
+-		 We allow two exceptions to this: It is valid if it is inside
+<BR>
+-		 another SUBREG and the mode of that SUBREG and the mode of
+<BR>
+-		 the inside of TO is tieable and it is valid if X is a SET
+<BR>
+-		 that copies FROM to CC0.  */
+<BR>
+-	      if (GET_CODE (to) == SUBREG
+<BR>
+-		  &amp;&amp; ! MODES_TIEABLE_P (GET_MODE (to),
+<BR>
+-					GET_MODE (SUBREG_REG (to)))
+<BR>
+-		  &amp;&amp; ! (code == SUBREG
+<BR>
+-			&amp;&amp; MODES_TIEABLE_P (GET_MODE (x),
+<BR>
+-					    GET_MODE (SUBREG_REG (to))))
+<BR>
++	      register int j;
+<BR>
++	      for (j = XVECLEN (x, i) - 1; j &gt;= 0; j--)
+<BR>
++		{
+<BR>
++		  if (COMBINE_RTX_EQUAL_P (XVECEXP (x, i, j), from))
+<BR>
++		    {
+<BR>
++		      new = (unique_copy &amp;&amp; n_occurrences
+<BR>
++			     ? copy_rtx (to) : to);
+<BR>
++		      n_occurrences++;
+<BR>
++		    }
+<BR>
++		  else
+<BR>
++		    {
+<BR>
++		      new = subst (XVECEXP (x, i, j), from, to, 0,
+<BR>
++				   unique_copy);
+<BR>
++
+<BR>
++		      /* If this substitution failed, this whole thing
+<BR>
++			 fails.  */
+<BR>
++		      if (GET_CODE (new) == CLOBBER
+<BR>
++			  &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
++			return new;
+<BR>
++		    }
+<BR>
++
+<BR>
++		  SUBST (XVECEXP (x, i, j), new);
+<BR>
++		}
+<BR>
++	    }
+<BR>
++	  else if (fmt[i] == 'e')
+<BR>
++	    {
+<BR>
++	      if (COMBINE_RTX_EQUAL_P (XEXP (x, i), from))
+<BR>
++		{
+<BR>
++		  /* In general, don't install a subreg involving two
+<BR>
++		     modes not tieable.  It can worsen register
+<BR>
++		     allocation, and can even make invalid reload
+<BR>
++		     insns, since the reg inside may need to be copied
+<BR>
++		     from in the outside mode, and that may be invalid
+<BR>
++		     if it is an fp reg copied in integer mode.
+<BR>
++
+<BR>
++		     We allow two exceptions to this: It is valid if
+<BR>
++		     it is inside another SUBREG and the mode of that
+<BR>
++		     SUBREG and the mode of the inside of TO is
+<BR>
++		     tieable and it is valid if X is a SET that copies
+<BR>
++		     FROM to CC0.  */
+<BR>
++
+<BR>
++		  if (GET_CODE (to) == SUBREG
+<BR>
++		      &amp;&amp; ! MODES_TIEABLE_P (GET_MODE (to),
+<BR>
++					    GET_MODE (SUBREG_REG (to)))
+<BR>
++		      &amp;&amp; ! (code == SUBREG
+<BR>
++			    &amp;&amp; MODES_TIEABLE_P (GET_MODE (x),
+<BR>
++						GET_MODE (SUBREG_REG (to))))
+<BR>
+&nbsp;#ifdef HAVE_cc0
+<BR>
+-		  &amp;&amp; ! (code == SET &amp;&amp; i == 1 &amp;&amp; XEXP (x, 0) == cc0_rtx)
+<BR>
++		      &amp;&amp; ! (code == SET &amp;&amp; i == 1 &amp;&amp; XEXP (x, 0) == cc0_rtx)
+<BR>
+&nbsp;#endif
+<BR>
+-		  )
+<BR>
+-		return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
+<BR>
++		      )
+<BR>
++		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
+<BR>
+&nbsp;
+<BR>
+-	      new = (unique_copy &amp;&amp; n_occurrences ? copy_rtx (to) : to);
+<BR>
+-	      n_occurrences++;
+<BR>
+-	    }
+<BR>
+-	  else
+<BR>
+-	    /* If we are in a SET_DEST, suppress most cases unless we
+<BR>
+-	       have gone inside a MEM, in which case we want to
+<BR>
+-	       simplify the address.  We assume here that things that
+<BR>
+-	       are actually part of the destination have their inner
+<BR>
+-	       parts in the first expression.  This is true for SUBREG, 
+<BR>
+-	       STRICT_LOW_PART, and ZERO_EXTRACT, which are the only
+<BR>
+-	       things aside from REG and MEM that should appear in a
+<BR>
+-	       SET_DEST.  */
+<BR>
+-	    new = subst (XEXP (x, i), from, to,
+<BR>
+-			 (((in_dest
+<BR>
+-			    &amp;&amp; (code == SUBREG || code == STRICT_LOW_PART
+<BR>
+-				|| code == ZERO_EXTRACT))
+<BR>
+-			   || code == SET)
+<BR>
+-			  &amp;&amp; i == 0), unique_copy);
+<BR>
+-
+<BR>
+-	  /* If we found that we will have to reject this combination,
+<BR>
+-	     indicate that by returning the CLOBBER ourselves, rather than
+<BR>
+-	     an expression containing it.  This will speed things up as
+<BR>
+-	     well as prevent accidents where two CLOBBERs are considered
+<BR>
+-	     to be equal, thus producing an incorrect simplification.  */
+<BR>
++		  new = (unique_copy &amp;&amp; n_occurrences ? copy_rtx (to) : to);
+<BR>
++		  n_occurrences++;
+<BR>
++		}
+<BR>
++	      else
+<BR>
++		/* If we are in a SET_DEST, suppress most cases unless we
+<BR>
++		   have gone inside a MEM, in which case we want to
+<BR>
++		   simplify the address.  We assume here that things that
+<BR>
++		   are actually part of the destination have their inner
+<BR>
++		   parts in the first expression.  This is true for SUBREG, 
+<BR>
++		   STRICT_LOW_PART, and ZERO_EXTRACT, which are the only
+<BR>
++		   things aside from REG and MEM that should appear in a
+<BR>
++		   SET_DEST.  */
+<BR>
++		new = subst (XEXP (x, i), from, to,
+<BR>
++			     (((in_dest
+<BR>
++				&amp;&amp; (code == SUBREG || code == STRICT_LOW_PART
+<BR>
++				    || code == ZERO_EXTRACT))
+<BR>
++			       || code == SET)
+<BR>
++			      &amp;&amp; i == 0), unique_copy);
+<BR>
++
+<BR>
++	      /* If we found that we will have to reject this combination,
+<BR>
++		 indicate that by returning the CLOBBER ourselves, rather than
+<BR>
++		 an expression containing it.  This will speed things up as
+<BR>
++		 well as prevent accidents where two CLOBBERs are considered
+<BR>
++		 to be equal, thus producing an incorrect simplification.  */
+<BR>
+&nbsp;
+<BR>
+-	  if (GET_CODE (new) == CLOBBER &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
+-	    return new;
+<BR>
++	      if (GET_CODE (new) == CLOBBER &amp;&amp; XEXP (new, 0) == const0_rtx)
+<BR>
++		return new;
+<BR>
+&nbsp;
+<BR>
+-	  SUBST (XEXP (x, i), new);
+<BR>
++	      SUBST (XEXP (x, i), new);
+<BR>
++	    }
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20problems%20with%205.1">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20problems%20with%205.1">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0612.html">Adam C. Powell, IV: "Re: Help!  Can't recover!"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0610.html">B. James Phillippe: "Re: archives of this list?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0574.html">Larry Snyder: "Re: archives of this list?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:49 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

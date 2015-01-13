@@ -1,0 +1,123 @@
+<!-- received="Thu Aug  1 03:54:48 1996 " -->
+<!-- sent="Thu, 1 Aug 1996 10:52:42 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: scheduled memcpy" -->
+<!-- id="199608010603.IAA09761@ceres.tat.physik.uni-tuebingen.de" -->
+<!-- inreplyto="m0ul9Fj-0001uTC@atheist.tamu.edu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: scheduled memcpy</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: scheduled memcpy</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Thu, 1 Aug 1996 10:52:42 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1">[ date ]</a><a href="index.html#1">[ thread ]</a><a href="subject.html#1">[ subject ]</a><a href="author.html#1">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0002.html">Carles Perello: "Re: UDB Install Problems"</a>
+<li> <b>Previous message:</b> <a href="0000.html">Harald Koenig: "Re: scheduled memcpy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Tue, 30 Jul 1996, Richard Henderson wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; While waiting for glibc to build today, I was playing with the memcpy</i><br>
+<i>&gt; Martin Ostermann posted earlier this month.  Following is a more-or-less</i><br>
+<i>&gt; directly translated version of same that has been hand-scheduled for the ev5.</i><br>
+<p>
+Umm. This does a load from the destination for the first quad-word, even  <br>
+if the source and destination are both aligned. That's ok if the<br>
+destination is cached, but it's _horrible_ if the destination isn't<br>
+cached and we're doing a small structure copy of just one or two <br>
+quadwords.<br>
+<p>
+And that's actually one of the normal cases for kernel-&gt;user copies:<br>
+aligned quadwords, small areas.<br>
+<p>
+Your timings have probably been done with cached destinations, right? One<br>
+of the most important cases is when the destination is _not_ cached. Note<br>
+that if you do mamcpy's in a loop for timing, then you never see the not  <br>
+cached case, because the first memcpy will bring the thing into the cache<br>
+due to the cache load..<br>
+<p>
+Counting cycles is worthless if you do a cache miss, because the cache    <br>
+miss will take a lot longer than the whole copy would have..<br>
+<p>
+That said, this _does_ look a lot better than my original code, and I'd <br>
+be more than happy to use it. However, I would be even happier if you'd <br>
+take these kinds of things into account too. And making sure the data <br>
+cache is cold for the destination is horribly hard. But I'd be very <br>
+interested indeed in timings for "cold cache".<br>
+<p>
+Look out when timing stuff like this: you want to prime the destination to<br>
+make sure we don't get a page fault when writing to it, but at the same time<br>
+you want to make sure the destination isn't in the cache, so you probably<br>
+have to do something like this:<br>
+<p>
+	#define cache_size (4*1024*1024)<br>
+<p>
+	/* allocate the virtual addresses */<br>
+	dest = align_alloc(size, destalignment);<br>
+	source = align_alloc(size, srcalignment);<br>
+	cache_flush = malloc(cache_size * 2);<br>
+<p>
+	/* allocate all the physical pages */<br>
+	memset(cache_flush, 0, cache_size * 2);<br>
+	memset(dest, 0 size);<br>
+	memset(src, 0, size);<br>
+<p>
+	/* flush the cache */<br>
+	memcpy(cache_flush, cache_flush+cache_size, cache_size);<br>
+	memcpy(cache_flush+cache_size, cache_flush, cache_size);<br>
+	__asm__("imb");	/* icache flush */<br>
+<p>
+	/* do the actual timings */<br>
+	start = rpcc();<br>
+	memcpy(dest, src, size);<br>
+	end = rpcc();<br>
+	printf("cold case: %d cycles\n", end-start);<br>
+	<br>
+Those kinds of "worst-case" numbers would be interesting. The cached <br>
+cases are important too, but not _just_ the cached cases, please..<br>
+<p>
+(Oh, the above assumes that you have enough memory so that you don't <br>
+start swapping in the cache flush part, that would make the final memcpy <br>
+numbers test something else altogether ;-)<br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0002.html">Carles Perello: "Re: UDB Install Problems"</a>
+<li> <b>Previous message:</b> <a href="0000.html">Harald Koenig: "Re: scheduled memcpy"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

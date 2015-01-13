@@ -1,0 +1,554 @@
+diff -Naur src/Makefile src2/Makefile
+--- src/Makefile	Wed Feb 21 17:26:57 2001
++++ src2/Makefile	Thu Mar 29 11:38:17 2001
+@@ -85,7 +85,7 @@
+ 
+ 
+ # Required Flags
+-CFLAGS = -D__KERNEL__ -DMODULE -DLINUX -DEXPORT_SYMTAB -D__NO_VERSION__
++CFLAGS = -g -D__KERNEL__ -DMODULE -DLINUX -DEXPORT_SYMTAB -D__NO_VERSION__ -D__ia64__ -mcpu=ev6 -ffixed-8
+ CFLAGS += -I$(INCLUDEDIR) -I.
+ CFLAGS += -O2 -pipe
+ 
+@@ -122,6 +122,7 @@
+ 	ANS = NO
+ endif
+ 
++ANS = NO
+ 
+ ifneq ($(ANS), NO)
+ 	CFLAGS += -DIANS -DIANS_BASE_VLAN_TAGGING -DIANS_BASE_VLAN_ID
+diff -Naur src/base_comm.h src2/base_comm.h
+--- src/base_comm.h	Wed Feb 21 17:26:58 2001
++++ src2/base_comm.h	Thu Mar 29 11:38:17 2001
+@@ -543,7 +543,7 @@
+ } IANS_ATTR_HEADER, *PIANS_ATTR_HEADER;
+ 
+ /* Turn into a legal pointer */
+-#if defined(__i386__)
++#if defined(__alpha__)
+ #define CelingAlignPtr(p)       ( p )
+ #else
+ #error TBD 
+diff -Naur src/e100.c src2/e100.c
+--- src/e100.c	Wed Feb 21 17:26:58 2001
++++ src2/e100.c	Thu Mar 29 11:38:17 2001
+@@ -938,7 +938,8 @@
+  * 
+  */
+ 
+-#define e100_exec_cmd(bdp, cmd_low) (bdp)->bddp->scbp->scb_cmd_low = (uint8_t) (cmd_low)
++//#define e100_exec_cmd(bdp, cmd_low) (bdp)->bddp->scbp->scb_cmd_low = (uint8_t) (cmd_low)
++#define e100_exec_cmd(bdp, cmd_low) writeb((uint8_t) (cmd_low), &(bdp)->bddp->scbp->scb_cmd_low)
+ 
+ /* 
+  * Procedure:   e100_wait_exec_cmd
+@@ -961,7 +962,7 @@
+ 
+     if (e100_wait_scb(bdp) != B_TRUE) {
+         printk(KERN_ERR "e100_wait_exec_cmd: Wait failed. scb cmd=0x%x\n",
+-	       bddp->scbp->scb_cmd_low);
++	       readb(&bddp->scbp->scb_cmd_low));
+         return (B_FALSE);
+     }
+     
+@@ -1590,7 +1591,8 @@
+        corrupted from a TCO packet */
+     /* Load the CU BASE (set to 0, because we use linear mode) */
+     bddp->prev_cu_cmd = SCB_CUC_LOAD_BASE;
+-    bddp->scbp->scb_gen_ptr = 0;
++//    bddp->scbp->scb_gen_ptr = 0;
++    writel(0, &bddp->scbp->scb_gen_ptr);
+     e100_exec_cmd(bdp, SCB_CUC_LOAD_BASE);
+ 
+     /* Wait for the SCB command word to clear before we set the * general
+@@ -1604,7 +1606,8 @@
+     }
+ 
+     /* Load the RU BASE (set to 0, because we use linear mode) */
+-    bddp->scbp->scb_gen_ptr = 0;
++    writel(0, &bddp->scbp->scb_gen_ptr);
++//    bddp->scbp->scb_gen_ptr = 0;
+     bddp->prev_cu_cmd = SCB_RUC_LOAD_BASE;
+     e100_exec_cmd(bdp, SCB_RUC_LOAD_BASE);
+     
+@@ -1936,7 +1939,7 @@
+         (bddp->prev_cu_cmd == CB_TRANSMIT_FIRST)) {
+         /* Wait for suspended state */
+         e100_retry = E100_CMD_WAIT;
+-        while (((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
++        while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
+             && (e100_retry)) {
+             mdelay(20);
+             e100_retry--;
+@@ -1944,7 +1947,7 @@
+     }
+ 
+     /* Update the command list pointer.  */
+-    bddp->scbp->scb_gen_ptr = bddp->nontx_paddr;
++    writel(bddp->nontx_paddr, &bddp->scbp->scb_gen_ptr);
+     /* store the command */
+     bddp->prev_cu_cmd = CB_MULTICAST;
+     /* Submit the Multicast Cmd to the chip, and wait for it to complete. */
+@@ -2171,7 +2174,7 @@
+ 
+     /* Load the CU BASE (set to 0, because we use linear mode) */
+     bddp->prev_cu_cmd = SCB_CUC_LOAD_BASE;
+-    bddp->scbp->scb_gen_ptr = 0;
++    writel(0, &bddp->scbp->scb_gen_ptr);
+     e100_exec_cmd(bdp, SCB_CUC_LOAD_BASE);
+     
+ 
+@@ -2181,7 +2184,7 @@
+         return (B_FALSE);
+ 
+     /* Load the RU BASE (set to 0, because we use linear mode) */
+-    bddp->scbp->scb_gen_ptr = 0;
++    writel(0, &bddp->scbp->scb_gen_ptr);
+     bddp->prev_cu_cmd = SCB_RUC_LOAD_BASE;
+     e100_exec_cmd(bdp, SCB_RUC_LOAD_BASE);
+     
+@@ -2209,8 +2212,8 @@
+     /* If 82558/9 and if the user has enabled flow control, set up * the
+      * Flow Control Reg. in the CSR */
+     if ((bddp->flags & IS_BACHELOR) && (e100_flow_control_enable)) {
+-        bddp->scbp->scb_ext.d101_scb.scb_fc_thld = DFLT_FC_THLD;
+-        bddp->scbp->scb_ext.d101_scb.scb_fc_xon_xoff = DFLT_FC_CMD;
++        writeb(DFLT_FC_THLD, &bddp->scbp->scb_ext.d101_scb.scb_fc_thld);
++        writeb(DFLT_FC_CMD, &bddp->scbp->scb_ext.d101_scb.scb_fc_xon_xoff);
+     }
+ 
+     return (B_TRUE);
+@@ -2660,9 +2663,9 @@
+     bdp = dev->priv;
+     bddp = bdp->bddp;
+ 
+-    intr_status = bddp->scbp->scb_status & SCB_STATUS_ACK_MASK;
++    intr_status = readw(&bddp->scbp->scb_status) & SCB_STATUS_ACK_MASK;
+     if (!intr_status) return;               /* not our intr - return */
+-    bddp->scbp->scb_status = intr_status;   /* ack intrs */   
++    writew(intr_status, &bddp->scbp->scb_status);   /* ack intrs */   
+     e100_dis_intr(bdp);    /* prevent intr from happen on another CPU */
+         
+     /* increment intr counter for CNA delay adjustment (82558/9 only) */
+@@ -2680,7 +2683,7 @@
+ 
+         e100_rx_srv(bdp);  
+         /* restart the RU if it has stopped */
+-        if ((bddp->scbp->scb_status & SCB_RUS_MASK) != SCB_RUS_READY) 
++        if ((readw(&bddp->scbp->scb_status) & SCB_RUS_MASK) != SCB_RUS_READY) 
+             e100_start_ru(bdp);
+     }
+     
+@@ -2847,7 +2850,7 @@
+     
+     tcb_poolp->head = tcb_head;
+     if ((tcb_head != tcb_poolp->tail) && !last_tcb_served ) {
+-        if ((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_IDLE) {
++        if ((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_IDLE) {
+             printk(KERN_WARNING "CU idle while %d tcbs to tx\n",
+                 tcb_poolp->head-tcb_poolp->tail);           
+         }
+@@ -2896,7 +2899,7 @@
+ 
+ #if (DEBUG) 
+     printk(KERN_DEBUG "e100_rx_srv - B. b %d  scb_status=0x%x\n",
+-        bdp->bd_number, bddp->scbp->scb_status);
++        bdp->bd_number, readw(&bddp->scbp->scb_status));
+     printk(KERN_DEBUG "     rfd_head = 0x%p\n", bddp->rfd_head);
+ #endif
+ 
+@@ -3223,7 +3226,7 @@
+     printk(KERN_DEBUG "   - B. b %d tcb[h=0x%x t=0x%x c=0x%x ] scb_status 0x%x\n",
+         bdp->bd_number,
+         tcb_poolp->head, tcb_poolp->tail, tcb_poolp->count,
+-        bddp->scbp->scb_status);
++        readw(&bddp->scbp->scb_status));
+     printk(KERN_DEBUG "   - TCB_TO_USE = 0x%x\n", TCB_TO_USE(tcb_poolp));
+ #endif
+ 
+@@ -3381,8 +3384,8 @@
+     }
+ 
+     /* If it is idle, do a start */
+-    if ((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_IDLE) {
+-        bddp->scbp->scb_gen_ptr = tcbp->tcb_paddr;
++    if ((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_IDLE) {
++        writel(tcbp->tcb_paddr, &bddp->scbp->scb_gen_ptr);
+         e100_exec_cmd(bdp, SCB_CUC_START);
+         bddp->prev_cu_cmd = CB_TRANSMIT_FIRST;
+ #if (DEBUG_TX)
+@@ -3391,7 +3394,7 @@
+         printk(KERN_DEBUG "     tcb_paddr = 0x%x\n", tcbp->tcb_paddr);
+         printk(KERN_DEBUG "     bddp = 0x%x\n", bddp);
+         printk(KERN_DEBUG "     scbp = 0x%x\n", bddp->scbp);
+-        printk(KERN_DEBUG "     scb_gen_ptr = 0x%x\n", bddp->scbp->scb_gen_ptr);
++        printk(KERN_DEBUG "     scb_gen_ptr = 0x%x\n", readl(&bddp->scbp->scb_gen_ptr));
+ #endif  
+         spin_unlock_irqrestore(&bddp->bd_lock, lock_flag);
+         return;
+@@ -3400,20 +3403,20 @@
+     /* If it is active, but if the previous command was not a transmit * then 
+      * wait for the command to finish, and then do a start */
+     loop_cnt = 0;
+-    while (((bddp->scbp->scb_status & SCB_CUS_MASK) != SCB_CUS_IDLE) &&
++    while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) != SCB_CUS_IDLE) &&
+         (loop_cnt < 5)) {
+         loop_cnt++;
+         drv_usecwait(5);
+     }
+ 
+-    bddp->scbp->scb_gen_ptr = tcbp->tcb_paddr;
++    writel(tcbp->tcb_paddr, &bddp->scbp->scb_gen_ptr);
+     e100_exec_cmd(bdp, SCB_CUC_START);
+     bddp->prev_cu_cmd = CB_TRANSMIT_FIRST;
+ #if (DEBUG_TX)
+     /* E100_DEBUG */
+     printk(KERN_DEBUG "cu_start: did START 2, cmd = 0x%x\n", SCB_CUC_START);
+     printk(KERN_DEBUG "     tcb_paddr = 0x%x\n", tcbp->tcb_paddr);
+-    printk(KERN_DEBUG "     scb_gen_ptr = 0x%x\n", bddp->scbp->scb_gen_ptr);
++    printk(KERN_DEBUG "     scb_gen_ptr = 0x%x\n", readl(&bddp->scbp->scb_gen_ptr));
+ #endif
+     spin_unlock_irqrestore(&bddp->bd_lock, lock_flag);
+     return;
+@@ -3514,7 +3517,7 @@
+         bddp->pselftest->st_result);
+ #endif
+     /* Do the port command */
+-    bddp->scbp->scb_port = SelfTestCommandCode;
++    writel(SelfTestCommandCode, &bddp->scbp->scb_port);
+ 
+     /* Wait 5 milliseconds for the self-test to complete */
+     mdelay(50);
+@@ -3789,7 +3792,7 @@
+         (bddp->prev_cu_cmd == CB_TRANSMIT_FIRST)) {
+         /* Wait for suspended state */
+         e100_retry = E100_CMD_WAIT;
+-        while (((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
++        while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
+             && (e100_retry)) {
+             mdelay(20);
+             e100_retry--;
+@@ -3797,7 +3800,7 @@
+     }
+ 
+     /* write the config buffer in the scb gen pointer */
+-    bddp->scbp->scb_gen_ptr = bddp->nontx_paddr;
++    writel(bddp->nontx_paddr, &bddp->scbp->scb_gen_ptr);
+ 
+     /* store the command */
+     bddp->prev_cu_cmd = CB_CONFIGURE;
+@@ -3869,7 +3872,7 @@
+         /* Wait for suspended state */
+         /* Set timeout to 100 ms */
+         i = 0;
+-        while (((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
++        while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
+             && (i < 5)) {
+             mdelay(20);
+             i++;
+@@ -3877,7 +3880,7 @@
+     }
+ 
+     /* Update the command list pointer.  */
+-    bddp->scbp->scb_gen_ptr = bddp->nontx_paddr;
++    writel(bddp->nontx_paddr, &bddp->scbp->scb_gen_ptr);
+ 
+     /* store the command */
+     bddp->prev_cu_cmd = CB_IA_ADDRESS;
+@@ -3921,7 +3924,7 @@
+     int             lock_flag;
+     sk_buff_t       *skb; 
+    /* If the receiver is ready, then don't try to restart. */
+-    if ((bddp->scbp->scb_status & SCB_RUS_MASK) == SCB_RUS_READY) {
++    if ((readw(&bddp->scbp->scb_status) & SCB_RUS_MASK) == SCB_RUS_READY) {
+         return;
+     }
+     for(skb = bddp->rfd_head; skb != NULL; skb = NEXT_SKB(skb,bddp)){
+@@ -3938,7 +3941,7 @@
+     spin_lock(&bddp->bd_lock);
+     
+     e100_wait_scb(bdp);
+-    bddp->scbp->scb_gen_ptr = cpu_to_le32(GET_SKB_DMA_ADDR(skb,bddp));
++    writel(cpu_to_le32(GET_SKB_DMA_ADDR(skb,bddp)), &bddp->scbp->scb_gen_ptr);
+     e100_exec_cmd(bdp, SCB_RUC_START);
+ 
+     spin_unlock(&bddp->bd_lock);
+@@ -3995,7 +3998,7 @@
+     /* Load the dump counters pointer.  Since this command is generated only
+      * * after the IA setup has complete, we don't need to wait for the SCB * 
+      * command word to clear */
+-    bddp->scbp->scb_gen_ptr = bddp->stat_cnt_paddr;
++    writel(bddp->stat_cnt_paddr, &bddp->scbp->scb_gen_ptr);
+ 
+     /* Issue the load dump counters address command */
+     bddp->prev_cu_cmd = SCB_CUC_DUMP_ADDR;
+@@ -4053,7 +4056,7 @@
+ 
+     retry = DUMP_STATS_TIMEOUT;
+ 
+-    while (((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
++    while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
+         && (retry)) {
+         mdelay(20);
+         retry--;
+@@ -4084,7 +4087,7 @@
+     e100_exec_cmd(bdp, SCB_CUC_DUMP_RST_STAT);
+ 
+     /* check the status of the CU,  */
+-    if ((bddp->scbp->scb_status & SCB_CUS_MASK) == 0)   /* is idle */
++    if ((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == 0)   /* is idle */
+         bddp->prev_cu_cmd = CB_NULL;
+     spin_unlock_irqrestore(&bddp->bd_lock, lock_flag_bd);
+     spin_unlock_irqrestore(&bddp->bd_tx_lock, lock_flag_tx);
+@@ -4159,6 +4162,7 @@
+     e100_exec_cmd(bdp, SCB_CUC_START);
+     
+ 
++    mdelay(20);
+     /* Wait for the SCB to clear, indicating the completion of the command. */
+     if (e100_wait_scb(bdp) != B_TRUE) {
+         return (B_FALSE);
+@@ -4209,7 +4213,7 @@
+     bdd_t       *bddp = bdp->bddp;   /* stores all adapter specific info */
+ 
+     do {
+-        if (!bddp->scbp->scb_cmd_low)
++        if (!readb(&bddp->scbp->scb_cmd_low))
+             return B_TRUE;
+ 
+         drv_usecwait(1);
+@@ -4240,7 +4244,7 @@
+     printk(KERN_DEBUG "e100_sw_reset, cmd = 0x%x\n", reset_cmd);
+ #endif
+     /* Issue a PORT command with a data word of 0 */
+-    bddp->scbp->scb_port = reset_cmd;
++    writel(reset_cmd, &bddp->scbp->scb_port );
+ 
+     /* wait 5 milliseconds for the reset to take effect */
+     mdelay(5);
+@@ -4384,7 +4388,7 @@
+         /* Wait for suspended state */
+         /* Set timeout to 100 ms */
+         i = 0;
+-        while (((bddp->scbp->scb_status & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
++        while (((readw(&bddp->scbp->scb_status) & SCB_CUS_MASK) == SCB_CUS_ACTIVE)
+             && (i < 5)) {
+             mdelay(20);
+             i++;
+@@ -4395,7 +4399,7 @@
+     }
+ 
+     /* Update the command list pointer.  */
+-    bddp->scbp->scb_gen_ptr = bddp->nontx_paddr;
++    writel(bddp->nontx_paddr, &bddp->scbp->scb_gen_ptr);
+ 
+     /* store the command */
+     bddp->prev_cu_cmd = CB_LOAD_MICROCODE;
+@@ -4452,7 +4456,7 @@
+         printk(KERN_DEBUG "e100_rd_eaddr: begin\n");
+ 
+     /* Read SCB reg General Control 2 */
+-    data = bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2;
++    data = readb(&bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2);
+ 
+     if(bddp->rev_id >= D102_REV_ID)
+     {
+@@ -4464,8 +4468,8 @@
+                we will just loop until we get it. */
+ 
+             data |= SCB_GCR2_EEPROM_ACCESS_SEMAPHORE;
+-            bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2 = data;
+-            data = bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2;
++            writeb(data, &bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2);
++            data = readb(&bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2);
+ 
+         }
+     }
+@@ -4486,9 +4490,9 @@
+     /* Read SCB reg General Control 2 */
+     if(bddp->rev_id >= D102_REV_ID)
+     {
+-        data = bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2;
++        data = readb(&bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2);
+         data &= ~SCB_GCR2_EEPROM_ACCESS_SEMAPHORE;
+-        bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2 = data;
++        writeb(data, &bddp->scbp->scb_ext.d102_scb.scb_gen_ctrl2);
+     }
+     
+     /* fill in the device structure... */
+@@ -5366,6 +5370,7 @@
+      * the ForceSpeedAndUplex routine. If it isn't then we need to check * to 
+      * see if autoneg has completed and if we need to restart it. */
+     if (!((board_speed_duplex >= 1) && (board_speed_duplex <= 4))) {
++printk("AUTO\n");
+         e100_auto_neg(bdp);
+         e100_FindPhySpeedAndDpx(bdp, PhyId);
+     }
+@@ -5560,7 +5565,7 @@
+     /* First we should check to see if we have link */
+     /* If we don't have link no reason to print a speed and duplex */
+     if ((bddp->rev_id >= 8) || (bddp->flags & IS_ICH)) {
+-        if (!(bddp->scbp->scb_ext.d101m_scb.scb_gen_stat & BIT_0)) {
++        if (!(readb(&bddp->scbp->scb_ext.d101m_scb.scb_gen_stat) & BIT_0)) {
+             bddp->cur_line_speed = 0;
+             bddp->cur_dplx_mode = NO_DUPLEX;
+             return;
+@@ -5582,13 +5587,13 @@
+      * SCB. So, we save an MdiRead and get these from the SCB. * */
+     if ((bddp->rev_id >= 8) || (bddp->flags & IS_ICH)) {
+         /* Read speed */
+-        if (bddp->scbp->scb_ext.d101m_scb.scb_gen_stat & BIT_1)
++        if (readb(&bddp->scbp->scb_ext.d101m_scb.scb_gen_stat) & BIT_1)
+             bddp->cur_line_speed = 100;
+         else
+             bddp->cur_line_speed = 10;
+ 
+         /* Read duplex */
+-        if (bddp->scbp->scb_ext.d101m_scb.scb_gen_stat & BIT_2)
++        if (readb(&bddp->scbp->scb_ext.d101m_scb.scb_gen_stat) & BIT_2)
+             bddp->cur_dplx_mode = FULL_DUPLEX;
+         else
+             bddp->cur_dplx_mode = HALF_DUPLEX;
+@@ -5959,7 +5964,7 @@
+     /* If the controller is a 82559 or later one, link status is available
+      * from the CSR. This avoids the MdiRead. */
+     if ((bddp->rev_id >= 8) || (bddp->flags & IS_ICH)) {
+-        if (bddp->scbp->scb_ext.d101m_scb.scb_gen_stat & BIT_0) {
++        if (readb(&bddp->scbp->scb_ext.d101m_scb.scb_gen_stat) & BIT_0) {
+             /* Link is up */
+             return (B_TRUE);
+         } else 
+@@ -6010,14 +6015,14 @@
+     temp_val = (((uint32_t) DataValue) |
+         (RegAddress << 16) | (PhyAddress << 21) | (MDI_WRITE <<
+             26));
+-    bddp->scbp->scb_mdi_cntrl = temp_val;
++    writel(temp_val, &bddp->scbp->scb_mdi_cntrl);
+ 
+     /* wait 20usec before checking status */
+     drv_usecwait(20);         /* Removed mstous. */
+ 
+     /* poll for the mdi write to complete */
+     e100_retry = E100_CMD_WAIT;
+-    while ((!(bddp->scbp->scb_mdi_cntrl & MDI_PHY_READY)) && (e100_retry)) {
++    while ((!(readl(&bddp->scbp->scb_mdi_cntrl) & MDI_PHY_READY)) && (e100_retry)) {
+         drv_usecwait(20);      /* Removed mstous. */
+         e100_retry--;
+     }
+@@ -6056,14 +6061,14 @@
+     /* Issue the read command to the MDI control register. */
+     temp_val =
+         ((RegAddress << 16) | (PhyAddress << 21) | (MDI_READ << 26));
+-    bddp->scbp->scb_mdi_cntrl = temp_val;
++    writel(temp_val, &bddp->scbp->scb_mdi_cntrl );
+ 
+     /* wait 20usec before checking status */
+     drv_usecwait(20);         /* Removed mstous. */
+ 
+     /* poll for the mdi read to complete */
+     e100_retry = E100_CMD_WAIT;
+-    while ((!(bddp->scbp->scb_mdi_cntrl & MDI_PHY_READY)) && (e100_retry)) {
++    while ((!(readl(&bddp->scbp->scb_mdi_cntrl) & MDI_PHY_READY)) && (e100_retry)) {
+         drv_usecwait(20);
+         e100_retry--;
+     }
+@@ -6075,7 +6080,7 @@
+         *DataValue = 0;
+ 
+ 
+-    *DataValue = (uint16_t) bddp->scbp->scb_mdi_cntrl;
++    *DataValue = (uint16_t) readl(&bddp->scbp->scb_mdi_cntrl);
+ }
+ 
+ 
+@@ -7893,7 +7898,7 @@
+     bddp = (pbdd_t) bdp->bddp;   /* get the bddp for this board */
+ 
+     /* Disable interrupts on our PCI board by setting the mask bit */
+-    bddp->scbp->scb_cmd_hi = (uint8_t) SCB_INT_MASK;
++    writeb((uint8_t) SCB_INT_MASK, &bddp->scbp->scb_cmd_hi);
+ }
+ 
+ 
+@@ -7920,7 +7925,7 @@
+     bddp = (pbdd_t) bdp->bddp;   /* get the bddp for this board */
+ 
+     /* Enable interrupts on our PCI board by clearing the mask bit */
+-    bddp->scbp->scb_cmd_hi = (uint8_t) 0;
++    writeb(0, &bddp->scbp->scb_cmd_hi);
+ }
+ 
+ 
+@@ -7931,7 +7936,7 @@
+ 
+     bddp = (pbdd_t) bdp->bddp; 
+     /* Trigger interrupt on our PCI board by asserting SWI bit */
+-    bddp->scbp->scb_cmd_hi = (uint8_t) SCB_SOFT_INT;
++    writeb((uint8_t) SCB_SOFT_INT, &bddp->scbp->scb_cmd_hi);
+ }
+ 
+ 
+@@ -8039,7 +8044,7 @@
+ e100_get_pci_info(pci_dev_t * pcid, bd_config_t * bdp)
+ {
+     bdd_t          *bddp = bdp->bddp;
+-    uint32_t         tmp_base_addr;
++    ulong_t         tmp_base_addr;
+     uint16_t        pci_cmd = 0;
+ 
+     if (DEBUG)
+@@ -8055,13 +8060,13 @@
+     pci_set_master(pcid);
+ 
+     /* address #0 is a memory mapping */
+-    tmp_base_addr = (uint32_t)pci_resource_start(pcid, 0);
++    tmp_base_addr = (ulong_t)pci_resource_start(pcid, 0);
+     bddp->scbp = (pscb_t) ioremap((tmp_base_addr & ~0xf), sizeof(scb_t));
+     bddp->mem_size = sizeof(scb_t);
+     bdp->mem_start = tmp_base_addr;
+     
+     /* address #1 is a IO region */
+-    tmp_base_addr = (uint32_t)pci_resource_start(pcid, 1);
++    tmp_base_addr = (ulong_t)pci_resource_start(pcid, 1);
+     bdp->io_start = (tmp_base_addr & ~0x3UL);
+   
+ #if (E100_DEBUG) 
+diff -Naur src/e100.h src2/e100.h
+--- src/e100.h	Wed Feb 21 17:26:58 2001
++++ src2/e100.h	Thu Mar 29 11:38:17 2001
+@@ -662,8 +662,8 @@
+ #define EEPROM_SUBSYSTEM_ID_WORD        0x0b
+ #define EEPROM_SUBSYSTEM_VENDOR_WORD    0x0c
+ 
+-#define E100_WRITE_REG(reg, value) {bddp->scbp->reg = value; }
+-#define E100_READ_REG(reg) bddp->scbp->reg
++#define E100_WRITE_REG(reg, value) {writew(value, &bddp->scbp->reg); }
++#define E100_READ_REG(reg) readw(&bddp->scbp->reg)
+ 
+ #define EEPROM_CTRL scb_eprm_cntrl
+ #define EEPROM_CHECKSUM_REG             0x3f
+@@ -1827,7 +1827,8 @@
+     uint_t bd_number;              /*  Board Number */
+     uint_t phy_addr;              /* address of PHY component */
+     uint32_t flags;
+-    uint32_t io_base;              /* IO base address */
++    ulong_t io_base;              /* IO base address */
++//SOO    uint32_t io_base;              /* IO base address */
+     size_t mem_size;              /* Memory size from devmem_size */
+     pscb_t scbp;                 /* memory mapped ptr to 82557 scb */
+     pself_test_t pselftest;        /* pointer to self test area */
+@@ -1922,8 +1923,10 @@
+     struct bdconfig *bd_next;     /* pointer to next bd in chain */
+     struct bdconfig *bd_prev;     /* pointer to prev bd in chain */
+     uint unit;                    /* from mdi_get_unit */
+-    uint32_t io_start;             /* start of I/O base address       */
+-    uint32_t io_end;               /* end of I/O base address      */
++    paddr_t io_start;             /* start of I/O base address       */
++    paddr_t io_end;               /* end of I/O base address      */
++//SOO    uint32_t io_start;             /* start of I/O base address       */
++//    uint32_t io_end;               /* end of I/O base address      */
+     paddr_t mem_start;            /* start of base mem address       */
+     paddr_t mem_end;              /* start of base mem address       */
+     int irq_level;                /* interrupt request level      */
+

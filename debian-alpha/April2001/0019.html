@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: cfalrtl question</TITLE>
+<META NAME="Author" CONTENT="Adam C Powell IV (hazelsct@mit.edu)">
+<META NAME="Subject" CONTENT="cfalrtl question">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>cfalrtl question</H1>
+<HR>
+<P>
+<!-- received="Fri Apr 13 00:24:57 2001" -->
+<!-- isoreceived="20010413072457" -->
+<!-- sent="Thu, 12 Apr 2001 13:54:49 -0400" -->
+<!-- isosent="20010412175449" -->
+<!-- name="Adam C Powell IV" -->
+<!-- email="hazelsct@mit.edu" -->
+<!-- subject="cfalrtl question" -->
+<!-- id="3AD5EBE9.E7FCB8AD@mit.edu" -->
+<STRONG>Subject: </STRONG>cfalrtl question<BR>
+<STRONG>From: </STRONG>Adam C Powell IV (<EM>hazelsct@mit.edu</EM>)<BR>
+<STRONG>Date: </STRONG>Thu Apr 12 2001 - 10:54:49 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#19">[ date ]</A>
+<A HREF="index.html#19">[ thread ]</A>
+<A HREF="subject.html#19">[ subject ]</A>
+<A HREF="author.html#19">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Herbert Xu: "Re: boot-floppies for stable"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Ron Farrer: "Re: overclocking the cache?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0049.html">Adam C Powell IV: "Re: cfalrtl question"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Greetings,
+<BR>
+<P>I'm mostly done with the cfal(rtl) installer packages, but there's a
+<BR>
+missing symbol &quot;fstat&quot; I can't figure out.  Here's my source:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;program theerf
+<BR>
+C     This is the erf program
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write (*,*) 'Hello world'
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write (*,*) 'The error function of 1 is ', erf(1.0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end
+<BR>
+<P>I build with &quot;fort erf.f -o erf&quot;, which goes fine (well, except the
+<BR>
+&quot;tempnam&quot; warning), but then when I run it:
+<BR>
+<P>% ./erf
+<BR>
+./erf: error while loading shared libraries: /usr/lib/libfor.so.0:
+<BR>
+undefined symbol: fstat
+<BR>
+<P>Where's fstat?
+<BR>
+<P>% nm /usr/lib/compaq/cfalrtl-1.1.0/libUfor.a | grep fstat
+<BR>
+for_u_fstat.o:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U fstat
+<BR>
+0000000000000000 T fstat_
+<BR>
+% nm /usr/lib/compaq/cfalrtl-1.1.0/libfor.a | grep fstat
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U fstat
+<BR>
+<P>but the shared libs are stripped, so I don't know if fstat is really in
+<BR>
+libUfor.so or somewhere else that gets lumped into the static
+<BR>
+libUfor.a.  ldd shows:
+<BR>
+<P>% ldd erf
+<BR>
+&nbsp;libUfor.so.0 =&gt; /usr/lib/libUfor.so.0 (0x0000020000030000)
+<BR>
+&nbsp;libfor.so.0 =&gt; /usr/lib/libfor.so.0 (0x0000020000050000)
+<BR>
+&nbsp;libFutil.so.0 =&gt; /usr/lib/libFutil.so.0 (0x00000200000e4000)
+<BR>
+&nbsp;libcpml.so.0 =&gt; /usr/lib/libcpml.so.0 (0x0000020000138000)
+<BR>
+&nbsp;libots.so.0 =&gt; /usr/lib/libots.so.0 (0x00000200001ca000)
+<BR>
+&nbsp;libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x00000200001e8000)
+<BR>
+&nbsp;/lib/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0x0000020000000000)
+<BR>
+% ls -l /usr/lib/libUfor.so.0
+<BR>
+lrwxrwxrwx    1 root     root           31 Apr 12 09:53
+<BR>
+/usr/lib/libUfor.so.0 -&gt; compaq/cfalrtl-1.1.0/libUfor.so
+<BR>
+<P>(The .0s are there because I put them in the sonames, so packages linked
+<BR>
+against them will automatically depend on cfalrtl.  For details: man
+<BR>
+dh_shlibdeps.)
+<BR>
+<P>I tried buliding with -lfor -lUfor, and that switched the order of these
+<BR>
+two in ldd output, but gave the same error.  I tried building with
+<BR>
+-Wl,-static but that gave:
+<BR>
+<P>% ldd erf
+<BR>
+&nbsp;libUfor.so.0 =&gt; /usr/lib/libUfor.so.0 (0x0000020000030000)
+<BR>
+&nbsp;libfor.so.0 =&gt; /usr/lib/libfor.so.0 (0x0000020000050000)
+<BR>
+<P>Even tried putting /usr/lib/libUfor.a in the compile line, but same ldd,
+<BR>
+same runtime error.
+<BR>
+<P>So what's the problem here?
+<BR>
+<P>Oh- BTW, for some reason the installed fort does *not* ask for license
+<BR>
+information before running...  Current package is again at
+<BR>
+<A HREF="http://lyre.mit.edu/~powell/compaq/">http://lyre.mit.edu/~powell/compaq/</A>
+<BR>
+<P>Thanks in advance,
+<BR>
+<P>-Adam P.
+<BR>
+<P>GPG fingerprint: D54D 1AEE B11C CE9B A02B  C5DD 526F 01E8 564E E4B6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Welcome to the best software in the world today cafe!
+<BR>
+<P><P><P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0020.html">Herbert Xu: "Re: boot-floppies for stable"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0018.html">Ron Farrer: "Re: overclocking the cache?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0049.html">Adam C Powell IV: "Re: cfalrtl question"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat May 05 2001 - 06:18:16 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

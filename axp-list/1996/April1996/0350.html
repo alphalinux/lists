@@ -1,0 +1,126 @@
+<!-- received="Fri Apr 26 15:52:20 1996 " -->
+<!-- sent="Fri, 26 Apr 1996 15:52:20 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Re: Linux-1.3.95 - strace for alpha" -->
+<!-- id="199604252206.AAA01736@bigbug.franken.de" -->
+<!-- inreplyto="199604252206.AAA01736@bigbug.franken.de" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Linux-1.3.95 - strace for alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Linux-1.3.95 - strace for alpha</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Fri, 26 Apr 1996 15:52:20 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#350">[ date ]</a><a href="index.html#350">[ thread ]</a><a href="subject.html#350">[ subject ]</a><a href="author.html#350">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0351.html">Jauder Ho: "Re: Linux-1.3.95 - spelling fixes"</a>
+<li> <b>Previous message:</b> <a href="0349.html">Thomas Bogendoerfer: "Re: Linux-1.3.95 - spelling fixes"</a>
+<li> <b>In reply to:</b> <a href="0351.html">Jauder Ho: "Re: Linux-1.3.95 - spelling fixes"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 26 Apr 1996, Thomas Bogendoerfer wrote:<br>
+<i>&gt; </i><br>
+<i>&gt; &gt; For the alpha people, it has support for "strace", but no strace binary that</i><br>
+<i>&gt; &gt; knows about it yet ;-) Thomas Bogendoerfer has been working on that side, but</i><br>
+<i>&gt; &gt; I'm afraid I changed the kernel code a bit, and we'll have to synchronize</i><br>
+<i>&gt; </i><br>
+<i>&gt; I changed strace, so that it works with the new official interface. </i><br>
+<i>&gt; I've tared together my current development tree, and put it on</i><br>
+<i>&gt; ftp.franken.de under /pub/people/tsbogend/strace-alpha-0.00.tar.gz.</i><br>
+<i>&gt; There are still lots of bugs in this version, especially with</i><br>
+<i>&gt; execve (strace dumps core:-( ), because it gets a little bit</i><br>
+<i>&gt; confused with the syscall number. I'm now trying to fix the</i><br>
+<i>&gt; remaining bugs. After this is done, I will start clean up sources</i><br>
+<i>&gt; and talk to the strace maintainer (if there is one; it looks</i><br>
+<i>&gt; like nobody maintains strace, because you even can't compile it </i><br>
+<i>&gt; on Linux/x86) for inclusion of my patches.</i><br>
+<p>
+I suspect that the 95 kernel still has a bug in strace handling: traced <br>
+system calls that return errors can (and will) corrupt the $9 and $10 <br>
+registers that should be safe across system calls. This can result in <br>
+strange behaviour of traced processes (SIGSEGV's etc, if the corrupted <br>
+register was being used to have a pointer in it, for example).<br>
+<p>
+This smallish patch should fix it (totally untested as usual, but it <br>
+looks ok)<br>
+<p>
+		Linus<br>
+-----<br>
+diff -u --recursive --new-file v1.3.95/linux/arch/alpha/kernel/entry.S linux/arch/alpha/kernel/entry.S<br>
+--- v1.3.95/linux/arch/alpha/kernel/entry.S	Wed Apr 24 17:00:33 1996<br>
++++ linux/arch/alpha/kernel/entry.S	Fri Apr 26 12:12:34 1996<br>
+@@ -541,7 +541,7 @@<br>
+ 	jsr     $26,($27),syscall_trace<br>
+ 	bsr	$1,undo_switch_stack<br>
+ <br>
+-	/* get the system call number and the argments back.. */<br>
++	/* get the system call number and the arguments back.. */<br>
+ 	ldq     $0,0($30)<br>
+ 	ldq     $16,SP_OFF+24($30)<br>
+ 	ldq     $17,SP_OFF+32($30)<br>
+@@ -574,9 +574,9 @@<br>
+ <br>
+ 	.align  3<br>
+ strace_error:<br>
+-	ldq	$9,0($30)	/* old syscall nr (zero if success) */<br>
+-	beq	$9,strace_success<br>
+-	ldq	$10,72($30)	/* .. and this a3 */<br>
++	ldq	$19,0($30)	/* old syscall nr (zero if success) */<br>
++	beq	$19,strace_success<br>
++	ldq	$20,72($30)	/* .. and this a3 */<br>
+ <br>
+ 	subq	$31,$0,$0	/* with error in v0 */<br>
+ 	addq	$31,1,$1	/* set a3 for errno return */<br>
+@@ -584,13 +584,15 @@<br>
+ 	stq	$1,72($30)	/* a3 for return */<br>
+ <br>
+ 	bsr	$1,do_switch_stack<br>
++	bis	$19,$19,$9	/* save old syscall number */<br>
++	bis	$20,$20,$10	/* save old a3 */<br>
+ 	lda     $27,syscall_trace<br>
+ 	jsr     $26,($27),syscall_trace<br>
++	bis	$9,$9,$19<br>
++	bis	$10,$10,$20	<br>
+ 	bsr	$1,undo_switch_stack<br>
+ <br>
+ 	bis	$31,$31,$26	/* tell "ret_from_sys_call" that we can restart */<br>
+-	bis	$9,$9,$19	/*  .. old syscall nr */<br>
+-	bis	$10,$10,$20	/*  .. old a3 */<br>
+ 	br	$31,ret_from_sys_call<br>
+ <br>
+ 	.align 3<br>
+-----<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0351.html">Jauder Ho: "Re: Linux-1.3.95 - spelling fixes"</a>
+<li> <b>Previous message:</b> <a href="0349.html">Thomas Bogendoerfer: "Re: Linux-1.3.95 - spelling fixes"</a>
+<li> <b>In reply to:</b> <a href="0351.html">Jauder Ho: "Re: Linux-1.3.95 - spelling fixes"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

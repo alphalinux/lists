@@ -1,0 +1,173 @@
+<!-- received="Fri Nov 15 03:59:11 1996 " -->
+<!-- sent="Fri, 15 Nov 1996 09:44:04 +0100 (MET)" -->
+<!-- name="Fritz Ganter" -->
+<!-- email="ganter@rebekka.tu-graz.ac.at" -->
+<!-- subject="Re: UDB166 and 2.0.25 and axpdiff 2.0.21" -->
+<!-- id="199611150402.WAA08647@atheist.tamu.edu" -->
+<!-- inreplyto="96111508514456@szem.szeg.matav.hu" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: UDB166 and 2.0.25 and axpdiff 2.0.21</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: UDB166 and 2.0.25 and axpdiff 2.0.21</h2>
+
+<b>Fritz Ganter</b> (<a href="mailto:ganter@rebekka.tu-graz.ac.at"><i>ganter@rebekka.tu-graz.ac.at</i></a>)<br>
+<i>Fri, 15 Nov 1996 09:44:04 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#677">[ date ]</a><a href="index.html#677">[ thread ]</a><a href="subject.html#677">[ subject ]</a><a href="author.html#677">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0678.html">Mihaly HOMONNAI: "UDB166 and 2.0.25 and axpdiff 2.0.21 solved, another problem"</a>
+<li> <b>Previous message:</b> <a href="0676.html">Mihaly HOMONNAI: "Re: UDB166 and 2.0.25 and axpdiff 2.0.21"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Fri, 15 Nov 1996, Mihaly HOMONNAI wrote:<br>
+<p>
+<i>&gt; I did changes that Jay suggested.</i><br>
+<i>&gt; &gt; CONFIG_DE4X5=n</i><br>
+<i>&gt; &gt; CONFIG_DEC_ELCP=y</i><br>
+<i>&gt; </i><br>
+<i>&gt; When i boot 2.0.25, i get error at activating eth0:</i><br>
+<i>&gt; eth0: enabling 10bt</i><br>
+<i>&gt; eth0: enabling aui</i><br>
+<i>&gt; eth0: enabling bnc</i><br>
+<i>&gt; eth0: enabling unknown type</i><br>
+<i>&gt; eth0: enabling 10bt</i><br>
+<i>&gt; eth0: enabling aui</i><br>
+<i>&gt; </i><br>
+<i>&gt; and so on in cycle.</i><br>
+<i>&gt; </i><br>
+<i>&gt; I had heard sg. about tulip patches. Do i need it?</i><br>
+<p>
+I'm not shure if you use the tulip driver. If yes, try to copy tulip.c<br>
+from 2.0.23 to /usr/src/linux/drivers/net/tulip.c, or use the patch below.<br>
+<p>
+I sent out a mail yesterday, but to <a href="mailto:xp-list@redhat.com">xp-list@redhat.com</a> instead of<br>
+axp-list.<br>
+<p>
+Here is my mail again:<br>
+<p>
+<p>
+<i>&gt;From <a href="mailto:ganter@rebekka.tu-graz.ac.at">ganter@rebekka.tu-graz.ac.at</a> Fri Nov 15 09:43:06 1996</i><br>
+Date: Fri, 15 Nov 1996 00:54:43 +0100 (MET)<br>
+From: Fritz Ganter &lt;<a href="mailto:ganter@rebekka.tu-graz.ac.at">ganter@rebekka.tu-graz.ac.at</a>&gt;<br>
+Reply-To: <a href="mailto:ganter@fvkma.tu-graz.ac.at">ganter@fvkma.tu-graz.ac.at</a><br>
+To: <a href="mailto:torvalds@cs.helsinki.fi">torvalds@cs.helsinki.fi</a>, xp-list@redhat.com,<br>
+    <a href="mailto:linux-kernel@vger.rutgers.edu">linux-kernel@vger.rutgers.edu</a><br>
+Subject: 2.0.25: Tulip.c still not working<br>
+<p>
+Hello all!<br>
+<p>
+I still get not running my smc8432 on an Alpha Cabriolet.<br>
+This is since the patch in 2.0.24, the patch in 25 didn't fix the problem.<br>
+<p>
+After switching to runlevel 3 (I think ifconfig is called) I get<br>
+following:<br>
+Nov 15 00:33:37 jassi kernel: eth0: enabling BNC port.<br>
+Nov 15 00:34:16 jassi last message repeated 9 times<br>
+Nov 15 00:34:56 jassi last message repeated 4 times<br>
+<p>
+The device never comes up, if have to do a "ifconfig eth0 down" to get the<br>
+kernel quiet.<br>
+<p>
+The patch with disables my card is:<br>
+<p>
+--- tulip.c	Fri Nov 15 00:36:36 1996<br>
++++ tulip.c.25	Thu Nov 14 23:56:03 1996<br>
+@@ -37,7 +37,7 @@<br>
+ /* #define  TULIP_FULL_DUPLEX 1 */<br>
+ <br>
+ /* Define to fix port. */<br>
+-#define  TULIP_FIX_PORT 1 <br>
++#define  TULIP_FIX_PORT 1<br>
+ <br>
+ /* Define to probe only first detected device */<br>
+ /*#define	TULIP_MAX_CARDS 1*/<br>
+@@ -1133,6 +1133,25 @@<br>
+ 		} while (++i &lt; 15);<br>
+ <br>
+ 		/* Now add this frame to the Tx list. */<br>
++		{<br>
++			unsigned long flags;<br>
++			unsigned int entry;<br>
++			<br>
++			save_flags(flags); cli();<br>
++			entry = tp-&gt;cur_tx++ % TX_RING_SIZE;<br>
++			tp-&gt;dirty_tx++;<br>
++			restore_flags(flags);<br>
++<br>
++			tp-&gt;tx_skbuff[entry] = 0;<br>
++			/* Put the setup frame on the Tx list. */<br>
++			tp-&gt;tx_ring[entry].length = 192 |<br>
++			      (entry == TX_RING_SIZE-1 ? 0x0a000000 : 0x08000000);<br>
++			tp-&gt;tx_ring[entry].buffer1 = virt_to_bus((char *)tp-&gt;setup_frame);<br>
++			tp-&gt;tx_ring[entry].buffer2 = 0;<br>
++			tp-&gt;tx_ring[entry].status = TRING_OWN;<br>
++			/* Trigger an immediate transmit demand. */<br>
++			tio_write(TPOLL_TRIGGER, CSR1);<br>
++		}<br>
+ 	}<br>
+ }<br>
+ <br>
+Ignore the diff for TULIP_FIX_PORT 1.<br>
+<p>
+Here is my /proc/pci for the card:<br>
+  Bus  0, device   5, function  0:<br>
+    Ethernet controller: DEC DC21041 (rev 17).<br>
+      Medium devsel.  Fast back-to-back capable.  IRQ 18.  Master Capable.<br>
+Latency=32.  <br>
+      I/O at 0xb800.<br>
+      Non-prefetchable 32 bit memory at 0x4000000.<br>
+<p>
+and the boot message:<br>
+<p>
+Nov 15 00:33:37 jassi kernel: tulip.c:v0.10 8/11/95 <br>
+<a href="mailto:becker@cesdis.gsfc.nasa.gov">becker@cesdis.gsfc.nasa.gov</a><br>
+Nov 15 00:33:37 jassi kernel:         +0.72 4/17/96<br>
+<a href="http://www.dsl.tutics.tut.ac.jp/~linux/tulip">http://www.dsl.tutics.tut.ac.jp/~linux/tulip</a><br>
+Nov 15 00:33:37 jassi kernel: eth0: smc8432 (DEC 21041 Tulip) at 0xb800,<br>
+00:00:c0:7f:b6:ce, IRQ 18<br>
+<p>
+I think this should really be fixed!<br>
+<p>
+<p>
+<p>
+Fritz "who dances with the Linux" Ganter.      <a href="mailto:ganter@fvkma.tu-graz.ac.at">ganter@fvkma.tu-graz.ac.at</a><br>
+WWW: <a href="http://fvkma.tu-graz.ac.at/ganter">http://fvkma.tu-graz.ac.at/ganter</a>                 <a href="mailto:ganter@quant-x.com">ganter@quant-x.com</a><br>
+EDV-Consulting F.Ganter Grazerstr. 26a,A-8045 Graz    <a href="mailto:support@quant-x.com">support@quant-x.com</a><br>
+      Member of the Quant-X Group: Alpha based Systems running Linux<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0678.html">Mihaly HOMONNAI: "UDB166 and 2.0.25 and axpdiff 2.0.21 solved, another problem"</a>
+<li> <b>Previous message:</b> <a href="0676.html">Mihaly HOMONNAI: "Re: UDB166 and 2.0.25 and axpdiff 2.0.21"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

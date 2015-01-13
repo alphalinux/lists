@@ -1,0 +1,1810 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: PATCH: (on Alpha) emulating missing instructions</TITLE>
+<META NAME="Author" CONTENT="Luke Deller (luked@cse.unsw.edu.au)">
+<META NAME="Subject" CONTENT="PATCH: (on Alpha) emulating missing instructions">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>PATCH: (on Alpha) emulating missing instructions</H1>
+<HR>
+<P>
+<!-- received="Fri Oct 15 17:10:44 1999" -->
+<!-- isoreceived="19991016001044" -->
+<!-- sent="Fri, 15 Oct 1999 19:30:21 +1000 (EST)" -->
+<!-- isosent="19991015093021" -->
+<!-- name="Luke Deller" -->
+<!-- email="luked@cse.unsw.edu.au" -->
+<!-- subject="PATCH: (on Alpha) emulating missing instructions" -->
+<!-- id="Pine.OSF.3.95.991015181740.27627E-200000@ganter.disy.cse.unsw.EDU.AU" -->
+<STRONG>Subject: </STRONG>PATCH: (on Alpha) emulating missing instructions<BR>
+<STRONG>From: </STRONG>Luke Deller (<EM>luked@cse.unsw.edu.au</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Oct 15 1999 - 02:30:21 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#324">[ date ]</A>
+<A HREF="index.html#324">[ thread ]</A>
+<A HREF="subject.html#324">[ subject ]</A>
+<A HREF="author.html#324">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0325.html">Lennart Börjeson: "RE: PATCH: (on Alpha) emulating missing instructions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0323.html">dr john halewood: "DS10 clock problem?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0327.html">Eric Bohm: "PATCH: (on Alpha) emulating missing instructions"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Daniel &amp; I tried to run Loki's new beta version of Civilization Call to
+<BR>
+Power for alpha linux on a multia (ev4 alpha).  We got an illegal
+<BR>
+instruction exception.  We discovered that it was compiled for ev6, and so
+<BR>
+contained instructions not supported by our CPU.
+<BR>
+<P>So we have patched the linux kernel to emulate the instructions we needed.
+<BR>
+These instructions are:
+<BR>
+- byte/word load/store instructions (ldbu,stb,ldwu,stw)
+<BR>
+- some multimedia instructions (minsw, maxsw, minuw, maxuw, minsb, maxsb,
+<BR>
+&nbsp;&nbsp;minub, maxub)
+<BR>
+<P>We have tried to make the emulation fairly fast - we have added it as some
+<BR>
+assembly language code to the &quot;illegal instruction exception&quot; kernel entry
+<BR>
+point in arch/alpha/kernel/entry.S:entIF.  (Of course it's still faster
+<BR>
+to avoid emulation and use a binary compiled for your generation of alpha
+<BR>
+cpu).
+<BR>
+<P>We put an option for enabling it in the &quot;Kernel Hacking&quot; section of the
+<BR>
+configuration.
+<BR>
+<P>The patch is applied to kernel version 2.2.11
+<BR>
+(Loki say not to use 2.2.12 for Civilization CTP) 
+<BR>
+<P>We only wrote enough emulation code to get CivilizationCTP to run ..  in the
+<BR>
+future it would be cool to see emulation of a more complete set of
+<BR>
+instructions in the kernel.
+<BR>
+<P>Hope this is useful to somebody,
+<BR>
+<P>Luke Deller &amp; Daniel Potts.
+<BR>
+<P>--------------------------------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Luke Deller                               luked@cse.unsw.edu.au
+<BR>
+&nbsp;_--_|\    Computer Engineering student           
+<BR>
+/      \   School of Computer Science and Engineering     ? ? ? ?        
+<BR>
+\_.--._*   The University of New South Wales               ~~^^~  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v    Sydney, NSW     2052    AUSTRALIA                o o
+<BR>
+-------------------------------------------------------ooO--(_)--Ooo------
+<BR>
+<P><P><P>
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/config.in linux/arch/alpha/config.in
+<BR>
+--- v2.2.11/linux/arch/alpha/config.in	Sun May 23 06:41:37 1999
+<BR>
++++ linux/arch/alpha/config.in	Fri Oct 15 18:18:16 1999
+<BR>
+@@ -280,6 +280,7 @@
+<BR>
+&nbsp;#bool 'Debug kmalloc/kfree' CONFIG_DEBUG_MALLOC
+<BR>
+&nbsp;if [ &quot;$CONFIG_EXPERIMENTAL&quot; = &quot;y&quot; ]; then
+<BR>
+&nbsp;&nbsp;&nbsp;tristate 'Kernel FP software completion' CONFIG_MATHEMU
+<BR>
++  bool 'Emulation of some extended instruction sets' CONFIG_ALPHA_EXTINSNS
+<BR>
+&nbsp;else
+<BR>
+&nbsp;&nbsp;&nbsp;define_bool CONFIG_MATHEMU y
+<BR>
+&nbsp;fi
+<BR>
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/defconfig linux/arch/alpha/defconfig
+<BR>
+--- v2.2.11/linux/arch/alpha/defconfig	Sun Jun 13 04:52:51 1999
+<BR>
++++ linux/arch/alpha/defconfig	Fri Oct 15 18:17:50 1999
+<BR>
+@@ -330,4 +330,5 @@
+<BR>
+&nbsp;# Kernel hacking
+<BR>
+&nbsp;#
+<BR>
+&nbsp;CONFIG_MATHEMU=y
+<BR>
++# CONFIG_ALPHA_EXTINSNS is not set
+<BR>
+&nbsp;# CONFIG_MAGIC_SYSRQ is not set
+<BR>
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/kernel/entry.S linux/arch/alpha/kernel/entry.S
+<BR>
+--- v2.2.11/linux/arch/alpha/kernel/entry.S	Tue Aug 10 05:04:57 1999
+<BR>
++++ linux/arch/alpha/kernel/entry.S	Fri Oct 15 18:18:30 1999
+<BR>
+@@ -173,10 +173,819 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$31,do_entArith
+<BR>
+&nbsp;.end entArith
+<BR>
+&nbsp;
+<BR>
++#ifdef CONFIG_ALPHA_EXTINSNS
+<BR>
++/* emulation of some extended alpha instructions */
+<BR>
++
+<BR>
++.align 3
+<BR>
++.ent	get_user_sp
+<BR>
++get_user_sp:
+<BR>
++	subq		$30,6*8,$30
+<BR>
++	stq		$0,0($30)
+<BR>
++	stq		$1,8($30)
+<BR>
++	stq		$16,16($30)
+<BR>
++	mov		$25,$3
+<BR>
++	stq		$22,24($30)
+<BR>
++	stq		$23,32($30)
+<BR>
++	stq		$24,40($30)
+<BR>
++	call_pal	PAL_rdusp
+<BR>
++	ldq		$24,40($30)
+<BR>
++	mov		$3,$25
+<BR>
++	ldq		$23,32($30)
+<BR>
++	ldq		$22,24($30)
+<BR>
++	mov		$0,$3
+<BR>
++	ldq		$16,16($30)
+<BR>
++	ldq		$1,8($30)
+<BR>
++	ldq		$0,0($30)
+<BR>
++	addq		$30,6*8,$30
+<BR>
++	ret		$31,($5)
+<BR>
++.end	get_user_sp
+<BR>
++
+<BR>
++.align 3
+<BR>
++.ent	put_user_sp
+<BR>
++put_user_sp:
+<BR>
++	subq		$30,5*8,$30
+<BR>
++	stq		$16,0($30)
+<BR>
++	stq		$22,8($30)
+<BR>
++	stq		$23,16($30)
+<BR>
++	mov		$3,$16
+<BR>
++	stq		$24,24($30)
+<BR>
++	mov		$1,$3
+<BR>
++	stq		$25,32($30)
+<BR>
++	call_pal	PAL_wrusp
+<BR>
++	ldq		$25,32($30)
+<BR>
++	ldq		$24,24($30)
+<BR>
++	mov		$3,$1
+<BR>
++	ldq		$23,16($30)
+<BR>
++	ldq		$22,8($30)
+<BR>
++	ldq		$16,0($30)
+<BR>
++	addq		$30,5*8,$30
+<BR>
++	ret		$31,($5)
+<BR>
++.end	put_user_sp
+<BR>
++
+<BR>
++/* a code table .. make sure each entry is exactly 2 instructions */
+<BR>
++.align 3
+<BR>
++.ent	get_ureg_table
+<BR>
++get_ureg0:
+<BR>
++	ldq	$3,8*0($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg1:
+<BR>
++	ldq	$3,8*1($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg2:
+<BR>
++	ldq	$3,8*2($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg3:
+<BR>
++	ldq	$3,8*3($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg4:
+<BR>
++	ldq	$3,8*4($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg5:
+<BR>
++	ldq	$3,8*5($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg6:
+<BR>
++	mov	$6,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg7:
+<BR>
++	mov	$7,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg8:
+<BR>
++	mov	$8,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg9:
+<BR>
++	mov	$9,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg10:
+<BR>
++	mov	$10,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg11:
+<BR>
++	mov	$11,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg12:
+<BR>
++	mov	$12,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg13:
+<BR>
++	mov	$13,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg14:
+<BR>
++	mov	$14,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg15:
+<BR>
++	mov	$15,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg16:
+<BR>
++	ldq	$3,8*10($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg17:
+<BR>
++	ldq	$3,8*11($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg18:
+<BR>
++	ldq	$3,8*12($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg19:
+<BR>
++	mov	$19,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg20:
+<BR>
++	mov	$20,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg21:
+<BR>
++	mov	$21,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg22:
+<BR>
++	mov	$22,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg23:
+<BR>
++	mov	$23,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg24:
+<BR>
++	mov	$24,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg25:
+<BR>
++	mov	$25,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg26:
+<BR>
++	mov	$26,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg27:
+<BR>
++	mov	$27,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg28:
+<BR>
++	mov	$28,$3
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg29:
+<BR>
++	ldq	$3,9*8($30)
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg30:
+<BR>
++	br	$31,get_user_sp 
+<BR>
++	ret	$31,($5)
+<BR>
++get_ureg31:
+<BR>
++	mov	$31,$3
+<BR>
++	ret	$31,($5)
+<BR>
++.end	get_ureg_table
+<BR>
++
+<BR>
++/* another code table .. make sure each entry is exactly 2 instructions */
+<BR>
++.align 3
+<BR>
++.ent	put_ureg_table
+<BR>
++put_ureg0:
+<BR>
++	stq	$3,8*0($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg1:
+<BR>
++	stq	$3,8*1($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg2:
+<BR>
++	stq	$3,8*2($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg3:
+<BR>
++	stq	$3,8*3($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg4:
+<BR>
++	stq	$3,8*4($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg5:
+<BR>
++	stq	$3,8*5($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg6:
+<BR>
++	mov	$3,$6
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg7:
+<BR>
++	mov	$3,$7
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg8:
+<BR>
++	mov	$3,$8
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg9:
+<BR>
++	mov	$3,$9
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg10:
+<BR>
++	mov	$3,$10
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg11:
+<BR>
++	mov	$3,$11
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg12:
+<BR>
++	mov	$3,$12
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg13:
+<BR>
++	mov	$3,$13
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg14:
+<BR>
++	mov	$3,$14
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg15:
+<BR>
++	mov	$3,$15
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg16:
+<BR>
++	stq	$3,8*10($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg17:
+<BR>
++	stq	$3,8*11($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg18:
+<BR>
++	stq	$3,8*12($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg19:
+<BR>
++	mov	$3,$19
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg20:
+<BR>
++	mov	$3,$20
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg21:
+<BR>
++	mov	$3,$21
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg22:
+<BR>
++	mov	$3,$22
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg23:
+<BR>
++	mov	$3,$23
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg24:
+<BR>
++	mov	$3,$24
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg25:
+<BR>
++	mov	$3,$25
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg26:
+<BR>
++	mov	$3,$26
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg27:
+<BR>
++	mov	$3,$27
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg28:
+<BR>
++	mov	$3,$28
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg29:
+<BR>
++	stq	$3,9*8($30)
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg30:
+<BR>
++	br	$31,put_user_sp 
+<BR>
++	ret	$31,($5)
+<BR>
++put_ureg31:
+<BR>
++	ret	$31,($5)
+<BR>
++.end	put_ureg_table
+<BR>
++
+<BR>
++/* this macro trashes $5 &amp; index, and returns user reg val in $3 */
+<BR>
++#define get_user_reg(index)           \
+<BR>
++	br	$3,1f                 ;\
+<BR>
++1:	                              ;\
+<BR>
++	s8addq	index,$3,index        ;\
+<BR>
++	lda	$5,get_ureg0-1b($31)  ;\
+<BR>
++	addq	index,$5,index        ;\
+<BR>
++	jsr	$5,(index),get_ureg16
+<BR>
++
+<BR>
++/* this macro trashes $3, $5 &amp; index, and takes new user reg val in $3 */
+<BR>
++#define put_user_reg(index)           \
+<BR>
++	br	$5,1f                 ;\
+<BR>
++1:	                              ;\
+<BR>
++	s8addq	index,$5,index        ;\
+<BR>
++	lda	$5,put_ureg0-1b($31)  ;\
+<BR>
++	addq	index,$5,index        ;\
+<BR>
++	jsr	$5,(index),put_ureg16
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_ldwu
+<BR>
++.ent	emul_ldwu
+<BR>
++emul_ldwu:
+<BR>
++	stq	$3,24($30)
+<BR>
++	stq	$4,32($30)
+<BR>
++	stq	$5,40($30)
+<BR>
++
+<BR>
++	srl	$0,21,$1
+<BR>
++	srl	$0,16,$2
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	sll	$0,48,$0
+<BR>
++	and	$2,0x1f,$2
+<BR>
++	sra	$0,48,$0   /* $0 = disp */
+<BR>
++	get_user_reg($2)   /* $3 = Rb  */
+<BR>
++	addq	$0,$3,$0
+<BR>
++	ldq_u	$3,0($0)
+<BR>
++	ldq_u	$5,1($0)
+<BR>
++	extwl	$3,$0,$3
+<BR>
++	extwh	$5,$0,$5
+<BR>
++	or	$3,$5,$3
+<BR>
++	put_user_reg($1)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_ldwu
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_stw
+<BR>
++.ent	emul_stw
+<BR>
++emul_stw:
+<BR>
++	stq	$3,24($30)
+<BR>
++	stq	$4,32($30)
+<BR>
++	stq	$5,40($30)
+<BR>
++
+<BR>
++	srl	$0,21,$1
+<BR>
++	srl	$0,16,$2
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	sll	$0,48,$0
+<BR>
++	and	$2,0x1f,$2
+<BR>
++	sra	$0,48,$0   /* $0 = disp */
+<BR>
++	get_user_reg($1)
+<BR>
++	mov	$3,$1
+<BR>
++	get_user_reg($2)   /* $3 = Rb  */
+<BR>
++	/* needs writing here */
+<BR>
++	addq	$0,$3,$0
+<BR>
++	ldq_u	$3,1($0)
+<BR>
++	ldq_u	$2,0($0)
+<BR>
++	inswh	$1,$0,$5
+<BR>
++	inswl	$1,$0,$4
+<BR>
++	mskwh	$3,$0,$3
+<BR>
++	mskwl	$2,$0,$2
+<BR>
++	or	$3,$5,$3
+<BR>
++	or	$2,$4,$2
+<BR>
++	stq_u	$3,1($0)
+<BR>
++	stq_u	$2,0($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_stw
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_ldbu
+<BR>
++.ent	emul_ldbu
+<BR>
++emul_ldbu:
+<BR>
++	stq	$3,24($30)
+<BR>
++	stq	$4,32($30)
+<BR>
++	stq	$5,40($30)
+<BR>
++
+<BR>
++	srl	$0,21,$1
+<BR>
++	srl	$0,16,$2
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	sll	$0,48,$4
+<BR>
++	and	$2,0x1f,$2
+<BR>
++	sra	$4,48,$4   /* $0 = disp */
+<BR>
++	get_user_reg($2)   /* $3 = Rb  */
+<BR>
++	addq	$4,$3,$4
+<BR>
++	ldq_u	$3,0($4)
+<BR>
++	extbl	$3,$4,$3
+<BR>
++	put_user_reg($1)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_ldbu
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_stb
+<BR>
++.ent	emul_stb
+<BR>
++emul_stb:
+<BR>
++	stq	$3,24($30)
+<BR>
++	stq	$4,32($30)
+<BR>
++	stq	$5,40($30)
+<BR>
++
+<BR>
++	srl	$0,21,$1
+<BR>
++	srl	$0,16,$2
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	sll	$0,48,$0
+<BR>
++	and	$2,0x1f,$2
+<BR>
++	sra	$0,48,$0   /* $0 = disp */
+<BR>
++	get_user_reg($1)
+<BR>
++	mov	$3,$1
+<BR>
++	get_user_reg($2)   /* $3 = Rb  */
+<BR>
++	addq	$0,$3,$0
+<BR>
++	ldq_u	$2,0($0)
+<BR>
++	insbl	$1,$0,$3
+<BR>
++	mskbl	$2,$0,$2
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	or	$2,$3,$2
+<BR>
++
+<BR>
++	ldq	$3,24($30)
+<BR>
++	stq_u	$2,0($0)
+<BR>
++
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_stb
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_minsw_4
+<BR>
++.ent	emul_minsw_4
+<BR>
++emul_minsw_4:
+<BR>
++	stq	$6,48($30)
+<BR>
++
+<BR>
++	extwl	$3,0x6,$4 /* get word 3 of ra (most significant) -&gt; $4 */
+<BR>
++	extwl	$2,0x6,$1 /* get word 3 of rb                    -&gt; $2 */
+<BR>
++	cmple	$2,$3,$6
+<BR>
++	cmovne	$6,$1,$4
+<BR>
++
+<BR>
++	extwl	$3,0x4,$5 /* get word 2 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x4,$1 /* get word 2 of rb                    -&gt; $1 */
+<BR>
++	cmple	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x2,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x2,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmple	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x0,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x0,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmple	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$3
+<BR>
++	
+<BR>
++	ldq	$6,48($30)
+<BR>
++
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_minsw_4
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_minuw_4
+<BR>
++.ent	emul_minuw_4
+<BR>
++emul_minuw_4:
+<BR>
++	stq	$6,48($30)
+<BR>
++
+<BR>
++	extwl	$3,0x6,$4 /* get word 3 of ra (most significant) -&gt; $4 */
+<BR>
++	extwl	$2,0x6,$1 /* get word 3 of rb                    -&gt; $2 */
+<BR>
++	cmpule	$2,$3,$6
+<BR>
++	cmovne	$6,$1,$4
+<BR>
++
+<BR>
++	extwl	$3,0x4,$5 /* get word 2 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x4,$1 /* get word 2 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x2,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x2,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x0,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x0,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$2,$3,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$3
+<BR>
++	
+<BR>
++	ldq	$6,48($30)
+<BR>
++
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_minuw_4
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_maxsw_4
+<BR>
++.ent	emul_maxsw_4
+<BR>
++emul_maxsw_4:
+<BR>
++	stq	$6,48($30)
+<BR>
++
+<BR>
++	extwl	$3,0x6,$4 /* get word 3 of ra (most significant) -&gt; $4 */
+<BR>
++	extwl	$2,0x6,$1 /* get word 3 of rb                    -&gt; $2 */
+<BR>
++	cmple	$4,$1,$6
+<BR>
++	cmovne	$6,$1,$4
+<BR>
++
+<BR>
++	extwl	$3,0x4,$5 /* get word 2 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x4,$1 /* get word 2 of rb                    -&gt; $1 */
+<BR>
++	cmple	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x2,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x2,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmple	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x0,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x0,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmple	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$3
+<BR>
++	
+<BR>
++	ldq	$6,48($30)
+<BR>
++
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_maxsw_4
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_maxuw_4
+<BR>
++.ent	emul_maxuw_4
+<BR>
++emul_maxuw_4:
+<BR>
++	stq	$6,48($30)
+<BR>
++
+<BR>
++	extwl	$3,0x6,$4 /* get word 3 of ra (most significant) -&gt; $4 */
+<BR>
++	extwl	$2,0x6,$1 /* get word 3 of rb                    -&gt; $2 */
+<BR>
++	cmpule	$4,$1,$6
+<BR>
++	cmovne	$6,$1,$4
+<BR>
++
+<BR>
++	extwl	$3,0x4,$5 /* get word 2 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x4,$1 /* get word 2 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x2,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x2,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$4
+<BR>
++
+<BR>
++	extwl	$3,0x0,$5 /* get word 1 of ra                    -&gt; $5 */
+<BR>
++	extwl	$2,0x0,$1 /* get word 1 of rb                    -&gt; $1 */
+<BR>
++	cmpule	$5,$1,$6
+<BR>
++	sll	$4,16,$4
+<BR>
++	cmovne	$6,$1,$5
+<BR>
++	or	$4,$5,$3
+<BR>
++	
+<BR>
++	ldq	$6,48($30)
+<BR>
++
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_maxuw_4
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_maxub_8
+<BR>
++.ent	emul_maxub_8
+<BR>
++emul_maxub_8:
+<BR>
++	cmpbge	$2,$3,$1
+<BR>
++	zap	$3,$1,$3
+<BR>
++	zapnot	$2,$1,$2
+<BR>
++	or	$3,$2,$3
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_maxub_8
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_maxub_8
+<BR>
++.ent	emul_maxub_8
+<BR>
++emul_maxsb_8:
+<BR>
++	lda	$1,0x7f7f($31)
+<BR>
++	ldah	$1,0x7f7f($1)
+<BR>
++	sll	$1,32,$5
+<BR>
++	or	$1,$5,$1
+<BR>
++	not	$1,$1
+<BR>
++	xor	$3,$1,$5
+<BR>
++	xor	$2,$1,$1
+<BR>
++
+<BR>
++	cmpbge	$1,$5,$1
+<BR>
++	zap	$3,$1,$3
+<BR>
++	zapnot	$2,$1,$2
+<BR>
++	or	$3,$2,$3
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_maxub_8
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_minub_8
+<BR>
++.ent	emul_minub_8
+<BR>
++emul_minub_8:
+<BR>
++	cmpbge	$3,$2,$1
+<BR>
++	zap	$3,$1,$3
+<BR>
++	zapnot	$2,$1,$2
+<BR>
++	or	$3,$2,$3
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_minub_8
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_minsb_8
+<BR>
++.ent	emul_minsb_8
+<BR>
++emul_minsb_8:
+<BR>
++	lda	$1,0x7f7f($31)
+<BR>
++	ldah	$1,0x7f7f($1)
+<BR>
++	sll	$1,32,$5
+<BR>
++	or	$1,$5,$1
+<BR>
++	not	$1,$1
+<BR>
++	xor	$3,$1,$5
+<BR>
++	xor	$2,$1,$1
+<BR>
++
+<BR>
++	cmpbge	$5,$1,$1
+<BR>
++	zap	$3,$1,$3
+<BR>
++	zapnot	$2,$1,$2
+<BR>
++	or	$3,$2,$3
+<BR>
++	put_user_reg($0)
+<BR>
++
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_minsb_8
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_sexw
+<BR>
++.ent	emul_sexw
+<BR>
++emul_sexw:
+<BR>
++	sll	$3,48,$3
+<BR>
++	and	$0,0x1f,$1
+<BR>
++	sra	$3,48,$3
+<BR>
++	put_user_reg($1)
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_sexw
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_sexb
+<BR>
++.ent	emul_sexb
+<BR>
++emul_sexb:
+<BR>
++	sll	$3,56,$3
+<BR>
++	and	$0,0x1f,$1
+<BR>
++	sra	$3,56,$3
+<BR>
++	put_user_reg($1)
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	call_pal PAL_rti
+<BR>
++.end	emul_sexb
+<BR>
++
+<BR>
++.align 3
+<BR>
++.globl	emul_mmx
+<BR>
++.ent	emul_mmx
+<BR>
++emul_mmx:
+<BR>
++	stq	$3,24($30)
+<BR>
++	stq	$4,32($30)
+<BR>
++	stq	$5,40($30)
+<BR>
++
+<BR>
++	srl	$0,5,$4
+<BR>
++	srl	$0,12,$2
+<BR>
++	and	$4,0x3f,$4
+<BR>
++	blbs	$2,21f
+<BR>
++	srl	$0,16,$1
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	get_user_reg($1)
+<BR>
++21:
+<BR>
++	srl	$0,13,$1
+<BR>
++	and	$1,0xff,$1
+<BR>
++	cmovlbs	$2,$1,$3
+<BR>
++	/* now:	$0 = insn
+<BR>
++		$3 = regb val
+<BR>
++		$4 = operation function code */
+<BR>
++	cmpeq	$4,0x1,$2
+<BR>
++	beq	$4,emul_sexb
+<BR>
++	bne	$2,emul_sexw
+<BR>
++	srl	$0,21,$1
+<BR>
++	mov	$3,$2
+<BR>
++	and	$1,0x1f,$1
+<BR>
++	get_user_reg($1)
+<BR>
++	cmpeq	$4,0x3a,$1
+<BR>
++	cmpeq	$4,0x38,$5
+<BR>
++	and	$0,0x1f,$0
+<BR>
++	/* now:	$0 = rc index
+<BR>
++		$2 = rb val
+<BR>
++		$3 = ra val
+<BR>
++		$4 = operation function code */
+<BR>
++	bne	$1,emul_minub_8
+<BR>
++	bne	$5,emul_minsb_8
+<BR>
++	cmpeq	$4,0x3e,$1
+<BR>
++	cmpeq	$4,0x3c,$5
+<BR>
++	bne	$1,emul_maxsb_8
+<BR>
++	bne	$5,emul_maxub_8
+<BR>
++	cmpeq	$4,0x39,$1
+<BR>
++	cmpeq	$4,0x3f,$5
+<BR>
++	bne	$1,emul_minsw_4
+<BR>
++	bne	$5,emul_maxsw_4
+<BR>
++	cmpeq	$4,0x3b,$1
+<BR>
++	cmpeq	$4,0x3d,$5
+<BR>
++	bne	$1,emul_minuw_4
+<BR>
++	bne	$5,emul_maxuw_4
+<BR>
++	ldq	$5,40($30)
+<BR>
++	ldq	$4,32($30)
+<BR>
++	ldq	$3,24($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$0,0($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++	br	old_entIF
+<BR>
++.end	emul_mmx
+<BR>
++
+<BR>
++#endif /* CONFIG_ALPHA_EXTINSNS */
+<BR>
++
+<BR>
+&nbsp;.align 3
+<BR>
+&nbsp;.globl	entIF
+<BR>
+&nbsp;.ent	entIF
+<BR>
+&nbsp;entIF:
+<BR>
++#ifdef CONFIG_ALPHA_EXTINSNS
+<BR>
++	subq	$30,7*8,$30 /* 3 regs saved here, 3 or 4 more saved in fns */
+<BR>
++	stq	$0,0($30)
+<BR>
++	ldq	$0,8+7*8($30)
+<BR>
++	stq	$1,8($30)
+<BR>
++	ldl	$0,-4($0)
+<BR>
++	stq	$2,16($30)
+<BR>
++	srl	$0,26,$1
+<BR>
++	and	$1,0x3f,$1
+<BR>
++	cmpeq	$1,0x1c,$2
+<BR>
++	bne	$2,emul_mmx
+<BR>
++	cmpeq	$1,0x0a,$2
+<BR>
++	bne	$2,emul_ldbu
+<BR>
++	cmpeq	$1,0x0e,$2
+<BR>
++	bne	$2,emul_stb
+<BR>
++	cmpeq	$1,0x0c,$2
+<BR>
++	cmpeq	$1,0x0d,$1
+<BR>
++	bne	$2,emul_ldwu
+<BR>
++	bne	$1,emul_stw
+<BR>
++	ldq	$0,0($30)
+<BR>
++	ldq	$1,8($30)
+<BR>
++	ldq	$2,16($30)
+<BR>
++	addq	$30,7*8,$30
+<BR>
++old_entIF:
+<BR>
++#endif /* CONFIG_ALPHA_EXTINSNS */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SAVE_ALL
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$8,0x3fff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$26,ret_from_sys_call
+<BR>
+
+N‹§²æìr¸›zÇ§uéšŠ[hkeŠËkz«ž²ÚÞv­r‰°º{.nÇ+‰·š²Ø^²æãyËC¢z-±éÝŠÛhkeŠËkyØZµÊ&amp;<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0325.html">Lennart Börjeson: "RE: PATCH: (on Alpha) emulating missing instructions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0323.html">dr john halewood: "DS10 clock problem?"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0327.html">Eric Bohm: "PATCH: (on Alpha) emulating missing instructions"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 04 1999 - 16:56:51 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

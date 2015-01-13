@@ -1,0 +1,278 @@
+diff -ruNp linux/arch/alpha/math-emu/Makefile 2.4.0-9-4/arch/alpha/math-emu/Makefile
+--- linux/arch/alpha/math-emu/Makefile	Thu Dec  2 15:28:54 1999
++++ 2.4.0-9-4/arch/alpha/math-emu/Makefile	Tue Sep 19 18:45:17 2000
+@@ -8,7 +8,7 @@
+ # Note 2! The CFLAGS definition is now in the main makefile...
+ 
+ O_TARGET := math-emu.o
+-O_OBJS   := math.o
++O_OBJS   := math.o qrnnd.o
+ CFLAGS += -I. -I$(TOPDIR)/include/math-emu -w
+ 
+ ifeq ($(CONFIG_MATHEMU),m)
+diff -ruNp linux/arch/alpha/math-emu/math.c 2.4.0-9-4/arch/alpha/math-emu/math.c
+--- linux/arch/alpha/math-emu/math.c	Tue Mar 21 10:47:06 2000
++++ 2.4.0-9-4/arch/alpha/math-emu/math.c	Tue Sep 19 18:26:38 2000
+@@ -84,66 +84,6 @@ void cleanup_module(void)
+ 
+ #endif /* MODULE */
+ 
+-/* For 128-bit division.  */
+-
+-void
+-udiv128(unsigned long divisor_f0, unsigned long divisor_f1,
+-	unsigned long dividend_f0, unsigned long dividend_f1,
+-	unsigned long *quot, unsigned long *remd)
+-{
+-	_FP_FRAC_DECL_2(quo);
+-	_FP_FRAC_DECL_2(rem);
+-	_FP_FRAC_DECL_2(tmp);
+-	unsigned long i, num_bits, bit;
+-
+-	_FP_FRAC_SET_2(rem, _FP_ZEROFRAC_2);
+-	_FP_FRAC_SET_2(quo, _FP_ZEROFRAC_2);
+-
+-	if (_FP_FRAC_ZEROP_2(divisor))
+-		goto out;
+-
+-	if (_FP_FRAC_GT_2(divisor, dividend)) {
+-		_FP_FRAC_COPY_2(rem, dividend);
+-		goto out;
+-	}
+-
+-	if (_FP_FRAC_EQ_2(divisor, dividend)) {
+-		__FP_FRAC_SET_2(quo, 0, 1);
+-		goto out;
+-	}
+-
+-	num_bits = 128;
+-	while (1) {
+-		bit = _FP_FRAC_NEGP_2(dividend);
+-		_FP_FRAC_COPY_2(tmp, rem);
+-		_FP_FRAC_SLL_2(tmp, 1);
+-		_FP_FRAC_LOW_2(tmp) |= bit;
+-		if (! _FP_FRAC_GE_2(tmp, divisor))
+-			break;
+-		_FP_FRAC_COPY_2(rem, tmp);
+-		_FP_FRAC_SLL_2(dividend, 1);
+-		num_bits--;
+-	}
+-
+-	for (i = 0; i < num_bits; i++) {
+-		bit = _FP_FRAC_NEGP_2(dividend);
+-		_FP_FRAC_SLL_2(rem, 1);
+-		_FP_FRAC_LOW_2(rem) |= bit;
+-		_FP_FRAC_SUB_2(tmp, rem, divisor);
+-		bit = _FP_FRAC_NEGP_2(tmp);
+-		_FP_FRAC_SLL_2(dividend, 1);
+-		_FP_FRAC_SLL_2(quo, 1);
+-		if (!bit) {
+-			_FP_FRAC_LOW_2(quo) |= 1;
+-			_FP_FRAC_COPY_2(rem, tmp);
+-		}
+-	}
+-
+-out:
+-	*quot = quo_f1;
+-	*remd = rem_f1;
+-	return;
+-}
+ 
+ /*
+  * Emulate the floating point instruction at address PC.  Returns 0 if
+diff -ruNp linux/arch/alpha/math-emu/qrnnd.S 2.4.0-9-4/arch/alpha/math-emu/qrnnd.S
+--- linux/arch/alpha/math-emu/qrnnd.S	Wed Dec 31 16:00:00 1969
++++ 2.4.0-9-4/arch/alpha/math-emu/qrnnd.S	Tue Sep 19 18:41:26 2000
+@@ -0,0 +1,163 @@
++ # Alpha 21064 __udiv_qrnnd
++ # Copyright (C) 1992, 1994, 1995, 2000 Free Software Foundation, Inc.
++
++ # This file is part of GCC.
++
++ # The GNU MP Library is free software; you can redistribute it and/or modify
++ # it under the terms of the GNU General Public License as published by
++ # the Free Software Foundation; either version 2 of the License, or (at your
++ # option) any later version.
++
++ # In addition to the permissions in the GNU General Public License, the
++ # Free Software Foundation gives you unlimited permission to link the
++ # compiled version of this file with other programs, and to distribute
++ # those programs without any restriction coming from the use of this
++ # file.  (The General Public License restrictions do apply in other
++ # respects; for example, they cover modification of the file, and
++ # distribution when not linked into another program.)
++
++ # This file is distributed in the hope that it will be useful, but
++ # WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++ # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library General Public
++ # License for more details.
++
++ # You should have received a copy of the GNU General Public License
++ # along with GCC; see the file COPYING.  If not, write to the 
++ # Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
++ # MA 02111-1307, USA.
++
++        .set noreorder
++        .set noat
++
++	.text
++
++	.globl __udiv_qrnnd
++	.ent __udiv_qrnnd
++__udiv_qrnnd:
++	.frame $30,0,$26,0
++	.prologue 0
++
++#define cnt	$2
++#define tmp	$3
++#define rem_ptr	$16
++#define n1	$17
++#define n0	$18
++#define d	$19
++#define qb	$20
++#define AT	$at
++
++	ldiq	cnt,16
++	blt	d,$largedivisor
++
++$loop1:	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	d,n1,qb
++	subq	n1,d,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	d,n1,qb
++	subq	n1,d,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	d,n1,qb
++	subq	n1,d,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	d,n1,qb
++	subq	n1,d,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	subq	cnt,1,cnt
++	bgt	cnt,$loop1
++	stq	n1,0(rem_ptr)
++	bis	$31,n0,$0
++	ret	$31,($26),1
++
++$largedivisor:
++	and	n0,1,$4
++
++	srl	n0,1,n0
++	sll	n1,63,tmp
++	or	tmp,n0,n0
++	srl	n1,1,n1
++
++	and	d,1,$6
++	srl	d,1,$5
++	addq	$5,$6,$5
++
++$loop2:	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	$5,n1,qb
++	subq	n1,$5,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	$5,n1,qb
++	subq	n1,$5,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	$5,n1,qb
++	subq	n1,$5,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	cmplt	n0,0,tmp
++	addq	n1,n1,n1
++	bis	n1,tmp,n1
++	addq	n0,n0,n0
++	cmpule	$5,n1,qb
++	subq	n1,$5,tmp
++	cmovne	qb,tmp,n1
++	bis	n0,qb,n0
++	subq	cnt,1,cnt
++	bgt	cnt,$loop2
++
++	addq	n1,n1,n1
++	addq	$4,n1,n1
++	bne	$6,$Odd
++	stq	n1,0(rem_ptr)
++	bis	$31,n0,$0
++	ret	$31,($26),1
++
++$Odd:
++	/* q' in n0. r' in n1 */
++	addq	n1,n0,n1
++
++	cmpult	n1,n0,tmp	# tmp := carry from addq
++	subq	n1,d,AT
++	addq	n0,tmp,n0
++	cmovne	tmp,AT,n1
++
++	cmpult	n1,d,tmp
++	addq	n0,1,AT
++	cmoveq	tmp,AT,n0
++	subq	n1,d,AT
++	cmoveq	tmp,AT,n1
++
++	stq	n1,0(rem_ptr)
++	bis	$31,n0,$0
++	ret	$31,($26),1
++
++	.end	__udiv_qrnnd
+diff -ruNp linux/arch/alpha/math-emu/sfp-util.h 2.4.0-9-4/arch/alpha/math-emu/sfp-util.h
+--- linux/arch/alpha/math-emu/sfp-util.h	Thu Dec  2 15:28:54 1999
++++ 2.4.0-9-4/arch/alpha/math-emu/sfp-util.h	Tue Sep 19 18:41:05 2000
+@@ -17,18 +17,13 @@
+ 	   : "r" ((UDItype)(u)),		\
+ 	     "r" ((UDItype)(v)))
+ 
+-extern void udiv128(unsigned long, unsigned long,
+-		    unsigned long, unsigned long,
+-		    unsigned long *,
+-		    unsigned long *);
+-
+-#define udiv_qrnnd(q, r, n1, n0, d)		\
+-  do {						\
+-    unsigned long xr, xi;			\
+-    udiv128((n0), (n1), 0, (d), &xr, &xi);	\
+-    (q) = xr; 					\
+-    (r) = xi;					\
++#define udiv_qrnnd(q, r, n1, n0, d)				\
++  do { unsigned long __r;					\
++    (q) = __udiv_qrnnd (&__r, (n1), (n0), (d));			\
++    (r) = __r;							\
+   } while (0)
++extern unsigned long __udiv_qrnnd (unsigned long *, unsigned long,
++				   unsigned long , unsigned long);
+ 
+ #define UDIV_NEEDS_NORMALIZATION 1  
+ 
+

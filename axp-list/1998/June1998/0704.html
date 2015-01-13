@@ -1,0 +1,141 @@
+<!-- received="Thu Jul  2 16:25:35 1998 " -->
+<!-- sent="Sun, 17 May 1998 23:19:57 +0200" -->
+<!-- name="Thomas Bogendoerfer" -->
+<!-- email="tsbogend@alpha.franken.de" -->
+<!-- subject="Re: kernel profiling in 2.1 ?" -->
+<!-- id="199805170701.JAA25265@eclia5.ec-lille.fr" -->
+<!-- inreplyto="Pine.LNX.3.95.980517113511.7404A-100000@penguin.transmeta.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: kernel profiling in 2.1 ?</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: kernel profiling in 2.1 ?</h2>
+
+<b>Thomas Bogendoerfer</b> (<a href="mailto:tsbogend@alpha.franken.de"><i>tsbogend@alpha.franken.de</i></a>)<br>
+<i>Sun, 17 May 1998 23:19:57 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#704">[ date ]</a><a href="index.html#704">[ thread ]</a><a href="subject.html#704">[ subject ]</a><a href="author.html#704">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0705.html">Kinnunen Kimmo: "2.1.102 and IRQ allocation problem?"</a>
+<li> <b>Previous message:</b> <a href="0703.html">Christian Groessler: "Re: HELP! Group of users ready to throw in the towel."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sun, May 17, 1998 at 11:36:54AM -0700, Linus Torvalds wrote:<br>
+<i>&gt; It may be that the non-x86 profiling was broken - the profiling code was</i><br>
+<i>&gt; moved into architecture-specific code in order to get it right on SMP. It</i><br>
+<i>&gt; definitely works on x86, I'm using it occasionally (and it's sad how much</i><br>
+<i>&gt; time is spent getting the kernel lock).</i><br>
+<p>
+ok, I forgot to grep the .h, so I missed the x86 profile implementation.<br>
+But for the alpha there is (was) no profiling. I just adapted the x86<br>
+version, and it works.<br>
+<p>
+Now to my problem with the sluggishness of my machine. I realized, that<br>
+when the kernel gets gzipped the mouse pointer under X freezes for as<br>
+long as gzip runs. So I did a gzip &lt; /dev/zero &gt; /dev/null and was really<br>
+surprised, when the whole machine stopped. I couldn't stop the process,<br>
+login via ethernet, nothing. I had to reset it. <br>
+<p>
+Another thing, which halts the machine for some seconds (and terminates by <br>
+itself) is something like dd if=/dev/zero of=/dev/null count=1000000. The<br>
+profile of such a dd run, doesn't show anything strange:<br>
+<p>
+    11 do_wp_page                                 0.0105<br>
+    18 ret_from_sys_call                          0.5625<br>
+    19 loop                                       1.1875<br>
+    45 write_null                                 5.6250<br>
+    49 ret_from_reschedule                        1.5312<br>
+    84 ret_from_handle_bh                         7.0000<br>
+   238 sys_read                                   0.4648<br>
+   308 restore_all                                2.2000<br>
+   408 read_zero                                  0.5050<br>
+   422 entSys                                     2.1979<br>
+   462 sys_write                                  0.7500<br>
+   697 __copy_user                                1.4893<br>
+  2828 total                                      0.0020<br>
+<p>
+Any idea ?<br>
+<p>
+Thomas.<br>
+<p>
+PS: profiling patch for Alpha<br>
+<p>
+<p>
+Index: time.c<br>
+===================================================================<br>
+RCS file: /usr/src/cvs/linux/arch/alpha/kernel/time.c,v<br>
+retrieving revision 1.1.1.7<br>
+diff -u -r1.1.1.7 time.c<br>
+--- time.c	1998/05/10 21:12:24	1.1.1.7<br>
++++ time.c	1998/05/17 21:07:30<br>
+@@ -90,6 +90,26 @@<br>
+ 	smp_percpu_timer_interrupt(regs);<br>
+ 	if (smp_processor_id() != boot_cpu_id)<br>
+ 	  return;<br>
++#else<br>
++#ifdef CONFIG_PROFILE<br>
++        if(!user_mode(regs)) {<br>
++        	if (prof_buffer &amp;&amp; current-&gt;pid) {<br>
++                	extern int _stext;<br>
++			unsigned long pc = regs-&gt;pc;<br>
++<br>
++                	pc -= (unsigned long) &amp;_stext;<br>
++                	pc &gt;&gt;= prof_shift;<br>
++                	/*<br>
++                 	* Dont ignore out-of-bounds pc values silently,<br>
++                 	* put them into the last histogram slot, so if<br>
++                 	* present, they will show up as a sharp peak.<br>
++                 	*/<br>
++                	if (pc &gt; prof_len-1)<br>
++                        	pc = prof_len-1;<br>
++                	atomic_inc((atomic_t *)&amp;prof_buffer[pc]);<br>
++        	}<br>
++	}<br>
++#endif<br>
+ #endif<br>
+ <br>
+ 	/*<br>
+<p>
+<p>
+<p>
+<pre>
+-- 
+See, you not only have to be a good coder to create a system like Linux,
+you have to be a sneaky bastard too ;-)
+                   [Linus Torvalds in &lt;4rikft$7g5@linux.cs.Helsinki.FI&gt;]
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0705.html">Kinnunen Kimmo: "2.1.102 and IRQ allocation problem?"</a>
+<li> <b>Previous message:</b> <a href="0703.html">Christian Groessler: "Re: HELP! Group of users ready to throw in the towel."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

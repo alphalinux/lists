@@ -1,0 +1,585 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-2022-jp">
+<TITLE>High Performance List: [High-perf] page granuality hints suppor</TITLE>
+<META NAME="Author" CONTENT="Naohiko Shimizu (nshimizu@et.u-tokai.ac.jp)">
+<META NAME="Subject" CONTENT="[High-perf] page granuality hints support for kernel-2.4.0-test1">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[High-perf] page granuality hints support for kernel-2.4.0-test1</H1>
+<HR>
+<P>
+<!-- received="Thu Jun 15 10:20:23 2000" -->
+<!-- isoreceived="20000615172023" -->
+<!-- sent="Wed, 14 Jun 2000 21:03:17 +0900" -->
+<!-- isosent="20000614120317" -->
+<!-- name="Naohiko Shimizu" -->
+<!-- email="nshimizu@et.u-tokai.ac.jp" -->
+<!-- subject="[High-perf] page granuality hints support for kernel-2.4.0-test1" -->
+<!-- id="39477485.8F0F0D75@et.u-tokai.ac.jp" -->
+<!-- charset="iso-2022-jp" -->
+<STRONG>Subject: </STRONG>[High-perf] page granuality hints support for kernel-2.4.0-test1<BR>
+<STRONG>From: </STRONG>Naohiko Shimizu (<EM>nshimizu@et.u-tokai.ac.jp</EM>)<BR>
+<STRONG>Date: </STRONG>Wed Jun 14 2000 - 05:03:17 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#3">[ date ]</A>
+<A HREF="index.html#3">[ thread ]</A>
+<A HREF="subject.html#3">[ subject ]</A>
+<A HREF="author.html#3">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Naohiko Shimizu: "[High-perf] Page granularity hint support (revised) : call for testers and/or suggestions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">Kazushige Goto: "[High-perf] Fast LU decomposition routine"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+This is my first patch to the kernel to support Alpha's 
+<BR>
+Page Granuality Hints. When complete, it will boost HPC applications
+<BR>
+very much, I think.
+<BR>
+<P>I am not satisfied with this patch, because it only reduces the misses
+<BR>
+in
+<BR>
+a few seconds after the program start. I used &quot;iprobe&quot; to see the fact.
+<BR>
+I must seek the reason why such things happened.
+<BR>
+But someone in this mailing list will be interested in this patch.
+<BR>
+<P>Any comments or suggetions are appliciated.
+<BR>
+<P>I will attach two program, 1st is the patch itself, 2nd is the
+<BR>
+benchmarking program that will fit to the patch. (As I menssioned
+<BR>
+it is not fully reduce the TLB misses yet. )
+<BR>
+<P>Naohiko Shimizu.
+<BR>
+Tokai Univ.
+<BR>
+&lt;nshimizu@et.u-tokai.ac.jp&gt;
+<BR>
+<P><P>
+diff -urN linux-2.4.0-test1/Documentation/page_gh.txt linux/Documentation/page_gh.txt
+<BR>
+--- linux-2.4.0-test1/Documentation/page_gh.txt	Thu Jan  1 09:00:00 1970
+<BR>
++++ linux/Documentation/page_gh.txt	Wed Jun 14 20:23:14 2000
+<BR>
+@@ -0,0 +1,39 @@
+<BR>
++The Alpha architecture defines Granularity Hint(GH) bits in the
+<BR>
++Page Table Entry(PTE). If these bits are set to non-zero value,
+<BR>
++it supply a hint to translation buffer implementations that
+<BR>
++a block of pages can be treated as a single larger page.
+<BR>
++It means that even if we don't have variable length page mechanism,
+<BR>
++we will have some opportunity to reduce translation misses.
+<BR>
++For the large working set HPC applications the performance
+<BR>
++degradation caused by the translation misses are terrible.
+<BR>
++Then if we can use this feature, many HPC applications will be
+<BR>
++appreciated.
+<BR>
++
+<BR>
++To simplicity, my first patch is only experimental level.
+<BR>
++
+<BR>
++The idea is depend on the followings:
+<BR>
++  1) High performance applications should be memory resident. Then
+<BR>
++     we can expect them to call mlock_all system call with MCL_FUTURE.
+<BR>
++     Of course this call requires you are a root. You can use
+<BR>
++     &quot;sudo&quot; to get the privilege.
+<BR>
++  2) The static assigned memory area (heap) is manageable, and it will
+<BR>
++     be useful for C coded applications. malloc usually uses mmap, but
+<BR>
++     I only implement brk interface. Then you can use the feature with 
+<BR>
++     the sbrk call.
+<BR>
++
+<BR>
++The lacked features for release level are:
+<BR>
++  1) mmap interface will be required for normal &quot;malloc&quot; call.
+<BR>
++  2) No unmap routine for munlock. If someone expect to munlock the
+<BR>
++     space with GH bits set, processor should drop all the GH bits
+<BR>
++     of the block.
+<BR>
++  3) Allocated pages are not cleared. (I don't need it for benchmarking)
+<BR>
++  4) The stack and/or file mapped area is not supported.
+<BR>
++  5) We should drop the GH bits when brk system call is called to
+<BR>
++     shrink the locked area.
+<BR>
++  6) Someone in the kernel may detach the GH bits or something
+<BR>
++     happens. I found that TLB misses drastically decreased only in 
+<BR>
++     the first several seconds, then it increased again. I will seek
+<BR>
++     the reason later.
+<BR>
++
+<BR>
++
+<BR>
++Naohiko Shimizu&lt;nshimizu@keyaki.cc.u-tokai.ac.jp&gt;
+<BR>
+diff -urN linux-2.4.0-test1/arch/alpha/config.in linux/arch/alpha/config.in
+<BR>
+--- linux-2.4.0-test1/arch/alpha/config.in	Tue Mar 28 07:18:32 2000
+<BR>
++++ linux/arch/alpha/config.in	Tue Jun 13 16:42:29 2000
+<BR>
+@@ -184,6 +184,8 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bool 'Symmetric multi-processing support' CONFIG_SMP
+<BR>
+&nbsp;fi
+<BR>
+&nbsp;
+<BR>
++dep_bool 'PAGE Granularity Hint support' CONFIG_PAGE_GH $CONFIG_EXPERIMENTAL
+<BR>
++
+<BR>
+&nbsp;source drivers/pci/Config.in
+<BR>
+&nbsp;
+<BR>
+&nbsp;bool 'Support for hot-pluggable devices' CONFIG_HOTPLUG
+<BR>
+diff -urN linux-2.4.0-test1/arch/alpha/mm/init.c linux/arch/alpha/mm/init.c
+<BR>
+--- linux-2.4.0-test1/arch/alpha/mm/init.c	Tue Apr 25 05:39:34 2000
+<BR>
++++ linux/arch/alpha/mm/init.c	Tue Jun 13 16:42:29 2000
+<BR>
+@@ -5,6 +5,7 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* 2.3.x zone allocator, 1999 Andrea Arcangeli &lt;andrea@suse.de&gt; */
+<BR>
++/* PAGE_GH support, 2000 Naohiko Shimizu &lt;nshimizu@keyaki.cc.u-tokai.ac.jp&gt; */
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/config.h&gt;
+<BR>
+&nbsp;#include &lt;linux/signal.h&gt;
+<BR>
+@@ -30,6 +31,11 @@
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
+&nbsp;#include &lt;asm/mmu_context.h&gt;
+<BR>
++
+<BR>
++#ifdef CONFIG_PAGE_GH
+<BR>
++int page_gh_order[] = {0,3,6,9};
+<BR>
++pgprot_t page_gh_prot[] = {0x0000,0x0020,0x0040,0x0060};
+<BR>
++#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;static unsigned long totalram_pages;
+<BR>
+&nbsp;
+<BR>
+diff -urN linux-2.4.0-test1/include/asm-alpha/pgtable.h linux/include/asm-alpha/pgtable.h
+<BR>
+--- linux-2.4.0-test1/include/asm-alpha/pgtable.h	Wed Mar 22 03:46:21 2000
+<BR>
++++ linux/include/asm-alpha/pgtable.h	Wed Jun 14 10:26:40 2000
+<BR>
+@@ -183,6 +183,17 @@
+<BR>
+&nbsp;#define PHYS_TWIDDLE(phys) (phys)
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
++/* 
+<BR>
++ *  PAGE_GH support added by Naohiko Shimizu
+<BR>
++	&lt;nshimizu@keyaki.cc.u-tokai.ac.jp&gt;
+<BR>
++ */
+<BR>
++#if defined(CONFIG_PAGE_GH)
+<BR>
++#define PAGE_GH_MASK 0x0060
+<BR>
++#define PAGE_GH_NR 4
+<BR>
++extern int page_gh_order[];
+<BR>
++extern pgprot_t page_gh_prot[];
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* Conversion functions:  convert a page and protection to a page entry,
+<BR>
+&nbsp;&nbsp;* and a page entry and page directory to the page they refer to.
+<BR>
+diff -urN linux-2.4.0-test1/include/linux/mm.h linux/include/linux/mm.h
+<BR>
+--- linux-2.4.0-test1/include/linux/mm.h	Thu May 25 11:52:42 2000
+<BR>
++++ linux/include/linux/mm.h	Wed Jun 14 14:06:41 2000
+<BR>
+@@ -406,6 +406,7 @@
+<BR>
+&nbsp;extern void vmtruncate(struct inode * inode, loff_t offset);
+<BR>
+&nbsp;extern int handle_mm_fault(struct mm_struct *mm,struct vm_area_struct *vma, unsigned long address, int write_access);
+<BR>
+&nbsp;extern int make_pages_present(unsigned long addr, unsigned long end);
+<BR>
++extern int make_new_pages_present(unsigned long addr, unsigned long end);
+<BR>
+&nbsp;extern int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, int len, int write);
+<BR>
+&nbsp;extern int ptrace_readdata(struct task_struct *tsk, unsigned long src, char *dst, int len);
+<BR>
+&nbsp;extern int ptrace_writedata(struct task_struct *tsk, char * src, unsigned long dst, int len);
+<BR>
+diff -urN linux-2.4.0-test1/mm/memory.c linux/mm/memory.c
+<BR>
+--- linux-2.4.0-test1/mm/memory.c	Tue May 16 04:00:33 2000
+<BR>
++++ linux/mm/memory.c	Wed Jun 14 19:24:58 2000
+<BR>
+@@ -34,6 +34,8 @@
+<BR>
+&nbsp;&nbsp;*
+<BR>
+&nbsp;&nbsp;* 16.07.99  -  Support of BIGMEM added by Gerhard Wichert, Siemens AG
+<BR>
+&nbsp;&nbsp;*		(Gerhard.Wichert@pdb.siemens.de)
+<BR>
++ * 13.06.00  -  Support of PAGE_GH added by Naohiko Shimizu, Tokai Univ.
+<BR>
++                &lt;nshimizu@keyaki.cc.u-tokai.ac.jp&gt;
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;linux/mm.h&gt;
+<BR>
+@@ -53,6 +55,12 @@
+<BR>
+&nbsp;void * high_memory;
+<BR>
+&nbsp;struct page *highmem_start_page;
+<BR>
+&nbsp;
+<BR>
++#ifndef CONFIG_PAGE_GH
+<BR>
++#define PAGE_GH_MASK (pgprot_t)0
+<BR>
++int page_gh_order[] = {0};
+<BR>
++pgprot_t page_gh_prot[] = {0};
+<BR>
++#endif
+<BR>
++
+<BR>
+&nbsp;/*
+<BR>
+&nbsp;&nbsp;* We special-case the C-O-W ZERO_PAGE, because it's such
+<BR>
+&nbsp;&nbsp;* a common occurrence (no need to read the page to know
+<BR>
+@@ -716,8 +724,10 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pte_clear(pte);
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mapnr = MAP_NR(__va(phys_addr));
+<BR>
+-		if (mapnr &gt;= max_mapnr || PageReserved(mem_map+mapnr))
+<BR>
++		if (mapnr &gt;= max_mapnr || PageReserved(mem_map+mapnr) ||
+<BR>
++(pgprot_val(prot) &amp; PAGE_GH_MASK)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;set_pte(pte, mk_pte_phys(phys_addr, prot));
+<BR>
++		}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;forget_pte(oldpage);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address += PAGE_SIZE;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;phys_addr += PAGE_SIZE;
+<BR>
+@@ -1226,6 +1236,31 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
++ * We will allocate phyical memory from the zone list, and map the
+<BR>
++ * pages to the PTEs with PAGE_GH bits. It will reduce the TLB miss and
+<BR>
++ * help the HPC applications. This routine is only called on the
+<BR>
++ * VM_LOCKED, then there is no need for COW/COA.
+<BR>
++ */
+<BR>
++int handle_mm_fault_pages(struct mm_struct *mm, struct vm_area_struct * vma,
+<BR>
++	unsigned long address, int write_access, int step)
+<BR>
++{
+<BR>
++	struct page *page;
+<BR>
++
+<BR>
++	if(step == 0)
+<BR>
++		return (handle_mm_fault(mm, vma, address, write_access) );
+<BR>
++	page = alloc_pages(GFP_HIGHUSER, page_gh_order[step]);
+<BR>
++	if (page == NULL)
+<BR>
++		return -1;
+<BR>
++	remap_page_range(address, (page - mem_map) &lt;&lt; PAGE_SHIFT, 
+<BR>
++		         PAGE_SIZE &lt;&lt; page_gh_order[step], 
+<BR>
++                         _PAGE_NORMAL(pgprot_val(page_gh_prot[step])));
+<BR>
++	flush_tlb_page(vma, address);
+<BR>
++	mm-&gt;rss += 1 &lt;&lt; page_gh_order[step];
+<BR>
++/* you must clear the pages for the release level kernel */
+<BR>
++	return 0;
+<BR>
++}
+<BR>
++
+<BR>
++/*
+<BR>
+&nbsp;&nbsp;* Simplistic page force-in..
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;int make_pages_present(unsigned long addr, unsigned long end)
+<BR>
+@@ -1242,6 +1277,47 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (handle_mm_fault(mm, vma, addr, write) &lt; 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr += PAGE_SIZE;
+<BR>
++	} while (addr &lt; end);
+<BR>
++	return 0;
+<BR>
++}
+<BR>
++/*
+<BR>
++ * Simplistic new page allocation for sys_brk..
+<BR>
++ * On the case of VM_LOCKED, we will map the allocated pages into the
+<BR>
++ * coarse grain TLB entries(PAGE_GH).
+<BR>
++ */
+<BR>
++int make_new_pages_present(unsigned long addr, unsigned long end)
+<BR>
++{
+<BR>
++	int write;
+<BR>
++	struct mm_struct *mm = current-&gt;mm;
+<BR>
++	struct vm_area_struct * vma;
+<BR>
++
+<BR>
++	vma = find_vma(mm, addr);
+<BR>
++	write = (vma-&gt;vm_flags &amp; VM_WRITE) != 0;
+<BR>
++	if (addr &gt;= end)
+<BR>
++		BUG();
+<BR>
++	do { 
+<BR>
++		int i;
+<BR>
++		unsigned long rem;
+<BR>
++		for (i = 0; i&lt; PAGE_GH_NR - 1; i++) {
+<BR>
++			rem = (~addr + 1) &amp; ((PAGE_SIZE &lt;&lt; page_gh_order[i+1]) - 1);
+<BR>
++			while (rem &amp;&amp;
+<BR>
++			    (addr &amp; ((PAGE_SIZE &lt;&lt; page_gh_order[i]) - 1)) == 0UL &amp;&amp;
+<BR>
++                            ((end - addr ) &gt;= (PAGE_SIZE &lt;&lt; page_gh_order[i]))) {
+<BR>
++				if (handle_mm_fault_pages(mm, vma, addr, write, i) &lt; 0)
+<BR>
++					return -1;
+<BR>
++				addr += PAGE_SIZE &lt;&lt; page_gh_order[i];
+<BR>
++				rem  -= PAGE_SIZE &lt;&lt; page_gh_order[i];
+<BR>
++			};
+<BR>
++		}
+<BR>
++		for (i = PAGE_GH_NR - 1; i &gt;= 0; i--) {
+<BR>
++			while (
+<BR>
++			    (addr &amp; ((PAGE_SIZE &lt;&lt; page_gh_order[i]) - 1)) == 0UL &amp;&amp;
+<BR>
++                            ((end - addr ) &gt;= (PAGE_SIZE &lt;&lt; page_gh_order[i]))) {
+<BR>
++				if (handle_mm_fault_pages(mm, vma, addr, write, i) &lt; 0)
+<BR>
++					return -1;
+<BR>
++				addr += PAGE_SIZE &lt;&lt; page_gh_order[i];
+<BR>
++			};
+<BR>
++		}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} while (addr &lt; end);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return 0;
+<BR>
+&nbsp;}
+<BR>
+diff -urN linux-2.4.0-test1/mm/mmap.c linux/mm/mmap.c
+<BR>
+--- linux-2.4.0-test1/mm/mmap.c	Thu Apr 27 01:11:32 2000
+<BR>
++++ linux/mm/mmap.c	Tue Jun 13 16:42:29 2000
+<BR>
+@@ -817,7 +817,12 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mm-&gt;total_vm += len &gt;&gt; PAGE_SHIFT;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (flags &amp; VM_LOCKED) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mm-&gt;locked_vm += len &gt;&gt; PAGE_SHIFT;
+<BR>
+-		make_pages_present(addr, addr + len);
+<BR>
++	/*
+<BR>
++	 * brk provide new pages and we have the chance to set the
+<BR>
++         * PAGE_GH bits for TLB, then we call make_new_pages_present
+<BR>
++	 * instead of make_pages_present. &lt;N.Shimizu&gt;
+<BR>
++	 */
+<BR>
++		make_new_pages_present(addr, addr + len);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return addr;
+<BR>
+&nbsp;}
+<BR>
+<P><P><HR>
+<UL>
+<LI>image/x-xbitmap attachment: <A HREF="att-bin0PTRooj">gemm-gh.c</A>
+</UL>
+<!-- attachment="att-bin0PTRooj" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Naohiko Shimizu: "[High-perf] Page granularity hint support (revised) : call for testers and/or suggestions"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">Kazushige Goto: "[High-perf] Fast LU decomposition routine"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jan 02 2001 - 07:48:33 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,445 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance List: Re:  FFT software</TITLE>
+<META NAME="Author" CONTENT="esci (esci@fastlane.net)">
+<META NAME="Subject" CONTENT="Re:  FFT software">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re:  FFT software</H1>
+<HR>
+<P>
+<!-- received="Fri Feb 26 00:48:22 1999 PST" -->
+<!-- sent="Thu, 25 Feb 1999 18:29:14 -0600 (CST)" -->
+<!-- name="esci" -->
+<!-- email="esci@fastlane.net" -->
+<!-- subject="Re:  FFT software" -->
+<!-- id="199902260029.SAA0000002153@localhost" -->
+<!-- inreplyto="FFT software" -->
+<STRONG>esci</STRONG> (<A HREF="mailto:esci@fastlane.net?subject=Re:%20%20FFT%20software"><EM>esci@fastlane.net</EM></A>)<BR>
+<EM>Thu, 25 Feb 1999 18:29:14 -0600 (CST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#8">[ date ]</A>
+<A HREF="index.html#8">[ thread ]</A>
+<A HREF="subject.html#8">[ subject ]</A>
+<A HREF="author.html#8">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0007.html">Adam C. Powell, IV: "FFT software"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here's my personal favorite fft.  It degenerates into a DFT if you feed it
+<BR>
+a prime length series, but it *always* works!  It's not original to me,
+<BR>
+it was floating around the department when I was in grad school many years
+<BR>
+ago.
+<BR>
+<P>Enjoy!
+<BR>
+<P><P><P>Reginald Beardsley
+<BR>
+<P>------------------------------------------------------------------------
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Exploration Software Consultants Inc.
+<BR>
+<P>Voice: 972-379-0557                      email: <A HREF="mailto:rhb@acm.org?subject=Re:%20%20FFT%20software">rhb@acm.org</A>
+<BR>
+Fax:   972-379-0558
+<BR>
+------------------------------------------------------------------------
+<BR>
+<P>------------------------------ cut here ---------------------------------
+<BR>
+<P><P><P>*=======================================================================
+<BR>
+* Single Precision Complex Fast Fourier Transform
+<BR>
+*
+<BR>
+*  A subroutine to compute the discrete Fourier transform by the fastest
+<BR>
+* available algorithm for any length input series.
+<BR>
+*
+<BR>
+* Reference:
+<BR>
+*        Ferguson, W., (1979),   A Simple Derivation of Glassmans's
+<BR>
+*          General N Fast Fourier Transform, MRC Tech. Summ. Rept. 2029,
+<BR>
+*          Math. Res. Cent. U. of Wisconsin, Madison, Wis.
+<BR>
+*
+<BR>
+*  REFERENCES
+<BR>
+*  ----------
+<BR>
+*
+<BR>
+* Routines called:
+<BR>
+* SPCPFT
+<BR>
+*
+<BR>
+* Functions called:
+<BR>
+* MOD
+<BR>
+* FLOAT
+<BR>
+*
+<BR>
+* VAX extensions:
+<BR>
+* DO WHILE
+<BR>
+*=======================================================================
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SUBROUTINE SPCFFT(U,N,ISIGN,WORK,INTERP)
+<BR>
+<P>* VARIABLES
+<BR>
+* ---------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IMPLICIT NONE
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LOGICAL*1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  INU      ! Flag for calling SUBROUTINE SPCPFT( arguments ).
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,SCALE    ! .TRUE.=inverse transform -- .FALSE.=forward transform
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;INTEGER*4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  A        ! After    \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,B        ! Before    &gt;  Factors of N.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,C        ! Current  /
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,N        ! Length of the array to be transformed.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,I        ! DO loop index.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,ISIGN    ! sign of transform
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;REAL*4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  INTERP   ! interpolation factor
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;COMPLEX*8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  U(1,1,1)        !  Vector to be transformed 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,WORK(1,1,1)     !  Working storage.
+<BR>
+<P>*     Initialize parameters.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A = 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B = N
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C = 1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;INU = .TRUE.
+<BR>
+&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IF (ISIGN.EQ.1) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SCALE = .TRUE.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ELSE IF (ISIGN.EQ.-1) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SCALE = .FALSE.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END IF
+<BR>
+<P>* Calculate Fourier transform by means of Glassman's algorithm
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO WHILE ( B .GT. 1 )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A = C * A
+<BR>
+<P>* Start of routine to get factors of N
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C = 2
+<BR>
+<P>* Increment C until it is an integer factor of B
+<BR>
+&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO WHILE ( MOD(B,C) .NE. 0 )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C = C + 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>* Calculate largest factor of B
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B = B / C
+<BR>
+<P><P>* Call Glassman's Fast Fourier Transform routine
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IF ( INU ) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CALL SPCPFT (A,B,C,U,WORK,ISIGN)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ELSE
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CALL SPCPFT (A,B,C,WORK,U,ISIGN)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END IF
+<BR>
+<P>* Set flag to swap input &amp; output arrays to SPCPFT
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;INU = ( .NOT. INU )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>* If odd number of calls to SPCPFT swap WORK into U
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IF ( .NOT. INU ) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO I = 1, N
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U(I,1,1) = WORK(I,1,1)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END IF
+<BR>
+<P>* Scale the output for inverse Fourier transforms.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IF ( SCALE ) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO I = 1, N
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;U(I,1,1) = U(I,1,1) / (N/INTERP)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END IF
+<BR>
+<P><P>* TERMINATION
+<BR>
+* -----------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RETURN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END
+<BR>
+<P><P>*=======================================================================
+<BR>
+* Single Precision Complex Prime Factor Transform
+<BR>
+*
+<BR>
+*  REFERENCES
+<BR>
+*  ----------
+<BR>
+*
+<BR>
+* Calling routines:
+<BR>
+* SPCFFT
+<BR>
+*
+<BR>
+* Subroutines called:
+<BR>
+* -none-
+<BR>
+*
+<BR>
+* Functions called:
+<BR>
+* CMLPX
+<BR>
+* COS
+<BR>
+* SIN
+<BR>
+* FLOAT
+<BR>
+*=======================================================================
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SUBROUTINE SPCPFT( A, B, C, UIN, UOUT, ISIGN )
+<BR>
+<P>* VARIABLES
+<BR>
+* ---------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IMPLICIT NONE
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;INTEGER*4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  ISIGN           !  ISIGN of the Fourier transform.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,A               !  After   \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,B               !  Before   &gt;  Factors of N.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,C               !  Current /
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,IA              !  \
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,IB              !   \  DO loop indicies.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,IC              !   /
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,JCR             !  /
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,JC              !  Dummy index.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;REAL*8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  ANGLE
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;COMPLEX*8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|  UIN(B,C,A)      !  Input vector.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,UOUT(B,A,C)     !  Output vector.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,DELTA           !  Fourier transform kernel.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,OMEGA           !  Multiples of exp( i TWOPI ).
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ,SUM             !  Dummy register for addition for UOUT(B,A,C)
+<BR>
+<P>* ALGORITHM
+<BR>
+* ---------
+<BR>
+<P>* Initialize run time parameters.
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ANGLE =6.28318530717958 / FLOAT( A * C )
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OMEGA = CMPLX( 1.0, 0.0 )
+<BR>
+<P>* Check the ISIGN of the transform.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IF( ISIGN .EQ. 1 ) THEN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DELTA = CMPLX( DCOS(ANGLE), DSIN(ANGLE) )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ELSE
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DELTA = CMPLX( DCOS(ANGLE), -DSIN(ANGLE) )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END IF
+<BR>
+<P><P><P>* Do the computations.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO IC = 1, C
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO IA = 1, A
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO IB = 1, B
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SUM = UIN( IB, C, IA )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DO JCR = 2, C
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JC = C + 1 - JCR
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SUM = UIN( IB, JC, IA ) + OMEGA * SUM
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UOUT( IB, IA, IC ) = SUM
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OMEGA = DELTA * OMEGA
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END DO
+<BR>
+<P>* TERMINATION
+<BR>
+* -----------
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RETURN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;END
+<BR>
+<P><P>#ifdef TEST
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;program test
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;implicit none
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer*4 nmax
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;parameter( nmax=10000 )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;complex*8 input(nmax)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;complex*8 scratch(nmax)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;real*4 a , b
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer*4 i
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer*4 n
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = 0
+<BR>
+&nbsp;1000 format( 2e25.15 )
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do i=1, nmax
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read( 5 ,1000 ,end=10 ) input(i)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = n + 1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end do
+<BR>
+<P>&nbsp;&nbsp;&nbsp;10 continue
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;call spcfft( input ,n ,.false. ,scratch ,1.0 )
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do i=1 ,n
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write( 6 ,1000 ) real(input(i)) ,imag(input(i))
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end do
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end 
+<BR>
+<P>#endif 
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0007.html">Adam C. Powell, IV: "FFT software"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Thu Feb 25 1999 - 17:00:41 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

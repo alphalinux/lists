@@ -1,0 +1,216 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: xawtv lockups (bt878, Alpha Linux)</TITLE>
+<META NAME="Author" CONTENT="Quant-X Alpha Linux Support (stefan@sime.com)">
+<META NAME="Subject" CONTENT="Re: xawtv lockups (bt878, Alpha Linux)">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: xawtv lockups (bt878, Alpha Linux)</H1>
+<HR>
+<P>
+<!-- received="Sun Jun 27 16:59:14 1999" -->
+<!-- isoreceived="19990627235914" -->
+<!-- sent="Sun, 27 Jun 1999 18:21:44 +0200" -->
+<!-- isosent="19990627162144" -->
+<!-- name="Quant-X Alpha Linux Support" -->
+<!-- email="stefan@sime.com" -->
+<!-- subject="Re: xawtv lockups (bt878, Alpha Linux)" -->
+<!-- id="19990627182144.A25725@stefan.atko.at" -->
+<!-- inreplyto="Pine.LNX.3.96.990626221733.2100P-100000@schizo.strange.net" -->
+<STRONG>Subject: </STRONG>Re: xawtv lockups (bt878, Alpha Linux)<BR>
+<STRONG>From: </STRONG>Quant-X Alpha Linux Support (<EM>stefan@sime.com</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Jun 27 1999 - 09:21:44 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#597">[ date ]</A>
+<A HREF="index.html#597">[ thread ]</A>
+<A HREF="subject.html#597">[ subject ]</A>
+<A HREF="author.html#597">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0598.html">Jurgen Kramer: "Re: req for testers:  2.2.x fbcon alpha fixesZ"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0596.html">Jeff Garzik: "Re: req for testers:  2.2.x fbcon alpha fixesZ"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0587.html">Andrew Hobgood: "Re: xawtv lockups (bt878, Alpha Linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0587.html">Quant-X Alpha Linux Support: "Re: xawtv lockups (bt878, Alpha Linux)"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi Andrew !
+<BR>
+<P>On Sat, Jun 26, 1999 at 10:17:44PM -0400, Andrew Hobgood wrote:
+<BR>
+<EM>&gt; &gt;   You've just discovered the hard way that the bt878 (at least) doesn't work
+</EM><BR>
+<EM>&gt; &gt; properly on the pc164sx.  Mr. Cox suggested buggy PCI.  I've tried my WinTV
+</EM><BR>
+<EM>&gt; &gt; 404 in two boards with three different video cards, with the same results.
+</EM><BR>
+<P><EM>&gt; How about in the LX?
+</EM><BR>
+<P>I'm using a Hauppauge WinTV (Radio) on my LX (Millennium II 8MB).
+<BR>
+xawtv works, nagratv-2.10 works. 
+<BR>
+<P>For DGA support  you have to change the DGA-stuff in the X-Server
+<BR>
+and if it still not work for you maybe trapped into the cool
+<BR>
+&quot;XF86VidModeGetAllModeLines&quot; freeze. It's also a good idea to
+<BR>
+use the kernel-bttv includes (even if an app comes with
+<BR>
+&quot;optimized&quot; bttv drivers).
+<BR>
+<P>ad XF86VidModeGetAllModeLines:
+<BR>
+I think it can be avoided by using the right commandline for startup
+<BR>
+or by a patch like this one:
+<BR>
+<P><P>diff -ruN xawtv-2.46/main.c xawtv-2.46-alpha/main.c
+<BR>
+--- xawtv-2.46/main.c   Sun Jun  6 10:27:14 1999
+<BR>
++++ xawtv-2.46-alpha/main.c     Wed Jun 23 15:02:16 1999
+<BR>
+@@ -277,6 +277,35 @@
+<BR>
+&nbsp;/*--- exit ----------------------------------------------------------------*/
+<BR>
++Boolean  XF86VidModeGetAllModeLinesHack(Display *d, int screen,
+<BR>
++                                       int *count,
+<BR>
++                                       XF86VidModeModeInfo ***modes)
+<BR>
++{
+<BR>
++  static XF86VidModeModeLine myline;
+<BR>
++  static XF86VidModeModeInfo myhack, *hack;
+<BR>
++
+<BR>
++  XF86VidModeGetModeLine(d, screen, count, &amp;myline);
+<BR>
++  myhack.hdisplay = myline.hdisplay;
+<BR>
++  myhack.hsyncstart = myline.hsyncstart;
+<BR>
++  myhack.hsyncend = myline.hsyncend;
+<BR>
++  myhack.htotal = myline.htotal;
+<BR>
++
+<BR>
++  myhack.vdisplay = myline.vdisplay;
+<BR>
++  myhack.vsyncstart = myline.vsyncstart;
+<BR>
++  myhack.vsyncend = myline.vsyncend;
+<BR>
++  myhack.vtotal = myline.vtotal;
+<BR>
++  myhack.flags = myline.flags;
+<BR>
++  myhack.privsize = myline.privsize;
+<BR>
++  myhack.private = myline.private;
+<BR>
++  *count = 1;
+<BR>
++  hack = &amp;myhack;
+<BR>
++  *modes = &amp;hack;
+<BR>
++  return 0;
+<BR>
++}
+<BR>
++#define XF86VidModeGetAllModeLines(a,b,c,d) \
+<BR>
++        XF86VidModeGetAllModeLinesHack(a,b,c,d)
+<BR>
++
+<BR>
++
+<BR>
+&nbsp;Boolean
+<BR>
+&nbsp;ExitWP(XtPointer client_data)
+<BR>
+&nbsp;{
+<BR>
+<P><P>BTW: Has anyone optimized (mayby assembler) routines for 4-way
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;word in qword processing ? 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I'm shure it's not worth to use it for paddusw (MMX) - like
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;things (or arithmetic right shifts) but logical shifts are
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IMHO no problem (like this one):
+<BR>
+<P>#define M4(n) 0x ## n ## n ## n ## n ## ul
+<BR>
+#define SI static inline
+<BR>
+<P>SI u64 sllqw(u64 val, u64 cnt)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;static const u64 and_tab[] = {  M4(ffff), M4(fffe), M4(fffc), M4(fff8),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;M4(fff0), M4(ffe0), M4(ffc0), M4(ff80),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;M4(ff00), M4(fe00), M4(fc00), M4(f800),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;M4(f000), M4(e000), M4(c000), M4(8000)
+<BR>
+&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;cnt &amp;= 0xf;
+<BR>
+&nbsp;&nbsp;return (val &lt;&lt; cnt) &amp; and_tab[cnt];
+<BR>
+}
+<BR>
+<P><PRE>
+-- 
+  ciao -
+    Stefan Traby
+    Quant-X Alpha Linux Support
+<P>   Quant-X Service &amp;                         Ph:  (+43) 4212 90555-0
+   Consulting Ges.m.b.H.                     Fax: (+43) 4212 90555-555
+   <A HREF="http://www.quant-x.com">http://www.quant-x.com</A>                    Email: support@quant-x.com
+<P>-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0598.html">Jurgen Kramer: "Re: req for testers:  2.2.x fbcon alpha fixesZ"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0596.html">Jeff Garzik: "Re: req for testers:  2.2.x fbcon alpha fixesZ"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0587.html">Andrew Hobgood: "Re: xawtv lockups (bt878, Alpha Linux)"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Reply:</STRONG> <A HREF="0587.html">Quant-X Alpha Linux Support: "Re: xawtv lockups (bt878, Alpha Linux)"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Jun 30 1999 - 19:27:28 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,332 @@
+<!-- received="Thu Feb 27 20:37:50 1997 " -->
+<!-- sent="Thu, 27 Feb 1997 17:11:39 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.COM" -->
+<!-- subject="efax08a fix" -->
+<!-- id="199702280011.RAA06174@panda.mosberger" -->
+<!-- inreplyto="¨Ö	@¨Ö	@requ" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>efax08a fix</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>efax08a fix</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.COM"><i>davidm@AZStarNet.COM</i></a>)<br>
+<i>Thu, 27 Feb 1997 17:11:39 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#885">[ date ]</a><a href="index.html#885">[ thread ]</a><a href="subject.html#885">[ subject ]</a><a href="author.html#885">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0886.html">Marcus Earhard: "Installing RedHat 4.1 on a DECpc 2000 AXP"</a>
+<li> <b>Previous message:</b> <a href="0884.html">Paul Anderson: "Re: Linux on AlphaServer 4000/4100?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Here is a patch that fixes efax08a so it works on 64-bit platforms too<br>
+(such as Linux/Alpha).  The code isn't as optimized as it could be,<br>
+but I opted for readability &amp; portability instead (performance isn't<br>
+much of an issue anyhow in the affected code).<br>
+<p>
+With the patch in place, a fax received on a 64 bit system can be<br>
+processed with xv and efix.  The code should continue to work fine on<br>
+32-bit platforms and big-endian machines, though I can't test those<br>
+cases easily.<br>
+<p>
+	--david<br>
+<pre>
+--
+--- efax08a/efaxlib.c	Sun Aug 18 19:06:52 1996
++++ efax08a-alpha/efaxlib.c	Thu Feb 27 16:42:26 1997
+@@ -37,25 +37,6 @@
+ 
+ short short256 = 256 ;
+ 
+-void swapl( unsigned long *x )
+-{
+-  u_char c[4] ;
+-  c[0] = ( (u_char*) x ) [3] ;
+-  c[1] = ( (u_char*) x ) [2] ;
+-  c[2] = ( (u_char*) x ) [1] ;
+-  c[3] = ( (u_char*) x ) [0] ;
+-  *x = * (unsigned long*) c ;
+-}
+-
+-void swaps( unsigned short *x )
+-{
+-  u_char c[2] ;
+-  c[0] = ( (u_char*) x ) [1] ;
+-  c[1] = ( (u_char*) x ) [0] ;
+-  *x = * (unsigned short*) c ;
+-}
+-
+-
+ /* Make sure printf strings have only %d escapes and n or fewer
+    of them.  Returns 0 if OK, 1 on error. */
+ 
+@@ -539,6 +520,90 @@
+ }
+ 
+ 
++/* Read 16 bits off of F taking into account the endianness of the file.  */
++static int read16( unsigned short *sp, IFILE *f )
++{
++  u_char c[2] ;
++
++  if ( ifread ( c, 2, f) != 2 )
++    return 1 ;
++
++  if ( f-&gt;bigend )
++    *sp = c[1] | c[0] &lt;&lt; 8 ;
++  else
++    *sp = c[0] | c[1] &lt;&lt; 8 ;
++  return 0;
++}
++
++/* Read 32 bits off of F taking into account the endianness of the file.  */
++static int read32( unsigned long *lp, IFILE *f )
++{
++  u_char c[4] ;
++
++  if ( ifread ( c, 4, f) != 4 )
++    return 1 ;
++
++  if ( f-&gt;bigend )
++    *lp = c[3] | c[2] &lt;&lt; 8 | c[1] &lt;&lt; 16 | c[0] &lt;&lt; 24;
++  else
++    *lp = c[0] | c[1] &lt;&lt; 8 | c[2] &lt;&lt; 16 | c[3] &lt;&lt; 24;
++  return 0;
++}
++
++/* Write 16 bits to F in the host byte-order.  */
++static void write16( unsigned short s, OFILE *f )
++{
++  u_char c[2] ;
++
++  if (bigendian) {
++    c[0] = (s &gt;&gt; 8) &amp; 0xff ; c[1] = s &amp; 0xff ;
++  } else {
++    c[0] = s &amp; 0xff ; c[1] = (s &gt;&gt; 8) &amp; 0xff ;
++  }
++  fwrite ( c, 2, 1, f-&gt;f );
++}
++
++static void write32( unsigned long l, OFILE *f )
++{
++  u_char c[4] ;
++
++  if (bigendian) {
++    c[0] = (l &gt;&gt; 24) &amp; 0xff ; c[1] = (l &gt;&gt; 16) &amp; 0xff ; 
++    c[2] = (l &gt;&gt;  8) &amp; 0xff ; c[3] = (l &gt;&gt;  0) &amp; 0xff ; 
++  } else {
++    c[0] = (l &gt;&gt;  0) &amp; 0xff ; c[1] = (l &gt;&gt;  8) &amp; 0xff ;
++    c[2] = (l &gt;&gt; 16) &amp; 0xff ; c[3] = (l &gt;&gt; 24) &amp; 0xff ;
++  }
++  fwrite ( c, 4, 1, f-&gt;f );
++}
++
++static void write64( unsigned long l0, unsigned long l1, OFILE *f )
++{
++  if (bigendian) {
++    write32 (l1, f); write32 (l0, f);
++  } else {
++    write32 (l0, f); write32 (l1, f);
++  }
++}
++
++/* Read a TIFF tag from file F.  */
++static int readtag( tifftag *t, IFILE *f )
++{
++  if ( read16 (&amp;t-&gt;tag, f) || read16 (&amp;t-&gt;type, f)
++       || read32 (&amp;t-&gt;count, f) || read32(&amp;t-&gt;offset, f))
++    return 1;
++  return 0 ;
++}
++
++/* Write a TIFF tag to file F.  */
++static void writetag( tifftag *t, OFILE *f )
++{
++  write16 (t-&gt;tag, f);
++  write16 (t-&gt;type, f);
++  write32 (t-&gt;count, f);
++  write32 (t-&gt;offset, f);
++}
++
+ /* Read run lengths for one scan line from T.4-coded IFILE f into buffer
+    runs using decoder state d.  If pointer pels is not null it is used to
+    save pixel count.  Returns number of runs stored, EOF on RTC, or -2 on
+@@ -748,36 +813,28 @@
+   msg ( "F+ TIFF directory at %ld", iftell ( f ) ) ;
+ 
+   if ( ! err ) {
+-    if ( ifread ( (u_char*) &amp;ntag, 2, f ) != 2 ) {
++    if ( read16 ( &amp;ntag, f ) ) {
+       msg ( "E2can't read TIFF tag count" ) ;
+     } else {
+-      if ( f-&gt;bigend != bigendian ) swaps ( &amp;ntag ) ;
+       msg ( "F+  with %d tags", (int) ntag ) ;
+     }
+   }
+ 
+   while ( ! err &amp;&amp; ntag-- &gt; 0 ) {
+ 
+-    if ( ifread ( (u_char*) &amp;t, sizeof(t), f ) != sizeof(t) ) {
++    if ( readtag ( &amp;t, f ) ) {
+       err = msg ( "E2can't read TIFF tag" ) ;
+       continue ;
+     }
+ 
+-    if ( f-&gt;bigend != bigendian ) {
+-      swaps ( &amp;t.tag ) ;
+-      swaps ( &amp;t.type ) ;
+-      swapl ( &amp;t.count ) ;
+-      swapl ( &amp;t.offset ) ;
+-    }
+-    
+     switch ( t.type ) {
+     case 1 : tv = * (u_char*) &amp;t.offset ; break ;
+     case 2 : break ; 
+     case 3 : tv = * (short* ) &amp;t.offset ; break ;
+-    case 4 : tv = * (long*  ) &amp;t.offset ; break ;
++    case 4 : tv = t.offset ; break ;
+     case 5 : 
+       if ( ( where = iftell ( f ) ) &lt; 0 || ifseek ( f, t.offset ) || 
+-	  ifread ( (u_char*) l, 8, f ) != 8 || ifseek ( f, where ) ) {
++	  read32 ( &amp;l[0], f ) || read32 ( &amp;l[1], f ) || ifseek ( f, where ) ) {
+ 	err = msg ( "E2can't read/seek tag data" ) ;
+       } else {
+ 	ftv = (float) l[0] / ( l[1] ? l[1] : 1 ) ;
+@@ -848,7 +905,7 @@
+   
+   if ( ! err ) {
+   
+-    if ( ifread ( (u_char*) &amp;f-&gt;next, 4, f ) != 4 ) {
++    if ( read32 ( &amp;f-&gt;next, f ) ) {
+       err = msg ( "E2can't read offset to next TIFF directory" ) ;
+       f-&gt;next = -1 ;
+     } else {
+@@ -970,17 +1027,13 @@
+ 
+ int tiff_first ( IFILE *f )
+ {
+-  short magic, version ;
++  short version ;
++  u_char magic[2] ;
+ 
+-  ifread ( (u_char*) &amp;magic,  2, f ) ;
+-  f-&gt;bigend = ( *(u_char*) &amp;magic == 'M' ) ? 1 : 0 ;
+-  ifread ( (u_char*) &amp;version, 2, f ) ;
+-  ifread ( (u_char*) &amp;f-&gt;next, 4, f ) ;
+-  
+-  if ( f-&gt;bigend != bigendian ) {
+-    swaps ( &amp;version ) ;
+-    swapl ( &amp;f-&gt;next ) ;
+-  }
++  ifread ( magic,  2, f ) ;
++  f-&gt;bigend = ( magic[0] == 'M' ) ? 1 : 0 ;
++  read16 ( &amp;version, f ) ;
++  read32 ( &amp;f-&gt;next, f ) ;
+ 
+   msg ( "F TIFF version %d.%d file (%s-endian)",
+        version/10, version%10, f-&gt;bigend ? "big" : "little" ) ;
+@@ -1517,7 +1570,6 @@
+   int err=0, compr ;
+   short magic, version, ntags ;
+   long diroff, tdoff, doff ;
+-  long b[2] ;
+   tifftag t ;
+ 
+   /* compute header values and offsets within file */
+@@ -1526,8 +1578,8 @@
+   version = 42 ;
+   diroff = 8 ;
+   ntags = NTAGS ;
+-  tdoff = diroff + 2 + NTAGS*sizeof(t) + 4 ;
+-  doff = tdoff + NRATIO*sizeof(b) ;
++  tdoff = diroff + 2 + NTAGS*12 + 4 ;
++  doff = tdoff + NRATIO*8 ;
+ 
+   switch ( f-&gt;format ) {
+   case TIFF_RAW: compr = 1 ; break ;
+@@ -1539,19 +1591,24 @@
+ 
+   /* 0 ==&gt; (start of TIFF file) */
+ 
+-  fwrite ( &amp;magic,   2, 1, f-&gt;f ) ;
+-  fwrite ( &amp;version, 2, 1, f-&gt;f ) ;
+-  fwrite ( &amp;diroff,  4, 1, f-&gt;f ) ;
++  write16 ( magic,   f ) ;
++  write16 ( version, f ) ;
++  write32 ( diroff,  f ) ;
+ 
+   /* 8 ==&gt; diroff (directory offset) */
+ 
+-  fwrite ( &amp;ntags,   2, 1, f-&gt;f ) ;
++  write16 ( ntags,   f ) ;
+ 
+ #define tagl(a,b,c,d) t.tag=a ; t.type=b ; t.count=c ; t.offset=d ; \
+-  fwrite ( &amp;t, sizeof(t), 1, f-&gt;f ) ;
++  writetag ( &amp;t, f ) ;
+ 
+-#define tags(a,b,c,d) t.tag=a ; t.type=b ; t.count=c ; *(short*)&amp;t.offset=d ; \
+-  fwrite ( &amp;t, sizeof(t), 1, f-&gt;f ) ;
++#define tags(a,b,c,d)				\
++  t.tag=a ; t.type=b ; t.count=c ;		\
++  if (bigendian)				\
++    t.offset=d &lt;&lt; 16;				\
++  else						\
++    t.offset=d ;				\
++  writetag ( &amp;t, f ) ;
+ 
+   tagl( 254, 4, 1, 1 ) ;	/* subfile long */
+   tagl( 256, 4, 1, f-&gt;w ) ;	/* width long */
+@@ -1576,13 +1633,12 @@
+   tags( 296, 3, 1, 2 ) ;	/* resolution units(2=in,3=cm) short */
+   tags( 327, 3, 1, 0 ) ;	/* clean fax(0=clean/1=regen/2=errors) short */
+ 
+-  diroff=0 ;
+-  fwrite ( &amp;diroff, 4, 1, f-&gt;f ) ;
++  write32 ( 0, f ) ;
+ 
+   /* ==&gt; tdoff (tag data offset) */
+ 
+-  b[0]=f-&gt;xres+0.5 ; b[1]=1; fwrite ( b, 8, 1, f-&gt;f ) ;
+-  b[0]=f-&gt;yres+0.5 ; b[1]=1; fwrite ( b, 8, 1, f-&gt;f ) ;
++  write64 (f-&gt;xres + 0.5, 1, f);
++  write64 (f-&gt;yres + 0.5, 1, f);
+ 
+   /* ==&gt; doff (strip data offset) */
+ 
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0886.html">Marcus Earhard: "Installing RedHat 4.1 on a DECpc 2000 AXP"</a>
+<li> <b>Previous message:</b> <a href="0884.html">Paul Anderson: "Re: Linux on AlphaServer 4000/4100?"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

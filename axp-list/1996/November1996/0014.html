@@ -1,0 +1,138 @@
+<!-- received="Fri Nov  1 07:40:05 1996 " -->
+<!-- sent="Fri, 1 Nov 1996 14:35:27 +0000 (GMT)" -->
+<!-- name="Gerard Roudier" -->
+<!-- email="groudier@club-internet.fr" -->
+<!-- subject="Re: EB164 scsi hang with Redhat 4.0" -->
+<!-- id="9611011200.AA31187@alpha3.arm.ac.uk" -->
+<!-- inreplyto="32794FFD.785F3C84@cti-ltd.com" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: EB164 scsi hang with Redhat 4.0</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: EB164 scsi hang with Redhat 4.0</h2>
+
+<b>Gerard Roudier</b> (<a href="mailto:groudier@club-internet.fr"><i>groudier@club-internet.fr</i></a>)<br>
+<i>Fri, 1 Nov 1996 14:35:27 +0000 (GMT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#14">[ date ]</a><a href="index.html#14">[ thread ]</a><a href="subject.html#14">[ subject ]</a><a href="author.html#14">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0015.html">Alan Wood: "RE: Fixes for Red Hat Linux/Alpha 4.0"</a>
+<li> <b>Previous message:</b> <a href="0013.html">Scott Manley: "Re: Mpeg_encode"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Mike,<br>
+<p>
+On Thu, 31 Oct 1996, Mike Cruse wrote:<br>
+<p>
+<i>&gt; Hi all,</i><br>
+<i>&gt; </i><br>
+<i>&gt; I have an EB164 machine with an NCR 53c825 fast wide scsi controller and</i><br>
+<i>&gt; a Quantum XP34300W fast wide drive. Redhat 3.0.3 was working fine. I'm</i><br>
+<i>&gt; now trying to install 4.0 from scratch. I've tried more than 20 times to</i><br>
+<i>&gt; do this but the machine dies every time while trying to prepare the swap</i><br>
+<i>&gt; partition. I have a 64Meg swap partition. I tried a 32 Meg swap for</i><br>
+<i>&gt; grins. That works but things hang during mke2fs. I even tried doing all</i><br>
+<i>&gt; the prep stuff on another Intel machine then moving the drive back but</i><br>
+<i>&gt; again things grind to a halt as soon as the first large package gets</i><br>
+<i>&gt; installed.</i><br>
+<p>
+I hope that the Readhat boot disk does not enable tagged command <br>
+queueing. Can you check it from console at boot time and let me know.<br>
+A message like "Enabling tagged command queuing ..." is printed out by <br>
+the driver if tagged queue is enabled.<br>
+It has been reported that some (perhaps all) XP34300(W)s returns QUEUE FULL <br>
+status especially when lots of small ios are done.<br>
+My guess (just a speculation) is that the firmware tries to cluster write <br>
+operations and may have some internal queue full even when only fiew scsi <br>
+commands are queued to it.<br>
+Disabling TGQ precludes such status to be returned.<br>
+<p>
+The driver (1.12a/b/c) included in linux-2.0.X does not manage queue full <br>
+status properly and donnot allow to disable tagged queue once it has been <br>
+enabled.<br>
+The fix of those problems was a too large patch for 2.0.X and so has been <br>
+included in the 2.1.X (driver release 1.14a).<br>
+The driver sources are available at sunsite:<br>
+    /pub/Linux/kernel/patches/scsi/ncrBsd2Linux-1.14a.tar.tgz<br>
+<p>
+If RedHat boot disk just uses default config options, the problem is <br>
+elsewhere. But very probably, the system did not hang silently and some <br>
+log messages related to the problem have been printed by the driver.<br>
+Restarting klogd with level=7 will print all messages to console:<br>
+        klogd -c 7<br>
+<p>
+<i>&gt; I also tried tweaking the scsi transfer stuff, i.e.</i><br>
+<i>&gt;  </i><br>
+<i>&gt;   &gt;   echo "setsync #target period" &gt;/proc/scsi/ncr53c8xx/0</i><br>
+<i>&gt;   &gt; </i><br>
+<i>&gt;   &gt; - echo "setsync 0 255" &gt;... renegotiate asynchronous transfer with   </i><br>
+<i>&gt;       target 0</i><br>
+<i>&gt;   &gt; - echo "setsync 0 50"  &gt;...        5 MHz synchronous transfer</i><br>
+<i>&gt;   &gt; - echo "setsync 0 25"  &gt;...       10 MHz synchronous transfer (max  </i><br>
+<i>&gt;       speed)</i><br>
+<i>&gt; </i><br>
+<i>&gt; but to no avail.</i><br>
+<p>
+The default value for sync transfers should be 5 MHz. That will be <br>
+changed in the next patch I will post.<br>
+ <br>
+<i>&gt; I have now seen the same problem on an Intel PPro-200 box also with an</i><br>
+<i>&gt; NCR controller (not wide though).</i><br>
+<p>
+My working configuration is the following:<br>
+P133 Triton II / Tyan NCR 825 / XP32150W / 0662S12 / Tosh 3401B (old)<br>
+Linux-2.0.22 / ncr53c8xx-1.12c / 10 MHz sync / 8 tagged commands max.<br>
+I donnot encounter any scsi problems even under heavy load.<br>
+<p>
+My test configuration just uses the latest linux revision + next driver <br>
+revision.<br>
+<p>
+<i>&gt; &gt; Seems that there is a problem with the NCR driver. </i><br>
+<p>
+If you get log messages to the console just before your system hangs is it <br>
+possible for you to try to catch them and report them to me.<br>
+Thanks. That will help me.<br>
+<p>
+<i>&gt; I would really like to get 4.0 running on my Alpha.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Can anyone shed some light on this problem?</i><br>
+<i>&gt; </i><br>
+<i>&gt; Thanks in advance</i><br>
+<p>
+Gerard.<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0015.html">Alan Wood: "RE: Fixes for Red Hat Linux/Alpha 4.0"</a>
+<li> <b>Previous message:</b> <a href="0013.html">Scott Manley: "Re: Mpeg_encode"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

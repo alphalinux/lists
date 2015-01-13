@@ -1,0 +1,265 @@
+<!-- received="Fri May  9 04:30:31 1997 " -->
+<!-- sent="Fri, 9 May 1997 10:25:09 +0200" -->
+<!-- name="Zarmfab Software Development" -->
+<!-- email="fabsoft@fabsoft2.zarm.uni-bremen.de" -->
+<!-- subject="procps-1.01: top problems with glibc-2 and patch" -->
+<!-- id="9705091025.ZM20479@fabsoft2.zarm.uni-bremen.de" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@redhat.com1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>procps-1.01: top problems with glibc-2 and patch</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>procps-1.01: top problems with glibc-2 and patch</h2>
+
+<b>Zarmfab Software Development</b> (<a href="mailto:fabsoft@fabsoft2.zarm.uni-bremen.de"><i>fabsoft@fabsoft2.zarm.uni-bremen.de</i></a>)<br>
+<i>Fri, 9 May 1997 10:25:09 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#305">[ date ]</a><a href="index.html#305">[ thread ]</a><a href="subject.html#305">[ subject ]</a><a href="author.html#305">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0306.html">Franz Figl: "SNNS (Stuttgart Neural Network Simulator)"</a>
+<li> <b>Previous message:</b> <a href="0304.html">Terry L. Ridder: "Re: xmcd rpm"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Just built procps-1.01 at my linux-axp machine with glibc-2.03 and noted, that<br>
+terminal-mode switching in top did not work. <br>
+<p>
+After replacing all ioctl-calls with their termios-counterparts, top<br>
+works fine. Maybe this is an alpha-specific problem, anyway, this are my patches<br>
+to top.h and top.c :<br>
+<p>
+diff -u procps-1.01/top.h procps-1.01-axp/top.h<br>
+--- procps-1.01/top.h   Mon Jun 10 11:09:20 1996<br>
++++ procps-1.01-axp/top.h       Fri May  9 09:19:20 1997<br>
+@@ -69,9 +69,9 @@<br>
+ };<br>
+ <br>
+        /* The original terminal attributes. */<br>
+-struct termio Savetty;<br>
++struct termios Savetty;<br>
+        /* The new terminal attributes. */<br>
+-struct termio Rawtty;<br>
++struct termios Rawtty;<br>
+        /* Cached termcap entries. */<br>
+ char *cm, *cl, *top_clrtobot, *top_clrtoeol, *ho, *md, *me, *mr;<br>
+        /* Current window size.  Note that it is legal to set Display_procs<br>
+<p>
+diff -u procps-1.01/top.c procps-1.01-axp/top.c<br>
+--- procps-1.01/top.c   Thu Jun 13 05:20:00 1996<br>
++++ procps-1.01-axp/top.c       Fri May  9 09:44:42 1997<br>
+@@ -61,10 +61,9 @@<br>
+ #include &lt;string.h&gt;<br>
+ #include &lt;fcntl.h&gt;<br>
+ #include &lt;time.h&gt;<br>
+-#include &lt;sys/ioctl.h&gt;<br>
+ #include &lt;pwd.h&gt;<br>
+-#include &lt;linux/sched.h&gt;<br>
+-#include &lt;linux/tty.h&gt;<br>
++#include &lt;sched.h&gt;<br>
++#include &lt;errno.h&gt;<br>
+ #include &lt;termcap.h&gt;<br>
+ #include &lt;termios.h&gt;<br>
+ #include &lt;signal.h&gt;<br>
+@@ -73,6 +72,7 @@<br>
+ #include &lt;ctype.h&gt;<br>
+ #include &lt;setjmp.h&gt;<br>
+ #include &lt;stdarg.h&gt;<br>
++#include &lt;sys/ioctl.h&gt;<br>
+ <br>
+ #include "proc/sysinfo.h"<br>
+ #include "proc/ps.h"<br>
+@@ -80,6 +80,9 @@<br>
+ #include "proc/signals.h"<br>
+ #include "proc/version.h"<br>
+ #include "proc/readproc.h"<br>
++<br>
++#include &lt;linux/tasks.h&gt;<br>
++<br>
+ /* these should be in the readproc.h header or in the ps.h header */<br>
+ typedef int (*cmp_t)(void*,void*);<br>
+ extern void reset_sort_options (void);<br>
+@@ -231,7 +234,8 @@<br>
+ void setup_terminal(void)<br>
+ {<br>
+     char *termtype;<br>
+-    struct termio newtty;<br>
++    struct termios newtty;<br>
++    int result;<br>
+ <br>
+     termtype = getenv("TERM");<br>
+     if (!termtype) {<br>
+@@ -242,8 +246,8 @@<br>
+        /* fprintf(stderr, PROGNAME ": $TERM not set\n"); */<br>
+        /* exit(1); */<br>
+     }<br>
+-    if (ioctl(0, TCGETA, &amp;Savetty) == -1) {<br>
+-       perror(PROGNAME ": ioctl() failed");<br>
++    if (tcgetattr(STDIN_FILENO,&amp;Savetty)) {<br>
++       perror(PROGNAME ": tcgetattr() failed");<br>
+        error_end(errno);<br>
+     }<br>
+     newtty = Savetty;<br>
+@@ -251,16 +255,19 @@<br>
+     newtty.c_lflag &amp;= ~ECHO;<br>
+     newtty.c_cc[VMIN] = 1;<br>
+     newtty.c_cc[VTIME] = 0;<br>
+-    if (ioctl(0, TCSETAF, &amp;newtty) == -1) {<br>
++    if (tcsetattr(STDIN_FILENO,TCSANOW,&amp;newtty)) {<br>
+        printf("cannot put tty into raw mode\n");<br>
+-       error_end(1);<br>
++       error_end(errno);<br>
+     }<br>
+-    ioctl(0, TCGETA, &amp;Rawtty);<br>
++    tcgetattr(STDIN_FILENO,&amp;Rawtty);<br>
+ <br>
+     /*<br>
+      * Get termcap entries and window size.<br>
+      */<br>
+-    tgetent(NULL, termtype);<br>
++    if (tgetent(NULL, termtype)!=1) {<br>
++      fprintf(stderr,PROGNAME ": no terminal info for %s found\n",termtype);<br>
++      error_end(1);<br>
++    }<br>
+     cm = tgetstr("cm", 0);<br>
+     top_clrtobot = tgetstr("cd", 0);<br>
+     cl = tgetstr("cl", 0);<br>
+@@ -383,8 +390,12 @@<br>
+        tv.tv_usec = (Sleeptime - (int) Sleeptime) * 1000000;<br>
+        FD_ZERO(&amp;in);<br>
+        FD_SET(0, &amp;in);<br>
+-       if (select(16, &amp;in, 0, 0, &amp;tv) &gt; 0 &amp;&amp; read(0, &amp;c, 1) == 1)<br>
++       if (select(16, &amp;in, 0, 0, &amp;tv) &gt; 0 ) {<br>
++         char count=read(0, &amp;c, 1);<br>
++         ;<br>
++         if (count&gt;0)<br>
+            do_key(c);<br>
++       }<br>
+     }<br>
+ }<br>
+ <br>
+@@ -402,7 +413,7 @@<br>
+ {<br>
+     if (psdbsucc)<br>
+         close_psdb();<br>
+-    ioctl(0, TCSETAF, &amp;Savetty);<br>
++    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Savetty);<br>
+     PUTP(tgoto(cm, 0, Lines - 1));<br>
+     fputs("\r\n", stdout);<br>
+     exit(rno);<br>
+@@ -414,7 +425,7 @@<br>
+ {<br>
+     if (psdbsucc)<br>
+        close_psdb();<br>
+-    ioctl(0, TCSETAF, &amp;Savetty);<br>
++    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Savetty);<br>
+     PUTP(tgoto(cm, 0, Lines - 1));<br>
+     fputs("\r\n", stdout);<br>
+     exit(0);<br>
+@@ -428,12 +439,12 @@<br>
+     /* Reset terminal. */<br>
+     if (psdbsucc)<br>
+        close_psdb();<br>
+-    ioctl(0, TCSETAF, &amp;Savetty);<br>
++    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Savetty);<br>
+     PUTP(tgoto(cm, 0, Lines - 3));<br>
+     fflush(stdout);<br>
+     raise(SIGTSTP);<br>
+     /* Later... */<br>
+-    ioctl(0, TCSETAF, &amp;Rawtty);<br>
++    tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Rawtty);<br>
+     signal(SIGTSTP, (void *) (int) stop);<br>
+     longjmp(redraw_jmp, 1);<br>
+ }<br>
+@@ -666,9 +677,9 @@<br>
+        PUTP(tgoto(cm, 0, 1));<br>
+        printf("Upper case characters move a field to the left, lower case to the right");<br>
+        fflush(stdout);<br>
+-       ioctl(0, TCSETAF, &amp;Rawtty);<br>
++       tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Rawtty);<br>
+        read(0, &amp;c, 1);<br>
+-       ioctl(0, TCSETAF, &amp;Savetty);<br>
++       tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Savetty);<br>
+        i = toupper(c) - 'A';<br>
+        if ((p = strchr(Fields, i + 'A')) != NULL) {<br>
+            if (isupper(c))<br>
+@@ -714,9 +725,9 @@<br>
+        PUTP(tgoto(cm, 0, 1));<br>
+        printf("Toggle fields with a-x, any other key to return: ");<br>
+        fflush(stdout);<br>
+-       ioctl(0, TCSETAF, &amp;Rawtty);<br>
++       tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Rawtty);<br>
+        read(0, &amp;c, 1);<br>
+-       ioctl(0, TCSETAF, &amp;Savetty);<br>
++       tcsetattr(STDIN_FILENO, TCSAFLUSH, &amp;Savetty);<br>
+        i = toupper(c) - 'A';<br>
+        if (i &gt;= 0 &amp;&amp; i &lt; sizeof headers / sizeof headers[0]) {<br>
+            row = i % (Lines - 3) + 3;<br>
+@@ -1147,7 +1158,7 @@<br>
+      * attributes always be normal?  Does it matter?  I suppose the<br>
+      * shell will be set up the way the user wants it.)<br>
+      */<br>
+-    ioctl(0, TCSETA, &amp;Savetty);<br>
++    tcsetattr(STDIN_FILENO, TCSANOW, &amp;Savetty);<br>
+ <br>
+     /*<br>
+      * Handle the rest of the commands.<br>
+@@ -1172,7 +1183,7 @@<br>
+        PUTP(me);<br>
+        fputs("\n\n", stdout);<br>
+        printf("%s\n\nPress any key to continue\n", Secure ? SECURE_HELP_SCREEN : HELP_SCREEN);<br>
+-       ioctl(0, TCSETA, &amp;Rawtty);<br>
++       tcsetattr(STDIN_FILENO, TCSANOW, &amp;Rawtty);<br>
+        (void) getchar();<br>
+        break;<br>
+       case 'i':<br>
+@@ -1358,7 +1369,7 @@<br>
+     /*<br>
+      * Return to raw mode.<br>
+      */<br>
+-    ioctl(0, TCSETA, &amp;Rawtty);<br>
++    tcsetattr(STDIN_FILENO, TCSANOW, &amp;Rawtty);<br>
+     return;<br>
+ }<br>
+ <br>
+<p>
+<pre>
+-- 
+Martin Cornelius, ZARMFAB software development, University of Bremen
+phone: 49-421-218-4807    FAX: 49-421-218-3889
+email: <a href="mailto:fabsoft@zarm.uni-bremen.de">fabsoft@zarm.uni-bremen.de</a>
+paper-mail: Hochschulring / Am Fallturm, 28359 BREMEN, Germany
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0306.html">Franz Figl: "SNNS (Stuttgart Neural Network Simulator)"</a>
+<li> <b>Previous message:</b> <a href="0304.html">Terry L. Ridder: "Re: xmcd rpm"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

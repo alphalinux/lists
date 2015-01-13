@@ -1,0 +1,163 @@
+<!-- received="Tue Mar 31 16:50:28 1998 " -->
+<!-- sent="Sat, 28 Mar 1998 02:51:39 +0100 (MET)" -->
+<!-- name="Andreas Johansson" -->
+<!-- email="ajo@wopr.campus.luth.se" -->
+<!-- subject="SX DMA IDE (Was: Re: cheapest SX System i ever have seen)" -->
+<!-- id="199803311623.TAA32685@blinky.bfr.co.il" -->
+<!-- inreplyto="19980328000743Z92200-4547+5@mea.tmt.tele.fi" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>SX DMA IDE (Was: Re: cheapest SX System i ever have seen)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>SX DMA IDE (Was: Re: cheapest SX System i ever have seen)</h2>
+
+<b>Andreas Johansson</b> (<a href="mailto:ajo@wopr.campus.luth.se"><i>ajo@wopr.campus.luth.se</i></a>)<br>
+<i>Sat, 28 Mar 1998 02:51:39 +0100 (MET)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#635">[ date ]</a><a href="index.html#635">[ thread ]</a><a href="subject.html#635">[ subject ]</a><a href="author.html#635">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0636.html">Stephen J. Gaudet: "Re: cheapest SX System i ever have seen"</a>
+<li> <b>Previous message:</b> <a href="0634.html">Aaron: "Re: X-programs"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0608.html">Michal Jaegermann: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Reply:</b> <a href="0608.html">Michal Jaegermann: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Reply:</b> <a href="0614.html">Dominik Kubla: "Re: RH5.0 arithmetic traps."</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Sat, 28 Mar 1998, Matti Aarnio wrote:<br>
+<p>
+<i>&gt; ... </i><br>
+<i>&gt; &gt; from what i understand, the IDE controller in the PC164, etc. (CMD646) is</i><br>
+<i>&gt; &gt; actually a decent device.  the problem is that because the prior version</i><br>
+<i>&gt; &gt; (the CMD640) was buggy and slow, nobody ever bothered to develop the</i><br>
+<i>&gt; &gt; driver for the 646 very far.  it's another case of "if only somebody would</i><br>
+<i>&gt; &gt; write the [better] driver for it" ...</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; i would be willing to give it a go, if only i knew the first thing about</i><br>
+<i>&gt; &gt; IDE or the CMD ...</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	Indeed.  Having browsed chip specifications I would say that</i><br>
+<i>&gt; 	the 2.1.X kernel's revised generic IDE stuff is sufficient to</i><br>
+<i>&gt; 	drive CMD646.</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	The thing that CMD640 "driver" did was to activate certain</i><br>
+<i>&gt; 	bug work-arounds for the chip, NOT to do actual driving.</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; can anybody confirm my hunches about this controller?  if so, can anybody</i><br>
+<i>&gt; &gt; point me toward online documentation for these things so that might toy</i><br>
+<i>&gt; &gt; around with it and see what i can do? (ah, the ignorance of youth ...)</i><br>
+<i>&gt; </i><br>
+<i>&gt; 	Use the generic (E)IDE driver.</i><br>
+<p>
+Ok, I was going to wait with this until I finished, but I have run into<br>
+some problems, so I thought I'd tell you all what to expect of the 164SX's<br>
+EIDE controller even though my driver for it isn't finished yet.<br>
+<p>
+First of all, the 164SX doesn't use the CMD64x chipset at all. That means<br>
+that my work probably will be of no use for the PC164 which people seem to<br>
+be talking about under this subject :/<br>
+<p>
+Instead, the 164SX uses the Cypress CY82C693U chip. I have not checked<br>
+whether the 164LX uses the same chipset, but I think it does. For some<br>
+reason this chipset is detected as "Contaq" with the same numbers:<br>
+<p>
+ajo@ymer ~ &gt;cat /proc/pci <br>
+PCI devices found:<br>
+[...]<br>
+  Bus  0, device   8, function  2:<br>
+    IDE interface: Contaq 82C693 (rev 0).<br>
+      Medium devsel.  Fast back-to-back capable.  Master Capable.  No<br>
+bursts.  <br>
+      I/O at 0x170.<br>
+      I/O at 0x374.<br>
+      Non-prefetchable 32 bit memory at 0x28a0000.<br>
+[...]<br>
+<p>
+Now, one day I got tired of my IDE driver taking ~100% cpu at the blazing<br>
+transfer rate of 1.2MB/s, so I decided to do something about it. Now, I<br>
+seemed to remeber that the Cypress device was quite similar to the Intel<br>
+devices, so I checked my Cypress documentation against the triton.c DMA<br>
+ide driver.  And yes, the dma interface works the same way, but one needs<br>
+to set up some pci registers an other way with the Cypress device, mainly<br>
+for mapping the dma registers in io space.<br>
+<p>
+I solved this very quickly, and now I have quite decent transfer speed and<br>
+cpu percentage to my IBM Ultrastar 6.4GB drive (these figures are while<br>
+doing multiple mode DMA transfers mode 2):<br>
+<p>
+Mar 26 22:48:45 ymer kernel: hdc: IBM-DHEA-36480, 6197MB w/476kB Cache,<br>
+CHS=12592/16/63, DMA<br>
+<p>
+ajo@ymer /home/ajo #time dd if=/dev/hdc of=/dev/null bs=65536 count=4096<br>
+4096+0 records in<br>
+4096+0 records out<br>
+0.013u 3.117s 0:39.88 7.8%      0+0k 0+0io 73pf+0w<br>
+ajo@ymer /home/ajo #expr 65536 "*" 4096 / 40<br>
+6710886<br>
+<p>
+This test was done several times and I only have 128MB ram, so none of<br>
+the data was read from the cache.<br>
+<p>
+My drive can actually do Ultra-ATA, but I haven't tried it with a<br>
+motherboard that supports this mode, so I don't know if I have hit the<br>
+limit of the drive. This might very well be the case, though.<br>
+<p>
+I could easily make a working driver now, but I ran into another problem.<br>
+While doing large transfers from the IDE-drive I noticed a problem with my<br>
+DMA-using sound card.   It actually can't play sound at the desired rate!<br>
+It seems the Cypress device never ever detaches from the pci bus while<br>
+doing dma transfers (and these can be up to 64k large). This happens even<br>
+if the transfer is divided in several smaller transfers via a transfer<br>
+descriptor table. I have never heard of this problem with the triton<br>
+chipset.<br>
+<p>
+Then I tried setting the Cypress chip for using single mode transfer<br>
+(detach from the pci bus after each 32 bit transfer). This solved the<br>
+sound card problem, but in this mode the transfer rate stinks.<br>
+<p>
+So my plan now is to make larger changes to the driver which will indeed<br>
+split up the transfers for real so that my soundcard may get enough pci<br>
+cycles for sound play. I'll post a patch for the kernel once I'm finished<br>
+with my dma driver for the Contaq chip, so stay tuned folks!<br>
+<p>
+Any comments are naturally welcome.<br>
+<p>
+/Andreas<br>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0636.html">Stephen J. Gaudet: "Re: cheapest SX System i ever have seen"</a>
+<li> <b>Previous message:</b> <a href="0634.html">Aaron: "Re: X-programs"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0608.html">Michal Jaegermann: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Reply:</b> <a href="0608.html">Michal Jaegermann: "Re: RH5.0 arithmetic traps."</a>
+<li> <b>Reply:</b> <a href="0614.html">Dominik Kubla: "Re: RH5.0 arithmetic traps."</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

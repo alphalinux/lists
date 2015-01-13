@@ -1,0 +1,161 @@
+<!-- received="Mon Jun 23 20:17:22 1997 " -->
+<!-- sent="Mon, 23 Jun 97 16:24:53 PDT" -->
+<!-- name="Bob Bottomley" -->
+<!-- email="Robert.A.Bottomley.Jr@cdc.com" -->
+<!-- subject="Re: udb pcmcia (and sound)" -->
+<!-- id="3.0.1.32.19970623172401.0084fbb0@ellpspace.math.ualberta.ca" -->
+<!-- inreplyto="udb pcmcia (and sound)" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: udb pcmcia (and sound)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: udb pcmcia (and sound)</h2>
+
+<b>Bob Bottomley</b> (<a href="mailto:Robert.A.Bottomley.Jr@cdc.com"><i>Robert.A.Bottomley.Jr@cdc.com</i></a>)<br>
+<i>Mon, 23 Jun 97 16:24:53 PDT</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#716">[ date ]</a><a href="index.html#716">[ thread ]</a><a href="subject.html#716">[ subject ]</a><a href="author.html#716">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0717.html">Rick Windham: "binutils versions..."</a>
+<li> <b>Previous message:</b> <a href="0715.html">richardh@towertechnology.com.au: "Alpha XL300 dead???"</a>
+<li> <b>Maybe in reply to:</b> <a href="0709.html">tzeruch@ceddec.com: "udb pcmcia (and sound)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+--- On Mon, 23 Jun 1997 17:19:56 -0400  <a href="mailto:tzeruch@ceddec.com">tzeruch@ceddec.com</a> wrote:<br>
+<i>&gt; Is there any way to get pcmcia working with the UDB.  It seems to compile</i><br>
+<i>&gt; properly, but I don't know if it is tcic or i82365 or some other driver.</i><br>
+<p>
+Yes, I got mine working on Friday on my UDB 166 with RH 4.2. I now have a <br>
+PC Card modem and can read the SRAM cards from my Zoomer. Here is what I did:<br>
+<p>
+Get modules working. To do this, you need modutils-2.1.42. You can find this<br>
+is the alphabits directory on RedHat. You will probably never get through to <br>
+redhat.com and most of the mirror sites do not seem to mirror alphabits. So <br>
+try this URL:<br>
+<p>
+<a href="ftp://ftp.varesearch.com/pub/mirrors/redhat/alphabits/">ftp://ftp.varesearch.com/pub/mirrors/redhat/alphabits/</a><br>
+<p>
+Be sure to read the last part of the README about the define required for <br>
+an alpha running binutils before 2.7.0.9 (which mine certainly was).<br>
+<p>
+I installed modutils and then recompiled the kernel with module support. <br>
+Believe it or not -- it worked!<br>
+<p>
+I tested it out by configuring floppy support as a module.<br>
+<p>
+Now get pcmcia-cs-2.9.6. You can find this at:<br>
+<p>
+<a href="ftp://hyper.stanford.edu/pub/pcmcia/">ftp://hyper.stanford.edu/pub/pcmcia/</a><br>
+<p>
+This will compile and install, but it won't work (module ds.o will not load). <br>
+After prowling through the mailing list archives, I found a patch from Richard <br>
+Henderson. Most of it seemed to be installed already except for two parts. I <br>
+installed them and then everything worked. Here are the excerpts from his <br>
+patch (Note: do not use the patch command to install these, I did not check <br>
+that the line numbers are still accurate, but they are easy to find):<br>
+<p>
+<p>
+diff -rup pcmcia-cs-2.9.2/include/pcmcia/k_compat.h pcmcia-cs-2.9.2-rth/include/pcmcia/k_compat.h<br>
+--- pcmcia-cs-2.9.2/include/pcmcia/k_compat.h	Wed Mar 12 14:23:34 1997<br>
++++ pcmcia-cs-2.9.2-rth/include/pcmcia/k_compat.h	Sat Apr 12 19:47:14 1997<br>
+@@ -127,7 +128,7 @@ char kernel_version[] = UTS_RELEASE;<br>
+ #endif<br>
+ <br>
+ #ifdef __alpha__<br>
+-#define get_user(x, ptr) __get_user(x, ptr)<br>
++#define get_user(x, ptr) ((x) = __get_user((ptr), sizeof(*(ptr))))<br>
+ #else<br>
+ #define get_user(x, ptr) \<br>
+ ((sizeof(*ptr) == 4) ? (x = get_fs_long(ptr)) : \<br>
+<p>
+<p>
+diff -rup pcmcia-cs-2.9.2/modules/Makefile pcmcia-cs-2.9.2-rth/modules/Makefile<br>
+--- pcmcia-cs-2.9.2/modules/Makefile	Tue Nov 26 02:21:58 1996<br>
++++ pcmcia-cs-2.9.2-rth/modules/Makefile	Sat Apr 12 19:40:25 1997<br>
+@@ -19,6 +19,11 @@ ifdef CONFIG_MODVERSIONS<br>
+ XFLAGS := $(XFLAGS) $(MFLAG)<br>
+ endif<br>
+ <br>
++ifdef CONFIG_ALPHA_LCA<br>
++CFLAGS += -ffixed-8<br>
++endif<br>
++<br>
++<br>
+ SRCS = \<br>
+ 	i82365.c tcic.c cs.c cistpl.c rsrc_mgr.c bulkmem.c ds.c \<br>
+ 	serial_cs.c pcmem_cs.c memory_cs.c ftl_cs.c \<br>
+<p>
+<p>
+I don't know that the second part is actually needed, but I figured it <br>
+wouldn't hurt. The real problem was with get_user.<br>
+<p>
+After that just follow the PCMCIA howto. The UDB has a i82365 controller.<br>
+<p>
+There was one more gotcha. A test in ifup was backwards and with PCMCIA <br>
+turned on, the ethernet port was not brought up. Here is a patch:<br>
+<p>
+diff -rup /etc/sysconfig/network-scripts/ifup.orig /etc/sysconfig/network-scripts/ifup<br>
+--- /etc/sysconfig/network-scripts/ifup.orig    Mon Jun 23 16:54:28 1997<br>
++++ /etc/sysconfig/network-scripts/ifup Fri Jun 20 13:31:22 1997<br>
+@@ -39,7 +39,7 @@ else<br>
+     PCMCIA=no<br>
+ fi<br>
+ <br>
+-if [ $DEVICETYPE = "eth" -a "foo${ISPCMCIA}" = "foo" ]; then<br>
++if [ $DEVICETYPE = "eth" -a "foo${ISPCMCIA}" != "foo" ]; then<br>
+     # this is a horrible hack to work around prior brokenness <br>
+     if [ "$PCMCIA" = "yes" -a "foo$2" = "fooboot" ]; then<br>
+        # cardmgr will start us up properly<br>
+<p>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Also, OSS conflicts with the NCR when I try playing a file.  Anyone know</i><br>
+<i>&gt; what port (530), irq (9), and dma (1?) I need to set for this?</i><br>
+<p>
+The sound settings for the UDB are:<br>
+<p>
+Windows Sound Sytem  DMA 3  Port 530  IRQ 9<br>
+<p>
+--------------------------------------------------------------------------<br>
+"It is by caffeine alone I set my mind in motion.<br>
+It is by the juice of cola that thoughts acquire speed,<br>
+the hands acquire shaking, the shaking become a warning.<br>
+It is by caffeine alone I set my mind in motion."<br>
+                               --The Programmer's Creed<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0717.html">Rick Windham: "binutils versions..."</a>
+<li> <b>Previous message:</b> <a href="0715.html">richardh@towertechnology.com.au: "Alpha XL300 dead???"</a>
+<li> <b>Maybe in reply to:</b> <a href="0709.html">tzeruch@ceddec.com: "udb pcmcia (and sound)"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

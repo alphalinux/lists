@@ -1,0 +1,134 @@
+<!-- received="Fri Apr  5 00:08:54 1996 " -->
+<!-- sent="Fri, 5 Apr 1996 00:08:54 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@atheist.tamu.edu" -->
+<!-- subject="profiling bug on alpha-linux" -->
+<!-- id="m0u54hb-00026UC@atheist.tamu.edu" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>profiling bug on alpha-linux</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>profiling bug on alpha-linux</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@atheist.tamu.edu"><i>richard@atheist.tamu.edu</i></a>)<br>
+<i>Fri, 5 Apr 1996 00:08:54 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#96">[ date ]</a><a href="index.html#96">[ thread ]</a><a href="subject.html#96">[ subject ]</a><a href="author.html#96">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Previous message:</b> <a href="0095.html">Charles W. Alcorn: "RADIUS and INN on DEC Alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Maybe reply:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Reply:</b> <a href="0099.html">Linus Torvalds: "Re: profiling bug on alpha-linux"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Leaf functions on alpha-linux improperly overwrite the<br>
+return address register ($26) when profiling is on.<br>
+<p>
+Case in point, the null function `foo(){ }' compiles,<br>
+with -O -p, to<br>
+<p>
+------------------<br>
+        .ent foo<br>
+foo:<br>
+        ldgp $29,0($27)<br>
+foo..ng:<br>
+        .frame $30,0,$26,0<br>
+        .prologue 1<br>
+.data<br>
+        .align 3<br>
+$P32:<br>
+        .quad 0<br>
+.text<br>
+        lda $27,_mcount<br>
+        jsr $26,($27),_mcount<br>
+        ldgp $29,0($26)<br>
+        ret $31,($26),1<br>
+        .end foo<br>
+------------------<br>
+<p>
+Note that foo's return address is not saved before the call<br>
+to _mcount kills it.  The fix, of course, is to always save<br>
+the return address register when profiling is on.<br>
+<p>
+<p>
+r~<br>
+<p>
+-----<br>
+Fri Apr  5 01:03:02 1996  Richard Henderson  &lt;<a href="mailto:rth@tamu.edu">rth@tamu.edu</a>&gt;<br>
+<p>
+        * alpha.c (alpha_sa_size): Do not elide saving $ra when<br>
+        profiling is on.  The call to _mcount is going to kill it.<br>
+        (output_prolog): Continued.<br>
+        (output_epilog): Continued.<br>
+<p>
+<p>
+Index: alpha.c<br>
+===================================================================<br>
+RCS file: /home/richard/Repository/cygnus/gcc/config/alpha/alpha.c,v<br>
+retrieving revision 1.1.1.1.2.1<br>
+retrieving revision 1.1.1.1.2.2<br>
+diff -u -r1.1.1.1.2.1 -r1.1.1.1.2.2<br>
+--- alpha.c     1996/03/26 02:39:40     1.1.1.1.2.1<br>
++++ alpha.c     1996/04/05 05:49:45     1.1.1.1.2.2<br>
+@@ -1335,7 +1335,7 @@ alpha_sa_size ()<br>
+ <br>
+   /* If some registers were saved but not reg 26, reg 26 must also<br>
+      be saved, so leave space for it.  */<br>
+-  if (size != 0 &amp;&amp; ! regs_ever_live[26])<br>
++  if ((size != 0 || profile_flag) &amp;&amp; ! regs_ever_live[26])<br>
+     size++;<br>
+ <br>
+   /* Our size must be even (multiple of 16 bytes).  */<br>
+@@ -1599,7 +1599,7 @@ output_prolog (file, size)<br>
+           frame_size, current_function_pretend_args_size);<br>
+     <br>
+   /* Save register 26 if any other register needs to be saved.  */<br>
+-  if (sa_size != 0)<br>
++  if (sa_size != 0 || profile_flag)<br>
+     {<br>
+       reg_mask |= 1 &lt;&lt; 26;<br>
+       fprintf (file, "\tstq $26,%d($30)\n", reg_offset);<br>
+@@ -1684,7 +1684,7 @@ output_epilog (file, size)<br>
+ <br>
+       /* Restore all the registers, starting with the return address<br>
+         register.  */<br>
+-      if (sa_size != 0)<br>
++      if (sa_size != 0 || profile_flag)<br>
+        {<br>
+          fprintf (file, "\tldq $26,%d($30)\n", reg_offset);<br>
+          reg_offset += 8;<br>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Previous message:</b> <a href="0095.html">Charles W. Alcorn: "RADIUS and INN on DEC Alpha"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Maybe reply:</b> <a href="0097.html">David  Mosberger: "Re: profiling bug on alpha-linux"</a>
+<li> <b>Reply:</b> <a href="0099.html">Linus Torvalds: "Re: profiling bug on alpha-linux"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

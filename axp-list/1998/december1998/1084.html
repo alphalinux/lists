@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: ES1370 and 2.1.13[012] booting problems on Ruffian</TITLE>
+<META NAME="Author" CONTENT="MoT (Sebastien.Villemot@ens.fr)">
+<META NAME="Subject" CONTENT="ES1370 and 2.1.13[012] booting problems on Ruffian">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>ES1370 and 2.1.13[012] booting problems on Ruffian</H1>
+<HR>
+<P>
+<!-- received="Sun Dec 27 04:48:22 1998 PST" -->
+<!-- sent="Sun, 27 Dec 1998 05:48:03 +0100 (CET)" -->
+<!-- name="MoT" -->
+<!-- email="Sebastien.Villemot@ens.fr" -->
+<!-- subject="ES1370 and 2.1.13[012] booting problems on Ruffian" -->
+<!-- id="Pine.LNX.4.05.9812270531230.441-100000@Noustoulight.InsomNet.fr" -->
+<!-- inreplyto="" -->
+<STRONG>MoT</STRONG> (<A HREF="mailto:Sebastien.Villemot@ens.fr?subject=Re:%20ES1370%20and%202.1.13[012]%20booting%20problems%20on%20Ruffian"><EM>Sebastien.Villemot@ens.fr</EM></A>)<BR>
+<EM>Sun, 27 Dec 1998 05:48:03 +0100 (CET)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1084">[ date ]</A>
+<A HREF="index.html#1084">[ thread ]</A>
+<A HREF="subject.html#1084">[ subject ]</A>
+<A HREF="author.html#1084">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="1083.html">Ryan Kirkpatrick: "Re: Postgres 6.4 Spin-lock timeout"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+I encountered the two following problems with recent kernels:
+<BR>
+(on a 21164A 533Mhz, with Ruffian UX2 motherboard, egcs 1.1.1)
+<BR>
+<P>1) since release 2.1.130, the kernels hangs just after displaying
+<BR>
+&quot;Calibrating loop delay...&quot;. This small patch corrected the problem (it simply
+<BR>
+cancels a modification made between 2.1.129 and 2.1.130):
+<BR>
+<P>--- arch/alpha/kernel/sys_ruffian-old.c Thu Dec 17 02:42:59 1998
+<BR>
++++ arch/alpha/kernel/sys_ruffian.c     Fri Dec 18 20:03:55 1998
+<BR>
+@@ -107,7 +107,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (j == 7 &amp;&amp; !(inb(0x20) &amp; 0x80)) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* It's only a passive release... */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else if (j == 0) {
+<BR>
+-                               handle_irq(8, -1, regs); /* fake it */
+<BR>
++                               timer_interrupt(0, NULL, regs);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ruffian_ack_irq(0);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} else {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handle_irq(j, j, regs);
+<BR>
+<P><P>It's clearly a Ruffian specific problem since no one else reported it on
+<BR>
+the list.
+<BR>
+<P><P>2) Also, I've bought a SoundBlaster PCI 128 (based on an Ensoniq AudioPCI
+<BR>
+1370 chip). On my old Pentium 60 it works fine using the driver included
+<BR>
+with recent 2.1 kernels. With the same SB card, on my alpha, the driver
+<BR>
+for ES1370 correctly detects the card, and the mixer is working well.
+<BR>
+However, I can't get anything when trying to record, and when I try
+<BR>
+to write something in /dev/dsp, the kernel totally freezes (I didn't try
+<BR>
+to debug it, I don't know much about kernel hacking). I've sent two
+<BR>
+mails to the author of the ES1370 driver (Thomas Sailer,
+<BR>
+<A HREF="mailto:sailer@ife.ee.ethz.ch?subject=Re:%20ES1370%20and%202.1.13[012]%20booting%20problems%20on%20Ruffian">sailer@ife.ee.ethz.ch</A>), but it seems he doesn't answer to such (stupid?)
+<BR>
+questions...
+<BR>
+<P><P>Any kernel hacker interested?
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MoT
+<BR>
+<P><P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20ES1370%20and%202.1.13[012]%20booting%20problems%20on%20Ruffian">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20ES1370%20and%202.1.13[012]%20booting%20problems%20on%20Ruffian">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="1083.html">Ryan Kirkpatrick: "Re: Postgres 6.4 Spin-lock timeout"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sat Dec 26 1998 - 21:00:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,2483 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: [patch] 2.3.30pre6 alpha updates</TITLE>
+<META NAME="Author" CONTENT="Andrea Arcangeli (andrea@suse.de)">
+<META NAME="Subject" CONTENT="[patch] 2.3.30pre6 alpha updates">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>[patch] 2.3.30pre6 alpha updates</H1>
+<HR>
+<P>
+<!-- received="Sun Dec 05 19:21:05 1999" -->
+<!-- isoreceived="19991206032105" -->
+<!-- sent="Sun, 5 Dec 1999 16:29:24 +0100 (CET)" -->
+<!-- isosent="19991205152924" -->
+<!-- name="Andrea Arcangeli" -->
+<!-- email="andrea@suse.de" -->
+<!-- subject="[patch] 2.3.30pre6 alpha updates" -->
+<!-- id="Pine.LNX.4.10.9912051552200.254-100000@alpha.random" -->
+<STRONG>Subject: </STRONG>[patch] 2.3.30pre6 alpha updates<BR>
+<STRONG>From: </STRONG>Andrea Arcangeli (<EM>andrea@suse.de</EM>)<BR>
+<STRONG>Date: </STRONG>Sun Dec 05 1999 - 07:29:24 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#4">[ date ]</A>
+<A HREF="index.html#4">[ thread ]</A>
+<A HREF="subject.html#4">[ subject ]</A>
+<A HREF="author.html#4">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">Martin Mares: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Common code changes:
+<BR>
+<P>o	while clenaing up the alpha irq handling hardirq_enter/exit become
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_enter/exit. Such two functions was used only by irq_enter/exit and
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the irq_enter/exit in linux/irq.h didn't compile for alpha
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;that takes the local_irq_count information in a per CPU cacheline
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;aligned data structure (not an array as in i386) and uses a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spinlock for the global_irq_lock. (btw the cpuinfo struct is
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;64byte aligned while the l1 cacheline is large 32bytes, maybe it's
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the bcache that's 64byte aligned? I have not changed the alignment
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;because I am trusting it make sense to take it 64byte aligned.)
+<BR>
+<P>o	while porting more quirks from the 2.2.x pci alpha code
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I had to export pdev_fixup_irq because I must avoid
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to reassing the irq for some device and for this reason I can't
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;use the plain pci_fixup_irqs unconditional loop.
+<BR>
+<P>o	cleanedup the cache.h stuff. All function are shared across
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i386 and alpha (and others). All can be overridden by a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;special asm/cache.h. Now there is also a ____cacheline_aligned
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;that can be used to enforce a struct to have a size multiple
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;of SMP_CACHE_BYTES (I am not 100% sure if the old good gcc
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;complains about alignment larger than 16 bytes hmmm, if so with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the 2.7.2 gcc the *cacheline_aligned macros should defined as a a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;noop). I used ____cacheline_aligned somewhere in the alpha port
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ipi message struct) and for irq_desc_t.
+<BR>
+<P>alpha specific changes:
+<BR>
+<P>o	fixes compilation troubles introduced in late 2.3.30pre due
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;missing common_kill_arch.
+<BR>
+<P>o	cleanedup alpha irq handling putting alpha in sync with
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linux/irq.h and asm/hw_irq.h. Right now I am sharing the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_desc_t from linux/irq.h, but I think I'll need more fields
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;per irq to do scale irqs across multiple CPUs in software so
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;probably the irq_desc_t should become a per-arch thing in the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;future?
+<BR>
+<P>o	for the tsunami the dim register enforces masking also on the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lower bits (irqs &lt; 16) so I changed the mask callback to
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;take care of this.
+<BR>
+<P>Patch against 2.3.30pre6:
+<BR>
+<P>diff -urN 2.3.30pre6/arch/alpha/kernel/irq.c a/arch/alpha/kernel/irq.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/irq.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/irq.c	Sun Dec  5 15:28:11 1999
+<BR>
+@@ -22,15 +22,15 @@
+<BR>
+&nbsp;#include &lt;linux/random.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/delay.h&gt;
+<BR>
++#include &lt;linux/irq.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+-#include &lt;asm/irq.h&gt;
+<BR>
+&nbsp;#include &lt;asm/bitops.h&gt;
+<BR>
+&nbsp;#include &lt;asm/machvec.h&gt;
+<BR>
++#include &lt;asm/spinlock.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define vulp	volatile unsigned long *
+<BR>
+&nbsp;#define vuip	volatile unsigned int *
+<BR>
+@@ -182,7 +182,8 @@
+<BR>
+&nbsp;&nbsp;*/
+<BR>
+&nbsp;
+<BR>
+&nbsp;static struct irqaction timer_irq = { NULL, 0, 0, NULL, NULL, NULL};
+<BR>
+-static struct irqaction *irq_action[NR_IRQS];
+<BR>
++spinlock_t irq_controller_lock = SPIN_LOCK_UNLOCKED;
+<BR>
++irq_desc_t irq_desc[NR_IRQS] __cacheline_aligned = { [0 ... NR_IRQS-1] = {0,} };
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline void
+<BR>
+@@ -230,12 +231,7 @@
+<BR>
+&nbsp;int
+<BR>
+&nbsp;check_irq(unsigned int irq)
+<BR>
+&nbsp;{
+<BR>
+-	struct irqaction **p;
+<BR>
+-
+<BR>
+-	p = irq_action + irq;
+<BR>
+-	if (*p == NULL)
+<BR>
+-		return 0;
+<BR>
+-	return -EBUSY;
+<BR>
++	return irq_desc[irq].action ? -EBUSY : 0;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;int
+<BR>
+@@ -253,7 +249,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!handler)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EINVAL;
+<BR>
+&nbsp;
+<BR>
+-	p = irq_action + irq;
+<BR>
++	p = &amp;irq_desc[irq].action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action = *p;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (action) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Can't share interrupts unless both agree to */
+<BR>
+@@ -314,14 +310,14 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Trying to free reserved IRQ %d\n&quot;, irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	for (p = irq + irq_action; (action = *p) != NULL; p = &amp;action-&gt;next) {
+<BR>
++	for (p = &amp;irq_desc[irq].action; (action = *p) != NULL; p = &amp;action-&gt;next) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (action-&gt;dev_id != dev_id)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Found it - now free it */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;save_and_cli(flags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*p = action-&gt;next;
+<BR>
+-		if (!irq[irq_action])
+<BR>
++		if (!irq_desc[irq].action)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mask_irq(irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;restore_flags(flags);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kfree(action);
+<BR>
+@@ -344,7 +340,7 @@
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; NR_IRQS; i++) {
+<BR>
+-		action = irq_action[i];
+<BR>
++		action = irq_desc[i].action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!action) 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p += sprintf(p, &quot;%3d: &quot;,i);
+<BR>
+@@ -541,63 +537,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-#undef INIT_STUCK
+<BR>
+-#define INIT_STUCK (1&lt;&lt;26)
+<BR>
+-
+<BR>
+-#undef STUCK
+<BR>
+-#define STUCK							\
+<BR>
+-  if (!--stuck) {						\
+<BR>
+-    printk(&quot;irq_enter stuck (irq=%d, cpu=%d, global=%d)\n&quot;,	\
+<BR>
+-	   irq, cpu, global_irq_holder);			\
+<BR>
+-    stuck = INIT_STUCK;						\
+<BR>
+-  }
+<BR>
+-
+<BR>
+-#undef VERBOSE_IRQLOCK_DEBUGGING
+<BR>
+-
+<BR>
+-void
+<BR>
+-irq_enter(int cpu, int irq)
+<BR>
+-{
+<BR>
+-#ifdef VERBOSE_IRQLOCK_DEBUGGING
+<BR>
+-	extern void smp_show_backtrace_all_cpus(void);
+<BR>
+-#endif
+<BR>
+-	int stuck = INIT_STUCK;
+<BR>
+-
+<BR>
+-	hardirq_enter(cpu, irq);
+<BR>
+-	barrier();
+<BR>
+-	while (spin_is_locked(&amp;global_irq_lock)) {
+<BR>
+-		if (cpu == global_irq_holder) {
+<BR>
+-			int globl_locked = spin_is_locked(&amp;global_irq_lock);
+<BR>
+-			int globl_icount = atomic_read(&amp;global_irq_count);
+<BR>
+-			int local_count = local_irq_count(cpu);
+<BR>
+-
+<BR>
+-			/* It is very important that we load the state
+<BR>
+-			   variables before we do the first call to
+<BR>
+-			   printk() as printk() could end up changing
+<BR>
+-			   them...  */
+<BR>
+-
+<BR>
+-			printk(&quot;CPU[%d]: where [%p] glocked[%d] gicnt[%d]&quot;
+<BR>
+-			       &quot; licnt[%d]\n&quot;,
+<BR>
+-			       cpu, previous_irqholder, globl_locked,
+<BR>
+-			       globl_icount, local_count);
+<BR>
+-#ifdef VERBOSE_IRQLOCK_DEBUGGING
+<BR>
+-			printk(&quot;Performing backtrace on all CPUs,&quot;
+<BR>
+-			       &quot; write this down!\n&quot;);
+<BR>
+-			smp_show_backtrace_all_cpus();
+<BR>
+-#endif
+<BR>
+-			break;
+<BR>
+-		}
+<BR>
+-		STUCK;
+<BR>
+-		barrier();
+<BR>
+-	}
+<BR>
+-}
+<BR>
+-
+<BR>
+-void
+<BR>
+-irq_exit(int cpu, int irq)
+<BR>
+-{
+<BR>
+-	hardirq_exit(cpu, irq);
+<BR>
+-	release_irqlock(cpu);
+<BR>
+-}
+<BR>
+-
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;show(char * str, void *where)
+<BR>
+&nbsp;{
+<BR>
+@@ -698,12 +637,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;}
+<BR>
+-
+<BR>
+-#else /* !__SMP__ */
+<BR>
+-
+<BR>
+-#define irq_enter(cpu, irq)	(++local_irq_count(cpu))
+<BR>
+-#define irq_exit(cpu, irq)	(--local_irq_count(cpu))
+<BR>
+-
+<BR>
+&nbsp;#endif /* __SMP__ */
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+@@ -720,7 +653,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;PC = %016lx PS=%04lx\n&quot;, regs-&gt;pc, regs-&gt;ps);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;Expecting: &quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i = 0; i &lt; ACTUAL_NR_IRQS; i++)
+<BR>
+-		if ((action = irq_action[i]))
+<BR>
++		if ((action = irq_desc[i].action))
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while (action-&gt;handler) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;[%s:%d] &quot;, action-&gt;name, i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;action = action-&gt;next;
+<BR>
+@@ -774,7 +707,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq_enter(cpu, irq);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kstat.irqs[cpu][irq] += 1;
+<BR>
+-	action = irq_action[irq];
+<BR>
++	action = irq_desc[irq].action;
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* For normal interrupts, we mask it out, and then ACK it.
+<BR>
+@@ -823,7 +756,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!(PROBE_MASK &amp; (1UL &lt;&lt; i))) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-		action = irq_action[i];
+<BR>
++		action = irq_desc[i].action;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (!action) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable_irq(i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irqs |= (1UL &lt;&lt; i);
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/irq_impl.h a/arch/alpha/kernel/irq_impl.h
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/irq_impl.h	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/irq_impl.h	Thu Jan  1 01:00:00 1970
+<BR>
+@@ -1,87 +0,0 @@
+<BR>
+-/*
+<BR>
+- *	linux/arch/alpha/kernel/irq.h
+<BR>
+- *
+<BR>
+- *	Copyright (C) 1995 Linus Torvalds
+<BR>
+- *	Copyright (C) 1998 Richard Henderson
+<BR>
+- *
+<BR>
+- * This file contains declarations and inline functions for interfacing
+<BR>
+- * with the IRQ handling routines in irq.c.
+<BR>
+- */
+<BR>
+-
+<BR>
+-#include &lt;linux/config.h&gt;
+<BR>
+-
+<BR>
+-#define STANDARD_INIT_IRQ_PROLOG	\
+<BR>
+-	outb(0, DMA1_RESET_REG);	\
+<BR>
+-	outb(0, DMA2_RESET_REG);	\
+<BR>
+-	outb(0, DMA1_CLR_MASK_REG);	\
+<BR>
+-	outb(0, DMA2_CLR_MASK_REG)
+<BR>
+-
+<BR>
+-extern unsigned long _alpha_irq_masks[2];
+<BR>
+-#define alpha_irq_mask _alpha_irq_masks[0]
+<BR>
+-
+<BR>
+-extern void common_ack_irq(unsigned long irq);
+<BR>
+-extern void isa_device_interrupt(unsigned long vector, struct pt_regs * regs);
+<BR>
+-extern void srm_device_interrupt(unsigned long vector, struct pt_regs * regs);
+<BR>
+-
+<BR>
+-extern void handle_irq(int irq, int ack, struct pt_regs * regs);
+<BR>
+-
+<BR>
+-#define RTC_IRQ    8
+<BR>
+-#ifdef CONFIG_RTC
+<BR>
+-#define TIMER_IRQ  0			 /* timer is the pit */
+<BR>
+-#else
+<BR>
+-#define TIMER_IRQ  RTC_IRQ		 /* timer is the rtc */
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-/*
+<BR>
+- * PROBE_MASK is the bitset of irqs that we consider for autoprobing.
+<BR>
+- */
+<BR>
+-
+<BR>
+-/* NOTE: we only handle the first 64 IRQs in this code. */
+<BR>
+-
+<BR>
+-/* The normal mask includes all the IRQs except timer IRQ 0.  */
+<BR>
+-#define _PROBE_MASK(nr_irqs)	\
+<BR>
+-	(((nr_irqs &gt; 63) ? ~0UL : ((1UL &lt;&lt; (nr_irqs &amp; 63)) - 1)) &amp; ~1UL)
+<BR>
+-
+<BR>
+-/* Mask out unused timer irq 0 and RTC irq 8. */
+<BR>
+-#define P2K_PROBE_MASK		(_PROBE_MASK(16) &amp; ~0x101UL)
+<BR>
+-
+<BR>
+-/* Mask out unused timer irq 0, &quot;irqs&quot; 20-30, and the EISA cascade. */
+<BR>
+-#define ALCOR_PROBE_MASK	(_PROBE_MASK(48) &amp; ~0xfff000000001UL)
+<BR>
+-
+<BR>
+-/* Leave timer IRQ 0 in the mask.  */
+<BR>
+-#define RUFFIAN_PROBE_MASK	(_PROBE_MASK(48) | 1UL)
+<BR>
+-
+<BR>
+-/* Do not probe/enable beyond the PCI devices. */
+<BR>
+-#define TSUNAMI_PROBE_MASK	_PROBE_MASK(48)
+<BR>
+-
+<BR>
+-#if defined(CONFIG_ALPHA_GENERIC)
+<BR>
+-# define PROBE_MASK	alpha_mv.irq_probe_mask
+<BR>
+-#elif defined(CONFIG_ALPHA_P2K)
+<BR>
+-# define PROBE_MASK	P2K_PROBE_MASK
+<BR>
+-#elif defined(CONFIG_ALPHA_ALCOR) || defined(CONFIG_ALPHA_XLT)
+<BR>
+-# define PROBE_MASK	ALCOR_PROBE_MASK
+<BR>
+-#elif defined(CONFIG_ALPHA_RUFFIAN)
+<BR>
+-# define PROBE_MASK	RUFFIAN_PROBE_MASK
+<BR>
+-#elif defined(CONFIG_ALPHA_DP264)
+<BR>
+-# define PROBE_MASK	TSUNAMI_PROBE_MASK
+<BR>
+-#else
+<BR>
+-# define PROBE_MASK	_PROBE_MASK(NR_IRQS)
+<BR>
+-#endif
+<BR>
+-
+<BR>
+-
+<BR>
+-extern char _stext;
+<BR>
+-static inline void alpha_do_profile (unsigned long pc)
+<BR>
+-{
+<BR>
+-	if (prof_buffer &amp;&amp; current-&gt;pid) {
+<BR>
+-		pc -= (unsigned long) &amp;_stext;
+<BR>
+-		pc &gt;&gt;= prof_shift;
+<BR>
+-		/*
+<BR>
+-		 * Don't ignore out-of-bounds PC values silently,
+<BR>
+-		 * put them into the last histogram slot, so if
+<BR>
+-		 * present, they will show up as a sharp peak.
+<BR>
+-		 */
+<BR>
+-		if (pc &gt; prof_len - 1)
+<BR>
+-			pc = prof_len - 1;
+<BR>
+-		atomic_inc((atomic_t *)&amp;prof_buffer[pc]);
+<BR>
+-	}
+<BR>
+-}
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/pci.c a/arch/alpha/kernel/pci.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/pci.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/pci.c	Sun Dec  5 15:23:32 1999
+<BR>
+@@ -57,11 +57,32 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dev-&gt;class = PCI_CLASS_BRIDGE_ISA;
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
++static void __init
+<BR>
++quirk_vga_enable_rom(struct pci_dev *dev)
+<BR>
++{
+<BR>
++	/* If it's a VGA, enable its BIOS ROM at C0000.
+<BR>
++	   But if its a Cirrus 543x/544x DISABLE it, since
+<BR>
++	   enabling ROM disables the memory... */
+<BR>
++	if ((dev-&gt;class &gt;&gt; 8) == PCI_CLASS_DISPLAY_VGA &amp;&amp;
+<BR>
++	    /* But if its a Cirrus 543x/544x DISABLE it */
+<BR>
++	    (dev-&gt;vendor != PCI_VENDOR_ID_CIRRUS ||
+<BR>
++	     (dev-&gt;device &lt; 0x00a0) || (dev-&gt;device &gt; 0x00ac)))
+<BR>
++	{
+<BR>
++		u32 reg;
+<BR>
++
+<BR>
++		pci_read_config_dword(dev, dev-&gt;rom_base_reg, &amp;reg);
+<BR>
++		reg |= PCI_ROM_ADDRESS_ENABLE;
+<BR>
++		pci_write_config_dword(dev, dev-&gt;rom_base_reg, reg);
+<BR>
++		dev-&gt;resource[PCI_ROM_RESOURCE].flags |= PCI_ROM_ADDRESS_ENABLE;
+<BR>
++	}
+<BR>
++}
+<BR>
++
+<BR>
+&nbsp;struct pci_fixup pcibios_fixups[] __initdata = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ PCI_FIXUP_HEADER, PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82375,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;quirk_eisa_bridge },
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ PCI_FIXUP_HEADER, PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82378,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;quirk_isa_bridge },
+<BR>
++	{ PCI_FIXUP_FINAL, PCI_ANY_ID, PCI_ANY_ID, quirk_vga_enable_rom },
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ 0 }
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+@@ -71,7 +92,7 @@
+<BR>
+&nbsp;#define MB			(1024*KB)
+<BR>
+&nbsp;#define GB			(1024*MB)
+<BR>
+&nbsp;
+<BR>
+-void __init
+<BR>
++void
+<BR>
+&nbsp;pcibios_align_resource(void *data, struct resource *res, unsigned long size)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_dev * dev = data;
+<BR>
+@@ -145,13 +166,13 @@
+<BR>
+&nbsp;static void __init
+<BR>
+&nbsp;pcibios_assign_special(struct pci_dev * dev)
+<BR>
+&nbsp;{
+<BR>
++	int i;
+<BR>
++
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* The first three resources of an IDE controler are often magic, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;so leave them unchanged.  This is true, for instance, of the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contaq 82C693 as seen on SX164 and DP264.  */
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dev-&gt;class &gt;&gt; 8 == PCI_CLASS_STORAGE_IDE) {
+<BR>
+-		int i;
+<BR>
+-
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Resource 1 of IDE controller is the address of HD_CMD
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register which actually occupies a single byte (0x3f6
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for ide0) in reported 0x3f4-3f7 range. We have to fix
+<BR>
+@@ -163,6 +184,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (dev-&gt;resource[i].flags &amp;&amp; dev-&gt;resource[i].start)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_claim_resource(dev, i);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
++	/*
+<BR>
++	 * We don't have code that will init the CYPRESS bridge correctly
+<BR>
++	 * so we do the next best thing, and depend on the previous
+<BR>
++	 * console code to do the right thing, and ignore it here... :-\
+<BR>
++	 */
+<BR>
++	else if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
++		 dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693)
+<BR>
++		for (i = 0; i &lt; PCI_NUM_RESOURCES; i++)
+<BR>
++			if (dev-&gt;resource[i].flags &amp;&amp; dev-&gt;resource[i].start)
+<BR>
++				pci_claim_resource(dev, i);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+@@ -285,6 +316,31 @@
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;void __init
+<BR>
++pcibios_fixup_irqs(void)
+<BR>
++{
+<BR>
++	struct pci_dev *dev;
+<BR>
++	for (dev = pci_devices; dev; dev = dev-&gt;next)
+<BR>
++	{
+<BR>
++		if ((dev-&gt;class &gt;&gt; 16 == PCI_BASE_CLASS_BRIDGE) &amp;&amp;
+<BR>
++		    (dev-&gt;class &gt;&gt; 8 != PCI_CLASS_BRIDGE_PCMCIA))
+<BR>
++			continue;
+<BR>
++
+<BR>
++		/*
+<BR>
++		 * We don't have code that will init the CYPRESS bridge
+<BR>
++		 * correctly so we do the next best thing, and depend on
+<BR>
++		 * the previous console code to do the right thing, and
+<BR>
++		 * ignore it here... :-\
+<BR>
++		 */
+<BR>
++		if (dev-&gt;vendor == PCI_VENDOR_ID_CONTAQ &amp;&amp;
+<BR>
++		    dev-&gt;device == PCI_DEVICE_ID_CONTAQ_82C693)
+<BR>
++			continue;
+<BR>
++
+<BR>
++		pdev_fixup_irq(dev,
+<BR>
++			       alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
+<BR>
++	}
+<BR>
++}
+<BR>
++
+<BR>
++void __init
+<BR>
+&nbsp;common_init_pci(void)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct pci_controler *hose;
+<BR>
+@@ -303,7 +359,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_assign_unassigned_resources(alpha_mv.min_io_address,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alpha_mv.min_mem_address);
+<BR>
+-	pci_fixup_irqs(alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
+<BR>
++	pcibios_fixup_irqs();
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_set_bus_ranges();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/smp.c a/arch/alpha/kernel/smp.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/smp.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/smp.c	Sun Dec  5 15:31:24 1999
+<BR>
+@@ -14,6 +14,7 @@
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/delay.h&gt;
+<BR>
+&nbsp;#include &lt;linux/spinlock.h&gt;
+<BR>
++#include &lt;linux/irq.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;#include &lt;asm/ptrace.h&gt;
+<BR>
+@@ -32,7 +33,6 @@
+<BR>
+&nbsp;#include &lt;asm/unistd.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define DEBUG_SMP 0
+<BR>
+@@ -47,8 +47,8 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* A collection of single bit ipi messages.  */
+<BR>
+&nbsp;static struct {
+<BR>
+-	unsigned long bits __cacheline_aligned;
+<BR>
+-} ipi_data[NR_CPUS];
+<BR>
++	unsigned long bits ____cacheline_aligned;
+<BR>
++} ipi_data[NR_CPUS] __cacheline_aligned;
+<BR>
+&nbsp;
+<BR>
+&nbsp;enum ipi_message_type {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IPI_RESCHEDULE,
+<BR>
+@@ -56,7 +56,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IPI_CPU_STOP,
+<BR>
+&nbsp;};
+<BR>
+&nbsp;
+<BR>
+-spinlock_t kernel_flag __cacheline_aligned = SPIN_LOCK_UNLOCKED;
+<BR>
++spinlock_t kernel_flag = SPIN_LOCK_UNLOCKED;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Set to a secondary's cpuid when it comes online.  */
+<BR>
+&nbsp;static unsigned long smp_secondary_alive;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_alcor.c a/arch/alpha/kernel/sys_alcor.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_alcor.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_alcor.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -27,7 +27,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_cia.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_cabriolet.c a/arch/alpha/kernel/sys_cabriolet.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_cabriolet.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_cabriolet.c	Sun Dec  5 15:44:02 1999
+<BR>
+@@ -31,7 +31,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_pyxis.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -298,7 +298,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		cabriolet_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		cabriolet_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		cabriolet_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+@@ -327,7 +326,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		cabriolet_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		cabriolet_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		eb66p_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+@@ -356,7 +354,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		cabriolet_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		alphapc164_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		alphapc164_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+@@ -385,7 +382,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		cabriolet_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		alphapc164_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		alphapc164_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_dp264.c a/arch/alpha/kernel/sys_dp264.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_dp264.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_dp264.c	Sun Dec  5 15:32:25 1999
+<BR>
+@@ -27,7 +27,7 @@
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -39,28 +39,30 @@
+<BR>
+&nbsp;static void
+<BR>
+&nbsp;dp264_update_irq_hw(unsigned long irq, unsigned long mask, int unmask_p)
+<BR>
+&nbsp;{
+<BR>
+-	if (irq &gt;= 16) {
+<BR>
+-		volatile unsigned long *csr;
+<BR>
++	volatile unsigned long *csr;
+<BR>
+&nbsp;
+<BR>
+-		if (TSUNAMI_bootcpu &lt; 2)
+<BR>
+-			if (!TSUNAMI_bootcpu)
+<BR>
+-				csr = &amp;TSUNAMI_cchip-&gt;dim0.csr;
+<BR>
+-			else
+<BR>
+-				csr = &amp;TSUNAMI_cchip-&gt;dim1.csr;
+<BR>
++	if (TSUNAMI_bootcpu &lt; 2) {
+<BR>
++		if (!TSUNAMI_bootcpu)
+<BR>
++			csr = &amp;TSUNAMI_cchip-&gt;dim0.csr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else
+<BR>
+-			if (TSUNAMI_bootcpu == 2)
+<BR>
+-				csr = &amp;TSUNAMI_cchip-&gt;dim2.csr;
+<BR>
+-			else
+<BR>
+-				csr = &amp;TSUNAMI_cchip-&gt;dim3.csr;
+<BR>
+-		
+<BR>
+-		*csr = ~mask;
+<BR>
+-		mb();
+<BR>
+-		*csr;
+<BR>
++			csr = &amp;TSUNAMI_cchip-&gt;dim1.csr;
+<BR>
++	} else {
+<BR>
++		if (TSUNAMI_bootcpu == 2)
+<BR>
++			csr = &amp;TSUNAMI_cchip-&gt;dim2.csr;
+<BR>
++		else
+<BR>
++			csr = &amp;TSUNAMI_cchip-&gt;dim3.csr;
+<BR>
++	}
+<BR>
++
+<BR>
++	*csr = ~mask;
+<BR>
++	mb();
+<BR>
++	*csr;
+<BR>
++
+<BR>
++	if (irq &lt; 16) {
+<BR>
++		if (irq &gt;= 8)
+<BR>
++			outb(mask &gt;&gt; 8, 0xA1);	/* ISA PIC2 */
+<BR>
++		else
+<BR>
++			outb(mask, 0x21);	/* ISA PIC1 */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+-	else if (irq &gt;= 8)
+<BR>
+-		outb(mask &gt;&gt; 8, 0xA1);	/* ISA PIC2 */
+<BR>
+-	else
+<BR>
+-		outb(mask, 0x21);	/* ISA PIC1 */
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;static void
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_eb64p.c a/arch/alpha/kernel/sys_eb64p.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_eb64p.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_eb64p.c	Sun Dec  5 15:43:49 1999
+<BR>
+@@ -28,7 +28,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_lca.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -212,7 +212,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		eb64p_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		common_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		eb64p_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_eiger.c a/arch/alpha/kernel/sys_eiger.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_eiger.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_eiger.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -29,7 +29,7 @@
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_jensen.c a/arch/alpha/kernel/sys_jensen.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_jensen.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_jensen.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -28,7 +28,7 @@
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_miata.c a/arch/alpha/kernel/sys_miata.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_miata.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_miata.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -25,7 +25,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_pyxis.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_mikasa.c a/arch/alpha/kernel/sys_mikasa.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_mikasa.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_mikasa.c	Sun Dec  5 15:44:15 1999
+<BR>
+@@ -28,7 +28,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_cia.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -223,7 +223,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		mikasa_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		common_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		mikasa_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;};
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_nautilus.c a/arch/alpha/kernel/sys_nautilus.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_nautilus.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_nautilus.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -45,7 +45,7 @@
+<BR>
+&nbsp;#include &lt;asm/hwrpb.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_noritake.c a/arch/alpha/kernel/sys_noritake.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_noritake.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_noritake.c	Sun Dec  5 15:44:28 1999
+<BR>
+@@ -29,7 +29,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_cia.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -283,7 +283,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		noritake_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		common_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		noritake_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		noritake_swizzle,
+<BR>
+&nbsp;};
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_rawhide.c a/arch/alpha/kernel/sys_rawhide.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_rawhide.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_rawhide.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -25,7 +25,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_mcpcia.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_ruffian.c a/arch/alpha/kernel/sys_ruffian.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_ruffian.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_ruffian.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -26,7 +26,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_pyxis.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_rx164.c a/arch/alpha/kernel/sys_rx164.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_rx164.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_rx164.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -26,7 +26,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_polaris.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_sable.c a/arch/alpha/kernel/sys_sable.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_sable.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_sable.c	Sun Dec  5 15:44:40 1999
+<BR>
+@@ -26,7 +26,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_t2.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -283,7 +283,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sable_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		common_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		sable_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_sio.c a/arch/alpha/kernel/sys_sio.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_sio.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_sio.c	Sun Dec  5 15:44:54 1999
+<BR>
+@@ -30,7 +30,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_lca.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+@@ -359,7 +359,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sio_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		noname_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		noname_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;
+<BR>
+@@ -392,7 +391,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sio_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		noname_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		noname_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;
+<BR>
+@@ -434,7 +432,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sio_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		noname_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		p2k_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;
+<BR>
+@@ -467,7 +464,6 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_irq:		sio_init_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pit:		common_init_pit,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;init_pci:		noname_init_pci,
+<BR>
+-	kill_arch:		common_kill_arch,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_map_irq:		noname_map_irq,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pci_swizzle:		common_swizzle,
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_sx164.c a/arch/alpha/kernel/sys_sx164.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_sx164.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_sx164.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -26,7 +26,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_pyxis.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/sys_takara.c a/arch/alpha/kernel/sys_takara.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/sys_takara.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/sys_takara.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -25,7 +25,7 @@
+<BR>
+&nbsp;#include &lt;asm/core_cia.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;#include &quot;pci_impl.h&quot;
+<BR>
+&nbsp;#include &quot;machvec_impl.h&quot;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/arch/alpha/kernel/time.c a/arch/alpha/kernel/time.c
+<BR>
+--- 2.3.30pre6/arch/alpha/kernel/time.c	Sat Dec  4 04:45:46 1999
+<BR>
++++ a/arch/alpha/kernel/time.c	Sun Dec  5 15:20:06 1999
+<BR>
+@@ -40,7 +40,7 @@
+<BR>
+&nbsp;#include &lt;linux/timex.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &quot;proto.h&quot;
+<BR>
+-#include &quot;irq_impl.h&quot;
+<BR>
++#include &lt;asm/hw_irq.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern rwlock_t xtime_lock;
+<BR>
+&nbsp;extern volatile unsigned long lost_ticks;	/* kernel/sched.c */
+<BR>
+diff -urN 2.3.30pre6/drivers/net/rrunner.c a/drivers/net/rrunner.c
+<BR>
+--- 2.3.30pre6/drivers/net/rrunner.c	Sun Nov 21 03:20:18 1999
+<BR>
++++ a/drivers/net/rrunner.c	Sun Dec  5 15:20:07 1999
+<BR>
+@@ -32,10 +32,10 @@
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;#include &lt;linux/delay.h&gt;
+<BR>
+&nbsp;#include &lt;linux/mm.h&gt;
+<BR>
++#include &lt;linux/cache.h&gt;
+<BR>
+&nbsp;#include &lt;net/sock.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/system.h&gt;
+<BR>
+-#include &lt;asm/cache.h&gt;
+<BR>
+&nbsp;#include &lt;asm/byteorder.h&gt;
+<BR>
+&nbsp;#include &lt;asm/io.h&gt;
+<BR>
+&nbsp;#include &lt;asm/irq.h&gt;
+<BR>
+diff -urN 2.3.30pre6/drivers/pci/setup.c a/drivers/pci/setup.c
+<BR>
+--- 2.3.30pre6/drivers/pci/setup.c	Sat Dec  4 04:45:47 1999
+<BR>
++++ a/drivers/pci/setup.c	Sun Dec  5 15:20:08 1999
+<BR>
+@@ -16,8 +16,7 @@
+<BR>
+&nbsp;#include &lt;linux/pci.h&gt;
+<BR>
+&nbsp;#include &lt;linux/errno.h&gt;
+<BR>
+&nbsp;#include &lt;linux/ioport.h&gt;
+<BR>
+-
+<BR>
+-#include &lt;asm/cache.h&gt;
+<BR>
++#include &lt;linux/cache.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define DEBUG_CONFIG 0
+<BR>
+@@ -271,7 +270,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pbus_set_ranges(bus, NULL);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static void
+<BR>
++void __init
+<BR>
+&nbsp;pdev_fixup_irq(struct pci_dev *dev,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u8 (*swizzle)(struct pci_dev *, u8 *),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int (*map_irq)(struct pci_dev *, u8, u8))
+<BR>
+diff -urN 2.3.30pre6/include/asm-alpha/cache.h a/include/asm-alpha/cache.h
+<BR>
+--- 2.3.30pre6/include/asm-alpha/cache.h	Tue Sep 14 14:33:21 1999
+<BR>
++++ a/include/asm-alpha/cache.h	Sun Dec  5 15:20:08 1999
+<BR>
+@@ -10,6 +10,4 @@
+<BR>
+&nbsp;#define L1_CACHE_ALIGN(x)  (((x)+(L1_CACHE_BYTES-1))&amp;~(L1_CACHE_BYTES-1))
+<BR>
+&nbsp;#define SMP_CACHE_BYTES    L1_CACHE_BYTES
+<BR>
+&nbsp;
+<BR>
+-#define __cacheline_aligned __attribute__((__aligned__(L1_CACHE_BYTES)))
+<BR>
+-
+<BR>
+&nbsp;#endif
+<BR>
+diff -urN 2.3.30pre6/include/asm-alpha/hardirq.h a/include/asm-alpha/hardirq.h
+<BR>
+--- 2.3.30pre6/include/asm-alpha/hardirq.h	Thu Dec  2 03:08:05 1999
+<BR>
++++ a/include/asm-alpha/hardirq.h	Sun Dec  5 15:36:33 1999
+<BR>
+@@ -28,8 +28,8 @@
+<BR>
+&nbsp;#define hardirq_trylock(cpu)	(local_irq_count(cpu) == 0)
+<BR>
+&nbsp;#define hardirq_endlock(cpu)	((void) 0)
+<BR>
+&nbsp;
+<BR>
+-#define hardirq_enter(cpu, irq)	(local_irq_count(cpu)++)
+<BR>
+-#define hardirq_exit(cpu, irq)	(local_irq_count(cpu)--)
+<BR>
++#define irq_enter(cpu, irq)	(local_irq_count(cpu)++)
+<BR>
++#define irq_exit(cpu, irq)	(local_irq_count(cpu)--)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define synchronize_irq()	barrier()
+<BR>
+&nbsp;
+<BR>
+@@ -52,13 +52,16 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void hardirq_enter(int cpu, int irq)
+<BR>
++static inline void irq_enter(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++local_irq_count(cpu);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_inc(&amp;global_irq_count);
+<BR>
++
+<BR>
++	while (spin_is_locked(&amp;global_irq_lock))
+<BR>
++		barrier();
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void hardirq_exit(int cpu, int irq)
+<BR>
++static inline void irq_exit(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_dec(&amp;global_irq_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--local_irq_count(cpu);
+<BR>
+@@ -66,11 +69,10 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;static inline int hardirq_trylock(int cpu)
+<BR>
+&nbsp;{
+<BR>
+-	return (!atomic_read(&amp;global_irq_count)
+<BR>
+-		&amp;&amp; !spin_is_locked(&amp;global_irq_lock));
+<BR>
++	return !local_irq_count(cpu) &amp;&amp; !spin_is_locked(&amp;global_irq_lock);
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-#define hardirq_endlock(cpu)  ((void)0)
+<BR>
++#define hardirq_endlock(cpu)	do { } while (0)
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern void synchronize_irq(void);
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/include/asm-alpha/hw_irq.h a/include/asm-alpha/hw_irq.h
+<BR>
+--- 2.3.30pre6/include/asm-alpha/hw_irq.h	Thu Jan  1 01:00:00 1970
+<BR>
++++ a/include/asm-alpha/hw_irq.h	Sun Dec  5 15:38:27 1999
+<BR>
+@@ -0,0 +1,91 @@
+<BR>
++#ifndef _ALPHA_HW_IRQ_H
+<BR>
++#define _ALPHA_HW_IRQ_H
+<BR>
++/*
+<BR>
++ *	linux/arch/alpha/kernel/irq.h
+<BR>
++ *
+<BR>
++ *	Copyright (C) 1995 Linus Torvalds
+<BR>
++ *	Copyright (C) 1998 Richard Henderson
+<BR>
++ *
+<BR>
++ * This file contains declarations and inline functions for interfacing
+<BR>
++ * with the IRQ handling routines in irq.c.
+<BR>
++ */
+<BR>
++
+<BR>
++#include &lt;linux/config.h&gt;
+<BR>
++
+<BR>
++#define STANDARD_INIT_IRQ_PROLOG	\
+<BR>
++	outb(0, DMA1_RESET_REG);	\
+<BR>
++	outb(0, DMA2_RESET_REG);	\
+<BR>
++	outb(0, DMA1_CLR_MASK_REG);	\
+<BR>
++	outb(0, DMA2_CLR_MASK_REG)
+<BR>
++
+<BR>
++extern unsigned long _alpha_irq_masks[2];
+<BR>
++#define alpha_irq_mask _alpha_irq_masks[0]
+<BR>
++
+<BR>
++extern void common_ack_irq(unsigned long irq);
+<BR>
++extern void isa_device_interrupt(unsigned long vector, struct pt_regs * regs);
+<BR>
++extern void srm_device_interrupt(unsigned long vector, struct pt_regs * regs);
+<BR>
++
+<BR>
++extern void handle_irq(int irq, int ack, struct pt_regs * regs);
+<BR>
++
+<BR>
++#define RTC_IRQ    8
+<BR>
++#ifdef CONFIG_RTC
+<BR>
++#define TIMER_IRQ  0			 /* timer is the pit */
+<BR>
++#else
+<BR>
++#define TIMER_IRQ  RTC_IRQ		 /* timer is the rtc */
+<BR>
++#endif
+<BR>
++
+<BR>
++/*
+<BR>
++ * PROBE_MASK is the bitset of irqs that we consider for autoprobing.
+<BR>
++ */
+<BR>
++
+<BR>
++/* NOTE: we only handle the first 64 IRQs in this code. */
+<BR>
++
+<BR>
++/* The normal mask includes all the IRQs except timer IRQ 0.  */
+<BR>
++#define _PROBE_MASK(nr_irqs)	\
+<BR>
++	(((nr_irqs &gt; 63) ? ~0UL : ((1UL &lt;&lt; (nr_irqs &amp; 63)) - 1)) &amp; ~1UL)
+<BR>
++
+<BR>
++/* Mask out unused timer irq 0 and RTC irq 8. */
+<BR>
++#define P2K_PROBE_MASK		(_PROBE_MASK(16) &amp; ~0x101UL)
+<BR>
++
+<BR>
++/* Mask out unused timer irq 0, &quot;irqs&quot; 20-30, and the EISA cascade. */
+<BR>
++#define ALCOR_PROBE_MASK	(_PROBE_MASK(48) &amp; ~0xfff000000001UL)
+<BR>
++
+<BR>
++/* Leave timer IRQ 0 in the mask.  */
+<BR>
++#define RUFFIAN_PROBE_MASK	(_PROBE_MASK(48) | 1UL)
+<BR>
++
+<BR>
++/* Do not probe/enable beyond the PCI devices. */
+<BR>
++#define TSUNAMI_PROBE_MASK	_PROBE_MASK(48)
+<BR>
++
+<BR>
++#if defined(CONFIG_ALPHA_GENERIC)
+<BR>
++# define PROBE_MASK	alpha_mv.irq_probe_mask
+<BR>
++#elif defined(CONFIG_ALPHA_P2K)
+<BR>
++# define PROBE_MASK	P2K_PROBE_MASK
+<BR>
++#elif defined(CONFIG_ALPHA_ALCOR) || defined(CONFIG_ALPHA_XLT)
+<BR>
++# define PROBE_MASK	ALCOR_PROBE_MASK
+<BR>
++#elif defined(CONFIG_ALPHA_RUFFIAN)
+<BR>
++# define PROBE_MASK	RUFFIAN_PROBE_MASK
+<BR>
++#elif defined(CONFIG_ALPHA_DP264)
+<BR>
++# define PROBE_MASK	TSUNAMI_PROBE_MASK
+<BR>
++#else
+<BR>
++# define PROBE_MASK	_PROBE_MASK(NR_IRQS)
+<BR>
++#endif
+<BR>
++
+<BR>
++
+<BR>
++extern char _stext;
+<BR>
++static inline void alpha_do_profile (unsigned long pc)
+<BR>
++{
+<BR>
++	if (prof_buffer &amp;&amp; current-&gt;pid) {
+<BR>
++		pc -= (unsigned long) &amp;_stext;
+<BR>
++		pc &gt;&gt;= prof_shift;
+<BR>
++		/*
+<BR>
++		 * Don't ignore out-of-bounds PC values silently,
+<BR>
++		 * put them into the last histogram slot, so if
+<BR>
++		 * present, they will show up as a sharp peak.
+<BR>
++		 */
+<BR>
++		if (pc &gt; prof_len - 1)
+<BR>
++			pc = prof_len - 1;
+<BR>
++		atomic_inc((atomic_t *)&amp;prof_buffer[pc]);
+<BR>
++	}
+<BR>
++}
+<BR>
++
+<BR>
++#endif
+<BR>
+diff -urN 2.3.30pre6/include/asm-alpha/irq.h a/include/asm-alpha/irq.h
+<BR>
+--- 2.3.30pre6/include/asm-alpha/irq.h	Sat Dec  4 04:45:47 1999
+<BR>
++++ a/include/asm-alpha/irq.h	Sun Dec  5 15:36:33 1999
+<BR>
+@@ -67,9 +67,6 @@
+<BR>
+&nbsp;extern void disable_irq_nosync(unsigned int);
+<BR>
+&nbsp;extern void enable_irq(unsigned int);
+<BR>
+&nbsp;
+<BR>
+-extern void irq_enter(int cpu, int irq);
+<BR>
+-extern void irq_exit(int cpu, int irq);
+<BR>
+-
+<BR>
+&nbsp;struct pt_regs;
+<BR>
+&nbsp;extern void (*perf_irq)(unsigned long, struct pt_regs *);
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/include/asm-i386/cache.h a/include/asm-i386/cache.h
+<BR>
+--- 2.3.30pre6/include/asm-i386/cache.h	Tue Sep 14 14:33:21 1999
+<BR>
++++ a/include/asm-i386/cache.h	Sun Dec  5 15:20:10 1999
+<BR>
+@@ -11,16 +11,4 @@
+<BR>
+&nbsp;#define        L1_CACHE_BYTES  16
+<BR>
+&nbsp;#endif
+<BR>
+&nbsp;
+<BR>
+-#define        L1_CACHE_ALIGN(x)       (((x)+(L1_CACHE_BYTES-1))&amp;~(L1_CACHE_BYTES-1))
+<BR>
+-
+<BR>
+-#define        SMP_CACHE_BYTES L1_CACHE_BYTES
+<BR>
+-
+<BR>
+-#ifdef MODULE
+<BR>
+-#define __cacheline_aligned __attribute__((__aligned__(L1_CACHE_BYTES)))
+<BR>
+-#else
+<BR>
+-#define __cacheline_aligned					\
+<BR>
+-  __attribute__((__aligned__(L1_CACHE_BYTES),			\
+<BR>
+-		 __section__(&quot;.data.cacheline_aligned&quot;)))
+<BR>
+-#endif
+<BR>
+-
+<BR>
+&nbsp;#endif
+<BR>
+diff -urN 2.3.30pre6/include/asm-i386/hardirq.h a/include/asm-i386/hardirq.h
+<BR>
+--- 2.3.30pre6/include/asm-i386/hardirq.h	Sat Dec  4 18:18:08 1999
+<BR>
++++ a/include/asm-i386/hardirq.h	Sun Dec  5 15:20:10 1999
+<BR>
+@@ -17,8 +17,8 @@
+<BR>
+&nbsp;#define hardirq_trylock(cpu)	(local_irq_count[cpu] == 0)
+<BR>
+&nbsp;#define hardirq_endlock(cpu)	do { } while (0)
+<BR>
+&nbsp;
+<BR>
+-#define hardirq_enter(cpu)	(local_irq_count[cpu]++)
+<BR>
+-#define hardirq_exit(cpu)	(local_irq_count[cpu]--)
+<BR>
++#define irq_enter(cpu, irq)	(local_irq_count[cpu]++)
+<BR>
++#define irq_exit(cpu, irq)	(local_irq_count[cpu]--)
+<BR>
+&nbsp;
+<BR>
+&nbsp;#define synchronize_irq()	barrier()
+<BR>
+&nbsp;
+<BR>
+@@ -39,13 +39,17 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void hardirq_enter(int cpu)
+<BR>
++static inline void irq_enter(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++local_irq_count[cpu];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_inc(&amp;global_irq_count);
+<BR>
++
+<BR>
++	while (test_bit(0,&amp;global_irq_lock)) {
+<BR>
++		/* nothing */;
+<BR>
++	}
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+-static inline void hardirq_exit(int cpu)
+<BR>
++static inline void irq_exit(int cpu, int irq)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_dec(&amp;global_irq_count);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;--local_irq_count[cpu];
+<BR>
+diff -urN 2.3.30pre6/include/linux/bootmem.h a/include/linux/bootmem.h
+<BR>
+--- 2.3.30pre6/include/linux/bootmem.h	Sat Dec  4 04:45:48 1999
+<BR>
++++ a/include/linux/bootmem.h	Sun Dec  5 15:36:53 1999
+<BR>
+@@ -3,7 +3,7 @@
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/pgtable.h&gt;
+<BR>
+&nbsp;#include &lt;asm/dma.h&gt;
+<BR>
+-#include &lt;asm/cache.h&gt;
+<BR>
++#include &lt;linux/cache.h&gt;
+<BR>
+&nbsp;#include &lt;linux/init.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/*
+<BR>
+diff -urN 2.3.30pre6/include/linux/cache.h a/include/linux/cache.h
+<BR>
+--- 2.3.30pre6/include/linux/cache.h	Thu Jan  1 01:00:00 1970
+<BR>
++++ a/include/linux/cache.h	Sun Dec  5 15:20:10 1999
+<BR>
+@@ -0,0 +1,28 @@
+<BR>
++#ifndef __LINUX_CACHE_H
+<BR>
++#define __LINUX_CACHE_H
+<BR>
++
+<BR>
++#include &lt;asm/cache.h&gt;
+<BR>
++
+<BR>
++#ifndef L1_CACHE_ALIGN
+<BR>
++#define L1_CACHE_ALIGN(x) (((x)+(L1_CACHE_BYTES-1))&amp;~(L1_CACHE_BYTES-1))
+<BR>
++#endif
+<BR>
++
+<BR>
++#ifndef SMP_CACHE_BYTES
+<BR>
++#define SMP_CACHE_BYTES L1_CACHE_BYTES
+<BR>
++#endif
+<BR>
++
+<BR>
++#ifndef ____cacheline_aligned
+<BR>
++#define ____cacheline_aligned __attribute__((__aligned__(SMP_CACHE_BYTES)))
+<BR>
++#endif
+<BR>
++
+<BR>
++#ifndef __cacheline_aligned
+<BR>
++#ifdef MODULE
+<BR>
++#define __cacheline_aligned ____cacheline_aligned
+<BR>
++#else
+<BR>
++#define __cacheline_aligned					\
+<BR>
++  __attribute__((__aligned__(SMP_CACHE_BYTES),			\
+<BR>
++		 __section__(&quot;.data.cacheline_aligned&quot;)))
+<BR>
++#endif
+<BR>
++#endif /* __cacheline_aligned */
+<BR>
++
+<BR>
++#endif /* __LINUX_CACHE_H */
+<BR>
+diff -urN 2.3.30pre6/include/linux/fs.h a/include/linux/fs.h
+<BR>
+--- 2.3.30pre6/include/linux/fs.h	Sat Dec  4 04:45:48 1999
+<BR>
++++ a/include/linux/fs.h	Sun Dec  5 15:36:33 1999
+<BR>
+@@ -18,10 +18,10 @@
+<BR>
+&nbsp;#include &lt;linux/list.h&gt;
+<BR>
+&nbsp;#include &lt;linux/dcache.h&gt;
+<BR>
+&nbsp;#include &lt;linux/stat.h&gt;
+<BR>
++#include &lt;linux/cache.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/atomic.h&gt;
+<BR>
+&nbsp;#include &lt;asm/bitops.h&gt;
+<BR>
+-#include &lt;asm/cache.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;struct poll_table_struct;
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/include/linux/irq.h a/include/linux/irq.h
+<BR>
+--- 2.3.30pre6/include/linux/irq.h	Sat Dec  4 18:20:27 1999
+<BR>
++++ a/include/linux/irq.h	Sun Dec  5 15:38:41 1999
+<BR>
+@@ -42,7 +42,7 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;independent code */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct irqaction *action;		/* IRQ action list */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned int depth;			/* Disable depth for nested irq disables */
+<BR>
+-} irq_desc_t;
+<BR>
++} ____cacheline_aligned irq_desc_t;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include &lt;asm/hw_irq.h&gt; /* the arch dependent stuff */
+<BR>
+&nbsp;
+<BR>
+@@ -51,27 +51,6 @@
+<BR>
+&nbsp;extern int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
+<BR>
+&nbsp;extern spinlock_t irq_controller_lock;
+<BR>
+&nbsp;extern int setup_irq(unsigned int , struct irqaction * );
+<BR>
+-
+<BR>
+-#ifdef __SMP__
+<BR>
+-
+<BR>
+-#include &lt;asm/atomic.h&gt;
+<BR>
+-
+<BR>
+-static inline void irq_enter(int cpu, unsigned int irq)
+<BR>
+-{
+<BR>
+-	hardirq_enter(cpu);
+<BR>
+-	while (test_bit(0,&amp;global_irq_lock)) {
+<BR>
+-		/* nothing */;
+<BR>
+-	}
+<BR>
+-}
+<BR>
+-
+<BR>
+-static inline void irq_exit(int cpu, unsigned int irq)
+<BR>
+-{
+<BR>
+-	hardirq_exit(cpu);
+<BR>
+-}
+<BR>
+-#else
+<BR>
+-#define irq_enter(cpu, irq)	(++local_irq_count[cpu])
+<BR>
+-#define irq_exit(cpu, irq)	(--local_irq_count[cpu])
+<BR>
+-#endif
+<BR>
+&nbsp;
+<BR>
+&nbsp;extern hw_irq_controller no_irq_type;  /* needed in every arch ? */
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/include/linux/pci.h a/include/linux/pci.h
+<BR>
+--- 2.3.30pre6/include/linux/pci.h	Sat Dec  4 04:45:48 1999
+<BR>
++++ a/include/linux/pci.h	Sun Dec  5 15:36:33 1999
+<BR>
+@@ -478,6 +478,8 @@
+<BR>
+&nbsp;int pci_claim_resource(struct pci_dev *, int);
+<BR>
+&nbsp;void pci_assign_unassigned_resources(u32 min_io, u32 min_mem);
+<BR>
+&nbsp;void pci_set_bus_ranges(void);
+<BR>
++void pdev_fixup_irq(struct pci_dev *, u8 (*)(struct pci_dev *, u8 *),
+<BR>
++		    int (*)(struct pci_dev *, u8, u8));
+<BR>
+&nbsp;void pci_fixup_irqs(u8 (*)(struct pci_dev *, u8 *),
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int (*)(struct pci_dev *, u8, u8));
+<BR>
+&nbsp;
+<BR>
+diff -urN 2.3.30pre6/include/linux/slab.h a/include/linux/slab.h
+<BR>
+--- 2.3.30pre6/include/linux/slab.h	Sat Dec  4 18:18:11 1999
+<BR>
++++ a/include/linux/slab.h	Sun Dec  5 15:36:33 1999
+<BR>
+@@ -12,7 +12,7 @@
+<BR>
+&nbsp;typedef struct kmem_cache_s kmem_cache_t;
+<BR>
+&nbsp;
+<BR>
+&nbsp;#include	&lt;linux/mm.h&gt;
+<BR>
+-#include	&lt;asm/cache.h&gt;
+<BR>
++#include	&lt;linux/cache.h&gt;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* flags for kmem_cache_alloc() */
+<BR>
+&nbsp;#define	SLAB_BUFFER		GFP_BUFFER
+<BR>
+<P>Andrea
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0003.html">Martin Mares: "Re: [patch] alpha port 2.3.29pre3"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0005.html">Richard Henderson: "Re: [patch] 2.3.30pre6 alpha updates"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Mon Jan 03 2000 - 11:15:13 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

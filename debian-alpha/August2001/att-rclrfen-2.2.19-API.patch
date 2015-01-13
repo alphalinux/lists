@@ -1,0 +1,102 @@
+diff -Naur linux-2.2.19-API/arch/alpha/kernel/entry.S danielp-2.2.19-API/arch/alpha/kernel/entry.S
+--- linux-2.2.19-API/arch/alpha/kernel/entry.S	Sun Mar 25 11:37:29 2001
++++ danielp-2.2.19-API/arch/alpha/kernel/entry.S	Fri Jul 20 16:20:34 2001
+@@ -286,6 +286,8 @@
+ .end	__kernel_execve
+ 
+ .align 3
++.globl do_switch_fp_start
++.globl do_switch_fp_end	
+ .ent	do_switch_stack
+ do_switch_stack:
+ 	lda	$30,-SWITCH_STACK_SIZE($30)
+@@ -297,6 +299,7 @@
+ 	stq	$14,40($30)
+ 	stq	$15,48($30)
+ 	stq	$26,56($30)
++do_switch_fp_start:		
+ 	stt	$f0,64($30)
+ 	stt	$f1,72($30)
+ 	stt	$f2,80($30)
+@@ -331,10 +334,13 @@
+ 	stt	$f30,304($30)
+ 	stt	$f0,312($30)	# save fpcr in slot of $f31
+ 	ldt	$f0,64($30)	# dont let "do_switch_stack" change fp state.
++do_switch_fp_end:		
+ 	ret	$31,($1),1
+ .end do_switch_stack
+ 
+ .align 3
++.globl undo_switch_fp_start
++.globl undo_switch_fp_end		
+ .ent	undo_switch_stack
+ undo_switch_stack:
+ 	ldq	$9,0($30)
+@@ -345,6 +351,7 @@
+ 	ldq	$14,40($30)
+ 	ldq	$15,48($30)
+ 	ldq	$26,56($30)
++undo_switch_fp_start:		
+ 	ldt	$f30,312($30)	# get saved fpcr
+ 	ldt	$f0,64($30)
+ 	ldt	$f1,72($30)
+@@ -378,6 +385,7 @@
+ 	ldt	$f28,288($30)
+ 	ldt	$f29,296($30)
+ 	ldt	$f30,304($30)
++undo_switch_fp_end:	
+ 	lda	$30,SWITCH_STACK_SIZE($30)
+ 	ret	$31,($1),1
+ .end undo_switch_stack
+diff -Naur linux-2.2.19-API/arch/alpha/kernel/proto.h danielp-2.2.19-API/arch/alpha/kernel/proto.h
+--- linux-2.2.19-API/arch/alpha/kernel/proto.h	Tue Jun 26 07:25:00 2001
++++ danielp-2.2.19-API/arch/alpha/kernel/proto.h	Fri Jul 20 16:57:51 2001
+@@ -214,6 +214,11 @@
+ extern void entUna(void);
+ extern void entDbg(void);
+ 
++extern void do_switch_fp_start(void);
++extern void do_switch_fp_end(void);
++extern void undo_switch_fp_start(void);
++extern void undo_switch_fp_end(void);
++
+ /* process.c */
+ extern void generic_kill_arch (int mode, char *reboot_cmd);
+ extern int cpu_idle(void *) __attribute__((noreturn));
+diff -Naur linux-2.2.19-API/arch/alpha/kernel/traps.c danielp-2.2.19-API/arch/alpha/kernel/traps.c
+--- linux-2.2.19-API/arch/alpha/kernel/traps.c	Tue Jun 26 08:22:19 2001
++++ danielp-2.2.19-API/arch/alpha/kernel/traps.c	Fri Jul 20 18:00:08 2001
+@@ -358,6 +358,23 @@
+ 	 unsigned long a2, unsigned long a3, unsigned long a4,
+ 	 unsigned long a5, struct pt_regs regs)
+ {
++	if (type == 3 && !(regs.ps & 8) ) {
++		/*
++		 * Handle a rare case where the user has disabled floating
++		 * point using the clrfen PALcall and the kernel is attempting
++		 * to view floating point state. This happens in two asm stubs:
++		 * do_switch_stack and undo_switch_stack. 
++		 * If this is the case, we modify the return value to pass
++		 * over this section and resume from there. 
++		 */
++		if (regs.pc == (unsigned long) do_switch_fp_start) {
++			regs.pc = (unsigned long) do_switch_fp_end;
++			return;
++		} else if (regs.pc == (unsigned long) undo_switch_fp_start) {
++			regs.pc = (unsigned long) undo_switch_fp_end;
++			return;
++		}
++	}
+ 	die_if_kernel("Instruction fault", &regs, type, 0);
+ 	switch (type) {
+ 	      case 0: /* breakpoint */
+@@ -409,7 +426,7 @@
+ 		break;
+ 
+ 	      case 3: /* FEN fault */
+-		send_sig(SIGILL, current, 1);
++		send_sig(SIGFPE, current, 1);
+ 		break;
+ 
+ 	      case 4: /* opDEC */
+

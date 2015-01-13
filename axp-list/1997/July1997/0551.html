@@ -1,0 +1,127 @@
+<!-- received="Wed Jul 23 06:14:18 1997 " -->
+<!-- sent="Wed, 23 Jul 1997 06:11:39 -0400 (EDT)" -->
+<!-- name="Richard Bullington" -->
+<!-- email="rbulling@obscure.org" -->
+<!-- subject="Re: RADIUS on Linux/Alpha" -->
+<!-- id="97Jul23.103046bst.4481@gatekeeper.annex.co.uk" -->
+<!-- inreplyto="Pine.LNX.3.95.970723054520.446E-100000@tiamat.obscure.org" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: RADIUS on Linux/Alpha</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: RADIUS on Linux/Alpha</h2>
+
+<b>Richard Bullington</b> (<a href="mailto:rbulling@obscure.org"><i>rbulling@obscure.org</i></a>)<br>
+<i>Wed, 23 Jul 1997 06:11:39 -0400 (EDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#551">[ date ]</a><a href="index.html#551">[ thread ]</a><a href="subject.html#551">[ subject ]</a><a href="author.html#551">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0552.html">Claus Denk: "Re: Commercial Fortran77 compilers"</a>
+<li> <b>Previous message:</b> <a href="0550.html">Richard Bullington: "Re: RADIUS on Linux/Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I know it's terrible form responding to one's own messages, but I forgot<br>
+that I had to patch the code to get it to work.<br>
+<p>
+On Wed, 23 Jul 1997, Richard Bullington wrote:<br>
+<p>
+<i>&gt; On Wed, 23 Jul 1997, Douglas W Babst wrote:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; I'm a recent proud owner of a DEC Alpha clone (433mhz Durango, RedHat</i><br>
+<i>&gt; &gt; Linux 4.2, 2.0.30 kernel) and have run into my first (fairly) serious</i><br>
+<i>&gt; &gt; compiling problem.  Has anyone compiled Livingston 1.16 RADIUS on</i><br>
+<i>&gt; &gt; Linux/Alpha?  Below are the results of the make.</i><br>
+<i>&gt; </i><br>
+<i>&gt; The radiusd described at <a href="http://miquels.www.cistron.nl/radius/">http://miquels.www.cistron.nl/radius/</a> is working</i><br>
+<i>&gt; beautifully here on Red Hat 4.1, 2.0.27 kernel, UDB 166MHz Alpha hardware.</i><br>
+<i>&gt; This may suit your purposes. It is based on 1.16 RADIUS and has</i><br>
+<i>&gt; significant enhancements, also described at that URL.</i><br>
+<p>
+What I meant to add was, 'as long as you fix the integer size assumption<br>
+that the MD5 code makes, and the crypt assumptions that GNU libc makes,<br>
+and link it dynamically'.<br>
+<p>
+This patch is not ideal, and it will probably fail on i386 boxes, but it<br>
+works for getting things running on the Alpha:<br>
+<p>
+diff -U 3 -r radiusd-cistron-1.5.3-original/src/Makefile radiusd-cistron-1.5.3/src/Makefile<br>
+--- radiusd-cistron-1.5.3-original/src/Makefile	Thu Feb 20 08:12:51 1997<br>
++++ radiusd-cistron-1.5.3/src/Makefile	Sun Jun 15 08:13:55 1997<br>
+@@ -13,9 +13,10 @@<br>
+ DBM	= -DNDBM<br>
+ DBMLIB	= -ldb<br>
+ <br>
+-CFLAGS	= -Wall -g -DCISTRON_COMPAT # -DNOSHADOW<br>
+-LDFLAGS	= -static<br>
++CFLAGS	= -Wall -pedantic -g -DCISTRON_COMPAT # -DNOSHADOW<br>
++LDFLAGS	= <br>
++#LDFLAGS	= -static <br>
+ CC	= gcc<br>
+-LIBS	= $(SLIB)<br>
++LIBS	= $(SLIB) -lcrypt<br>
+ <br>
+ include Make.inc<br>
+diff -U 3 -r radiusd-cistron-1.5.3-original/src/md5.h radiusd-cistron-1.5.3/src/md5.h<br>
+--- radiusd-cistron-1.5.3-original/src/md5.h	Mon Feb 10 10:50:28 1997<br>
++++ radiusd-cistron-1.5.3/src/md5.h	Sun Jun 15 08:26:56 1997<br>
+@@ -21,7 +21,7 @@<br>
+ typedef unsigned short int UINT2;<br>
+ <br>
+ /* UINT4 defines a four byte word */<br>
+-#if defined(__alpha) &amp;&amp; defined(__osf__)<br>
++#if defined(__alpha) || defined(__osf__)<br>
+ typedef unsigned int UINT4;<br>
+ #else<br>
+ typedef unsigned long int UINT4;<br>
+diff -U 3 -r radiusd-cistron-1.5.3-original/src/radiusd.c radiusd-cistron-1.5.3/src/radiusd.c<br>
+--- radiusd-cistron-1.5.3-original/src/radiusd.c	Mon May  5 07:44:09 1997<br>
++++ radiusd-cistron-1.5.3/src/radiusd.c	Sun Jun  8 13:54:09 1997<br>
+@@ -50,6 +50,7 @@<br>
+ #include	&lt;sys/wait.h&gt;<br>
+ #include	&lt;malloc.h&gt;<br>
+ #include	&lt;getopt.h&gt;<br>
++#include	&lt;crypt.h&gt;<br>
+ <br>
+ #if !defined(NOSHADOW)<br>
+ #include	&lt;shadow.h&gt;<br>
+<p>
+<p>
+<p>
+<p>
+-Richard Bullington &lt;<a href="mailto:rbulling@obscure.org">rbulling@obscure.org</a>&gt;   <a href="http://www.obscure.org">http://www.obscure.org</a><br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0552.html">Claus Denk: "Re: Commercial Fortran77 compilers"</a>
+<li> <b>Previous message:</b> <a href="0550.html">Richard Bullington: "Re: RADIUS on Linux/Alpha"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,271 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Linux Alpha List: noname alpha PCI IRQ problem</TITLE>
+<META NAME="Author" CONTENT="Thorsten Kranzkowski (th@Marvin.DL8BCU.ampr.org)">
+<META NAME="Subject" CONTENT="noname alpha PCI IRQ problem">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>noname alpha PCI IRQ problem</H1>
+<HR>
+<P>
+<!-- received="Thu May 06 22:35:28 1999" -->
+<!-- isoreceived="19990507053528" -->
+<!-- sent="Wed, 5 May 1999 21:07:42 +0000 (UTC)" -->
+<!-- isosent="19990505210742" -->
+<!-- name="Thorsten Kranzkowski" -->
+<!-- email="th@Marvin.DL8BCU.ampr.org" -->
+<!-- subject="noname alpha PCI IRQ problem" -->
+<!-- id="199905052107.VAA02249@Marvin.DL8BCU.ampr.org" -->
+<STRONG>Subject: </STRONG>noname alpha PCI IRQ problem<BR>
+<STRONG>From: </STRONG>Thorsten Kranzkowski (<EM>th@Marvin.DL8BCU.ampr.org</EM>)<BR>
+<STRONG>Date: </STRONG>Wed May 05 1999 - 14:07:42 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#3">[ date ]</A>
+<A HREF="index.html#3">[ thread ]</A>
+<A HREF="subject.html#3">[ subject ]</A>
+<A HREF="author.html#3">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Kenneth Preslan: "2.2.7 Alpha Semaphore Bug"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">Roberto Carlos Navas: "HELP!"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hello!
+<BR>
+I've got some problems with IRQ allocation on my noname alpha system.
+<BR>
+First I should say that I'm not an alpha expert. 2 months ago I bought a
+<BR>
+cheap AXPpci33 board and then build a complete (sort of...) Linux system
+<BR>
+from source on it. Initial compiler and libraries were bootstrapped by
+<BR>
+crosscompiling from my i486 system. 
+<BR>
+<P>Ok, the layout 'before running into problems' was:
+<BR>
+<P>pci (J27)	ATI Xpert@Play VGA
+<BR>
+pci (J26)	empty
+<BR>
+pci (J25)	empty
+<BR>
+isa (J24)	8-port serial card ['fourport'-type] (using irq 5 for all ports)
+<BR>
+isa (J23)	multi-io 4s/3p (io-adresses _not_ conflicting with onbord ports,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq 15 for serial ports, irq 7 preserved for parallel)
+<BR>
+isa (J22)	empty
+<BR>
+isa (J21)	3c509 irq 9
+<BR>
+isa (J20)	soundblaster 16 irq 10
+<BR>
+<P>Problems arose when I plugged an ISDN card (AVM Fritz!pci) into J26. When 
+<BR>
+booting the system immediately locks up when setserial'ing the first serial
+<BR>
+port on J23 (irq 15). There is no Kernel message etc. 
+<BR>
+<P>I understand that PCI has 4 IRQ-lines that are somewhat magically mapped to
+<BR>
+the usual 'ISA'-irqs. As there's no PCI-BIOS-SETUP on (this?) alpha I 
+<BR>
+further assumed that this mapping is someway 'hardwired' into the linux-kernel.
+<BR>
+So the conflict should have gone away when I swapped th VGA and ISDN card.
+<BR>
+(The VGA doesn't use an irq). I was proven wrong:
+<BR>
+<P>pci (J27)       AVM Fritz!pci ISDN
+<BR>
+pci (J26)       ATI Xpert@Play VGA
+<BR>
+<P>The problem persisted - and surprisingly _WENT AWAY_ when I pulled the VGA 
+<BR>
+out of J26 ! (I have a serial terminal at ttyS0 so booting is no problem 
+<BR>
+without VGA)
+<BR>
+Time to look at the kernel .......
+<BR>
+<P>I lernt a lot about pci :-) and think finally found the reason:
+<BR>
+1. linux has indeed a hardwired idea of the pci interrupts:
+<BR>
+&nbsp;&nbsp;&nbsp;see sys_sio.c: noname_map_irq() and noname_pci_fixup()
+<BR>
+2. linux has an automated workaround for buggy pci hardware:
+<BR>
+&nbsp;&nbsp;&nbsp;bios32.c: common_pci_fixup() :
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Cope with 0 and illegal. */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (pin == 0 || pin &gt; 4)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pin = 1;
+<BR>
+&nbsp;&nbsp;&nbsp;---&gt; this errorneously allocates irq-pin 1 to my VGA although it
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;doesn't have/use any irq
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;irq-pin 1 apparently maps to irq 15 then.
+<BR>
+3. noname_pci_fixup() then calls sio_fixup_irq_levels() and thus makes
+<BR>
+&nbsp;&nbsp;&nbsp;irq 15 level-sensitive
+<BR>
+4. The 4s/3p bord uses a homemade diode-matrix to tie the ports' irq-lines
+<BR>
+&nbsp;&nbsp;&nbsp;together with a 10kOhm resistor to achieve ground (aka 'inactive' or 'idle'
+<BR>
+&nbsp;&nbsp;&nbsp;level) on the ISA-irq-line.
+<BR>
+<P>So when setserial requests configuration on (one of) that port(s) the irq-line
+<BR>
+gets enabled and traps the kernel in an endless irq servicing loop. right?
+<BR>
+<P>I then made the following modification that actually solved my particular 
+<BR>
+problem by assuring that the relevant irq-line doesn't get switched to
+<BR>
+level-sensitive:
+<BR>
+<P>-------------snip---------------
+<BR>
+--- linux/arch/alpha/kernel/sys_sio.c.orig      Fri Apr 30 23:29:27 1999
+<BR>
++++ linux/arch/alpha/kernel/sys_sio.c   Fri Apr 30 18:31:00 1999
+<BR>
+@@ -232,7 +232,11 @@
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* selected... :-(
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;layout_all_busses(DEFAULT_IO_BASE, APECS_AND_LCA_DEFAULT_MEM_BASE);
+<BR>
++#if 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sio_pci_fixup(noname_map_irq, 0x0b0a0f0d);
+<BR>
++#else
+<BR>
++       sio_pci_fixup(noname_map_irq, 0x0b00000e);
+<BR>
++#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sio_fixup_irq_levels(sio_collect_irq_levels());
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enable_ide(0x26e);
+<BR>
+&nbsp;}
+<BR>
+-------------snip---------------
+<BR>
+NOTE1: kernel is 2.2.7
+<BR>
+NOTE2: THIS IS A HACK! I don't ask anybody to include this somewhere.....
+<BR>
+NOTE3: irq 14 is ok for me - it's a scsi-only system :-)
+<BR>
+<P>What I want is to create a (or extend the 'pci=') boot option to let the
+<BR>
+user select an appropriate irq-mapping. Probably a MILO environment variable
+<BR>
+is even better suited so MILO and Linux could use the same settings?
+<BR>
+Since I have no clue about other architectures (even other alphas) or 
+<BR>
+multi-pci-buses: 
+<BR>
+<P>What do you think is the right way to do it?
+<BR>
+<P>I'd like that one would to be able to adapt it to other architectures that 
+<BR>
+might need (or don't really need but could implement) it.
+<BR>
+<P>Related Questions:
+<BR>
+<P>1) the INTERRUPT_LINE value one can read/set with the setpci command is meant
+<BR>
+&nbsp;&nbsp;&nbsp;to be an informal message from pci-bios to driver-software and doesn't
+<BR>
+&nbsp;&nbsp;&nbsp;configure anything, right?
+<BR>
+<P>2) the INTERRUPT_PIN value appears to be read-only on my two cards (VGA reports
+<BR>
+&nbsp;&nbsp;&nbsp;00, AVM reports 01 - regardless of what I try to set it). Is this true
+<BR>
+&nbsp;&nbsp;&nbsp;for every PCI-card?
+<BR>
+<P>3) My AXPpci is the variant with the 5-pin DIN keyboard connector. Is the
+<BR>
+&nbsp;&nbsp;&nbsp;PS/2 interface electrically present on this board (i.e. could I use some
+<BR>
+&nbsp;&nbsp;&nbsp;wire to attach a PS/2-style mouse port)?
+<BR>
+&nbsp;&nbsp;&nbsp;I do ask because I remember that irq 12 didn't work with the 4s/3p board
+<BR>
+&nbsp;&nbsp;&nbsp;while irq 15 did. I didn't doublecheck this though.
+<BR>
+<P>4) Any chance to alter the internal interfaces irq(and io?)-settings?
+<BR>
+&nbsp;&nbsp;&nbsp;[ttyS0, ttyS1, par0, ide0, ps/2]
+<BR>
+<P>5) What about irq 13 (unuseable on intel, but ...)? when I look at my patch
+<BR>
+&nbsp;&nbsp;&nbsp;above, the original value suggests that a mapping to irq 13 _should_ be
+<BR>
+&nbsp;&nbsp;&nbsp;possible, but it didn't work. At least the AVM-Card was missing generating
+<BR>
+&nbsp;&nbsp;&nbsp;interrupts. The status messages listes irq 13 as expected, but no 
+<BR>
+&nbsp;&nbsp;&nbsp;interrupts detected. with irq 14 it works (ok, the card obviously gets
+<BR>
+&nbsp;&nbsp;&nbsp;initialized but I'm still waiting for the telephone company (Dt. Telecom)
+<BR>
+&nbsp;&nbsp;&nbsp;to install the ISDN-Line so I can start doing something useful....)
+<BR>
+&nbsp;&nbsp;&nbsp;In case it does matter: I use the HiSax driver isdn-9904191100.tar.gz
+<BR>
+&nbsp;&nbsp;&nbsp;found on ftp.suse.de. As of 2.2.7 the main kernel lacks support of the
+<BR>
+&nbsp;&nbsp;&nbsp;pci-variant of this ISDN card.
+<BR>
+<P>Thanks for reading this lengthy post, any comments appreciated!
+<BR>
+<P><P><PRE>
+-- 
+| Thorsten Kranzkowski            Snail: Niemannsweg 30, 49201 Dissen, Germany |
+| Mobile: ++49 161 7210230         Inet: dl8bcu@gmx.net                        |
+| Ampr: dl8bcu@db0nei.#nrw.deu.eu, dl8bcu@marvin.dl8bcu.ampr.org [44.130.8.19] |
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0004.html">Kenneth Preslan: "2.2.7 Alpha Semaphore Bug"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0002.html">Roberto Carlos Navas: "HELP!"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Tue Jun 01 1999 - 09:56:34 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

@@ -1,0 +1,135 @@
+<!-- received="Tue Oct  8 16:41:36 1996 " -->
+<!-- sent="Tue, 8 Oct 1996 21:16:25 +0300 (EET DST)" -->
+<!-- name="Linus Torvalds" -->
+<!-- email="torvalds@cs.Helsinki.FI" -->
+<!-- subject="Linux-2.0.22 and Linux-2.1.2" -->
+<!-- id="199610081651.LAA19884@atheist.tamu.edu" -->
+<!-- inreplyto="199610081511.IAA03722@panda.mosberger" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Linux-2.0.22 and Linux-2.1.2</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Linux-2.0.22 and Linux-2.1.2</h2>
+
+<b>Linus Torvalds</b> (<a href="mailto:torvalds@cs.Helsinki.FI"><i>torvalds@cs.Helsinki.FI</i></a>)<br>
+<i>Tue, 8 Oct 1996 21:16:25 +0300 (EET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#280">[ date ]</a><a href="index.html#280">[ thread ]</a><a href="subject.html#280">[ subject ]</a><a href="author.html#280">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0281.html">David T. Margrave: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0279.html">Richard Henderson: "Re: YP on Linux/AXP anyone?"</a>
+<li> <b>In reply to:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0283.html">David  Mosberger: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I made both a new 2.0.x and a 2.1.x release, and they are available on the<br>
+usual sites. The 2.0.x is mainly a few driver updates, but also has the pty<br>
+bug-fix that people in the 2.1.x tree have already been testing out. <br>
+<p>
+2.1.2 is the much more interestign one, at least as far as I'm concerned. <br>
+This release does:<br>
+<p>
+ - goodbye old inefficient "verify_area()", hello run-time exceptions.<br>
+<p>
+Essentially, the old "verify_area()" was a very straightforward system that<br>
+checked that any pointer given to the kernel was valid. It verified that the<br>
+area was mapped, and returned either 0 or -EFAULT depending on that. It was<br>
+reliable, boringly so. <br>
+<p>
+However, "verify_area()" did have a few problems. Notably: it was slow.  Not<br>
+"horribly and inexplicably slow", but it was simply called a lot, and it had<br>
+to do a lot of checks. End result: it shows up on kernel profiles pretty<br>
+well. <br>
+<p>
+Now, I tried to optimize it, but it was basically pretty optimized already.<br>
+It used avl trees to find the memory areas, and it was just plain a good<br>
+implementation. But the bad thing about it all was that it never found any<br>
+errors. The things it checks against are things that never happen for normal<br>
+programs, and as such it is very irritating to see it taking up almost 20% of<br>
+the kernel time under some circumstances. <br>
+<p>
+Now, "verify_area()" had another more subtle problem, and that was the fact<br>
+that the memory mapping that it checked could _change_ after it had been<br>
+checked when people used kernel threads (another thread did a mmap or a<br>
+munmap). That wasn't originally a problem, as Linux didn't have threads<br>
+originally, but it's been nagging me for the last year or two. <br>
+<p>
+So... Enter the all-new-and-improved Linux-2.1.2. It gets rid of<br>
+"verify_area()" altogether. Or rather, the function still exists, but it<br>
+doesn't really do much any more. In fact, it does just about the same thing<br>
+that it did in Linux-0.01: it only tests that the pointer is in user space<br>
+(and it does _not_ check whether the area it points to is actually mapped). <br>
+<p>
+Voila, instant speedup: the function that used to take 20% of kernel time<br>
+under some circumstances is now a inline function that expands to just a few<br>
+assembly instructions. <br>
+<p>
+The downside? Bad programs who mess with the kernel. They pass invalid<br>
+addresses to system calls, and nothing checks it any more. Bummer. But don't<br>
+despair: we do actually have something that checks the invalid addresses. <br>
+And what's nice about it is that it's actually built-in in the CPU hardware.<br>
+The paging unit. <br>
+<p>
+Anyway, Linux-2.1.2 now uses exceptions to trap bad system call buffers.  The<br>
+new scheme is a bit more complex to actually use, but it's a _lot_ faster,<br>
+and it actually works correctly in the presense of kernel threads (the old<br>
+one worked fine too usually, but it _could_ make mistakes, and making<br>
+mistakes isn't really acceptable when the whole and only idea of the function<br>
+is to verify that no mistakes happen in the first place). <br>
+<p>
+However, I didn't have the stamina to add the extra exception handling to all<br>
+of the system calls, so Linux-2.1.2 is a work in progress in that sense. <br>
+It's not hard to add the necessary "exception()/end_exception()" pairs, but<br>
+it _is_ tedious, and it does require some care (to make sure everything is<br>
+"rolled back" correctly when an exception happens). So I'll be doing that<br>
+over a period of kernels, but I wanted to make the basic stuff available now. <br>
+<p>
+In addition to the exception stuff, 2.1.2 also does:<br>
+ - updates some alpha handling. This should contain all the important things<br>
+   from the axp-diffs that David M-T has been making. <br>
+ - alpha and x86 system call entry optimizations. I now get less than 1us<br>
+   system call latencies on my ev5/333 according to lmbench. <br>
+ - various minor changes ("a" -&gt; "an" fixes etc)<br>
+<p>
+David: don't expect all of your patches to be in. I didn't actually use much<br>
+more than you machine check patches as-is: everything else is essentially<br>
+re-done the way I perferred it.<br>
+<p>
+		Linus<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0281.html">David T. Margrave: "Re: Assorted Noname Problems"</a>
+<li> <b>Previous message:</b> <a href="0279.html">Richard Henderson: "Re: YP on Linux/AXP anyone?"</a>
+<li> <b>In reply to:</b> <a href="0268.html">David Mosberger-Tang: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0283.html">David  Mosberger: "Re: redhat-4.0: /sbin/clock for the Jensen (again)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

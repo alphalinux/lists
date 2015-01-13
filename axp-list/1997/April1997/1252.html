@@ -1,0 +1,88 @@
+<!-- received="Wed Apr 30 21:41:45 1997 " -->
+<!-- sent="Thu, 1 May 1997 03:37:51 +0200 (MET DST)" -->
+<!-- name="bert hubert" -->
+<!-- email="ahu@vvtp.tn.tudelft.nl" -->
+<!-- subject="Re: Regarding earlier mail, compiling joe, Oops &amp; VFS weirdness.." -->
+<!-- id="199705010020.UAA01199@soul-shack.taco.net" -->
+<!-- inreplyto="Pine.LNX.3.91.970430232724.1110B-100000@vvtp.tn.tudelft.nl" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Regarding earlier mail, compiling joe, Oops &amp; VFS weirdness..</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Regarding earlier mail, compiling joe, Oops &amp; VFS weirdness..</h2>
+
+<b>bert hubert</b> (<a href="mailto:ahu@vvtp.tn.tudelft.nl"><i>ahu@vvtp.tn.tudelft.nl</i></a>)<br>
+<i>Thu, 1 May 1997 03:37:51 +0200 (MET DST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1252">[ date ]</a><a href="index.html#1252">[ thread ]</a><a href="subject.html#1252">[ subject ]</a><a href="author.html#1252">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1253.html">matt: "AlphaStation 255 Boot Disk Problem  (fwd)"</a>
+<li> <b>Previous message:</b> <a href="1251.html">dayv: "utmp problem update"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+On Wed, 30 Apr 1997, bert hubert wrote:<br>
+<p>
+<i>&gt; In my mail from yesterday I mentioned that sometimes it caused an Oops 0 </i><br>
+<i>&gt; message, and quoted it, but also said that it sometimes gave VFS errors. </i><br>
+<i>&gt; I have now been able to reproduce this one:</i><br>
+<p>
+Ok, I've sussed it! It turns out that this is a bug relevant to (at <br>
+least) linux 2.0.27 to 2.1.24, all platforms! That is, unless I'm <br>
+terribly mistaken, this is only my second attempt at kernel-hacking.<br>
+<p>
+When trying to dump core on an ELF system, it includes the first 80 bytes <br>
+of arguments which were passed to the program. This is an char arguments[80] <br>
+kind of string. If more than 80 characters were passed, the string is <br>
+terminated like this: arguments[80]=0;, which results in an overrun to <br>
+the inode pointer!<br>
+<p>
+To fix this, use something like this patch, which works on anything I've <br>
+tried since 2.0.27:<br>
+<p>
+--- binfmt_elf.c	Thu May  1 03:27:19 1997<br>
++++ binfmt_elf.c        Thu May  1 03:28:05 1997<br>
+@@ -1146,7 +1146,7 @@<br>
+                for(i = 0; i &lt; len; i++)<br>
+                        if (psinfo.pr_psargs[i] == 0)<br>
+                                psinfo.pr_psargs[i] = ' ';<br>
+-               psinfo.pr_psargs[len] = 0;<br>
++               psinfo.pr_psargs[len-1] = 0;<br>
+<p>
+                set_fs(KERNEL_DS);<br>
+        }<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1253.html">matt: "AlphaStation 255 Boot Disk Problem  (fwd)"</a>
+<li> <b>Previous message:</b> <a href="1251.html">dayv: "utmp problem update"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

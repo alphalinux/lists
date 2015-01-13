@@ -1,0 +1,91 @@
+<!-- received="Sat Jun 22 21:17:00 1996 " -->
+<!-- sent="Sat, 22 Jun 1996 21:17:00 -0700" -->
+<!-- name="David Mosberger-Tang" -->
+<!-- email="davidm@AZStarNet.com" -->
+<!-- subject="minor mailx-5.5 bugfix" -->
+<!-- id="199606230417.VAA01117@panda.azstarnet.com" -->
+<!-- inreplyto="" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>minor mailx-5.5 bugfix</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>minor mailx-5.5 bugfix</h2>
+
+<b>David Mosberger-Tang</b> (<a href="mailto:davidm@AZStarNet.com"><i>davidm@AZStarNet.com</i></a>)<br>
+<i>Sat, 22 Jun 1996 21:17:00 -0700</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#282">[ date ]</a><a href="index.html#282">[ thread ]</a><a href="subject.html#282">[ subject ]</a><a href="author.html#282">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0283.html">Dominique Avatravaux: "bcopy missing : includes problem ?"</a>
+<li> <b>Previous message:</b> <a href="0281.html">David Mosberger-Tang: "new _experimental_ kernel patch"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Ken,<br>
+<p>
+Here is a tiny patch that avoids getting unaligned faults on<br>
+Linux/Alpha.  Since pointers (and longs) are 64-bit large, salloc()<br>
+should return memory that is aligned at least to the size of a long.<br>
+<p>
+	--david<br>
+<pre>
+--
+--- mailx/mailx-5.5/strings.c~	Fri Dec 17 00:13:00 1993
++++ mailx/mailx-5.5/strings.c	Sat Jun 22 21:11:26 1996
+@@ -48,10 +48,11 @@
+ 
+ /*
+  * Allocate size more bytes of space and return the address of the
+- * first byte to the caller.  An even number of bytes are always
+- * allocated so that the space will always be on a word boundary.
+- * The string spaces are of exponentially increasing size, to satisfy
+- * the occasional user with enormous string size requests.
++ * first byte to the caller.  An size that is an integer multiple of a
++ * "long" is always allocated so that the space will always be on a
++ * word boundary.  The string spaces are of exponentially increasing
++ * size, to satisfy the occasional user with enormous string size
++ * requests.
+  */
+ 
+ char *
+@@ -63,8 +64,8 @@
+ 	int index;
+ 
+ 	s = size;
+-	s += 3;
+-	s &amp;= ~03;
++	s += sizeof(long) - 1;
++	s &amp;= ~(sizeof(long) - 1);
+ 	index = 0;
+ 	for (sp = &amp;stringdope[0]; sp &lt; &amp;stringdope[NSPACE]; sp++) {
+ 		if (sp-&gt;s_topFree == NOSTR &amp;&amp; (STRINGSIZE &lt;&lt; index) &gt;= s)
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0283.html">Dominique Avatravaux: "bcopy missing : includes problem ?"</a>
+<li> <b>Previous message:</b> <a href="0281.html">David Mosberger-Tang: "new _experimental_ kernel patch"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

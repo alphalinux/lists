@@ -1,0 +1,1106 @@
+diff -u --recursive --new-file v2.2.11/linux/Documentation/Configure.help linux/Documentation/Configure.help
+--- v2.2.11/linux/Documentation/Configure.help	Tue Aug 10 05:04:57 1999
++++ linux/Documentation/Configure.help	Thu Oct 21 17:58:27 1999
+@@ -11588,8 +11588,22 @@
+    Everyone using these boards should say Y here.  
+    See "linux/Documentation/cpqarray.txt" for the current list of 
+    boards supported by this driver, and for further information 
+-   on the use of this driver. 
+- 
++   on the use of this driver.
++
++Emulation of some extended alpha instructions
++CONFIG_ALPHA_EXTINSNS
++  This emulates some instructions which are not implemented in hardware
++  on some alpha CPU's.  Emulation is provided for byte/word load/store
++  instructions (in the BWX instruction set extension) and the multimedia
++  extension instructions.  If you say Y here then this emulation code will
++  be included in your kernel.  Any of these instructions which your
++  hardware supports will not be emulated even if you have included the
++  emulation code in your kernel.  If unsure, say N.
++
++  Here is the list of emulated instructions:
++  maxuw, maxsw, minuw, minsw, maxub, maxsb, minsb, minub,
++  sexb, sexw, perr, pklb, pkwb, unpkbl, unpkbw, stb, stw, ldbu, ldwu.
++
+ #
+ # A couple of things I keep forgetting:
+ #   capitalize: AppleTalk, Ethernet, DOS, DMA, FAT, FTP, Internet, 
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/config.in linux/arch/alpha/config.in
+--- v2.2.11/linux/arch/alpha/config.in	Sun May 23 06:41:37 1999
++++ linux/arch/alpha/config.in	Fri Oct 22 02:18:51 1999
+@@ -280,6 +280,7 @@
+ #bool 'Debug kmalloc/kfree' CONFIG_DEBUG_MALLOC
+ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+   tristate 'Kernel FP software completion' CONFIG_MATHEMU
++  bool 'Emulation of some extended instructions' CONFIG_ALPHA_EXTINSNS
+ else
+   define_bool CONFIG_MATHEMU y
+ fi
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/defconfig linux/arch/alpha/defconfig
+--- v2.2.11/linux/arch/alpha/defconfig	Sun Jun 13 04:52:51 1999
++++ linux/arch/alpha/defconfig	Tue Oct 19 01:15:28 1999
+@@ -330,4 +330,5 @@
+ # Kernel hacking
+ #
+ CONFIG_MATHEMU=y
++# CONFIG_ALPHA_EXTINSNS is not set
+ # CONFIG_MAGIC_SYSRQ is not set
+diff -u --recursive --new-file v2.2.11/linux/arch/alpha/kernel/entry.S linux/arch/alpha/kernel/entry.S
+--- v2.2.11/linux/arch/alpha/kernel/entry.S	Tue Aug 10 05:04:57 1999
++++ linux/arch/alpha/kernel/entry.S	Fri Oct 22 01:43:03 1999
+@@ -39,6 +39,13 @@
+ #define	PF_PTRACED	0x00000010
+ 
+ /*
++ * This is used to tell if a memory address is in user land.
++ * This must be consistent with USER_DS in include/asm-alpha/uaccess.h 
++ * and TASK_SIZE in include/asm-alpha/processor.h
++ */
++#define LOG2_TASKSIZE 42
++
++/*
+  * This defines the normal kernel pt-regs layout.
+  *
+  * regs 9-15 preserved by C code
+@@ -173,10 +180,1038 @@
+ 	jsr	$31,do_entArith
+ .end entArith
+ 
++#ifdef CONFIG_ALPHA_EXTINSNS
++/* emulation of some extended alpha instructions */
++
++/* This emulation code doesn't handle segfaults as nicely as it should ..
++ * it just faults in kernel mode (resulting in the user task being killed)
++ * rather than pretending that the fault happened in userland (which should
++ * result in a SIGSEGV being sent to the user task).
++ *
++ * The emulation code ensures that the user doesn't access kernel space by
++ * checking that the high bits of the load/store virtual address are zero.
++ */
++
++.align 3
++.ent	get_user_sp
++/* gets the value of the user's stack pointer into $3 */
++get_user_sp:
++	subq		$30,6*8,$30
++	stq		$0,0($30)
++	stq		$1,8($30)
++	stq		$16,16($30)
++	mov		$25,$3
++	stq		$22,24($30)
++	stq		$23,32($30)
++	stq		$24,40($30)
++	call_pal	PAL_rdusp
++	ldq		$24,40($30)
++	mov		$3,$25
++	ldq		$23,32($30)
++	ldq		$22,24($30)
++	mov		$0,$3
++	ldq		$16,16($30)
++	ldq		$1,8($30)
++	ldq		$0,0($30)
++	addq		$30,6*8,$30
++	ret		$31,($5)
++.end	get_user_sp
++
++.align 3
++.ent	put_user_sp
++/* puts the value from $3 into the user's stack pointer */
++put_user_sp:
++	subq		$30,5*8,$30
++	stq		$16,0($30)
++	stq		$22,8($30)
++	stq		$23,16($30)
++	mov		$3,$16
++	stq		$24,24($30)
++	mov		$1,$3
++	stq		$25,32($30)
++	call_pal	PAL_wrusp
++	ldq		$25,32($30)
++	ldq		$24,24($30)
++	mov		$3,$1
++	ldq		$23,16($30)
++	ldq		$22,8($30)
++	ldq		$16,0($30)
++	addq		$30,5*8,$30
++	ret		$31,($5)
++.end	put_user_sp
++
++/* this macro trashes $5 & index, and returns user reg val in $3. */
++/* index should be a register containing a value from 0 to 31. */
++#define get_user_reg(index)           \
++	br	$3,1f                 ;\
++1:	                              ;\
++	s8addq	index,$3,index        ;\
++	lda	$5,get_ureg0-1b($31)  ;\
++	addq	index,$5,index        ;\
++	jsr	$5,(index),get_ureg16
++
++/* this macro takes new user reg val in $3, and trashes $3,$5 & index. */
++/* index should be a register containing a value from 0 to 31. */
++#define put_user_reg(index)           \
++	br	$5,1f                 ;\
++1:	                              ;\
++	s8addq	index,$5,index        ;\
++	lda	$5,put_ureg0-1b($31)  ;\
++	addq	index,$5,index        ;\
++	jsr	$5,(index),put_ureg16
++
++/* a code table .. make sure each entry is exactly 2 instructions. */
++/* used by get_user_reg macro. */
++.align 3
++.ent	get_ureg_table
++get_ureg0:
++	ldq	$3,8*0($30)
++	ret	$31,($5)
++get_ureg1:
++	ldq	$3,8*1($30)
++	ret	$31,($5)
++get_ureg2:
++	ldq	$3,8*2($30)
++	ret	$31,($5)
++get_ureg3:
++	ldq	$3,8*3($30)
++	ret	$31,($5)
++get_ureg4:
++	ldq	$3,8*4($30)
++	ret	$31,($5)
++get_ureg5:
++	ldq	$3,8*5($30)
++	ret	$31,($5)
++get_ureg6:
++	mov	$6,$3
++	ret	$31,($5)
++get_ureg7:
++	mov	$7,$3
++	ret	$31,($5)
++get_ureg8:
++	mov	$8,$3
++	ret	$31,($5)
++get_ureg9:
++	mov	$9,$3
++	ret	$31,($5)
++get_ureg10:
++	mov	$10,$3
++	ret	$31,($5)
++get_ureg11:
++	mov	$11,$3
++	ret	$31,($5)
++get_ureg12:
++	mov	$12,$3
++	ret	$31,($5)
++get_ureg13:
++	mov	$13,$3
++	ret	$31,($5)
++get_ureg14:
++	mov	$14,$3
++	ret	$31,($5)
++get_ureg15:
++	mov	$15,$3
++	ret	$31,($5)
++get_ureg16:
++	ldq	$3,8*10($30)
++	ret	$31,($5)
++get_ureg17:
++	ldq	$3,8*11($30)
++	ret	$31,($5)
++get_ureg18:
++	ldq	$3,8*12($30)
++	ret	$31,($5)
++get_ureg19:
++	mov	$19,$3
++	ret	$31,($5)
++get_ureg20:
++	mov	$20,$3
++	ret	$31,($5)
++get_ureg21:
++	mov	$21,$3
++	ret	$31,($5)
++get_ureg22:
++	mov	$22,$3
++	ret	$31,($5)
++get_ureg23:
++	mov	$23,$3
++	ret	$31,($5)
++get_ureg24:
++	mov	$24,$3
++	ret	$31,($5)
++get_ureg25:
++	mov	$25,$3
++	ret	$31,($5)
++get_ureg26:
++	mov	$26,$3
++	ret	$31,($5)
++get_ureg27:
++	mov	$27,$3
++	ret	$31,($5)
++get_ureg28:
++	mov	$28,$3
++	ret	$31,($5)
++get_ureg29:
++	ldq	$3,9*8($30)
++	ret	$31,($5)
++get_ureg30:
++	br	$31,get_user_sp 
++	ret	$31,($5)
++get_ureg31:
++	mov	$31,$3
++	ret	$31,($5)
++.end	get_ureg_table
++
++/* another code table .. make sure each entry is exactly 2 instructions. */
++/* used by put_user_reg macro. */
++.align 3
++.ent	put_ureg_table
++put_ureg0:
++	stq	$3,8*0($30)
++	ret	$31,($5)
++put_ureg1:
++	stq	$3,8*1($30)
++	ret	$31,($5)
++put_ureg2:
++	stq	$3,8*2($30)
++	ret	$31,($5)
++put_ureg3:
++	stq	$3,8*3($30)
++	ret	$31,($5)
++put_ureg4:
++	stq	$3,8*4($30)
++	ret	$31,($5)
++put_ureg5:
++	stq	$3,8*5($30)
++	ret	$31,($5)
++put_ureg6:
++	mov	$3,$6
++	ret	$31,($5)
++put_ureg7:
++	mov	$3,$7
++	ret	$31,($5)
++put_ureg8:
++	mov	$3,$8
++	ret	$31,($5)
++put_ureg9:
++	mov	$3,$9
++	ret	$31,($5)
++put_ureg10:
++	mov	$3,$10
++	ret	$31,($5)
++put_ureg11:
++	mov	$3,$11
++	ret	$31,($5)
++put_ureg12:
++	mov	$3,$12
++	ret	$31,($5)
++put_ureg13:
++	mov	$3,$13
++	ret	$31,($5)
++put_ureg14:
++	mov	$3,$14
++	ret	$31,($5)
++put_ureg15:
++	mov	$3,$15
++	ret	$31,($5)
++put_ureg16:
++	stq	$3,8*10($30)
++	ret	$31,($5)
++put_ureg17:
++	stq	$3,8*11($30)
++	ret	$31,($5)
++put_ureg18:
++	stq	$3,8*12($30)
++	ret	$31,($5)
++put_ureg19:
++	mov	$3,$19
++	ret	$31,($5)
++put_ureg20:
++	mov	$3,$20
++	ret	$31,($5)
++put_ureg21:
++	mov	$3,$21
++	ret	$31,($5)
++put_ureg22:
++	mov	$3,$22
++	ret	$31,($5)
++put_ureg23:
++	mov	$3,$23
++	ret	$31,($5)
++put_ureg24:
++	mov	$3,$24
++	ret	$31,($5)
++put_ureg25:
++	mov	$3,$25
++	ret	$31,($5)
++put_ureg26:
++	mov	$3,$26
++	ret	$31,($5)
++put_ureg27:
++	mov	$3,$27
++	ret	$31,($5)
++put_ureg28:
++	mov	$3,$28
++	ret	$31,($5)
++put_ureg29:
++	stq	$3,9*8($30)
++	ret	$31,($5)
++put_ureg30:
++	br	$31,put_user_sp 
++	ret	$31,($5)
++put_ureg31:
++	ret	$31,($5)
++.end	put_ureg_table
++
++.align 3
++.globl	emul_ldwu
++.ent	emul_ldwu
++/* emulating a "load word unsigned" instruction of the form:
++ * 	ldwu	$ra,displacement($rb)
++ */
++emul_ldwu:
++	stq	$3,24($30)
++	stq	$4,32($30)
++	stq	$5,40($30)
++
++	srl	$0,21,$1
++	srl	$0,16,$2
++	and	$1,0x1f,$1
++	sll	$0,48,$0
++	and	$2,0x1f,$2
++	sra	$0,48,$0   /* $0 = displacement */
++	get_user_reg($2)   /* $3 = $rb  */
++	addq	$0,$3,$0
++	srl	$0,LOG2_TASKSIZE,$5 /* if addr is not in userland, */
++	cmovne	$5,$31,$0       /* then force a segfault by putting addr=0 */
++	ldq_u	$3,0($0)
++	ldq_u	$5,1($0)
++	extwl	$3,$0,$3
++	extwh	$5,$0,$5
++	or	$3,$5,$3
++	put_user_reg($1)   /* $ra = loaded val */
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_ldwu
++
++.align 3
++.globl	emul_stw
++.ent	emul_stw
++emul_stw:
++/* emulating a "store word" instruction of the form:
++ * 	stw	$ra,displacement($rb)
++ */
++	stq	$3,24($30)
++	stq	$4,32($30)
++	stq	$5,40($30)
++
++	srl	$0,21,$1
++	srl	$0,16,$2
++	and	$1,0x1f,$1
++	sll	$0,48,$0
++	and	$2,0x1f,$2
++	sra	$0,48,$0   /* $0 = displacement */
++	get_user_reg($1)
++	mov	$3,$1      /* $1 = $ra val */
++	get_user_reg($2)   /* $3 = $rb val */
++	addq	$0,$3,$0
++	srl	$0,LOG2_TASKSIZE,$5 /* if addr is not in userland, */
++	cmovne	$5,$31,$0       /* then force a segfault by putting addr=0 */
++	ldq_u	$3,1($0)
++	ldq_u	$2,0($0)
++	inswh	$1,$0,$5
++	inswl	$1,$0,$4
++	mskwh	$3,$0,$3
++	mskwl	$2,$0,$2
++	or	$3,$5,$3
++	or	$2,$4,$2
++	stq_u	$3,1($0)
++	stq_u	$2,0($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_stw
++
++.align 3
++.globl	emul_ldbu
++.ent	emul_ldbu
++/* emulating a "load byte unsigned" instruction of the form:
++ * 	ldbu	$ra,displacement($rb)
++ */
++emul_ldbu:
++	stq	$3,24($30)
++	stq	$4,32($30)
++	stq	$5,40($30)
++
++	srl	$0,21,$1
++	srl	$0,16,$2
++	and	$1,0x1f,$1 
++	sll	$0,48,$0
++	and	$2,0x1f,$2
++	sra	$0,48,$0   /* $0 = displacement */
++	get_user_reg($2)   /* $3 = $ra val */
++	addq	$0,$3,$0
++	srl	$0,LOG2_TASKSIZE,$5 /* if addr is not in userland, */
++	cmovne	$5,$31,$0       /* then force a segfault by putting addr=0 */
++	ldq_u	$3,0($0)
++	extbl	$3,$0,$3
++	put_user_reg($1)   /* $rb := loaded val */
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_ldbu
++
++.align 3
++.globl	emul_stb
++.ent	emul_stb
++emul_stb:
++/* emulating a "store byte" instruction of the form:
++ * 	stb	$ra,displacement($rb)
++ */
++	stq	$3,24($30)
++	stq	$4,32($30)
++	stq	$5,40($30)
++
++	srl	$0,21,$1
++	srl	$0,16,$2
++	and	$1,0x1f,$1
++	sll	$0,48,$0
++	and	$2,0x1f,$2
++	sra	$0,48,$0   /* $0 = displacement */
++	get_user_reg($1)
++	mov	$3,$1      /* $1 = $ra val */
++	get_user_reg($2)   /* $3 = $rb val */
++	addq	$0,$3,$0
++	srl	$0,LOG2_TASKSIZE,$5 /* if addr is not in userland, */
++	cmovne	$5,$31,$0       /* then force a segfault by putting addr=0 */
++	ldq_u	$2,0($0)
++	insbl	$1,$0,$3
++	mskbl	$2,$0,$2
++
++	ldq	$5,40($30)
++	or	$2,$3,$2
++
++	ldq	$3,24($30)
++	stq_u	$2,0($0)
++
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_stb
++
++.align 3
++.globl	emul_minsw_4
++.ent	emul_minsw_4
++/* emulating a "vector signed word minimum" instruction of the form:
++ * 	minsw4	$ra,$rb,$rc
++ * or
++ *	minsw4	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_minsw_4:
++	stq	$6,48($30)
++
++	not	$31,$1
++	zap	$1,0x33,$1
++	srl	$1,1,$5
++	xor	$1,$5,$1  /* $1 = 0x8000800080008000 */
++	xor	$1,$3,$6
++	xor	$1,$2,$5
++
++	cmpbge	$6,$5,$1
++	xor	$6,$5,$5
++	cmpbge	$31,$5,$4
++	addq	$1,$1,$6
++	bic	$1,$4,$1
++	and	$4,$6,$4
++	bis	$1,$4,$1
++	and	$1,0xaa,$1
++	srl	$1,1,$4
++	bis	$1,$4,$1
++	zapnot	$2,$1,$2
++	zap	$3,$1,$3
++	bis	$3,$2,$3
++
++	ldq	$6,48($30)
++
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_minsw_4
++
++.align 3
++.globl	emul_minuw_4
++.ent	emul_minuw_4
++/* emulating a "vector unsigned word maximum" instruction of the form:
++ * 	minuw4	$ra,$rb,$rc
++ * or
++ *	minuw4	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_minuw_4:
++	stq	$6,48($30)
++
++	cmpbge	$3,$2,$1
++	xor	$3,$2,$5
++	cmpbge	$31,$5,$4
++	addq	$1,$1,$6
++	bic	$1,$4,$1
++	and	$4,$6,$4
++	bis	$1,$4,$1
++	and	$1,0xaa,$1
++	srl	$1,1,$4
++	bis	$1,$4,$1
++	zapnot	$2,$1,$2
++	zap	$3,$1,$3
++	bis	$3,$2,$3
++
++	ldq	$6,48($30)
++
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_minuw_4
++
++.align 3
++.globl	emul_maxsw_4
++.ent	emul_maxsw_4
++/* emulating a "vector signed word maximum" instruction of the form:
++ * 	maxsw4	$ra,$rb,$rc
++ * or
++ *	maxsw4	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_maxsw_4:
++	stq	$6,48($30)
++
++	not	$31,$1
++	zap	$1,0x33,$1
++	srl	$1,1,$5
++	xor	$1,$5,$1  /* $1 = 0x8000800080008000 */
++	xor	$1,$3,$6
++	xor	$1,$2,$5
++
++	cmpbge	$6,$5,$1
++	xor	$6,$5,$5
++	cmpbge	$31,$5,$4
++	addq	$1,$1,$6
++	bic	$1,$4,$1
++	and	$4,$6,$4
++	bis	$1,$4,$1
++	and	$1,0xaa,$1
++	srl	$1,1,$4
++	bis	$1,$4,$1
++	zap	$2,$1,$2
++	zapnot	$3,$1,$3
++	bis	$3,$2,$3
++
++	ldq	$6,48($30)
++
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_maxsw_4
++
++.align 3
++.globl	emul_maxuw_4
++.ent	emul_maxuw_4
++/* emulating a "vector unsigned word maximum" instruction of the form:
++ * 	maxuw4	$ra,$rb,$rc
++ * or
++ *	maxuw4	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_maxuw_4:
++	stq	$6,48($30)
++
++	cmpbge	$3,$2,$1
++	xor	$3,$2,$5
++	cmpbge	$31,$5,$4
++	addq	$1,$1,$6
++	bic	$1,$4,$1
++	and	$4,$6,$4
++	bis	$1,$4,$1
++	and	$1,0xaa,$1
++	srl	$1,1,$4
++	bis	$1,$4,$1
++	zap	$2,$1,$2
++	zapnot	$3,$1,$3
++	bis	$3,$2,$3
++
++	ldq	$6,48($30)
++
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_maxuw_4
++
++.align 3
++.globl	emul_maxub_8
++.ent	emul_maxub_8
++/* emulating a "vector unsigned byte maximum" instruction of the form:
++ * 	maxub8	$ra,$rb,$rc
++ * or
++ *	maxub8	$ra,immediate8,$rc
++ */
++emul_maxub_8:
++	cmpbge	$2,$3,$1
++	zap	$3,$1,$3
++	zapnot	$2,$1,$2
++	or	$3,$2,$3
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_maxub_8
++
++.align 3
++.globl	emul_maxsb_8
++.ent	emul_maxsb_8
++/* emulating a "vector signed byte maximum" instruction of the form:
++ * 	maxsb8	$ra,$rb,$rc
++ * or
++ *	maxsb8	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_maxsb_8:
++	not	$31,$1
++	zap	$1,0x55,$1
++	srl	$1,1,$5
++	xor	$1,$5,$1  /* $1 = 0x8080808080808080 */
++	xor	$3,$1,$5
++	xor	$2,$1,$1
++
++	cmpbge	$1,$5,$1
++	zap	$3,$1,$3
++	zapnot	$2,$1,$2
++	or	$3,$2,$3
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_maxsb_8
++
++.align 3
++.globl	emul_minub_8
++.ent	emul_minub_8
++/* emulating a "vector unsigned byte minimum" instruction of the form:
++ * 	minsb8	$ra,$rb,$rc
++ * or
++ *	minsb8	$ra,immediate8,$rc
++ */
++emul_minub_8:
++	cmpbge	$3,$2,$1
++	zap	$3,$1,$3
++	zapnot	$2,$1,$2
++	or	$3,$2,$3
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_minub_8
++
++.align 3
++.globl	emul_minsb_8
++.ent	emul_minsb_8
++/* emulating a "vector unsigned byte maximum" instruction of the form:
++ * 	maxsb8	$ra,$rb,$rc
++ * or
++ *	maxsb8	$ra,immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_minsb_8:
++	not	$31,$1
++	zap	$1,0x55,$1
++	srl	$1,1,$5
++	xor	$1,$5,$1  /* $1 = 0x8080808080808080 */
++	xor	$3,$1,$5
++	xor	$2,$1,$1
++
++	cmpbge	$5,$1,$1
++	zap	$3,$1,$3
++	zapnot	$2,$1,$2
++	or	$3,$2,$3
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_minsb_8
++
++.align 3
++.globl	emul_sexw
++.ent	emul_sexw
++/* emulating a "word sign extend" instruction of the form:
++ * 	sexw	$rb,$rc
++ * or
++ *	sexw	immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_sexw:
++	sll	$3,48,$3
++	and	$0,0x1f,$1
++	sra	$3,48,$3
++	put_user_reg($1)
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_sexw
++
++.align 3
++.globl	emul_sexb
++.ent	emul_sexb
++/* emulating a "byte sign extend" instruction of the form:
++ * 	sexb	$rb,$rc
++ * or
++ *	sexb	immediate8,$rc
++ *
++ * (called by emul_mmx below)
++ */
++emul_sexb:
++	sll	$3,56,$3
++	and	$0,0x1f,$1
++	sra	$3,56,$3
++	put_user_reg($1)
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_sexb
++
++.align 3
++.globl	emul_perr
++.ent	emul_perr
++/* emulating a "pixel error" instruction of the form:
++ * 	perr	$ra,$rb,$rc
++ */
++emul_perr:
++	cmpbge	$2,$3,$1
++	zap	$3,$1,$4
++	zapnot	$2,$1,$5
++	zap	$2,$1,$2
++	zapnot	$3,$1,$3
++	or	$4,$5,$4 /* $4 = vector of max bytes */
++	or	$2,$3,$3 /* $3 = vector of min bytes */
++	subq	$4,$3,$3
++	put_user_reg($0)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_perr
++
++.align 3
++.globl	emul_pklb
++.ent	emul_pklb
++/* emulating a "pack longwords to bytes" instruction of the form:
++ * 	pklb	$rb,$rc
++ */
++emul_pklb:
++	extbl	$3,0x4,$4
++	extbl	$3,0x0,$5
++	insbl	$4,0x1,$4
++	and	$0,0x1f,$1
++	or	$4,$5,$3
++	put_user_reg($1)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_pklb
++
++.align 3
++.globl	emul_pkwb
++.ent	emul_pkwb
++/* emulating a "pack words to bytes" instruction of the form:
++ * 	pkwb	$rb,$rc
++ */
++emul_pkwb:
++	extbl	$3,0x6,$4
++	extbl	$3,0x4,$5
++	insbl	$4,0x3,$4
++	insbl	$5,0x2,$5
++	extbl	$3,0x2,$2
++	or	$4,$5,$5
++	extbl	$3,0x0,$3
++	insbl	$2,0x1,$2
++	or	$2,$3,$3
++	and	$0,0x1f,$1
++	or	$5,$3,$3
++	put_user_reg($1)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_pkwb
++
++.align 3
++.globl	emul_unpkbl
++.ent	emul_unpkbl
++/* emulating a "unpack bytes to longwords" instruction of the form:
++ * 	unpkbl	$rb,$rc
++ */
++emul_unpkbl:
++	extbl	$3,0x1,$4
++	extbl	$3,0x0,$5
++	insbl	$4,0x4,$4
++	and	$0,0x1f,$1
++	or	$4,$5,$3
++	put_user_reg($1)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_unpkbl
++
++.align 3
++.globl	emul_unpkbw
++.ent	emul_unpkbw
++/* emulating a "unpack bytes to words" instruction of the form:
++ * 	unpkbw	$rb,$rc
++ */
++emul_unpkbw:
++	extbl	$3,0x3,$4
++	extbl	$3,0x2,$5
++	insbl	$4,0x6,$4
++	insbl	$5,0x4,$5
++	extbl	$3,0x1,$2
++	or	$4,$5,$5
++	extbl	$3,0x0,$3
++	insbl	$2,0x2,$2
++	or	$2,$3,$3
++	and	$0,0x1f,$1
++	or	$5,$3,$3
++	put_user_reg($1)
++
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	call_pal PAL_rti
++.end	emul_unpkbw
++
++.align 3
++.globl	emul_mmx
++.ent	emul_mmx
++/* Emulates multimedia support instructions and sign extend instructions.
++ * These instructions share a common form:
++ * 	<instr>	$ra,$rb,$rc
++ * or
++ *	<instr> $ra,immediate8,$rc
++ *
++ * (the sign extend instructions do not use $ra)
++ */
++emul_mmx:
++	stq	$3,24($30)
++	stq	$4,32($30)
++	stq	$5,40($30)
++
++	srl	$0,5,$4
++	srl	$0,12,$2
++	and	$4,0x3f,$4
++	blbs	$2,21f
++	/* the second parameter comes from a register */
++	srl	$0,16,$1
++	and	$1,0x1f,$1
++	get_user_reg($1)
++21:
++	/* get the second parameter from an 8-bit immediate field (sign extd)*/
++	srl	$0,13,$1
++	and	$1,0xff,$1
++	cmovlbs	$2,$1,$3 /* if needed, use imm field instead of $rb */
++	/* now:	$0 = instruction
++		$3 = $rb val
++		$4 = operation function code */
++	cmpeq	$4,0x1,$2
++	beq	$4,emul_sexb
++	bne	$2,emul_sexw
++	cmpeq	$4,0x36,$1
++	cmpeq	$4,0x37,$2
++	bne	$1,emul_pkwb
++	bne	$2,emul_pklb
++	cmpeq	$4,0x34,$1
++	cmpeq	$4,0x35,$2
++	bne	$1,emul_unpkbw
++	bne	$2,emul_unpkbl
++	srl	$0,21,$1
++	mov	$3,$2
++	and	$1,0x1f,$1
++	get_user_reg($1)
++	cmpeq	$4,0x3a,$1
++	cmpeq	$4,0x38,$5
++	and	$0,0x1f,$0
++	/* now:	$0 = $rc register index
++		$2 = $rb val
++		$3 = $ra val
++		$4 = operation function code */
++	bne	$1,emul_minub_8
++	bne	$5,emul_minsb_8
++	cmpeq	$4,0x3e,$1
++	cmpeq	$4,0x3c,$5
++	bne	$1,emul_maxsb_8
++	bne	$5,emul_maxub_8
++	cmpeq	$4,0x39,$1
++	cmpeq	$4,0x3f,$5
++	bne	$1,emul_minsw_4
++	bne	$5,emul_maxsw_4
++	cmpeq	$4,0x3b,$1
++	cmpeq	$4,0x3d,$5
++	bne	$1,emul_minuw_4
++	bne	$5,emul_maxuw_4
++	cmpeq	$4,0x31,$1
++	bne	$1,emul_perr
++	ldq	$5,40($30)
++	ldq	$4,32($30)
++	ldq	$3,24($30)
++	ldq	$2,16($30)
++	ldq	$1,8($30)
++	ldq	$0,0($30)
++	addq	$30,7*8,$30
++	br	old_entIF
++.end	emul_mmx
++
++#endif /* CONFIG_ALPHA_EXTINSNS */
++
+ .align 3
+ .globl	entIF
+ .ent	entIF
+ entIF:
++#ifdef CONFIG_ALPHA_EXTINSNS
++	subq	$30,7*8,$30 /* 3 regs saved here, 3 or 4 more saved in fns */
++	stq	$0,0($30)
++	ldq	$0,8+7*8($30)
++	stq	$1,8($30)
++	ldl	$0,-4($0)
++	stq	$2,16($30)
++	srl	$0,26,$1
++	and	$1,0x3f,$1
++	cmpeq	$1,0x1c,$2
++	bne	$2,emul_mmx
++	cmpeq	$1,0x0a,$2
++	bne	$2,emul_ldbu
++	cmpeq	$1,0x0e,$2
++	bne	$2,emul_stb
++	cmpeq	$1,0x0c,$2
++	cmpeq	$1,0x0d,$1
++	bne	$2,emul_ldwu
++	bne	$1,emul_stw
++	ldq	$0,0($30)
++	ldq	$1,8($30)
++	ldq	$2,16($30)
++	addq	$30,7*8,$30
++old_entIF:
++#endif /* CONFIG_ALPHA_EXTINSNS */
+ 	SAVE_ALL
+ 	lda	$8,0x3fff
+ 	lda	$26,ret_from_sys_call
+
+

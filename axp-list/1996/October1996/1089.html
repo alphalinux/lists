@@ -1,0 +1,129 @@
+<!-- received="Sat Oct 26 05:54:41 1996 " -->
+<!-- sent="Sat, 26 Oct 1996 05:53:02 -0400" -->
+<!-- name="Craig Burley" -->
+<!-- email="burley@gnu.ai.mit.edu" -->
+<!-- subject="Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question" -->
+<!-- id="199610260953.FAA27920@churchy.gnu.ai.mit.edu" -->
+<!-- inreplyto="(re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question</h2>
+
+<b>Craig Burley</b> (<a href="mailto:burley@gnu.ai.mit.edu"><i>burley@gnu.ai.mit.edu</i></a>)<br>
+<i>Sat, 26 Oct 1996 05:53:02 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1089">[ date ]</a><a href="index.html#1089">[ thread ]</a><a href="subject.html#1089">[ subject ]</a><a href="author.html#1089">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1090.html">Tim Bosinius: "Re: UDB SCSI Problem"</a>
+<li> <b>Previous message:</b> <a href="1088.html">Michael Brennen: "Re: svgalib/SVGATextMode available as RPMS"</a>
+<li> <b>Maybe in reply to:</b> <a href="0868.html">Matthew Jacob: "(re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1094.html">Richard Henderson: "Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<li> <b>Reply:</b> <a href="1094.html">Richard Henderson: "Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Follow-up on the cc1 crash I have, though this is hardly definitive....<br>
+<p>
+Regarding the too-small stack problem -- that might be a problem for<br>
+others, but I've verified it isn't what is causing my crash.  I've<br>
+rebuilt my gcc build directory so I can reproduce the crash, and I<br>
+can reproduce it even when logged in as root _after_ doing<br>
+"ulimit -s 65536" to increase the stack.<br>
+<p>
+Eirik Fuller &lt;<a href="mailto:eirik@netcom.com">eirik@netcom.com</a>&gt; has been exchanging email with me,<br>
+and he has tracked down what appears to be some problems on _some_<br>
+installations of Linux -- or, at least, one problem, but that<br>
+doesn't seem to afflict _my_ particular installation.<br>
+<p>
+The problem he found, as the result of IMO some decent debugging work<br>
+on his part, was that somehow "struct rlimit" in his<br>
+/usr/include/sys/resource.h file was declaring its members (rm_cur and<br>
+rm_max, or whatever) as "int", while Linux (the kernel) was writing them<br>
+as "long" -- 64 bits.  The upshot for him was that the call to getrlimit()<br>
+in toplev.c (the main() in cc1) was overwriting argc (with the 8MB figure ;-),<br>
+which led to problems later on.<br>
+<p>
+I don't have that specific problem.  My /usr/include/sys/resource.h #include's<br>
+&lt;linux/resource.h&gt;, which properly sets up the rlimit struct -- I've verified<br>
+this using "gcc ... -E toplev.c", because You Never Know.<br>
+<p>
+But, the fact remains that I have a cc1 that not only segfaults immediately<br>
+on execution, but crashes gdb as soon as it reaches the call to malloc()<br>
+that results from the call to init_lex().  (This is _not_ the first call<br>
+to malloc()!!)<br>
+<p>
+I'm too busy with g77 and other stuff to track this down, but I will make it<br>
+a high priority _if_ I run into it after I install the newest Craftworks<br>
+Linux AXP distribution (meaning it isn't fixed) and there's nobody else<br>
+looking into it.  Though, Eirik is going to give it a try -- I've uploaded<br>
+the buggy cc1 for him to see if he can reproduce the problem, get any further<br>
+with his ELF-based system and hand-built ECOFF gdb (my system's ECOFF-based),<br>
+etc.<br>
+<p>
+But, at least Eirik already discovered something I hadn't paid any attention<br>
+to before -- gcc's toplev.c module, which gets invoked for all the "major"<br>
+compilation phases of each language (gcc's cc1, g++'s cc1plus, g77's f771,<br>
+and so on), tries to increase the stack size from the current value to the<br>
+maximum as soon as it can.<br>
+<p>
+Maybe 8MB is plenty, but if there's any concern, perhaps the default<br>
+_maximum_ stack size for Linux/AXP could be quadrupled.  That way, most<br>
+programs would still get the 8MB size (which presumably yields better<br>
+performance or less resource hogging, when that's enough), while programs<br>
+that know they want more space can get it by calling setrlimit(), like gcc's<br>
+toplev.c does.<br>
+<p>
+Just a thought.<br>
+<p>
+In any case, the fact that my cc1 problem goes away just by changing the size<br>
+of a global array of constants suggests to me that there _is_ a hard-to-track<br>
+bug lurking in there somewhere.  It might be convenient for me, and everyone,<br>
+if it disappears (e.g. once I upgrade), but I'd really rather Eirik or someone<br>
+track it down (to both the bug that crashes cc1 _and_ the bug that crashes gdb<br>
+as well) so that, at least, we can be sure it's been fixed, not just swept<br>
+under the rug by having the locations of things in memory move sufficiently<br>
+to hide it.  OTOH, given that so much has changed in Linux since my system<br>
+was put together last May, it's entirely reasonable to expect that this lurking<br>
+bug lurks no longer -- has been fixed by the ongoing work.  It'll be wonderful<br>
+if we get a definitive answer on this.<br>
+<p>
+        tq vm, (burley)<br>
+<p>
+<pre>
+--
+To unsubscribe: mail -s unsubscribe <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> &lt; /dev/null
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1090.html">Tim Bosinius: "Re: UDB SCSI Problem"</a>
+<li> <b>Previous message:</b> <a href="1088.html">Michael Brennen: "Re: svgalib/SVGATextMode available as RPMS"</a>
+<li> <b>Maybe in reply to:</b> <a href="0868.html">Matthew Jacob: "(re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="1094.html">Richard Henderson: "Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<li> <b>Reply:</b> <a href="1094.html">Richard Henderson: "Re: (re)compiling gcc-2.7.2.1 under linux alpha: note &amp;&amp; question"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

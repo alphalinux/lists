@@ -1,0 +1,332 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> conversion of a denorm float -&gt; double is busted</H1> 
+	
+<!-- received="Tue Oct 03 10:37:06 2000" -->
+<!-- isoreceived="20001003173706" -->
+<!-- sent="Tue, 03 Oct 2000 04:58:28 -0500" -->
+<!-- isosent="20001003095828" -->
+<!-- name="Uncle George" -->
+<!-- email="gatgul@voicenet.com" -->
+<!-- subject="conversion of a denorm float -&gt; double is busted" -->
+<!-- id="39D9ADC4.E7A71B92@voicenet.com" -->
+<!-- inreplyto="39D885F6.8558CDDA@voicenet.com" -->
+<STRONG>Subject: </STRONG>conversion of a denorm float -> double is busted<BR>
+<STRONG>From: </STRONG>Uncle George (<EM>gatgul@voicenet.com</EM>)<BR>
+<STRONG>Date: </STRONG>Tue Oct  3 02:58:28 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#5">[ date ]</A>
+<A HREF="index.shtml#5">[ thread ]</A>
+<A HREF="subject.shtml#5">[ subject ]</A>
+<A HREF="author.shtml#5">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.shtml">Uncle George: "Re: a cvtts/s of a denorm -&gt;0.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0001.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0017.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0001.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+<EM>&gt; conversion of a denorm float -&gt; double is busted on the alpha.
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; from the attached program , the iteration at I=-126 fails to properly
+</EM><BR>
+<EM>&gt; convert the first denormal float number into a corresponding double
+</EM><BR>
+<EM>&gt; ( the double is not denormal ). The exponent for the double should have
+</EM><BR>
+<EM>&gt; been 896 ( 1 less than the previous iteration ( at i=-125), and frac=0.
+</EM><BR>
+<EM>&gt; /gat
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; does anyone know if the sparc, or ppc fails also ?
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; alpha results:
+</EM><BR>
+<EM>&gt; I=-126  prev=2.3509887016446e-38, d=1.1754943508223e-38
+</EM><BR>
+<EM>&gt; Value:  f=800000, s=(0,0), exp=(1,1), frac=(0,0)
+</EM><BR>
+<EM>&gt; V\=2.0  f=400000, s=(0,0), exp=(0,0), frac=(4194304,400000)
+</EM><BR>
+<EM>&gt; Conversion: f=8000000000000, s=(0,0), exp=(0,0),
+</EM><BR>
+<EM>&gt; frac=(2251799813685248,8000000000000)
+</EM><BR>
+<EM>&gt; reverted: f=0, s=(0,0), exp=(0,0), frac=(0,0)
+</EM><BR>
+<EM>&gt;  Conversion failed
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt; i386 results:
+</EM><BR>
+<EM>&gt; I=-126  prev=2.3509887016446e-38, d=1.1754943508223e-38
+</EM><BR>
+<EM>&gt; Value:  f=800000, s=(0,0), exp=(1,1), frac=(0,0)
+</EM><BR>
+<EM>&gt; V\=2.0  f=400000, s=(0,0), exp=(0,0), frac=(4194304,400000)
+</EM><BR>
+<EM>&gt; Conversion: f=0, s=(0,0), exp=(896,380), frac=(0,0)
+</EM><BR>
+<EM>&gt; reverted: f=400000, s=(0,0), exp=(0,0), frac=(4194304,400000)
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<EM>&gt;
+</EM><BR>
+<P><P>
+#include &lt;stdio.h&gt;
+<BR>
+<P>union _FP_UNION_D
+<BR>
+{
+<BR>
+&nbsp;&nbsp;double flt;
+<BR>
+&nbsp;&nbsp;long	 l;
+<BR>
+&nbsp;&nbsp;struct {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned long long frac : 64-12;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned exp  : 11 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned sign : 1;
+<BR>
+&nbsp;&nbsp;} bits __attribute__((packed));
+<BR>
+} ud;
+<BR>
+union _FP_UNION_S
+<BR>
+{
+<BR>
+&nbsp;&nbsp;float flt;
+<BR>
+&nbsp;&nbsp;int	 i;
+<BR>
+&nbsp;&nbsp;struct {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned int frac : 32-9;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned exp  : 8 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned sign : 1;
+<BR>
+&nbsp;&nbsp;} bits __attribute__((packed));
+<BR>
+} uf;
+<BR>
+int main()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int errout;
+<BR>
+#if defined(__alpha__) &amp;&amp; 0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned long fpcr;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;asm( &quot;excb; mf_fpcr %0&quot; : &quot;=f&quot;(fpcr));
+<BR>
+<P>printf(&quot; fpcr = %p\n&quot;, fpcr );
+<BR>
+#if 1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpcr |= (1L &lt;&lt; 47);	/* DNOD  Not avail in 21264(a) */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpcr &amp;= ~(1L &lt;&lt; 48 );	/* DNZ idenormal Operands to Zero */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpcr |= (1L &lt;&lt; 49);	/* DNOD  Not avail in 21264(a) */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpcr &amp;= ~(1L &lt;&lt; 60 );	/* UNDZ underflow to zero OFF */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fpcr |= (1L &lt;&lt; 61);	/* UNFD underflow disable ON */
+<BR>
+/*	fpcr |= (1L &lt;&lt; 62);	 UNFD */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;asm volatile ( &quot;mt_fpcr %0 ; excb&quot; : : &quot;f&quot;(fpcr));
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;asm( &quot;excb; mf_fpcr %0&quot; : &quot;=f&quot;(fpcr));
+<BR>
+printf(&quot; fpcr = %p\n&quot;, fpcr );
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;underflow();
+<BR>
+} 
+<BR>
+void printF( float, char *);
+<BR>
+void printD( double, char *);
+<BR>
+&nbsp;
+<BR>
+int underflow()
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int dsb=32-9, dme=-126;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int expLimit = dme - dsb + 1;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;float divisor = 2.0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;float  d = 1.0, e;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;float  prev=0;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int i;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double conversion;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for (i=0; i&gt;=expLimit; i--) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;I=%d\t prev=%16.14g, d=%16.14g\n&quot;,i, prev, d);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printF( d, &quot;Value:\t&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prev = d;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ((d /= divisor) &gt;= prev) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Oops. growing larger ? \n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else if (d == 0)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;conversion = d;		/* double &lt;= float */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;e = conversion;		/* float &lt;= double */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printF( d, &quot;V\\=2.0\t&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printD( conversion, &quot;Conversion:&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printF( e, &quot;reverted:&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if ( d != e ){		/* Still same ?	   */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot; Conversion failed \n&quot;);
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+printf(&quot;i = %d, expLimit= %d\n&quot;,i,expLimit);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (i &gt; expLimit)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printf(&quot;Oops, didnt do all denormal numbers\n&quot;);
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return;
+<BR>
+}
+<BR>
+void
+<BR>
+printF( float d, char *msg )
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uf.flt = d;
+<BR>
+printf(&quot;%s\tf=%x, s=(%d,%x), exp=(%d,%x), frac=(%d,%x)\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;msg,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uf.i,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uf.bits.sign, uf.bits.sign,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uf.bits.exp, uf.bits.exp,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uf.bits.frac, uf.bits.frac );	
+<BR>
+}
+<BR>
+<P>void
+<BR>
+printD( double d, char *msg)
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ud.flt  = d;
+<BR>
+printf(&quot;%s\tf=%lx, s=(%d,%x), exp=(%d,%x), frac=(%ld,%lx)\n&quot;, 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;msg,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ud.l,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ud.bits.sign, ud.bits.sign,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ud.bits.exp, ud.bits.exp,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ud.bits.frac, ud.bits.frac );		
+<BR>
+}
+<BR>
+<P>
+<P><P><P>_______________________________________________
+<BR>
+Axp-list mailing list
+<BR>
+Axp-list@redhat.com
+<BR>
+https://listman.redhat.com/mailman/listinfo/axp-list
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0006.shtml">Uncle George: "Re: a cvtts/s of a denorm -&gt;0.0"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0004.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0001.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0017.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<LI><STRONG>Reply:</STRONG> <A HREF="0001.shtml">Uncle George: "conversion of a denorm float -&gt; double is busted"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Thu Nov  2 08:06:26 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 

@@ -1,0 +1,1085 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>High Performance List: fast sin/cos/tan routine</TITLE>
+<META NAME="Author" CONTENT="Kazushige Goto (goto@statabo.rim.or.jp)">
+<META NAME="Subject" CONTENT="fast sin/cos/tan routine">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>fast sin/cos/tan routine</H1>
+<HR>
+<P>
+<!-- received="Sat Apr 24 12:59:11 1999 PDT" -->
+<!-- sent="Sat, 24 Apr 1999 21:17:32 +0900" -->
+<!-- name="Kazushige Goto" -->
+<!-- email="goto@statabo.rim.or.jp" -->
+<!-- subject="fast sin/cos/tan routine" -->
+<!-- id="19990424211732Z.goto@statabo.rim.or.jp" -->
+<!-- inreplyto="" -->
+<STRONG>Kazushige Goto</STRONG> (<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine"><EM>goto@statabo.rim.or.jp</EM></A>)<BR>
+<EM>Sat, 24 Apr 1999 21:17:32 +0900</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#7">[ date ]</A>
+<A HREF="index.html#7">[ thread ]</A>
+<A HREF="subject.html#7">[ subject ]</A>
+<A HREF="author.html#7">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Kazushige Goto: "dgemm/sgemm routine"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>There are improved sin/cos/tan/cotan routine.
+<BR>
+It's about 10% faster than libffm-0.28's version and good for random
+<BR>
+values(such as +-+-...).  But I've not made sure enough whether it
+<BR>
+works.
+<BR>
+<P>And dgemm runs about 10MFlops faster than yesterday's version(about
+<BR>
+855 to 865MFlops, 21164A, 600MHz, size is 1000x1000 to 3000x3000).
+<BR>
+I'll put at
+<BR>
+&nbsp;<A HREF="ftp://www.netstat.ne.jp/pub/Linux/Linux-Alpha-JP/BLAS">ftp://www.netstat.ne.jp/pub/Linux/Linux-Alpha-JP/BLAS</A>
+<BR>
+<P>Thanks,
+<BR>
+&nbsp;&nbsp;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>
+<BR>
+<P><P><P>
+/*
+<BR>
+&nbsp;&nbsp;&nbsp;libffm	- Free, pretty fast replacement for some math (libm) routines 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on Linux/AXP, optimized for the 21164
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Copyright (C) 1998  Joachim Wesner &lt;<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20fast%20sin/cos/tan%20routine">joachim.wesner@frankfurt.netsurf.de</A>&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and  Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This library is free software; you can redistribute it and/or
+<BR>
+&nbsp;&nbsp;&nbsp;modify it under the terms of the GNU Library General Public
+<BR>
+&nbsp;&nbsp;&nbsp;License as published by the Free Software Foundation; either
+<BR>
+&nbsp;&nbsp;&nbsp;version 2 of the License, or (at your option) any later version.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This library is distributed in the hope that it will be useful,
+<BR>
+&nbsp;&nbsp;&nbsp;but WITHOUT ANY WARRANTY; without even the implied warranty of
+<BR>
+&nbsp;&nbsp;&nbsp;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+<BR>
+&nbsp;&nbsp;&nbsp;Library General Public License for more details.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;You should have received a copy of the GNU Library General Public
+<BR>
+&nbsp;&nbsp;&nbsp;License along with this library (see file COPYING.LIB); if not, write 
+<BR>
+&nbsp;&nbsp;&nbsp;to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, 
+<BR>
+&nbsp;&nbsp;&nbsp;MA 02139, USA.
+<BR>
+*/
+<BR>
+/*
+<BR>
+&nbsp;&nbsp;&nbsp;Fast sin/cos approximation including range reduction by Joachim Wesner,
+<BR>
+&nbsp;&nbsp;&nbsp;&lt;<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20fast%20sin/cos/tan%20routine">joachim.wesner@frankfurt.netsurf.de</A>&gt;, see also the work published in 
+<BR>
+&nbsp;&nbsp;&nbsp;mc 8/1991 p. 78-93. Done in June 1998.
+<BR>
+*/
+<BR>
+<P>/*
+<BR>
+&nbsp;&nbsp;improved and modified by Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt;
+<BR>
+<P>&nbsp;&nbsp;note:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This program's target is Alpha 21164.
+<BR>
+&nbsp;&nbsp;&nbsp;It takes only 88 clocks at most in any parameters.
+<BR>
+&nbsp;&nbsp;&nbsp;But this reduction routine can not accept NaN, Inf or extra
+<BR>
+&nbsp;&nbsp;&nbsp;Huge values.  To get faster code(to fit 21164), I modified
+<BR>
+&nbsp;&nbsp;&nbsp;last routine.
+<BR>
+<P>&nbsp;&nbsp;originally,
+<BR>
+<P>&nbsp;&nbsp;x = (((((((C[0]*yy + C[1])*yy + C[2])*yy + C[3])*yy +
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C[4])*yy + C[5])*yy + C[6])*yy + C[7])*x;
+<BR>
+<P>&nbsp;&nbsp;I modified to
+<BR>
+<P>&nbsp;&nbsp;r1 = K[8] * yy;  r1 = r1 + K[12]; z1 = yy * yy;
+<BR>
+&nbsp;&nbsp;r2 = K[9] * yy;  r2 = r2 + K[13]; z2 = z1 * z1;
+<BR>
+&nbsp;&nbsp;r3 = K[10] * yy; r3 = r3 + K[14]; z3 = z2 * z1;
+<BR>
+&nbsp;&nbsp;r4 = K[11] * yy; r4 = r4 + K[15];
+<BR>
+<P>&nbsp;&nbsp;r1 = z3 * r1;  r2 = z2 * r2;  r3 = z1 * r3;
+<BR>
+&nbsp;&nbsp;r1 = r1 + r2;  r1 = r1 + r3;  r1 = r1 + r4;
+<BR>
+&nbsp;&nbsp;x = r1 * x;
+<BR>
+<P>&nbsp;&nbsp;This routine has slightly error.  My aim is to make routine as fast
+<BR>
+&nbsp;&nbsp;as I can.  If you worry about such error, please use glibc's generic
+<BR>
+&nbsp;&nbsp;sin/cos routine.  But its error is only 1-2 bit of LSB. Most people
+<BR>
+&nbsp;&nbsp;need not worry about.  This technique is provided by
+<BR>
+&nbsp;&nbsp;Naohiko Shimizu &lt;<A HREF="mailto:nshimizu@et.u-tokai.ac.jp?subject=Re:%20fast%20sin/cos/tan%20routine">nshimizu@et.u-tokai.ac.jp</A>&gt;).
+<BR>
+<P>&nbsp;&nbsp;Also, I programmed to speed up for first access.  Different from
+<BR>
+&nbsp;&nbsp;hardware function routine(i.e. intel x86, Mips),  we must take
+<BR>
+&nbsp;&nbsp;into instruction and data movement from main memory.  At a first
+<BR>
+&nbsp;&nbsp;access,  alpha waits very-very long time(about 1000 to 10000 clocks,
+<BR>
+&nbsp;&nbsp;it depends on the coding).  This is not owing to me, the users must
+<BR>
+&nbsp;&nbsp;take consideration. You must try to call continuously.
+<BR>
+<P>&nbsp;sin(+-Inf), cos(+-Inf) = NaN
+<BR>
+&nbsp;sin(NaN) = NaN
+<BR>
+<P>*/
+<BR>
+<P>/*
+<BR>
+&nbsp;&nbsp;&nbsp;further modified to use a higher order approximation by Joachim Wesner
+<BR>
+&nbsp;&nbsp;&nbsp;(<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20fast%20sin/cos/tan%20routine">joachim.wesner@frankfurt.netsurf.de</A>).
+<BR>
+*/
+<BR>
+<P>/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;entirely revised by Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt;
+<BR>
+*/
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+<P>#ifdef __ELF__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.section .rodata
+<BR>
+#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.rdata
+<BR>
+#endif
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+$K:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  1.34930377e10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  3.18309886183790691216e-1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  0.5000000000000000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  3.1415920257568359375
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  6.2783283283351920545101165771e-7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  1.2446744343793226784516935342e-13
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Derived from Hart &amp; Cheney, &quot;Computer Approximations&quot; */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* Approximation #3345, rescaled,  18.6 digits precision */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*   old # 3344 only had Precision 15.9 digits */
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  8.33333333333316687e-03
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  2.75573192101527649e-06
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  1.60589364903715968e-10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  2.72047909578888632e-15
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -1.66666666666666665e-01
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -1.98412698412018475e-04
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -2.50521067982745961e-08
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -7.64291780689105074e-13
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  1.00000000000000000e+00
+<BR>
+<P><P>.text
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl sin
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent sin
+<BR>
+sin:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, -16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp	$29,.-sin($27)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f16,  0($30)
+<BR>
+<P>#ifdef PROF
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28, _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$28, ($28), _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28,  $K
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$6, 0x7ff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$8, 0x420
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$6, 52, $6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$5, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$8, 52, $8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f1,    0($28)		# K[ 0]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f17,   8($28)		# K[ 1]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fabs	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$5, $6, $7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$7, $SinSubNormal
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmplt	$8, $7, $0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bne	$0, $Inf_and_NaN
+<BR>
+<P># Now we can calculate.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f17, $f10	# z = x * K[1]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f19,  24($28)		# K[ 3]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f20,  32($28)		# K[ 4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f21,  40($28)		# K[ 5]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f22,  48($28)		# K[ 6]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f23,  56($28)		# K[ 7]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f24,  64($28)		# K[ 8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f25,  72($28)		# K[ 9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmptlt  $f1, $f0, $f1		# |arg| &gt;= max. |arg| ?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvttq	$f10, $f11		# float -&gt; quad
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f10	# yy = x * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f26,  80($28)		# K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f27,  88($28)		# K[11]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f28,  96($28)		# K[12]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f11,   8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvtqt	$f11, $f12		# quad  -&gt; float
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbeq	$f11,  $Common
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f19, $f12, $f19	# z * K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f20, $f12, $f20	# z * K[4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f21, $f12, $f21	# z * K[5]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f19, $f16
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f20, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f21, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f10	# yy = x * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;br	$Common
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end sin
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl cos
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent cos
+<BR>
+cos:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, -16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp	$29,.-cos($27)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f16,  0($30)
+<BR>
+<P>#ifdef PROF
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28, _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$28, ($28), _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 1
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fabs	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28,  $K
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$6, 0x7ff
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cpysn	$f31, $f16, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$8, 0x420
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$6, 52, $6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$5, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$8, 52, $8
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f1,    0($28)		# K[ 0]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f17,   8($28)		# K[ 1]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$5, $6, $7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$7, $CosSubNormal
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmplt	$8, $7, $0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bne	$0, $Inf_and_NaN
+<BR>
+<P># Now we can calculate.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f17, $f10	# z = x * K[1]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f18,  16($28)		# K[ 2]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmptlt  $f1, $f0, $f1		# |arg| &gt;= max. |arg| ?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f19,  24($28)		# K[ 3]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f20,  32($28)		# K[ 4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f21,  40($28)		# K[ 5]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f22,  48($28)		# K[ 6]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f23,  56($28)		# K[ 7]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f24,  64($28)		# K[ 8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f25,  72($28)		# K[ 9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvttq/c	$f10, $f11		# float -&gt; quad
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f26,  80($28)		# K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f27,  88($28)		# K[11]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f28,  96($28)		# K[12]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f11,   8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvtqt	$f11, $f12		# quad  -&gt; float
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f12, $f18, $f12
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f19, $f12, $f19	# z * K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f20, $f12, $f20	# z * K[4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f21, $f12, $f21	# z * K[5]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f19, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f20, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f21, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f10	# yy = x * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$Common:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10, $f10, $f12	# z1 = yy * yy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f29, 104($28)		# K[13]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f30, 112($28)		# K[14]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$1,   8($30)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f12, $f10, $f13	# z2 = z1 * yy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f22, $f10, $f22	# r4 = K[6] * yy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f10, $f23	# r3 = K[7] * yy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f24, $f10, $f24	# r2 = K[8] * yy
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f13, $f12, $f14	# z3 = z2 * z1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f25, $f10, $f25	# r1 = K[9] * yy
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f22, $f26, $f22	# r4 += K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f23, $f27, $f23	# r3 += K[11]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f14, $f12, $f15	# z4 = z3 * z1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f24, $f28, $f24	# r2 += K[12]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f29, $f25	# r1 += K[13]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10, $f22, $f22	# r4 = yy * r4
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f13, $f23, $f23	# r3 = z2 * r3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$1, 1, $1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$1,   8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fneg	$f16, $f10
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f14, $f24, $f24	# r2 = z3 * r2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbne	$f1, $Inf_and_NaN
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f15, $f25, $f25	# r1 = z4 * r1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f22, $f30, $f22	# r4 += K[14]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f1,  8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f24, $f25	# r1 = r1 + r2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fcmovne	$f1,  $f10, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f23, $f25	# r1 = r1 + r3
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f22, $f25	# r1 = r1 + r4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f25, $f16, $f0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$SinSubNormal:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fmov	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$CosSubNormal:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f0, 112($28)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$Inf_and_NaN:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$0, -1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0,   0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f0,  0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end cos
+<BR>
+<P><P>
+/*
+<BR>
+&nbsp;&nbsp;&nbsp;libffm	- Free, pretty fast replacement for some math (libm) routines 
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;on Linux/AXP, optimized for the 21164
+<BR>
+<P>&nbsp;&nbsp;&nbsp;Copyright (C) 1998  Joachim Wesner &lt;<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20fast%20sin/cos/tan%20routine">joachim.wesner@frankfurt.netsurf.de</A>&gt;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and  Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This library is free software; you can redistribute it and/or
+<BR>
+&nbsp;&nbsp;&nbsp;modify it under the terms of the GNU Library General Public
+<BR>
+&nbsp;&nbsp;&nbsp;License as published by the Free Software Foundation; either
+<BR>
+&nbsp;&nbsp;&nbsp;version 2 of the License, or (at your option) any later version.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;This library is distributed in the hope that it will be useful,
+<BR>
+&nbsp;&nbsp;&nbsp;but WITHOUT ANY WARRANTY; without even the implied warranty of
+<BR>
+&nbsp;&nbsp;&nbsp;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+<BR>
+&nbsp;&nbsp;&nbsp;Library General Public License for more details.
+<BR>
+<P>&nbsp;&nbsp;&nbsp;You should have received a copy of the GNU Library General Public
+<BR>
+&nbsp;&nbsp;&nbsp;License along with this library (see file COPYING.LIB); if not, write 
+<BR>
+&nbsp;&nbsp;&nbsp;to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, 
+<BR>
+&nbsp;&nbsp;&nbsp;MA 02139, USA.
+<BR>
+*/
+<BR>
+/*
+<BR>
+&nbsp;&nbsp;&nbsp;Fast tan/cotan approximation including range reduction by Joachim Wesner,
+<BR>
+&nbsp;&nbsp;&nbsp;&lt;<A HREF="mailto:joachim.wesner@frankfurt.netsurf.de?subject=Re:%20fast%20sin/cos/tan%20routine">joachim.wesner@frankfurt.netsurf.de</A>&gt;, see also mc 8/1991 p. 78-93.
+<BR>
+&nbsp;&nbsp;&nbsp;Done in June/July 1998.
+<BR>
+*/
+<BR>
+<P>/* improved and modified by Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt; */
+<BR>
+<P>/*
+<BR>
+&nbsp;&nbsp;&nbsp;now including illegal/denormal argument handling by Kazushige Goto and
+<BR>
+&nbsp;&nbsp;&nbsp;Joachim Wesner (Nov 1998).
+<BR>
+*/
+<BR>
+<P>/*
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;entirely revised by Kazushige Goto &lt;<A HREF="mailto:goto@statabo.rim.or.jp?subject=Re:%20fast%20sin/cos/tan%20routine">goto@statabo.rim.or.jp</A>&gt;
+<BR>
+*/
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noat
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.set noreorder
+<BR>
+<P>#ifdef __ELF__
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.section .rodata
+<BR>
+#else
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.rdata
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+$K:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  6.746518852e9			 # 2**32*pi/2
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  6.36619772367581382433e-1		 # 2./M_PI
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  1.57079601287841796875e0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  3.13916416416759602726e-7
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  6.22337217189661338378e-14
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -3.5852891647471419219e+001
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  5.1513699203375195243e+004
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -2.6773388479715725433e+005
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -6.2589095005702739694e+002
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  6.8746022970978239588e+003
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating -9.3681685518878501841e+005
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.t_floating  2.0072489111748832058e+006
+<BR>
+<P>.text
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl	tan
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent	tan
+<BR>
+tan:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, -32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp	$29,.-tan($27)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f16,  0($30)
+<BR>
+<P>#ifdef PROF
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28, _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$28, ($28), _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 1	
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28,  $K
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$6, 0x7ff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$8, 0x41f
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$6, 52, $6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$5, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$8, 52, $8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f18,   0($28)		# K[0]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f19,   8($28)		# K[1]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fabs	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$5, $6, $7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$7, $TanSubNormal
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmplt	$8, $7, $0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bne	$0, $Inf_and_NaN
+<BR>
+<P># Now we can calculate.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f19, $f19	# z = x * K[1]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f20,  16($28)		# K[2]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f21,  24($28)		# K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f22,  32($28)		# K[4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f23,  40($28)		# K[5]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f24,  48($28)		# K[6]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f25,  56($28)		# K[7]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmptlt  $f18, $f0, $f18		# |arg| &gt;= max. |arg| ?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f26,  64($28)		# K[8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f12	# y  = x * x
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvttq	$f19, $f17		# float -&gt; quad
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f27,  72($28)		# K[9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f28,  80($28)		# K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvtqt	$f17, $f10		# quad  -&gt; float
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbeq	$f17, $SkipReduction
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f20, $f20	# z * K[2]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f21, $f21	# z * K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f22, $f22	# z * K[4]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f20, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f21, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f22, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f12	# y  = x * x
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$SkipReduction:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f12, $f12, $f13	# y1 = y * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f17,   8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f29,  88($28)		# K[11]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f12, $f23	# r1 = K[5] * y
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f24, $f12, $f24	# r4 = K[6] * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fneg	$f16, $f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f25, $f12, $f25	# r2 = K[7] * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$0, 8($30)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f13, $f12, $f14	# y2 = y1 * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f12, $f26, $f26	# r3 = y  + K[8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f23, $f27, $f23	# r1 = r1 + K[9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$0, 1, $0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f24, $f28, $f24	# r4 = r4 + K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f29, $f25	# r2 = r2 + K[11]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f26, $f14, $f26	# r3 = r3 * y2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f24, $f12, $f24	# r4 = r4 * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f11, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f13, $f23	# r1 = r1 * y1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbne	$f18, $Inf_and_NaN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fcmovne	$f11, $f10, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f26, $f24, $f26	# r3 = r3 + r4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f23, $f25, $f23	# r1 = r1 + r2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f26, $f29, $f26	# r3 = r3 + K[12]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f16, $f23	# r1 = r1 * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$0, $Skip
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;divt	$f26, $f23, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+$Skip:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;divt	$f23, $f26, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$TanSubNormal:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fmov	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end tan
+<BR>
+<P><P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 5
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.globl	cotan
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ent	cotan
+<BR>
+cotan:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, -32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldgp	$29,.-cotan($27)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f16,  0($30)
+<BR>
+<P>#ifdef PROF
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28, _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsr	$28, ($28), _mcount
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+#endif
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prologue 1	
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$28,  $K
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$6, 0x7ff
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$8, 0x41f
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$6, 52, $6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$5, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sll	$8, 52, $8
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f18,   0($28)		# K[0]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f19,   8($28)		# K[1]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fabs	$f16, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$5, $6, $7
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$7, $CotanSubNormal
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmplt	$8, $7, $0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bne	$0, $Inf_and_NaN
+<BR>
+<P># Now we can calculate.
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f19, $f19	# z = x * K[1]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f20,  16($28)		# K[2]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f21,  24($28)		# K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f22,  32($28)		# K[4]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f23,  40($28)		# K[5]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f24,  48($28)		# K[6]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f25,  56($28)		# K[7]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmptlt  $f18, $f0, $f18		# |arg| &gt;= max. |arg| ?
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f26,  64($28)		# K[8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f12	# y  = x * x
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvttq	$f19, $f17		# float -&gt; quad
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f27,  72($28)		# K[9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f28,  80($28)		# K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cvtqt	$f17, $f10		# quad  -&gt; float
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbeq	$f17, $CotanSkipReduction
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f20, $f20	# z * K[2]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f21, $f21	# z * K[3]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f10,  $f22, $f22	# z * K[4]
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f20, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f21, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;subt	$f16, $f22, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f16, $f16, $f12	# y  = x * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$CotanSkipReduction:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f12, $f12, $f13	# y1 = y * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stt	$f17,   8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f29,  88($28)		# K[11]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f12, $f23	# r1 = K[5] * y
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f24, $f12, $f24	# r4 = K[6] * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fneg	$f16, $f10
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f25, $f12, $f25	# r2 = K[7] * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq	$0, 8($30)
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f13, $f12, $f14	# y2 = y1 * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f12, $f26, $f26	# r3 = y  + K[8]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f23, $f27, $f23	# r1 = r1 + K[9]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;and	$0, 1, $0
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f24, $f28, $f24	# r4 = r4 + K[10]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f25, $f29, $f25	# r2 = r2 + K[11]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f26, $f14, $f26	# r3 = r3 * y2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f24, $f12, $f24	# r4 = r4 * y
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f11, 16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f13, $f23	# r1 = r1 * y1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fbne	$f18, $Inf_and_NaN
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fcmovne	$f11, $f10, $f16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f26, $f24, $f26	# r3 = r3 + r4
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f23, $f25, $f23	# r1 = r1 + r2
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addt	$f26, $f29, $f26	# r3 = r3 + K[12]
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unop
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mult	$f23, $f16, $f23	# r1 = r1 * x
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beq	$0, $CotanSkip
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;divt	$f23, $f26, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+$CotanSkip:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;divt	$f26, $f23, $f0
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$CotanSubNormal:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$6,  0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f0, 0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bge	$2,$Non_Negative
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fneg	$f0, $f0
+<BR>
+$Non_Negative:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.align 4
+<BR>
+<P>$Inf_and_NaN:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$0, -1
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stq	$0,   0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldt	$f0,  0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lda	$30, 32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.end cotan
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<BR>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Previous message:</STRONG> <A HREF="0006.html">Kazushige Goto: "dgemm/sgemm routine"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sat Apr 24 1999 - 06:00:14 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

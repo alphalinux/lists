@@ -1,0 +1,255 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: diffs for stubs in mozilla</TITLE>
+<META NAME="Author" CONTENT="stroucki@master.debian.org (stroucki@master.debian.org)">
+<META NAME="Subject" CONTENT="diffs for stubs in mozilla">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>diffs for stubs in mozilla</H1>
+<HR>
+<P>
+<!-- received="Fri Jul 06 09:35:17 2001" -->
+<!-- isoreceived="20010706163517" -->
+<!-- sent="Fri, 6 Jul 2001 05:33:08 -0400" -->
+<!-- isosent="20010706093308" -->
+<!-- name="stroucki@master.debian.org" -->
+<!-- email="stroucki@master.debian.org" -->
+<!-- subject="diffs for stubs in mozilla" -->
+<!-- id="20010706053307.A13596@stroucken.com" -->
+<STRONG>Subject: </STRONG>diffs for stubs in mozilla<BR>
+<EM>stroucki@master.debian.org</EM><BR>
+<STRONG>Date: </STRONG>Fri Jul 06 2001 - 02:33:08 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#10">[ date ]</A>
+<A HREF="index.html#10">[ thread ]</A>
+<A HREF="subject.html#10">[ subject ]</A>
+<A HREF="author.html#10">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0011.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0009.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Here are the diffs to the xptcall section. I removed the 'static' from
+<BR>
+the function definitions because otherwise they were optimised away.
+<BR>
+For the perl script, I basically have it write the inline assembly
+<BR>
+code instead of leaving it to the macros in the source files (since
+<BR>
+the new mangled labels have the function length encoded within).
+<BR>
+This really is a job for perl.
+<BR>
+<P>Hope this helps,
+<BR>
+Michael.
+<BR>
+<P>Index: xptcinvoke_linux_alpha.cpp
+<BR>
+===================================================================
+<BR>
+RCS file: /cvsroot/mozilla/xpcom/reflect/xptcall/src/md/unix/xptcinvoke_linux_alpha.cpp,v
+<BR>
+retrieving revision 1.2
+<BR>
+diff -u -r1.2 xptcinvoke_linux_alpha.cpp
+<BR>
+--- xptcinvoke_linux_alpha.cpp	1999/11/06 03:39:07	1.2
+<BR>
++++ xptcinvoke_linux_alpha.cpp	2001/07/06 09:15:24
+<BR>
+@@ -27,11 +27,11 @@
+<BR>
+&nbsp;#include &quot;xptcprivate.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Prototype specifies unmangled function name and disables unused warning */
+<BR>
+-static void
+<BR>
++void
+<BR>
+&nbsp;invoke_copy_to_stack(PRUint64* d, PRUint32 paramCount, nsXPTCVariant* s)
+<BR>
+&nbsp;__asm__(&quot;invoke_copy_to_stack&quot;) __attribute__((unused));
+<BR>
+&nbsp;
+<BR>
+-static void
+<BR>
++void
+<BR>
+&nbsp;invoke_copy_to_stack(PRUint64* d, PRUint32 paramCount, nsXPTCVariant* s)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const PRUint8 NUM_ARG_REGS = 6-1;        // -1 for &quot;this&quot; pointer
+<BR>
+Index: xptcstubs_linux_alpha.cpp
+<BR>
+===================================================================
+<BR>
+RCS file: /cvsroot/mozilla/xpcom/reflect/xptcall/src/md/unix/xptcstubs_linux_alpha.cpp,v
+<BR>
+retrieving revision 1.2
+<BR>
+diff -u -r1.2 xptcstubs_linux_alpha.cpp
+<BR>
+--- xptcstubs_linux_alpha.cpp	1999/11/06 03:39:10	1.2
+<BR>
++++ xptcstubs_linux_alpha.cpp	2001/07/06 09:15:25
+<BR>
+@@ -27,11 +27,13 @@
+<BR>
+&nbsp;#include &quot;xptcprivate.h&quot;
+<BR>
+&nbsp;
+<BR>
+&nbsp;/* Prototype specifies unmangled function name and disables unused warning */
+<BR>
+-static nsresult
+<BR>
++
+<BR>
++nsresult
+<BR>
+&nbsp;PrepareAndDispatch(nsXPTCStubBase* self, uint32 methodIndex, PRUint64* args)
+<BR>
+&nbsp;__asm__(&quot;PrepareAndDispatch&quot;) __attribute__((unused));
+<BR>
++
+<BR>
+&nbsp;
+<BR>
+-static nsresult
+<BR>
++nsresult
+<BR>
+&nbsp;PrepareAndDispatch(nsXPTCStubBase* self, uint32 methodIndex, PRUint64* args)
+<BR>
+&nbsp;{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const PRUint8 PARAM_BUFFER_COUNT = 16;
+<BR>
+Index: genstubs.pl
+<BR>
+===================================================================
+<BR>
+RCS file: /cvsroot/mozilla/xpcom/reflect/xptcall/public/genstubs.pl,v
+<BR>
+retrieving revision 1.5
+<BR>
+diff -u -r1.5 genstubs.pl
+<BR>
+--- genstubs.pl	2001/05/19 00:03:00	1.5
+<BR>
++++ genstubs.pl	2001/07/06 09:17:00
+<BR>
+@@ -61,8 +61,30 @@
+<BR>
+&nbsp;print OUTFILE &quot;/* includes &quot;,$entry_count,&quot; stub entries, and &quot;,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$sentinel_count,&quot; sentinel entries */\n\n&quot;;
+<BR>
+&nbsp;
+<BR>
+-for($i = 0; $i &lt; $entry_count; $i++) {
+<BR>
+-    print OUTFILE &quot;STUB_ENTRY(&quot;,$i+3,&quot;)\n&quot;;
+<BR>
++for($i = 3; $i &lt; ($entry_count+3); $i++) {
+<BR>
++#    print OUTFILE &quot;STUB_ENTRY(&quot;,$i+3,&quot;)\n&quot;;
+<BR>
++# _ZN14nsXPTCStubBase6Stub29Ev #&quot;_ZN14ns&quot;class+length+method+&quot;Ev&quot;
+<BR>
++$x = length($i) + 4; #get method name length
+<BR>
++print OUTFILE &lt;&lt;__BARF__;
+<BR>
++__asm__( \
+<BR>
++    &quot;#### Stub$i ####\\n&quot; \\
+<BR>
++&quot;.text\\n\\t&quot; \\
+<BR>
++    &quot;.align 5\\n\\t&quot; \\
+<BR>
++    &quot;.globl _ZN14nsXPTCStubBase${x}Stub${i}Ev\\n\\t&quot; \\
+<BR>
++    &quot;.ent _ZN14nsXPTCStubBase${x}Stub${i}Ev\\n&quot; \\
+<BR>
++&quot;_ZN14nsXPTCStubBase${x}Stub${i}Ev:\\n\\t&quot; \\
+<BR>
++    &quot;.frame \$30,0,\$26,0\\n\\t&quot; \\
+<BR>
++    &quot;ldgp \$29,0(\$27)\\n&quot; \\
+<BR>
++&quot;\$_ZN14nsXPTCStubBase${x}Stub${i}Ev..ng:\\n\\t&quot; \\
+<BR>
++    &quot;.prologue 1\\n\\t&quot; \\
+<BR>
++    &quot;lda \$1,$i\\n\\t&quot; \\
+<BR>
++    &quot;br \$31,\$SharedStub..ng\\n\\t&quot; \\
+<BR>
++    &quot;.end _ZN14nsXPTCStubBase${x}Stub${i}Ev&quot; \\
+<BR>
++    );
+<BR>
++
+<BR>
++;
+<BR>
++
+<BR>
++__BARF__
+<BR>
+&nbsp;}
+<BR>
+&nbsp;
+<BR>
+&nbsp;for($i = 0; $i &lt; $sentinel_count; $i++) {
+<BR>
+<PRE>
+-- 
+This message may have passed through thousands of machines throughout
+the entire civilised world. It might have cost the net hundreds, if not
+thousands of dollars to send everywhere.
++++ Michael Stroucken +++ michael@stroucken.org +++ DEC Alpha Powered +++
+<P><P></PRE>
+<HR>
+<UL>
+<LI>application/pgp-signature attachment: <A HREF="att-bin0lQEt8B">stored</A>
+</UL>
+<!-- attachment="att-bin0lQEt8B" -->
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0011.html">Michael Stroucken: "Re: netscape?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0009.html">Christopher C. Chimelis: "Re: netscape?"</A>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Wed Aug 01 2001 - 06:11:43 PDT</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

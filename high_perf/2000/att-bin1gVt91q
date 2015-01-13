@@ -1,0 +1,161 @@
+diff -urN linux.old/arch/alpha/lib/Makefile linux/arch/alpha/lib/Makefile
+--- linux.old/arch/alpha/lib/Makefile	Sun Aug 13 19:15:27 2000
++++ linux/arch/alpha/lib/Makefile	Sat Sep 30 11:50:54 2000
+@@ -15,6 +15,10 @@
+ 	csum_ipv6_magic.o strcasecmp.o semaphore.o \
+ 	callback_srm.o callback_init.o srm_puts.o srm_printk.o
+ 
++ifeq ($(CONFIG_ALPHA_EV6),y)
++OBJS += pageset.o
++endif
++
+ lib.a: $(OBJS)
+ 	$(AR) rcs lib.a $(OBJS)
+ 
+diff -urN linux.old/arch/alpha/lib/pageset.S linux/arch/alpha/lib/pageset.S
+--- linux.old/arch/alpha/lib/pageset.S	Thu Jan  1 09:00:00 1970
++++ linux/arch/alpha/lib/pageset.S	Sat Sep 30 12:40:00 2000
+@@ -0,0 +1,96 @@
++/*
++ *	arch/alpha/lib/pageset.S
++ */
++
++#include <asm/page.h>
++
++	.set noat
++	.set noreorder
++
++.text
++	.align 5
++	.align 5
++	.globl clear_page
++	.ent clear_page
++clear_page:
++	.frame $30,0,$26,0
++	.prologue	0
++	lda	$0, 64($16)
++	wh64	($16)
++	lda	$20, 8192 - 64($16)		# last address
++	lda	$18, 128($16)
++
++	wh64	($0)
++	lda	$17, 1 << (PAGE_SHIFT - 6)
++	unop
++	cmple	$18, $20, $1
++	.align 4
++
++$Loop:
++	cmoveq	$1,  $20, $18
++	lda	$17,  -1($17)
++	unop
++	wh64	($18)
++
++	stq	$31,   0($16)
++	stq	$31,   8($16)
++	stq	$31,  16($16)
++	stq	$31,  24($16)
++	stq	$31,  32($16)
++	stq	$31,  40($16)
++	stq	$31,  48($16)
++	stq	$31,  56($16)
++	lda	$18, 192($16)
++	lda	$16,  64($16)
++	cmple	$18, $20, $1
++	bgt	$17,  $Loop
++	ret
++	.end	clear_page
++
++	.align 5
++	.globl copy_page
++	.ent copy_page
++copy_page:
++	.frame $30,0,$26,0
++	.prologue	0
++	lda	$0,   64($16)
++	wh64	($16)
++	lda	$21, 8192 - 64($16)		# last address
++	lda	$20, 128($16)
++
++	wh64	($0)
++	cmple	$20, $21, $22
++	unop
++	lda	$18, 1 << (PAGE_SHIFT - 6)
++	.align 4
++
++$Copy_Loop:
++	cmoveq	$22, $21, $20
++	lda	$18,  -1($18)
++	unop
++	wh64	($20)
++
++	ldq	$0,    0($17)
++	ldq	$1,    8($17)
++	ldq	$2,   16($17)
++	ldq	$3,   24($17)
++	ldq	$4,   32($17)
++	ldq	$5,   40($17)
++	ldq	$6,   48($17)
++	ldq	$7,   56($17)
++	lda	$17,  64($17)
++
++	stq	$0,    0($16)
++	stq	$1,    8($16)
++	stq	$2,   16($16)
++	stq	$3,   24($16)
++	stq	$4,   32($16)
++	stq	$5,   40($16)
++	stq	$6,   48($16)
++	stq	$7,   56($16)
++	lda	$20, 192($16)
++	lda	$16,  64($16)
++	cmple	$20, $21, $22
++	bgt	$18,  $Copy_Loop
++	ret
++	.end	copy_page
+diff -urN linux.old/include/asm-alpha/page.h linux/include/asm-alpha/page.h
+--- linux.old/include/asm-alpha/page.h	Mon Sep  7 02:34:33 1998
++++ linux/include/asm-alpha/page.h	Fri Sep 29 22:04:01 2000
+@@ -19,6 +19,10 @@
+  * results in clearer kernel profiles as we see _who_ is
+  * doing page clearing or copying.
+  */
++#if defined(CONFIG_ALPHA_EV6) 
++void clear_page(unsigned long page);
++void copy_page(unsigned long _to, unsigned long _from);
++#else
+ static inline void clear_page(unsigned long page)
+ {
+ 	unsigned long count = PAGE_SIZE/64;
+@@ -67,6 +71,7 @@
+ 		to += 8;
+ 	} while (count);
+ }
++#endif
+ 
+ #ifdef STRICT_MM_TYPECHECKS
+ /*
+diff -urN linux.old/include/asm-alpha/pgtable.h linux/include/asm-alpha/pgtable.h
+--- linux.old/include/asm-alpha/pgtable.h	Sun Aug 13 19:15:29 2000
++++ linux/include/asm-alpha/pgtable.h	Fri Sep 29 22:04:08 2000
+@@ -233,6 +233,11 @@
+ #define _PAGE_FOW	0x0004	/* used for page protection (fault on write) */
+ #define _PAGE_FOE	0x0008	/* used for page protection (fault on exec) */
+ #define _PAGE_ASM	0x0010
++#if defined(CONFIG_ALPHA_EV6) && !defined(__SMP__)
++#define _PAGE_MBE	0x0080	/* MB disable bit for EV6  */
++#else
++#define _PAGE_MBE	0x0000
++#endif
+ #define _PAGE_KRE	0x0100	/* xxx - see below on the "accessed" bit */
+ #define _PAGE_URE	0x0200	/* xxx */
+ #define _PAGE_KWE	0x1000	/* used to do the dirty bit in software */
+@@ -354,7 +359,7 @@
+  * and a page entry and page directory to the page they refer to.
+  */
+ extern inline pte_t mk_pte(unsigned long page, pgprot_t pgprot)
+-{ pte_t pte; pte_val(pte) = ((page-PAGE_OFFSET) << (32-PAGE_SHIFT)) | pgprot_val(pgprot); return pte; }
++{ pte_t pte; pte_val(pte) = ((page-PAGE_OFFSET) << (32-PAGE_SHIFT)) | pgprot_val(pgprot)|_PAGE_MBE; return pte; }
+ 
+ extern inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
+ { pte_t pte; pte_val(pte) = (PHYS_TWIDDLE(physpage) << (32-PAGE_SHIFT)) | pgprot_val(pgprot); return pte; }
+

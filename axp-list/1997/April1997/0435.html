@@ -1,0 +1,155 @@
+<!-- received="Thu Apr 10 02:08:23 1997 " -->
+<!-- sent="Thu, 10 Apr 1997 01:03:37 -0500 (CDT)" -->
+<!-- name="D. Champion" -->
+<!-- email="d-champion@uchicago.edu" -->
+<!-- subject="Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)" -->
+<!-- id="199704100603.BAA17176@melanoma.uchicago.edu" -->
+<!-- inreplyto="01BC4515.52696580@ispro.xs4all.nl" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)</h2>
+
+<b>D. Champion</b> (<a href="mailto:d-champion@uchicago.edu"><i>d-champion@uchicago.edu</i></a>)<br>
+<i>Thu, 10 Apr 1997 01:03:37 -0500 (CDT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#435">[ date ]</a><a href="index.html#435">[ thread ]</a><a href="subject.html#435">[ subject ]</a><a href="author.html#435">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0436.html">Marco Corte: "Re: AlphaStation 255 installed OK"</a>
+<li> <b>Previous message:</b> <a href="0434.html">Michal Jaegermann: "Re: 2.0.30 on the alpha?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0505.html">Jeff Odom: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<li> <b>Reply:</b> <a href="0505.html">Jeff Odom: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt;make config, make dep, make clean all goes well...... until...</i><br>
+<i>&gt;</i><br>
+<i>&gt;...</i><br>
+<i>&gt;/usr/src/linux-2.1.32/include/asm/io.h: In function 'set_hae':</i><br>
+<i>&gt;In file included from init/main.c:40:</i><br>
+<i>&gt;/usr/src/linux-2.1.32/include/asm/io.h:41: parse error before '__asm__'</i><br>
+<i>&gt;make: *** [init/main.o] Error 1</i><br>
+<p>
+To play the facilitator and integrate things, Tim Waugh and Jeff Odom<br>
+have suggested parts of this, which is what I used:<br>
+<p>
+*** include/asm-alpha/hardirq.h.orig	Mon Apr  7 21:01:11 1997<br>
+--- include/asm-alpha/hardirq.h	Mon Apr  7 21:00:27 1997<br>
+***************<br>
+*** 12,17 ****<br>
+--- 12,19 ----<br>
+  #define hardirq_enter(cpu)	(local_irq_count[cpu]++)<br>
+  #define hardirq_exit(cpu)	(local_irq_count[cpu]--)<br>
+  <br>
++ #define synchronize_irq()	do { } while (0)<br>
++ <br>
+  #else<br>
+  <br>
+  #error FIXME<br>
+*** arch/alpha/kernel/irq.c.orig	Wed Oct 16 01:05:09 1996<br>
+--- arch/alpha/kernel/irq.c	Mon Apr  7 20:57:46 1997<br>
+***************<br>
+*** 28,33 ****<br>
+--- 28,35 ----<br>
+  <br>
+  extern void timer_interrupt(struct pt_regs * regs);<br>
+  <br>
++ unsigned int local_irq_count[NR_CPUS];<br>
++ <br>
+  #if NR_IRQS &gt; 64<br>
+  #  error Unable to handle more than 64 irq levels.<br>
+  #endif<br>
+*** include/asm-alpha/io.h.orig	Wed Apr  9 19:57:20 1997<br>
+--- include/asm-alpha/io.h	Tue Apr  8 05:30:00 1997<br>
+***************<br>
+*** 38,44 ****<br>
+   */<br>
+  extern inline void set_hae(unsigned long new_hae)<br>
+  {<br>
+! 	unsigned long ipl = swpipl(7);<br>
+  	hae.cache = new_hae;<br>
+  	*hae.reg = new_hae;<br>
+  	mb();<br>
+--- 38,45 ----<br>
+   */<br>
+  extern inline void set_hae(unsigned long new_hae)<br>
+  {<br>
+! 	unsigned long ipl;<br>
+! 	swpipl(ipl, 7);<br>
+  	hae.cache = new_hae;<br>
+  	*hae.reg = new_hae;<br>
+  	mb();<br>
+<p>
+That will build the kernel.  Recent alpha 2.1.x-series kernels are<br>
+doing something different in the networking, too; Red Hat's (for one)<br>
+network startup scripts will hang when you ifconfig the loopback.<br>
+To fix this, install a /etc/sysconfig/network-scripts/ifup-lo that<br>
+checks your kernel revision, and manages the ifconfig differently<br>
+for the new ones.  I copied stuff (starting with the actual ifconfig,<br>
+and ending with the end) from the regular ifup script, and put it in<br>
+a function called<br>
+	ifup_lo_complex () {<br>
+		...<br>
+	}<br>
+(Don't know whether I can replicate RH's code on this list....)<br>
+<p>
+I then added:<br>
+	ifup_lo_simple () {<br>
+		ifconfig lo up<br>
+	}<br>
+<p>
+	case `uname -r` in<br>
+		2.1.[3-9]?)     :<br>
+			ifup_lo_simple<br>
+			;;<br>
+		*)      :<br>
+			ifup_lo_complex ifcfg-lo<br>
+			;;<br>
+	esac<br>
+<p>
+My network starts up fine now.<br>
+<p>
+As you might expect, if you're using pppd you'll have to recompile it<br>
+for the dynamic routes in later 2.1-series kernels.<br>
+<p>
+HTH.<br>
+<p>
+-D.<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0436.html">Marco Corte: "Re: AlphaStation 255 installed OK"</a>
+<li> <b>Previous message:</b> <a href="0434.html">Michal Jaegermann: "Re: 2.0.30 on the alpha?"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0505.html">Jeff Odom: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<li> <b>Reply:</b> <a href="0505.html">Jeff Odom: "Re: 2.1.32 troubles, make boot doesn't finish (hardly starts)"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

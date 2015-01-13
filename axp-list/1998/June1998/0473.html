@@ -1,0 +1,133 @@
+<!-- received="Tue Jun 30 19:09:26 1998 " -->
+<!-- sent="Wed, 1 Jul 1998 00:02:36 +0200 (DFT)" -->
+<!-- name="Nils Faerber" -->
+<!-- email="Nils.Faerber@unix-ag.org" -->
+<!-- subject="AXPpci33 diag LEDs driving me nuts!" -->
+<!-- id="199806302202.AAA15208@vmax.unix-ag.uni-siegen.de" -->
+<!-- inreplyto="¨Ö	@¨Ö	@request@redhat.com with
+(" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>AXPpci33 diag LEDs driving me nuts!</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>AXPpci33 diag LEDs driving me nuts!</h2>
+
+<b>Nils Faerber</b> (<a href="mailto:Nils.Faerber@unix-ag.org"><i>Nils.Faerber@unix-ag.org</i></a>)<br>
+<i>Wed, 1 Jul 1998 00:02:36 +0200 (DFT)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#473">[ date ]</a><a href="index.html#473">[ thread ]</a><a href="subject.html#473">[ subject ]</a><a href="author.html#473">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<li> <b>Previous message:</b> <a href="0472.html">Andreas U. Trottmann: "Re: PW500a and 2.1"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<li> <b>Reply:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hello all!<br>
+In case you are not familiar with the internals of the AXPpci33 or kernel<br>
+programming you can safely skip this somewhat larger posting...<br>
+<p>
+OK. To the facts:<br>
+I am currently trying to write a device driver for those eight diagnostic<br>
+LEDs of the AXPpci33 (aka Noname) board. I think they could be very useful<br>
+for displaying all kinds of stuff or even interfacing to other hardware like<br>
+LCD display modules and thelike. So I wanted to do it.<br>
+Referring to the axppci33_ref_memory.txt file the LEDs are connected in some<br>
+strange manner to the memory bus of the CPU and are located at address<br>
+0 3880.0000 which is far away from any real physical memory. I also learned<br>
+that the lca architecture uses memory organised in four banks; the LEDs are<br>
+therefor located in the fourth bank.<br>
+<p>
+My first guess was to write a driver which just writes to this address<br>
+translated using phys_to_virt. But nothing happens! No kernel messages, no<br>
+reaction of the LEDs.<br>
+<p>
+Second thought was that the strange latch circuit which is used to connect<br>
+the LEDs might need some rising and falling edges to detect the new data so<br>
+I first wrote a 0 then the desired value and a 0 again. Nothing. Vice versa<br>
+the same process (value - 0 - value) also nothing.<br>
+<p>
+Then I tried to read the address range of the flash memory which is in the<br>
+same bank in order to find out if I am in the correct address space. And I<br>
+really got some data which quite looked like some piece of MILO ;)<br>
+<p>
+Then I thought the firmware uses the LEDs to display it's status during<br>
+power-on. After that the LEDs keep the same pattern throughout any other<br>
+operation, i.e. starting MILO and Linux. So I thought that the firmware<br>
+might mask this memory area out using the Bank Address Mask Registers, i.e.<br>
+BMR3 for the fourth bank at address 1 2000.0038. Since this address is write<br>
+only I tried writing 0 to it to enable all adresses (0=evaluate address<br>
+1=don't evaluate). After writing 0 to it and writing to the LED's address<br>
+caused some kernel messages!<br>
+It said that an access to non-exsitent memory 0x38800000 occured which is<br>
+the LED address. And strangely I got two messages: One about an illegal read<br>
+and second about an illegal write, but I don't read the LED address!<br>
+<p>
+OK I thought. Maybe the ref-text is false and the register has to be set to<br>
+1 in order to enable the decoding so I wrote 0xffffffffffffffffff (the other<br>
+bits are supposed to be ignored!). Now the machine froze completely without<br>
+any message ;)<br>
+<p>
+And now here I am and am completely clueless.<br>
+Are those damn LEDs controllable after MILO and Linux have booted?<br>
+Is the BMR the cause I cannot write there?<br>
+Do I need to enable some hidden feature to gain access to the LEDs?<br>
+<p>
+I already asked Jay Estabrook about that problem and he also had no idea why<br>
+this does not work but maybe some other Alpha hacker has.<br>
+If yes and even if it is just a "small" idea, please tell me! I soldered<br>
+this thing together and want to have it working now ;) And besides this I<br>
+think it could really be usable.<br>
+<p>
+OK. Thank you for your attention!<br>
+Hopefully read you soon ;)<br>
+CU<br>
+  nils<br>
+<p>
+<pre>
+-- 
+Nils Faerber (Linux Nils)        eMail: <a href="mailto:nils@unix-ag.org">nils@unix-ag.org</a>
+Student of computer science      <a href="http://www.si.unix-ag.org/~nils/">http://www.si.unix-ag.org/~nils/</a>
+Unix user group, University of Siegen, Germany
+<p>
+Siegen ... the arctic rain forest!
+<pre>
+--
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<li> <b>Previous message:</b> <a href="0472.html">Andreas U. Trottmann: "Re: PW500a and 2.1"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<li> <b>Reply:</b> <a href="0474.html">Martin Høy: "Re: AXPpci33 diag LEDs driving me nuts!"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

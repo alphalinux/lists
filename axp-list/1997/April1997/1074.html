@@ -1,0 +1,161 @@
+<!-- received="Fri Apr 25 00:46:45 1997 " -->
+<!-- sent="Fri, 25 Apr 97 00:37:59 -0400" -->
+<!-- name="Harold H.Youngren" -->
+<!-- email="guppy@maine.com" -->
+<!-- subject="Microway NDP f77 compiler, user comments..." -->
+<!-- id="9704250437.AA00551@maine.com" -->
+<!-- inreplyto=" the subject.  Do not send it to axp-list@re1" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Microway NDP f77 compiler, user comments...</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Microway NDP f77 compiler, user comments...</h2>
+
+<b>Harold H.Youngren</b> (<a href="mailto:guppy@maine.com"><i>guppy@maine.com</i></a>)<br>
+<i>Fri, 25 Apr 97 00:37:59 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#1074">[ date ]</a><a href="index.html#1074">[ thread ]</a><a href="subject.html#1074">[ subject ]</a><a href="author.html#1074">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1075.html">Stephan Kanthak: "Re: X86 Emulator for Alpha Linux/NT"</a>
+<li> <b>Previous message:</b> <a href="1073.html">Britt Bolen: "compiling sound into 2.0.30 on a UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I had responded earlier to a question asking if someone on this list had any  <br>
+experience with the Microway NDP f77 compiler.  The intent was to at least put  <br>
+some kind of user feedback on that compiler into the Linux/Alpha record.  <br>
+<p>
+<p>
+The discussion got sidetracked on fortran/f2c/g77/DEC f77 religious issues and  <br>
+later that same day Henry chih-hsiang Yao asked if anybody had tested the  <br>
+Microway NDP fortune compiler(??).  I give up...  <br>
+<p>
+<p>
+Just so the non-contentious information is available here is what I know about  <br>
+the Microway NDP f77 compiler...<br>
+<p>
+<p>
+Microway is selling an Alpha version of their NDP f77 compiler for Linux. I  <br>
+bought that from them and have installed and tested two compiler versions over  <br>
+the past year.   Both of these were ECOFF compilers and both required patched  <br>
+Linux kernels to run NDP executables.  I understand from Microway that the  <br>
+compiler is being updated to ELF although I have not seen an ELF version yet.<br>
+<p>
+The NDP compiler is internally a 32 bit compiler and emits 32 bit code.  Hence  <br>
+the patch to the kernel to run the NDP executables in "low memory".  The NDP  <br>
+compiler comes with a somewhat un-Unix like compiler driver that, among other  <br>
+things, does not understand the -L flag for library paths, instead you have to  <br>
+set an environment variable to point to the libraries, although this does not  <br>
+completely work either.  I understand that the driver is being updated,  <br>
+although these peculiarities indicate that this product began (somewhere down  <br>
+the road) as a DOS compiler.  <br>
+<p>
+<p>
+The compiler comes with a very complete run time library including VAX  <br>
+extensions and most of the normal Unix f77 extensions.  It supports records but  <br>
+not Cray pointers.  The compiler also requires its own libc which, I suppose,  <br>
+is needed to support the 32 bit compiler run time.  This presents a problem  <br>
+immediately to those (like me) who wish to mix fortran and C code.  The NDP  <br>
+libc uses the same namespace as the GNU libc for Linux and is not compatible.   <br>
+If you try to link with the X libraries (for example) you run into a brick  <br>
+wall, the NDP objects cannot be linked to the native system libraries which use  <br>
+64-bit pointers. <br>
+<p>
+<p>
+The upshot of this is that the NDP compiler, in its current state, is  <br>
+essentially a stand-alone fortran environment, suitable for compiling and  <br>
+running bare fortran codes in a terminal window. <br>
+<p>
+<p>
+In terms of performance I have only compiled a handful of codes and a few  <br>
+benchmarks with this compiler as most of my programs do some kind of X graphics  <br>
+or link with C routines somewhere along the line. The NDP optimized LINPACK  <br>
+(single precision, dimensioned to 400/401) runs at about 70-80 MFLOPS on my  <br>
+Screamer 21164 300mhz.  In comparison the f2c/gcc combo gives about 40 MFLOPS  <br>
+on this machine and the best DEC f77 executable runs at 140 MFLOPS.<br>
+<p>
+One of the difficulties of using this compiler concerns the very long compile  <br>
+times when you crank up the optimization.  The NDP compiler has a set of normal  <br>
+optimizations (common subexpression, loop invariant removal, etc) in a compiler  <br>
+phase they call "ABE" and a second optimization phase they call "GVS"  which  <br>
+does vectorization and scheduling.  To get beyond about 60 MFLOPS on the  <br>
+LINPACK benchmark you need to invoke the GVS phase and here the compile time  <br>
+really begins to get long.  It helps to profile the code and edit out the  <br>
+routines which really need optimization, if you naively just turn on the GVS  <br>
+optimizer to the whole LINPACK program you might as just go to bed and let it  <br>
+run all night!   If you only optimize SDOT, SAXPY and SSCAL you can do a bit  <br>
+better (10 minutes or more) but it still takes a long time.  Steve Fried at  <br>
+Microway has apparently done a very complete optimization of the DAXPY routine  <br>
+(his favorite subject for compiler tuning adventures) and gotten similar speeds  <br>
+to that from the DEC compiler.  <br>
+<p>
+<p>
+<i>&gt;From a practical point of view the compile times are too long with any higher  </i><br>
+level of optimization (with vectorization and scheduling) so that I could not  <br>
+use this compiler to fully optimize any "real" code.  I compiled a huge NASA  <br>
+CFD code with this compiler at a modest optimization level and it took over 4  <br>
+hours to compile what took 15 minutes with DEC fortran at full optimization.  I  <br>
+did not run this as a benchmark due to the problems of linking with the system  <br>
+libs because the NASA code used a few C routines for dynamic memory management.   <br>
+If I were more industrious I could have modified the NASA code to use the NDP  <br>
+f77 library routines for dynamic memory.<br>
+<p>
+Microway is in the process of rewriting their compiler for 64-bit internals to  <br>
+facilitate using the NDP compiler with the native gcc compiled libraries.  I  <br>
+don't know when that will be available.<br>
+<p>
+The contact at Microway is Terri Klaila (508)-746-7341 who has been quite  <br>
+helpful.<br>
+<p>
+<p>
+Hal Y.<br>
+<p>
+<p>
+<p>
+<pre>
+--
+<p>
+*************************************************************
+* Harold Youngren   ----&gt; Internet: <a href="mailto:guppy@maine.com">guppy@maine.com</a>         *
+* 129 Pitt St,                  or: <a href="mailto:guppy@netcom.com">guppy@netcom.com</a>        *
+* Portland, ME  04103     AeroCraft Consulting              *
+* Home: (207)871-0552     Aeronautical Consulting, Analysis,*
+* Fax:  (207)871-1034     Design, CFD software              *
+*************************************************************
+<p>
+ 
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="1075.html">Stephan Kanthak: "Re: X86 Emulator for Alpha Linux/NT"</a>
+<li> <b>Previous message:</b> <a href="1073.html">Britt Bolen: "compiling sound into 2.0.30 on a UDB"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

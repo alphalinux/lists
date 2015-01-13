@@ -1,0 +1,223 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: dpkg failure trying to change ownership</TITLE>
+<META NAME="Author" CONTENT="ian (ian.q@usa.net)">
+<META NAME="Subject" CONTENT="Re: dpkg failure trying to change ownership of a symlink ...">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: dpkg failure trying to change ownership of a symlink ...</H1>
+<HR>
+<P>
+<!-- received="Tue Oct 17 12:01:23 2000" -->
+<!-- isoreceived="20001017190123" -->
+<!-- sent="16 Oct 00 20:24:53 PDT" -->
+<!-- isosent="20001017032453" -->
+<!-- name="ian" -->
+<!-- email="ian.q@usa.net" -->
+<!-- subject="Re: dpkg failure trying to change ownership of a symlink ..." -->
+<!-- id="20001017032453.17935.qmail@nwcst282.netaddress.usa.net" -->
+<!-- inreplyto="dpkg failure trying to change ownership of a symlink ..." -->
+<STRONG>Subject: </STRONG>Re: dpkg failure trying to change ownership of a symlink ...<BR>
+<STRONG>From: </STRONG>ian (<EM>ian.q@usa.net</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Oct 16 2000 - 20:24:53 PDT
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#58">[ date ]</A>
+<A HREF="index.html#58">[ thread ]</A>
+<A HREF="subject.html#58">[ subject ]</A>
+<A HREF="author.html#58">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0059.html">Rich Payne: "Re: Raptor Reflex 433"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0057.html">Carol Robinson: "(no subject)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0054.html">Nikhil Nair: "dpkg failure trying to change ownership of a symlink ..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0061.html">Nikhil Nair: "Complete kernel crash [Was: Re: dpkg failure trying to changeownership of a symlink ...]"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0054.html">ian: "Re: dpkg failure trying to change ownership of a symlink ..."</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+That sounds really familiar; I had the same problem a while ago. The
+<BR>
+story, as far as I understand it, is as follows.
+<BR>
+<P>*** quote from chown(2) manpage ***
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In versions of Linux prior to 2.1.81  (and  distinct  from
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.46), chown did not follow symbolic links.  Since Linux
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.81, chown does follow symbolic links, and there  is  a
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new  system  call  lchown  that  does  not follow symbolic
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;links.  Since Linux 2.1.86, this new call  (that  has  the
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;same  semantics as the old chown) has got the same syscall
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;number, and chown got the newly introduced number.
+<BR>
+<P>*** end quote ***
+<BR>
+<P>Obviously, this means that libc has to be modified to support the new
+<BR>
+lchown() system call. If I recall correctly, from the discussion on
+<BR>
+this list when this happened, several years ago, there is an added
+<BR>
+twist on the Alpha platform, in that the syscall numbers match those
+<BR>
+on DEC UNIX in order to be able to run DU binaries, which means that
+<BR>
+we can't blithely change them around as described above. The exact
+<BR>
+details of the solution elude me, then and now, but the result is that
+<BR>
+there is a rather complicated interaction between the versions of the
+<BR>
+kernel, libc, and dpkg (and presumably any other program which cares
+<BR>
+about this sort of thing). You want all three to either predate or
+<BR>
+postdate this change, although I seem to recall that the kernel
+<BR>
+matters less than the other two, because the post-change libc notices
+<BR>
+the kernel version and deals with it, or something like that. Also it
+<BR>
+appears that having a pre-change dpkg and a post-change libc is less
+<BR>
+bad than the reverse, which brings us to your situation.
+<BR>
+<P>You didn't say which versions of the relevant packages you have
+<BR>
+installed (except &quot;mainly slink&quot;), so I can't tell how closely your
+<BR>
+problem matches the one I had. I will describe how I got into this
+<BR>
+situation, and how I got out of it; hopefully some of this will be
+<BR>
+relevant to you. I'm trying to reconstruct the sequence from memory,
+<BR>
+so some of the details may not be exactly right.
+<BR>
+<P><P>initial configuration:
+<BR>
+<P>dpkg     1.4.0.24
+<BR>
+libc6.1  2.0.7u-1
+<BR>
+kernel   2.1.125
+<BR>
+<P><P>first step into cow-pie:
+<BR>
+<P>upgrade to dpkg_1.4.0.34 , hoping it will solve some other
+<BR>
+symlink-related problem. oops. now dpkg doesn't work at all, because:
+<BR>
+<P>&nbsp;&nbsp;Error trying to change ownership of symlink xxx:
+<BR>
+&nbsp;&nbsp;Function not implemented
+<BR>
+<P>try upgrading to libc6.1_2.0.7.19981211-6 -- can't, same error.  try
+<BR>
+reverting to dpkg_1.4.0.24 -- can't, same error. now i'm really stuck
+<BR>
+in it.
+<BR>
+<P>upgrade kernel to 2.2.17 . no change.
+<BR>
+<P><P>after an indeterminate period of futile messing around, i finally hit
+<BR>
+on the following solution:
+<BR>
+<P>unpack dpkg_1.4.0.24.deb into user directory using 'dpkg -x'. this
+<BR>
+doesn't choke, because it's not manipulating symlinks.
+<BR>
+<P>find dynamic libraries linked to extracted dpkg_1.4.0.24 binary:
+<BR>
+<P>&nbsp;&nbsp;# ldd ./dpkg
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libdpkg.so.0 =&gt; /usr/lib/libdpkg.so.0 (0x0000020000002000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;libc.so.6.1 =&gt; /lib/libc.so.6.1 (0x0000020000120000)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/lib/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0x0000020001000000)
+<BR>
+<P>manually adjust /usr/lib/libdpkg.so.0 symlink to point to
+<BR>
+libdpkg.so.0.0.0 library extracted from dpkg_1.4.0.24 archive.
+<BR>
+<P>use dpkg_1.4.0.24 binary to properly install dpkg_1.4.0.24.deb :
+<BR>
+<P>&nbsp;&nbsp;# ./dpkg -i dpkg_1.4.0.24.deb
+<BR>
+<P>upgrade to libc6.1_2.0.7.19981211-6 and dpkg_1.4.0.34 , IN THAT ORDER,
+<BR>
+including any dependencies, mainly ldso, libncurses4, and libstdc++2.9
+<BR>
+<P><P>final configuration:
+<BR>
+<P>dpkg     1.4.0.34
+<BR>
+libc6.1  2.0.7.19981211-6
+<BR>
+kernel   2.2.17 (this probably doesn't matter)
+<BR>
+<P><P>Now everything seems to work fine. It would have been nice if the
+<BR>
+dependency list for dpkg_1.4.0.34 took care of this problem, but it
+<BR>
+may be that it's only an issue on the Alpha platform, or that it only
+<BR>
+shows up if you upgrade some things but not others.
+<BR>
+<P>I hope that some of this is useful to you. dpkg_1.4.0.34.deb and
+<BR>
+libc6.1_2.0.7.19981211-6.deb are available on archive.debian.org . I
+<BR>
+fortuitously still had dpkg_1.4.0.24.deb lying around; if you find you
+<BR>
+need this and can't get it elsewhere, maybe I could ftp it to you
+<BR>
+somehow.
+<BR>
+<P><P>-- Ian
+<BR>
+<P><P>____________________________________________________________________
+<BR>
+Get free email and a permanent address at <A HREF="http://www.netaddress.com/?N=1">http://www.netaddress.com/?N=1</A>
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0059.html">Rich Payne: "Re: Raptor Reflex 433"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0057.html">Carol Robinson: "(no subject)"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0054.html">Nikhil Nair: "dpkg failure trying to change ownership of a symlink ..."</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0061.html">Nikhil Nair: "Complete kernel crash [Was: Re: dpkg failure trying to changeownership of a symlink ...]"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0054.html">ian: "Re: dpkg failure trying to change ownership of a symlink ..."</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Thu Nov 02 2000 - 08:06:30 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

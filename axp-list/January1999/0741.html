@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: Alpha 21264.</TITLE>
+<META NAME="Author" CONTENT="Christoph Dworzak (axp@amazing.ch)">
+<META NAME="Subject" CONTENT="Re: Alpha 21264.">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: Alpha 21264.</H1>
+<HR>
+<P>
+<!-- received="Thu Jan 14 15:18:56 1999 PST" -->
+<!-- sent="Thu, 14 Jan 1999 16:17:00 GMT" -->
+<!-- name="Christoph Dworzak" -->
+<!-- email="axp@amazing.ch" -->
+<!-- subject="Re: Alpha 21264." -->
+<!-- id="2791d99a.u10t12e.b103a-axp@amazing.ch" -->
+<!-- inreplyto="19990113225007.D7753@piglet.twiddle.net" -->
+<STRONG>Christoph Dworzak</STRONG> (<A HREF="mailto:axp@amazing.ch?subject=Re:%20Alpha%2021264."><EM>axp@amazing.ch</EM></A>)<BR>
+<EM>Thu, 14 Jan 1999 16:17:00 GMT</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#741">[ date ]</A>
+<A HREF="index.html#741">[ thread ]</A>
+<A HREF="subject.html#741">[ subject ]</A>
+<A HREF="author.html#741">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0742.html">Martin Kahlert: "Is there an add/multiply optimization in egcs?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0740.html">Brian E.W. Wood: "RE: HotJava on AXP"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0713.html">Ric Tibbetts: "HotJava on AXP"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0743.html">Greg Lindahl: "Re: Alpha 21264."</A>
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi
+<BR>
+<P>On Jan 13 Richard Henderson (<A HREF="mailto:rth@twiddle.net?subject=Re:%20Alpha%2021264.">rth@twiddle.net</A>) wrote:
+<BR>
+<EM>&gt; Just a data point -- gcc's alpha instruction scheduling is pretty
+</EM><BR>
+<EM>&gt; fair these days.  Register allocation needs work though.  :-P
+</EM><BR>
+<P>I second this (trying to squeeze some more
+<BR>
+cycles out of egcs1.1.1-generated code...)
+<BR>
+<P><P>Register allocation: Does egcs ever use $11-$15?
+<BR>
+In my code it badly needs more registers, but it
+<BR>
+doesn't use them.
+<BR>
+<P><P>Instruction scheduling: It does a very good job.
+<BR>
+I noticed just one case which could be improved.
+<BR>
+<P><EM>&gt;&gt;From this C-snippet:
+</EM><BR>
+<P>static void s11 (
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned long a1, unsigned long a2,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned long a3, unsigned long a4,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;unsigned long a5, unsigned long a6) {
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;a1 ^= t[31];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;a2 ^= t[ 0];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;a3 ^= t[ 1];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;a4 ^= t[ 2];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;a5 ^= t[ 3];
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;a6 ^= t[ 4];
+<BR>
+[..]
+<BR>
+<P>it generated this (actually it used $1 as
+<BR>
+the index-register, but I freed that and use
+<BR>
+$30):
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $3,0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $2,248($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $17,$3,$17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $16,$2,$16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $3,16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $2,8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $19,$3,$19
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $18,$2,$18
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $3,32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $2,24($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $21,$3,$21
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $20,$2,$20
+<BR>
+<P>Reordering helps here:
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $3,0($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $2,248($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $4,16($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $5,8($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $17,$3,$17
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $16,$2,$16
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $6,32($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ldq $7,24($30)
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $19,$4,$19
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $18,$5,$18
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $21,$6,$21
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xor $20,$7,$20
+<BR>
+<P><EM>&gt;&gt;From 9 down to 6 Cycles :)
+</EM><BR>
+<P><P>About Optimizations: I use
+<BR>
+&quot;-O1 -fschedule-insns2 -fexpensive-optimizations&quot;
+<BR>
+This generates Code which is about 30% faster than
+<BR>
+any higher Optimization-Levels. Why could this be?
+<BR>
+What does -O2 do which -O1 doesn't do?
+<BR>
+<P>Bye
+<BR>
+&nbsp;dworz
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20Alpha%2021264.">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20Alpha%2021264.">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0742.html">Martin Kahlert: "Is there an add/multiply optimization in egcs?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0740.html">Brian E.W. Wood: "RE: HotJava on AXP"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0713.html">Ric Tibbetts: "HotJava on AXP"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0743.html">Greg Lindahl: "Re: Alpha 21264."</A>
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Sun Jan 24 1999 - 14:47:49 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

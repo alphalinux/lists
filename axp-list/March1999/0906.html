@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: Re: &gt; 1GB on alpha. Patch to 1TB?</TITLE>
+<META NAME="Author" CONTENT="Bob McElrath (mcelrath@draal.physics.wisc.edu)">
+<META NAME="Subject" CONTENT="Re: &gt; 1GB on alpha. Patch to 1TB?">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: &gt; 1GB on alpha. Patch to 1TB?</H1>
+<HR>
+<P>
+<!-- received="Tue Mar 16 00:37:02 1999 PST" -->
+<!-- sent="Mon, 15 Mar 1999 18:34:38 -0600 (CST)" -->
+<!-- name="Bob McElrath" -->
+<!-- email="mcelrath@draal.physics.wisc.edu" -->
+<!-- subject="Re: &gt; 1GB on alpha. Patch to 1TB?" -->
+<!-- id="Pine.LNX.4.04.9903151801100.10420-100000@draal.physics.wisc.edu" -->
+<!-- inreplyto="m3r9qqva4c.fsf@k6.jhcloos.com" -->
+<STRONG>Bob McElrath</STRONG> (<A HREF="mailto:mcelrath@draal.physics.wisc.edu?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?"><EM>mcelrath@draal.physics.wisc.edu</EM></A>)<BR>
+<EM>Mon, 15 Mar 1999 18:34:38 -0600 (CST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#906">[ date ]</A>
+<A HREF="index.html#906">[ thread ]</A>
+<A HREF="subject.html#906">[ subject ]</A>
+<A HREF="author.html#906">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0907.html">Peter Petrakis: "Re: KDE Requirements?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0905.html">Matti Aarnio: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0904.html">Greg Lindahl: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+On 15 Mar 1999, James H. Cloos Jr. wrote:
+<BR>
+<P><EM>&gt; -----BEGIN PGP SIGNED MESSAGE-----
+</EM><BR>
+<EM>&gt; Hash: SHA1
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; &gt;&gt;&gt;&gt;&gt; &quot;Jay&quot; == Jay Estabrook &lt;<A HREF="mailto:Jay.Estabrook@digital.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">Jay.Estabrook@digital.com</A>&gt; writes:
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Jay&gt; On Alpha, in addition to the direct-map DMA windows which are currently
+</EM><BR>
+<EM>&gt; Jay&gt; used, one can define what we call &quot;scatter-gather&quot; DMA windows. The range of
+</EM><BR>
+<EM>&gt; Jay&gt; PCI addresses that fall into one of these windows are re-directed to host
+</EM><BR>
+<EM>&gt; Jay&gt; memory via a page table, where the address in a PTE can be *any* page in the
+</EM><BR>
+<EM>&gt; Jay&gt; possible installed memory - no bounce buffers needed... :-)
+</EM><BR>
+<EM>&gt;  
+</EM><BR>
+<EM>&gt; I suspect this is what the original poster was referring to.  In any
+</EM><BR>
+<EM>&gt; case, for 2.3 at least, this would be the best target to shoot for, IMO.
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; How much effort would be required to implement this scheme?  If the
+</EM><BR>
+<EM>&gt; `scatter-gather' were set up at device resolution, rather than page
+</EM><BR>
+<EM>&gt; resolution, would the drivers even require modification?
+</EM><BR>
+<P>Yes.  It still requires that a driver allocate a section of memory that it
+<BR>
+is going to be using for PCI communication.  There's no way around this.
+<BR>
+<P>I (the original poster) don't know if a scatter-gather solution is required
+<BR>
+(it is supported by alpha hardware, I don't know about others).  It may be
+<BR>
+possible to do it without scatter-gather support in hardware.  At any rate,
+<BR>
+it looks like all device drivers that are going to be using PCI transfers
+<BR>
+will have to do something like:
+<BR>
+<P>bus_alloc(&lt;buffer address&gt;, &lt;size&gt;);
+<BR>
+out(virt_to_bus(&lt;buffer address&gt;), HARDWARE_DO_SOMETHING_PORT);
+<BR>
+[...]
+<BR>
+bus_dealloc(&lt;buffer address&gt;);
+<BR>
+<P>virt_to_bus is currently implemented, but cannot on the fly determine how to
+<BR>
+reallocate mappings so as to not clobber another device, unless it is told
+<BR>
+(via my bus_alloc or something similar) who is using what regions of the PCI
+<BR>
+address space.
+<BR>
+<P>Note that using this bus_alloc/bus_dealloc implementation allows the driver
+<BR>
+to keep several buffers.  Also note that giving the hardware a different
+<BR>
+address within the buffer should work fine too.  (out(virt_to_bus(&lt;buffer
+<BR>
+<EM>address&gt; + 0x4000), HARDWARE_DO_SOMETHING_PORT) etc.)
+</EM><BR>
+<P>On alpha scatter-gather is simply an address translation scheme that allows
+<BR>
+small granularity (8kb).  I don't know how much kernel support beyond
+<BR>
+bus_alloc/virt_to_bus/bus_dealloc would be required to implement bounce
+<BR>
+buffers using the scatter-gather mappings.  Perhaps someone who understands
+<BR>
+bounce buffers would care to comment?  (I'm still not sure what they are...)
+<BR>
+<P>I wonder if it would be possible to take a poll of hardware owners to
+<BR>
+determine which chipsets support scatter-gather.  I don't know if this is
+<BR>
+part of the PCI spec, or a hack implemented by Digital and Sun.  Will Merced
+<BR>
+chipsets support scatter-gather?  At any rate, a generic
+<BR>
+bus_alloc/bus_dealloc should be able to hide whatever memory-&gt;bus remapping
+<BR>
+the hardware supports...whether scatter-gather exists on all chipsets or
+<BR>
+not.
+<BR>
+<P>Most importantly: if bounce buffers are required to access memory &gt;1GB from
+<BR>
+PCI, can it be done with a simple bus_alloc/virt_to_bus/bus_dealloc?  Or
+<BR>
+must we implement a more complex solution that can handle both cases?
+<BR>
+<P>-- Bob
+<BR>
+<P>Bob McElrath (<A HREF="mailto:rsmcelrath@students.wisc.edu?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">rsmcelrath@students.wisc.edu</A>) Univ. of Wisconsin at Madison
+<BR>
+<P><P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20&gt;%201GB%20on%20alpha.%20Patch%20to%201TB?">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0907.html">Peter Petrakis: "Re: KDE Requirements?"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0905.html">Matti Aarnio: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<LI><STRONG>In reply to:</STRONG> <A HREF="0904.html">Greg Lindahl: "Re: &gt; 1GB on alpha. Patch to 1TB?"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Mon Mar 15 1999 - 17:00:15 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

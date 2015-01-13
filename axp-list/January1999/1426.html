@@ -1,0 +1,274 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>axp-list: An sqrt() experiment</TITLE>
+<META NAME="Author" CONTENT="Munagala V. S. Ramanath (ram@netcom.com)">
+<META NAME="Subject" CONTENT="An sqrt() experiment">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>An sqrt() experiment</H1>
+<HR>
+<P>
+<!-- received="Tue Jan 26 19:41:21 1999 PST" -->
+<!-- sent="Tue, 26 Jan 1999 11:39:45 -0800 (PST)" -->
+<!-- name="Munagala V. S. Ramanath" -->
+<!-- email="ram@netcom.com" -->
+<!-- subject="An sqrt() experiment" -->
+<!-- id="199901261939.LAA05186@netcom6.netcom.com" -->
+<!-- inreplyto="" -->
+<STRONG>Munagala V. S. Ramanath</STRONG> (<A HREF="mailto:ram@netcom.com?subject=Re:%20An%20sqrt()%20experiment"><EM>ram@netcom.com</EM></A>)<BR>
+<EM>Tue, 26 Jan 1999 11:39:45 -0800 (PST)</EM>
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#1426">[ date ]</A>
+<A HREF="index.html#1426">[ thread ]</A>
+<A HREF="subject.html#1426">[ subject ]</A>
+<A HREF="author.html#1426">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1427.html">Jay.Estabrook@digital.com: "Re: XL266 ncr53c810 cache test failed, Milo, kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1425.html">Matt Wagner: "Re: OK..2.2.0 is up.. but ESS sound is broke"</A>
+<!-- nextthread="start" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+Hi,
+<BR>
+<P>This may be of interest to the math lib aficionados: Sun released a
+<BR>
+freely redistributable floating point math library (full sources)
+<BR>
+around 1996 called fdlibm. I've found it at:
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ftp://ftp.imar.ro/pub/trieste/math/netlib/fdlibm">ftp://ftp.imar.ro/pub/trieste/math/netlib/fdlibm</A>
+<BR>
+<P>The code is not 64-bit aware but makes very interesting reading
+<BR>
+including the comments. In particular, the comments in e_sqrt.c
+<BR>
+suggested what seemed like an interesting approach, so I did a
+<BR>
+quick-and-dirty C coding job for timing purposes. It runs about 4
+<BR>
+times faster than the version in libm but libffm routine runs an
+<BR>
+additional 36% faster, presumably because of the hand-tuned scheduling.
+<BR>
+<P>Here are the timing results on my 533MHz 21164a (UX2 Ruffian):
+<BR>
+<P>y = 30865358776.919712, time = 2.037109 secs. [sqrt]   &lt;-- libm
+<BR>
+y = 30865358776.919712, time = 0.470703 secs. [sqt]
+<BR>
+<P>y = 30865358776.919712, time = 0.303711 secs. [sqrt]   &lt;-- libffm
+<BR>
+y = 30865358776.919712, time = 0.475586 secs. [sqt]
+<BR>
+<P>Just looking at the code, it seems that a hand-tuned version of sqt()
+<BR>
+below may do better than the libffm version, but I don't understand
+<BR>
+the architecture of the 21164a well enough to try it.
+<BR>
+<P>Here is the C code I used:
+<BR>
+------------------------------------------------------------------------
+<BR>
+#include &lt;stdio.h&gt;
+<BR>
+#include &lt;stdlib.h&gt;
+<BR>
+#include &lt;math.h&gt;
+<BR>
+#include &lt;sys/time.h&gt;
+<BR>
+#include &lt;sys/resource.h&gt;
+<BR>
+<P>static struct rusage init ;
+<BR>
+<P>double
+<BR>
+CpuTime( )
+<BR>
+{
+<BR>
+/* seconds to microseconds conversion factor */
+<BR>
+#define F 1.0e6
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;struct rusage fin ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;double usec ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;if ( getrusage( RUSAGE_SELF, &amp;fin ) ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf( stderr, &quot;ERROR: getrusage() failed\n&quot; );
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fflush( stderr ); exit( 1 );
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;usec = (fin.ru_utime.tv_sec - init.ru_utime.tv_sec) * F ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;usec += (double)(fin.ru_utime.tv_usec - init.ru_utime.tv_usec) ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;usec += (fin.ru_stime.tv_sec - init.ru_stime.tv_sec) * F ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;usec += (double)(fin.ru_stime.tv_usec - init.ru_stime.tv_usec) ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;init = fin ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return usec / F ;
+<BR>
+<P>#undef F
+<BR>
+}
+<BR>
+<P>/*
+<BR>
+&nbsp;* Quick and dirty sqrt() by Newton's method as described in file
+<BR>
+&nbsp;* e_sqrt.c of the free fdlibm released by Sun.
+<BR>
+&nbsp;* WARNING: Special cases such as 0, +/-inf, +-NaN are ignored
+<BR>
+&nbsp;*/
+<BR>
+double
+<BR>
+sqt( double const x )
+<BR>
+{
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;static int T1[ 32 ] = {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,      1024,   3062,   5746,   9193,   13348,  18162,  23592,  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;29598,  36145,  43202,  50740,  58733,  67158,  75992,  85215,  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;83599,  71378,  60428,  50647,  41945,  34246,  27478,  21581,  
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;16499,  12183,  8588,   5674,   3403,   1742,   661,    130,
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;};
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;union {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double x ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long i ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;} val ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;double y ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;long k, j ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;val.x = x ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;k = (val.i &gt;&gt; 33) + 0x1ff80000 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;j = k - T1[ 31 &amp; (k &gt;&gt; 15) ] ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;val.i = j &lt;&lt; 32 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;y = val.x ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;y = (y + x/y) / 2.0 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;y = (y + x/y) / 2.0 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;y = y - (y - x/y) / 2.0 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;return y ;
+<BR>
+}
+<BR>
+<P>int
+<BR>
+main( int argc, char **argv )
+<BR>
+{
+<BR>
+/* no. of loop iterations */
+<BR>
+#define N 1000000
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;int seed = argc &gt; 1 ? atoi( argv[ 1 ] ) : 47 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;long i = N ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;double y = 0.0 ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;/* initialize timer */
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;if ( getrusage( RUSAGE_SELF, &amp;init ) ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fprintf( stderr, &quot;ERROR: getrusage() failed\n&quot; ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fflush( stderr ) ; exit( 1 ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;CpuTime() ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for ( srand( seed ) ; --i &gt;= 0 ; ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double x = rand() ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y += sqrt( x ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf( &quot;y = %f, time = %f secs. [sqrt]\n&quot;, y, CpuTime() ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fflush( stdout ) ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;i = N ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;y = 0.0 ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;for ( srand( seed ) ; --i &gt;= 0 ; ) {
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double x = rand() ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y += sqt( x ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;printf( &quot;y = %f, time = %f secs. [sqt]\n&quot;, y, CpuTime() ) ;
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;fflush( stdout ) ;
+<BR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;return 0 ;
+<BR>
+}
+<BR>
+------------------------------------------------------------------------
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to <A HREF="mailto:axp-list-request@redhat.com?subject=Re:%20An%20sqrt()%20experiment">axp-list-request@redhat.com</A> with
+'unsubscribe' as the subject.  Do not send it to <A HREF="mailto:axp-list@redhat.com?subject=Re:%20An%20sqrt()%20experiment">axp-list@redhat.com</A>
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="1427.html">Jay.Estabrook@digital.com: "Re: XL266 ncr53c810 cache test failed, Milo, kernel"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="1425.html">Matt Wagner: "Re: OK..2.2.0 is up.. but ESS sound is broke"</A>
+<!-- nextthread="start" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.landfield.com/hypermail/">hypermail 2.0b3</A> 
+on <EM>Tue Jan 26 1999 - 12:00:23 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

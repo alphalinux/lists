@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<TITLE>Debian Alpha List: Re: weird error messages</TITLE>
+<META NAME="Author" CONTENT="Phil Carmody (fatphil@altavista.com)">
+<META NAME="Subject" CONTENT="Re: weird error messages">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+<H1 ALIGN=CENTER>Re: weird error messages</H1>
+<HR>
+<P>
+<!-- received="Sat Feb 10 00:04:32 2001" -->
+<!-- isoreceived="20010210080432" -->
+<!-- sent="9 Feb 2001 05:51:09 -0800" -->
+<!-- isosent="20010209135109" -->
+<!-- name="Phil Carmody" -->
+<!-- email="fatphil@altavista.com" -->
+<!-- subject="Re: weird error messages" -->
+<!-- id="20010209135109.303.cpmta@c012.sfo.cp.net" -->
+<!-- inreplyto="weird error messages" -->
+<STRONG>Subject: </STRONG>Re: weird error messages<BR>
+<STRONG>From: </STRONG>Phil Carmody (<EM>fatphil@altavista.com</EM>)<BR>
+<STRONG>Date: </STRONG>Fri Feb 09 2001 - 05:51:09 PST
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.html#269">[ date ]</A>
+<A HREF="index.html#269">[ thread ]</A>
+<A HREF="subject.html#269">[ subject ]</A>
+<A HREF="author.html#269">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0270.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0268.html">Lerale Erwan: "Re: weird error messages"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0255.html">Lerale Erwan: "weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0270.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0255.html">Phil Carmody: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+These look as if, given a map file, they ought to be simple to find and fix, without necessarily understanding the what the code does (assuming the Trap gives you enough information where to look in a map file). It sounds like the kind of 'black box debugging' that I've done for the last year or so (don't tell my boss I still don't understand what the code does).
+<BR>
+<P><EM>&gt;From your analysis it appears there are 2 solutions.
+</EM><BR>
+1) Create an copy of the bytes in a way that a simple -&gt;member access can read without trapping.
+<BR>
+2) Supply unaligned read/write (inline) functions/macros
+<BR>
+Something along the lines of
+<BR>
+#define READ_8U(addr) \
+<BR>
+&nbsp;&nbsp;&nbsp;(*((addr)&amp;~7)&gt;&gt;(((addr)&amp;7)&lt;&lt;3) | \
+<BR>
+&nbsp;&nbsp;&nbsp;(*((addr&amp;~7)+1)&lt;&lt;(64-((addr)&amp;7)&lt;&lt;3))
+<BR>
+Which is quite probably bogus as I haven't thought about what endianness the data is.
+<BR>
+These could be used to replace
+<BR>
+u64 key = pPacket-&gt;key; /* unaligned trap */
+<BR>
+with 
+<BR>
+u64 key = READ_8U(&amp;pPacket-&gt;key); /* safe */
+<BR>
+<P>Do such inline function/macro definitions already exist somewhere (I find it very hard to believe they don't)? If so, then we're already armed with all the tools we need - perhaps one weekend we should all just grab a package and fix a trap each!
+<BR>
+<P>Phil
+<BR>
+<P><P><P>On Fri, 09 February 2001, Paul Slootman wrote:
+<BR>
+<EM>&gt; On Fri 09 Feb 2001, Paul Slootman wrote:
+</EM><BR>
+<EM>&gt; &gt; 
+</EM><BR>
+<EM>&gt; &gt; I'll see if I can have a look at snort for this; I prefer Chris
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I've had a look at this :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; It's always the same with packages that examine raw network stuff.
+</EM><BR>
+<EM>&gt; It's because the ethernet packet is snarfed, and then a pointer to
+</EM><BR>
+<EM>&gt; e.g. the IP part is passed to some other function that thinks it
+</EM><BR>
+<EM>&gt; has a pointer to a struct and tries to use that directly. I fix this
+</EM><BR>
+<EM>&gt; by allocating a separate struct for this (which is automagically
+</EM><BR>
+<EM>&gt; aligned properly), and then copy the data from the address given
+</EM><BR>
+<EM>&gt; into the new struct via memcpy (which does it byte by byte
+</EM><BR>
+<EM>&gt; (effectively), hence not needing the alignment (although I'm sure
+</EM><BR>
+<EM>&gt; some optimization takes place)).
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; I've identified a couple of places where this needed to be done.
+</EM><BR>
+<EM>&gt; I've put up a test version (1.7-2.alpha.1) of snort at
+</EM><BR>
+<EM>&gt; <A HREF="http://www.murphy.nl/~paul/debian/snort/">http://www.murphy.nl/~paul/debian/snort/</A> ; the deb itself is
+</EM><BR>
+<EM>&gt; <A HREF="http://www.murphy.nl/~paul/debian/snort/snort_1.7-2.alpha.1_alpha.deb">http://www.murphy.nl/~paul/debian/snort/snort_1.7-2.alpha.1_alpha.deb</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Please give any feedback (esp. any remaining unaligned accesses;
+</EM><BR>
+<EM>&gt; the first hex number is important in finding the place in the
+</EM><BR>
+<EM>&gt; source where the problem is).  I may have introduced some wierdness
+</EM><BR>
+<EM>&gt; somewhere, so also please check it's still doing what it should be :-)
+</EM><BR>
+<EM>&gt; There may still be an unaligned access if you have token ring (yeah,
+</EM><BR>
+<EM>&gt; right, like anyone still uses IP over token ring on an alpha :-)
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; Paul Slootman
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; home:       paul@wurtel.net      <A HREF="http://www.wurtel.demon.nl/">http://www.wurtel.demon.nl/</A>
+</EM><BR>
+<EM>&gt; work:       paul@murphy.nl       <A HREF="http://www.murphy.nl/">http://www.murphy.nl/</A>
+</EM><BR>
+<EM>&gt; debian:     paul@debian.org      <A HREF="http://www.debian.org/">http://www.debian.org/</A>
+</EM><BR>
+<EM>&gt; isdn4linux: paul@isdn4linux.org  <A HREF="http://www.isdn4linux.org/">http://www.isdn4linux.org/</A>
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; 
+</EM><BR>
+<EM>&gt; -- 
+</EM><BR>
+<EM>&gt; To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+</EM><BR>
+<EM>&gt; with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</EM><BR>
+<P>Mathematics should not have to involve martyrdom;
+<BR>
+Support Eric Weisstein, see <A HREF="http://mathworld.wolfram.com">http://mathworld.wolfram.com</A>
+<BR>
+Find the best deals on the web at AltaVista Shopping!
+<BR>
+<A HREF="http://www.shopping.altavista.com">http://www.shopping.altavista.com</A>
+<BR>
+<P><P><PRE>
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of &quot;unsubscribe&quot;. Trouble? Contact listmaster@lists.debian.org
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0270.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0268.html">Lerale Erwan: "Re: weird error messages"</A>
+<LI><STRONG>Maybe in reply to:</STRONG> <A HREF="0255.html">Lerale Erwan: "weird error messages"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0270.html">Paul Slootman: "Re: weird error messages"</A>
+<LI><STRONG>Maybe reply:</STRONG> <A HREF="0255.html">Phil Carmody: "Re: weird error messages"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR>
+<P>
+<SMALL>
+<EM>
+This archive was generated by <A HREF="http://www.www.fts.frontec.se/~dast/hypermail/">hypermail 2a22</A> 
+: <EM>Sat Mar 03 2001 - 12:55:01 PST</EM>
+</EM>
+</SMALL>
+</BODY>
+</HTML>

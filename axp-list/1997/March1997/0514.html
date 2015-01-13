@@ -1,0 +1,109 @@
+<!-- received="Tue Mar 18 12:09:39 1997 " -->
+<!-- sent="Tue, 18 Mar 1997 11:06:28 -0600 (CST)" -->
+<!-- name="Richard Henderson" -->
+<!-- email="richard@stommel.tamu.edu" -->
+<!-- subject="Re: Haltiness" -->
+<!-- id="199703181706.LAA13684@stommel.tamu.edu" -->
+<!-- inreplyto="Pine.LNX.3.95.970312180544.7200A-100000@cyberelk.elk.co.uk" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: Haltiness</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: Haltiness</h2>
+
+<b>Richard Henderson</b> (<a href="mailto:richard@stommel.tamu.edu"><i>richard@stommel.tamu.edu</i></a>)<br>
+<i>Tue, 18 Mar 1997 11:06:28 -0600 (CST)</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#514">[ date ]</a><a href="index.html#514">[ thread ]</a><a href="subject.html#514">[ subject ]</a><a href="author.html#514">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0515.html">Bill Bradford: "problems compiling ssh-1.2.17"</a>
+<li> <b>Previous message:</b> <a href="0513.html">Stephen Williams: "Re: POVRay Benchmark Test"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+<i>&gt; Here's a fix for the "haltiness" problem that has been in since 2.1.27 or so.</i><br>
+<i>&gt; </i><br>
+<i>&gt; Thanks to Phil Blundell for that.</i><br>
+<p>
+Quite right, but doesn't go far enough.  Since do_bottom_half now<br>
+mucks with intr_count itself, entry.S shouldn't be playing at all.<br>
+<p>
+<p>
+r~<br>
+<p>
+<p>
+--- linux-2.1.29/arch/alpha/kernel/entry.S.orig	Sun Mar 16 19:55:23 1997<br>
++++ linux-2.1.29/arch/alpha/kernel/entry.S	Sun Mar 16 19:57:50 1997<br>
+@@ -526,14 +526,9 @@ entSys:<br>
+ ret_from_sys_call:<br>
+ 	cmovne	$26,0,$19		/* $19 = 0 =&gt; non-restartable */<br>
+ 	/* check bottom half interrupts */<br>
+-	lda	$0,intr_count<br>
+-	ldl	$1,0($0)<br>
+ 	bne	$1,ret_from_handle_bh<br>
+-	lda	$2,bh_active<br>
+-	ldq	$3,0($2)<br>
+-	lda	$2,bh_mask<br>
+-	ldq	$4,0($2)<br>
+-	addq	$1,1,$1<br>
++	ldq	$3,bh_active<br>
++	ldq	$4,bh_mask<br>
+ 	and	$3,$4,$2<br>
+ 	bne	$2,handle_bottom_half<br>
+ ret_from_handle_bh:<br>
+@@ -618,20 +613,13 @@ strace_error:<br>
+ <br>
+ 	.align 3<br>
+ handle_bottom_half:<br>
+-	/*<br>
+-	 * We're called with $0 containing the address of<br>
+-	 * 'intr_count' and $1 containing 'intr_count+1'<br>
+-	 */<br>
+-	stl	$1,0($0)	/* intr_count = 1 */<br>
+ 	subq	$30,16,$30<br>
+ 	stq	$19,0($30)	/* save syscall nr */<br>
+ 	stq	$20,8($30)	/* and error indication (a3) */<br>
+ 	jsr	$26,do_bottom_half<br>
+-	lda	$0,intr_count<br>
+ 	ldq	$19,0($30)<br>
+ 	ldq	$20,8($30)<br>
+ 	addq	$30,16,$30<br>
+-	stl	$31,0($0)	/* intr_count = 0 */<br>
+ 	br	$31,ret_from_handle_bh<br>
+ <br>
+ 	.align 3<br>
+<p>
+<pre>
+--
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0515.html">Bill Bradford: "problems compiling ssh-1.2.17"</a>
+<li> <b>Previous message:</b> <a href="0513.html">Stephen Williams: "Re: POVRay Benchmark Test"</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

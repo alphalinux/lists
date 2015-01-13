@@ -1,0 +1,242 @@
+diff -ur linux-2.2.12.rtc/arch/alpha/kernel/entry.S linux-2.2.12/arch/alpha/kernel/entry.S
+--- linux-2.2.12.rtc/arch/alpha/kernel/entry.S	Mon May 10 17:55:21 1999
++++ linux-2.2.12/arch/alpha/kernel/entry.S	Fri Oct 15 10:45:36 1999
+@@ -195,6 +195,16 @@
+ 	jsr	$31,do_entDbg
+ .end entDbg
+ 
++.align 3
++.globl	have_wtint
++.globl	trap_wtint
++.ent	trap_wtint
++trap_wtint:
++	lda	$16,have_wtint
++	stl	$31,0($16)
++	call_pal PAL_rti
++.end trap_wtint
++
+ 
+ /*
+  * Fork() is one of the special system calls: it needs to
+diff -ur linux-2.2.12.rtc/arch/alpha/kernel/process.c linux-2.2.12/arch/alpha/kernel/process.c
+--- linux-2.2.12.rtc/arch/alpha/kernel/process.c	Thu Oct 14 18:22:09 1999
++++ linux-2.2.12/arch/alpha/kernel/process.c	Thu Oct 14 18:30:22 1999
+@@ -85,6 +85,10 @@
+ 	while (1) {
+ 		/* FIXME -- EV6 and LCA45 know how to power down
+ 		   the CPU.  */
++		if (have_wtint) {
++			trust_rpcc = 0;
++			wtint(0);
++		}
+ 
+ 		/* Although we are an idle CPU, we do not want to 
+ 		   get into the scheduler unnecessarily.  */
+@@ -111,6 +115,10 @@
+ 	while (1) {
+ 		/* FIXME -- EV6 and LCA45 know how to power down
+ 		   the CPU.  */
++		if (have_wtint) {
++			trust_rpcc = 0;
++			wtint(0);
++		}
+ 
+ 		schedule();
+ 		check_pgt_cache();
+diff -ur linux-2.2.12.rtc/arch/alpha/kernel/proto.h linux-2.2.12/arch/alpha/kernel/proto.h
+--- linux-2.2.12.rtc/arch/alpha/kernel/proto.h	Thu Oct 14 18:19:15 1999
++++ linux-2.2.12/arch/alpha/kernel/proto.h	Thu Oct 14 18:30:22 1999
+@@ -146,6 +146,7 @@
+ 
+ /* setup.c */
+ extern unsigned long srm_hae;
++extern int have_wtint;
+ 
+ /* smp.c */
+ extern void setup_smp(void);
+@@ -162,6 +163,7 @@
+ extern void rtc_init_pit(void);
+ extern void generic_init_pit(void);
+ extern unsigned long est_cycle_freq;
++extern volatile int trust_rpcc;
+ 
+ /* smc37c93x.c */
+ extern void SMC93x_Init(void);
+@@ -190,6 +192,7 @@
+ extern void entSys(void);
+ extern void entUna(void);
+ extern void entDbg(void);
++extern void trap_wtint(void);
+ 
+ /* process.c */
+ extern void generic_kill_arch (int mode, char *reboot_cmd);
+diff -ur linux-2.2.12.rtc/arch/alpha/kernel/setup.c linux-2.2.12/arch/alpha/kernel/setup.c
+--- linux-2.2.12.rtc/arch/alpha/kernel/setup.c	Thu Oct 14 18:22:09 1999
++++ linux-2.2.12/arch/alpha/kernel/setup.c	Fri Oct 15 11:58:53 1999
+@@ -45,6 +45,7 @@
+ 
+ struct hwrpb_struct *hwrpb;
+ unsigned long srm_hae;
++int have_wtint = 1;
+ 
+ #ifdef CONFIG_ALPHA_GENERIC
+ struct alpha_machine_vector alpha_mv;
+@@ -189,6 +190,11 @@
+ 			est_cycle_freq = simple_strtol(p+6, NULL, 0);
+ 			continue;
+ 		}
++
++		if (strcmp(p, "no_wtint") == 0) {
++			have_wtint = 0;
++			continue;
++		}
+ 	}
+ 
+ 	/* Replace the command line, not that we've killed it with strtok.  */
+@@ -315,6 +321,25 @@
+ #ifdef __SMP__
+ 	setup_smp();
+ #endif
++}
++
++void __init
++check_bugs(void)
++{
++	/*
++	 * Check if the wtint PALcall is available
++	 */
++
++	if (have_wtint) {	/* means "not disabled from command line" */
++		wrent(trap_wtint, 3);
++		wtint(0);
++		wrent(entIF, 3);
++		barrier();	/* to avoid declaring have_wtint volatile */
++		if (have_wtint) {
++			printk("Wtint is supported -- will enter power save "
++			       "CPU mode when idle\n");
++		}
++	}
+ }
+ 
+ static unsigned long __init
+diff -ur linux-2.2.12.rtc/arch/alpha/kernel/time.c linux-2.2.12/arch/alpha/kernel/time.c
+--- linux-2.2.12.rtc/arch/alpha/kernel/time.c	Thu Oct 14 18:22:09 1999
++++ linux-2.2.12/arch/alpha/kernel/time.c	Thu Oct 14 18:30:22 1999
+@@ -67,6 +67,12 @@
+ 	unsigned long partial_tick;
+ } state;
+ 
++
++/*
++ * A way to indicate to the timer code when rpcc value is not to be trusted.
++ */
++volatile int trust_rpcc;
++
+ unsigned long est_cycle_freq;
+ 
+ 
+@@ -111,14 +117,15 @@
+ 	now = rpcc();
+ 	delta = now - state.last_time;
+ 	state.last_time = now;
++	trust_rpcc = 1;
+ 	delta = delta * state.scaled_ticks_per_cycle + state.partial_tick;
+-	state.partial_tick = delta & ((1UL << FIX_SHIFT) - 1); 
+ 	nticks = delta >> FIX_SHIFT;
++	state.partial_tick = nticks ? delta & ((1UL << FIX_SHIFT) - 1) : 0; 
+ 
+-	while (nticks > 0) {
++	do {
+ 		do_timer(regs);
+ 		nticks--;
+-	}
++	} while (nticks > 0);
+ 
+ 	/*
+ 	 * If we have an externally synchronized Linux clock, then update
+@@ -317,6 +324,7 @@
+ 	}
+ 
+ 	state.last_time = cc1;
++	trust_rpcc = 1;
+ 	state.scaled_ticks_per_cycle
+ 		= ((unsigned long) HZ << FIX_SHIFT) / cycle_freq;
+ 	state.last_rtc_update = 0;
+@@ -369,10 +377,14 @@
+ 	 * with no clear gain.
+ 	 */
+ 
+-	delta_usec = (delta_cycles * state.scaled_ticks_per_cycle 
+-		      + partial_tick
+-		      + (lost << FIX_SHIFT)) * 15625;
+-	delta_usec = ((delta_usec / ((1UL << (FIX_SHIFT-6-1)) * HZ)) + 1) / 2;
++	if (trust_rpcc) {
++		delta_usec = (delta_cycles * state.scaled_ticks_per_cycle 
++			      + partial_tick
++			      + (lost << FIX_SHIFT)) * 15625;
++		delta_usec = ((delta_usec / ((1UL << (FIX_SHIFT-6-1)) * HZ))
++			      + 1) / 2;
++	} else
++		delta_usec = lost * (1000000 / HZ);
+ #endif
+ 
+ 	usec += delta_usec;
+@@ -400,11 +412,15 @@
+ #ifdef __SMP__
+ 	delta_usec = lost_ticks * (1000000 / HZ);
+ #else
+-	delta_usec = rpcc() - state.last_time;
+-	delta_usec = (delta_usec * state.scaled_ticks_per_cycle 
+-		      + state.partial_tick
+-		      + (lost_ticks << FIX_SHIFT)) * 15625;
+-	delta_usec = ((delta_usec / ((1UL << (FIX_SHIFT-6-1)) * HZ)) + 1) / 2;
++	if (trust_rpcc) {
++		delta_usec = rpcc() - state.last_time;
++		delta_usec = (delta_usec * state.scaled_ticks_per_cycle 
++			      + state.partial_tick
++			      + (lost_ticks << FIX_SHIFT)) * 15625;
++		delta_usec = ((delta_usec / ((1UL << (FIX_SHIFT-6-1)) * HZ))
++			      + 1) / 2;
++	} else
++		delta_usec = lost_ticks * (1000000 / HZ);
+ #endif
+ 
+ 	sec = tv->tv_sec;
+diff -ur linux-2.2.12.rtc/include/asm-alpha/bugs.h linux-2.2.12/include/asm-alpha/bugs.h
+--- linux-2.2.12.rtc/include/asm-alpha/bugs.h	Fri Jun  2 11:51:16 1995
++++ linux-2.2.12/include/asm-alpha/bugs.h	Thu Oct 14 18:30:22 1999
+@@ -15,6 +15,8 @@
+  * I don't know of any alpha bugs yet.. Nice chip
+  */
+ 
+-static void check_bugs(void)
+-{
+-}
++/*
++ * There is one PALcode feature though, which we want to sense.
++ */
++
++void check_bugs(void);
+diff -ur linux-2.2.12.rtc/include/asm-alpha/pal.h linux-2.2.12/include/asm-alpha/pal.h
+--- linux-2.2.12.rtc/include/asm-alpha/pal.h	Mon Jan 12 22:51:14 1998
++++ linux-2.2.12/include/asm-alpha/pal.h	Thu Oct 14 18:30:22 1999
+@@ -46,6 +46,7 @@
+ #define PAL_rdusp	58
+ #define PAL_whami	60
+ #define PAL_rtsys	61
++#define PAL_wtint	62
+ #define PAL_rti		63
+ 
+ #endif /* __ALPHA_PAL_H */
+diff -ur linux-2.2.12.rtc/include/asm-alpha/system.h linux-2.2.12/include/asm-alpha/system.h
+--- linux-2.2.12.rtc/include/asm-alpha/system.h	Thu Oct 14 18:19:46 1999
++++ linux-2.2.12/include/asm-alpha/system.h	Fri Oct 15 10:51:00 1999
+@@ -215,6 +215,7 @@
+ __CALL_PAL_R0(rdps, unsigned long);
+ __CALL_PAL_R0(rdusp, unsigned long);
+ __CALL_PAL_RW1(swpipl, unsigned long, unsigned long);
++__CALL_PAL_RW1(wtint, unsigned long, unsigned long);
+ __CALL_PAL_R0(whami, unsigned long);
+ __CALL_PAL_W2(wrent, void*, unsigned long);
+ __CALL_PAL_W1(wripir, unsigned long);
+

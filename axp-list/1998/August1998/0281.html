@@ -1,0 +1,147 @@
+<!-- received="Thu Aug  6 10:09:39 1998 " -->
+<!-- sent="Thu, 6 Aug 1998 14:59:42 +0200" -->
+<!-- name="Quant-X Alpha Linux Support" -->
+<!-- email="stefan@sime.com" -->
+<!-- subject="Re: BUG: probs with resolving functions in shared library" -->
+<!-- id="199808061259.OAA00370@stefan.sime.com" -->
+<!-- inreplyto="BUG: probs with resolving functions in shared library" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>Re: BUG: probs with resolving functions in shared library</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>Re: BUG: probs with resolving functions in shared library</h2>
+
+<b>Quant-X Alpha Linux Support</b> (<a href="mailto:stefan@sime.com"><i>stefan@sime.com</i></a>)<br>
+<i>Thu, 6 Aug 1998 14:59:42 +0200</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#281">[ date ]</a><a href="index.html#281">[ thread ]</a><a href="subject.html#281">[ subject ]</a><a href="author.html#281">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0282.html">Paul Chapman: "Multia SCSI controller"</a>
+<li> <b>Previous message:</b> <a href="0280.html">Eric Lee Green: "sx164 floppy solution (fwd)"</a>
+<li> <b>Maybe in reply to:</b> <a href="0238.html">Eric Ding: "BUG: probs with resolving functions in shared library"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0291.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Reply:</b> <a href="0291.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+Hi Eric !<br>
+<p>
+<i>&gt; thanks for the tip; unfortunately, we *do* need to use the -export-dynamic</i><br>
+<i>&gt; flag with our main executable, so this helps but doesn't solve the problem</i><br>
+<i>&gt; sufficiently to get Applixware for Linux/Alpha any closer to running.  :)</i><br>
+<p>
+I think the problem is in your head. ;-}<br>
+The solution is easy (correct me if not...).<br>
+You only must make shure that the main program does **not** need -export-dynamic.<br>
+That's really easy (at least here, maybe not for you...)<br>
+<p>
+a) make the main-program a shared library (this step needs (here) no code changes, only<br>
+   affects linking stage).<br>
+<p>
+b) use a stub (linked without -export-dynamic) to start the main program (library).<br>
+<p>
+c) run the stub.<br>
+<p>
+Here a sample stub:<br>
+<p>
+/* start stub.c */<br>
+<p>
+#include &lt;stdio.h&gt;<br>
+#include &lt;dlfcn.h&gt;<br>
+<p>
+int main(int argc, char **argv) {<br>
+	void *handle;<br>
+	int (*real_main)(int, char **);<br>
+	int rc;<br>
+<p>
+	if((handle = dlopen("./libapplix.so", RTLD_NOW)) == NULL) {<br>
+	  fprintf(stderr, "error dlopen: %s\n", dlerror());<br>
+	  exit(1);<br>
+	}<br>
+	if((real_main = dlsym(handle, "main")) == NULL) {<br>
+	  fprintf(stderr, "error dlsym: %s\n", dlerror());<br>
+	  exit(1);<br>
+	}<br>
+	rc = (*real_main)(argc, argv);<br>
+	dlclose(handle);<br>
+	return(rc);<br>
+}<br>
+<p>
+/* end stub.c */<br>
+<p>
+Hope it helps (maybe this time...)<br>
+<p>
+<p>
+<i>&gt; </i><br>
+<i>&gt; Eric</i><br>
+<i>&gt; </i><br>
+<i>&gt; Quant-X Alpha Linux Support &lt;<a href="mailto:stefan@sime.com">stefan@sime.com</a>&gt; writes:</i><br>
+<i>&gt; </i><br>
+<i>&gt; &gt; I don't know if it helps:</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; ld -shared -Bdynamic --noinhibit-exec -o libtest2.so test2.o test3.o</i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; works here as expected. (The difference is only that I'm using</i><br>
+<i>&gt; &gt; -Bdynamic instead of -Bsymbolic) </i><br>
+<i>&gt; &gt; </i><br>
+<i>&gt; &gt; It is a bug. But ok so.</i><br>
+<i>&gt; &gt; If you want -Bdynamic work as the specs say, you need to compile the main</i><br>
+<i>&gt; &gt; program (!) with -Xlinker -export-dynamic. If you do this, you</i><br>
+<i>&gt; &gt; get the "OOPS!".</i><br>
+<i>&gt; -- </i><br>
+<i>&gt; Software Development Engineer / <a href="mailto:ericding@applix.com">ericding@applix.com</a>               &lt;&gt;&lt;</i><br>
+<i>&gt; Applix, Inc. / 112 Turnpike Road / Westboro MA 01581-2842</i><br>
+<i>&gt; TEL: (508) 870-0300 x284 / FAX: (508) 366-4873</i><br>
+<i>&gt; </i><br>
+<i>&gt; -- </i><br>
+<i>&gt; To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with</i><br>
+<i>&gt; 'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a></i><br>
+<i>&gt; </i><br>
+<p>
+  ciao -<br>
+    Stefan<br>
+<p>
+<pre>
+-- 
+<p>
+Quant-X Service &amp;                         Ph:  (+43) 4212 6004-0
+Consulting Ges.m.b.H.                     Fax: (+43) 4212 600420
+<a href="http://www.quant-x.com">http://www.quant-x.com</a>                    Email: <a href="mailto:support@quant-x.com">support@quant-x.com</a>
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0282.html">Paul Chapman: "Multia SCSI controller"</a>
+<li> <b>Previous message:</b> <a href="0280.html">Eric Lee Green: "sx164 floppy solution (fwd)"</a>
+<li> <b>Maybe in reply to:</b> <a href="0238.html">Eric Ding: "BUG: probs with resolving functions in shared library"</a>
+<!-- nextthread="start" -->
+<li> <b>Next in thread:</b> <a href="0291.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Reply:</b> <a href="0291.html">Eric Ding: "Re: BUG: probs with resolving functions in shared library"</a>
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

@@ -1,0 +1,140 @@
+<!-- received="Sat Aug  8 18:48:40 1998 " -->
+<!-- sent="Sat, 8 Aug 1998 17:42:15 -0400" -->
+<!-- name="Andrew Isaacson" -->
+<!-- email="adisaacs@mtu.edu" -->
+<!-- subject="patch: configurable logging of unaligned accesses" -->
+<!-- id="" -->
+<!-- inreplyto="¨Ö	@¨Ö	@ail to axp-list-request@redhat.com with
+8" -->
+<HTML><HEAD><META NAME="htdig-email" CONTENT="webmaster@redhat.com"><TITLE>patch: configurable logging of unaligned accesses</TITLE>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#ececec"  LINK="#3333cc" VLINK="#666666"><h2>patch: configurable logging of unaligned accesses</h2>
+
+<b>Andrew Isaacson</b> (<a href="mailto:adisaacs@mtu.edu"><i>adisaacs@mtu.edu</i></a>)<br>
+<i>Sat, 8 Aug 1998 17:42:15 -0400</i>
+<p>
+<ul>
+<li> <b>Messages sorted by:</b> <a href="date.html#403">[ date ]</a><a href="index.html#403">[ thread ]</a><a href="subject.html#403">[ subject ]</a><a href="author.html#403">[ author ]</a>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0404.html">Richard Henderson: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Previous message:</b> <a href="0402.html">Dave Gilbert: "Re: 2.1.115 on alpha fails on compile,  Someone post a fix &amp; I lost it."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<!-- body="start" -->
+I got annoyed about netstat and XF86_SVGA filling my logs files with<br>
+'unaligned access' messages, so I decided to do something about it.<br>
+This patch adds /proc/sys/kernel/log-unaligned, which by default<br>
+contains 0 (no logging).  'echo 1 &gt; /proc/sys/kernel/log-unaligned' to<br>
+re-enable logging.<br>
+<p>
+I'm not on axp-list, so please CC me on any discussion (I will check<br>
+the archives, though).<br>
+<p>
+Question for the experts:  Is it OK to use __alpha__ like I did in<br>
+kernel/sysctl.c?  Or should this be abstracted?<br>
+<p>
+-andy<br>
+<p>
+diff -ur linux/arch/alpha/kernel/traps.c v2.0.35-ap-unaligned-fix/arch/alpha/kernel/traps.c<br>
+--- linux/arch/alpha/kernel/traps.c	Wed Jun  3 17:17:46 1998<br>
++++ v2.0.35-ap-unaligned-fix/arch/alpha/kernel/traps.c	Sat Aug  8 15:10:28 1998<br>
+@@ -276,6 +276,8 @@<br>
+  * uses them as temporary storage for integer memory to memory copies.<br>
+  * However, we need to deal with stt/ldt and sts/lds only.<br>
+  */<br>
++int kern_log_unaligned = 0;<br>
++<br>
+ asmlinkage void do_entUnaUser(void * va, unsigned long opcode, unsigned long reg,<br>
+ 			      unsigned long * frame)<br>
+ {<br>
+@@ -288,15 +290,17 @@<br>
+ <br>
+ 	pc_addr = frame + 7 + 20 + 3 /* em86 */ + 1;	/* pc in PAL frame */<br>
+ <br>
+-	if (cnt &gt;= 5 &amp;&amp; jiffies - last_time &gt; 5*HZ) {<br>
+-		cnt = 0;<br>
+-	}<br>
+-	if (++cnt &lt; 5) {<br>
+-		printk("%s(%d): unaligned trap at %016lx: %p %lx %ld\n",<br>
+-		       current-&gt;comm, current-&gt;pid,<br>
+-		       *pc_addr - 4, va, opcode, reg);<br>
++	if (kern_log_unaligned) {<br>
++	    if (cnt &gt;= 5 &amp;&amp; jiffies - last_time &gt; 5*HZ) {<br>
++		    cnt = 0;<br>
++	    }<br>
++	    if (++cnt &lt; 5) {<br>
++		    printk("%s(%d): unaligned trap at %016lx: %p %lx %ld\n",<br>
++			   current-&gt;comm, current-&gt;pid,<br>
++			   *pc_addr - 4, va, opcode, reg);<br>
++	    }<br>
++	    last_time = jiffies;<br>
+ 	}<br>
+-	last_time = jiffies;<br>
+ <br>
+ 	++unaligned[1].count;<br>
+ 	unaligned[1].va = (unsigned long) va - 4;<br>
+diff -ur linux/kernel/sysctl.c v2.0.35-ap-unaligned-fix/kernel/sysctl.c<br>
+--- linux/kernel/sysctl.c	Sat Aug  8 15:26:41 1998<br>
++++ v2.0.35-ap-unaligned-fix/kernel/sysctl.c	Sat Aug  8 15:07:13 1998<br>
+@@ -25,6 +25,9 @@<br>
+ <br>
+ /* External variables not in a header file. */<br>
+ extern int panic_timeout;<br>
++#ifdef __alpha__<br>
++extern int kern_log_unaligned;<br>
++#endif<br>
+ <br>
+ <br>
+ #ifdef CONFIG_ROOT_NFS<br>
+@@ -147,6 +150,10 @@<br>
+ 	 64, 0644, NULL, &amp;proc_dostring, &amp;sysctl_string },<br>
+ 	{KERN_JAVA_APPLETVIEWER, "java-appletviewer", binfmt_java_appletviewer,<br>
+ 	 64, 0644, NULL, &amp;proc_dostring, &amp;sysctl_string },<br>
++#endif<br>
++#ifdef __alpha__<br>
++	{KERN_LOG_UNALIGNED, "log-unaligned", &amp;kern_log_unaligned,<br>
++	 sizeof(kern_log_unaligned), 0644, NULL, &amp;proc_dointvec},<br>
+ #endif<br>
+ 	{0}<br>
+ };<br>
+<p>
+<pre>
+-- 
+Andy Isaacson <a href="mailto:adisaacs@mtu.edu">adisaacs@mtu.edu</a> adi@acm.org    Fight Spam, join CAUCE:
+<a href="http://www.csl.mtu.edu/~adisaacs/">http://www.csl.mtu.edu/~adisaacs/</a>              http://www.cauce.org/
+<p>
+<pre>
+-- 
+To unsubscribe: send e-mail to <a href="mailto:axp-list-request@redhat.com">axp-list-request@redhat.com</a> with
+'unsubscribe' as the subject.  Do not send it to <a href="mailto:axp-list@redhat.com">axp-list@redhat.com</a>
+</pre>
+<!-- body="end" -->
+<p>
+<ul>
+<!-- next="start" -->
+<li> <b>Next message:</b> <a href="0404.html">Richard Henderson: "Re: BUG: probs with resolving functions in shared library"</a>
+<li> <b>Previous message:</b> <a href="0402.html">Dave Gilbert: "Re: 2.1.115 on alpha fails on compile,  Someone post a fix &amp; I lost it."</a>
+<!-- nextthread="start" -->
+<!-- reply="end" -->
+</ul>
+<br clear=all>
+<hr>
+<center>
+<a href="mailto:webmaster@redhat.com"   target="">Feedback</a> | 
+<a href="http://www.redhat.com/products/"   target="">Store</a> | 
+<a href="http://www.redhat.com/news/"   target="">News</a> | 
+<a href="http://www.redhat.com/support/"   target="">Support</a> | 
+<a href="http://www.redhat.com/support/docs/errata.html"   target="">Product Errata</a> | 
+<a href="http://www.redhat.com/redhat/"   target="">About Us</a> | 
+<a href="http://www.redhat.com/linux-info/"   target="">Linux Info</a> | 
+<a href="http://www.redhat.com/search/"   target="">Search</a> | 
+<a href="http://www.redhat.com/jumplist.phtml"   target="">JumpWords</a>
+<br>
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=n"  _top target="_top">No Frames</a> | 
+<a href="http://www.redhat.com/cgi-bin/frames.phtml?fr=y"  _top target="_top">Show Frames</a>
+</center>
+<p align=center>
+Copyright &copy; 1995-1997 Red Hat Software. <a href="http://www.redhat.com/redhat/website.html#legal"   target="">Legal notices</a>
+</p>
+</BODY></HTML>

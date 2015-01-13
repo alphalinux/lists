@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"> 
+     <HTML> 
+     <HEAD> 
+     <TITLE>Axp-List Archive</TITLE> 
+     <LINK REV="made" HREF="mailto:mailto-address"> 
+     <HEAD> 
+     <BODY BGCOLOR="#DC9D33" TEXT="#000000" LINK="#DD0000" ALINK="#CC0000" VLINK="#CC0000">
+		<CENTER>  <!--#exec cgi="/cgi-bin/banmat1.cgi"--></CENTER>
+
+     <H1 ALIGN=CENTER>Axp-List Archive<BR> help: weird kernel compile</H1> 
+	
+<!-- received="Tue Feb 15 07:02:48 2000" -->
+<!-- isoreceived="20000215150248" -->
+<!-- sent="Mon, 14 Feb 2000 23:54:50 -0600" -->
+<!-- isosent="20000215055450" -->
+<!-- name="dennis pantazis" -->
+<!-- email="dpantazis@yahoo.com" -->
+<!-- subject="help: weird kernel compile" -->
+<!-- id="LPBBLOHCGLJLHGLCEDPMIEJLCBAA.dpantazis@yahoo.com" -->
+<STRONG>Subject: </STRONG>help: weird kernel compile<BR>
+<STRONG>From: </STRONG>dennis pantazis (<EM>dpantazis@yahoo.com</EM>)<BR>
+<STRONG>Date: </STRONG>Mon Feb 14 21:54:50 2000
+<P>
+<UL>
+<LI><STRONG>Messages sorted by:</STRONG> 
+<A HREF="date.shtml#236">[ date ]</A>
+<A HREF="index.shtml#236">[ thread ]</A>
+<A HREF="subject.shtml#236">[ subject ]</A>
+<A HREF="author.shtml#236">[ author ]</A>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0237.shtml">Em Hwan KIM: "Web-server Benchmark program."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0235.shtml">Richard Henderson: "Re: how to simulate an unaligned ldl_l"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0250.shtml">Ross A. Knepper: "Re: help: weird kernel compile"</A>
+<!-- reply="end" -->
+</UL>
+<HR>
+<!-- body="start" -->
+<P>
+preface: i am the eternal newbie, i have been playing with RH-axp since ver
+<BR>
+4.0
+<BR>
+nothing major, just playing. i have subscribed to the list off and on as my
+<BR>
+time and schedule permits.
+<BR>
+i just installed a fresh copy of RH6.1, applied the update rpms, did a make
+<BR>
+menuconfig to compile a new kernel to include ip-masq, firewall,
+<BR>
+ip-forwarding etc...i am building a ip-chains/masq/router box (i spluged for
+<BR>
+dsl). i have a bone stock 166 udb w/64mb, original ncr53cx810 scsi
+<BR>
+controller, the on-board ethernet and an additional intel etherexpress pro
+<BR>
+10/100 nic (it was free, so no intelicide comments please ;-).)
+<BR>
+stock kernel 2.2.13-0.9 and sources. no kernel patches of any kind
+<BR>
+<P>i have 2 issues: nics that change id's and a few unresolved
+<BR>
+dependancies/symbols
+<BR>
+below i will try to include the pertinent info, but let me know if there is
+<BR>
+something that should also post/fwd
+<BR>
+<P>NICS
+<BR>
+kernel compile #1: stock .config and only added ip-fwd &amp; masq options on.
+<BR>
+copiled ok, no errors, a few random warnings.  after compile the ip-fwd,
+<BR>
+masq etc worked. cool i thought. i will strip more un-needed stuff out.
+<BR>
+scripted a 'buildkrnl' script for after make menuconfig. (simply the
+<BR>
+commands i used before: make dep, make clean, make make boot, make modules,
+<BR>
+make modules_install)
+<BR>
+<P>kernel compile #2: turned off a bunch of stuff that i know i do not need:
+<BR>
+extranious code pages, 3coms, raid, aha*'s, buslogic, etc..under networking
+<BR>
+disabled ipx, appletalk,
+<BR>
+added oss-mss-530-9-3
+<BR>
+no errors on booting the new kernel. just the following warnings:
+<BR>
+<P>Remounting root filesystem in read-write mode              [  OK  ]
+<BR>
+Finding module dependencies /lib/modules/2.2.13-0.9/scsi/ide-scsi.o:
+<BR>
+unresolved
+<BR>
+symbol(s)
+<BR>
+/lib/modules/2.2.13-0.9/block/ide-tape.o: unresolved symbol(s)
+<BR>
+/lib/modules/2.2.13-0.9/block/ide-floppy.o: unresolved symbol(s)
+<BR>
+/lib/modules/2.2.13-0.9/misc/ipx.o: unresolved symbol(s)
+<BR>
+/lib/modules/2.2.13-0.9/misc/iph5526.o: unresolved symbol(s)
+<BR>
+/lib/modules/2.2.13-0.9/misc/appletalk.o: unresolved symbol(s)
+<BR>
+<P>these didn;t seem to be too concerning.
+<BR>
+<P>ip-fwd, masq, etc do not work, i used the saved rules and reloaded the
+<BR>
+ip-chains rules. no errors reported. still wouldn;t work.
+<BR>
+<P>i spent a couple of days thinking that i misconfigured things, until finally
+<BR>
+payed attention to netstat -rn and realized that the nic were wacked out..
+<BR>
+they really did switch eth0 &amp; eth1! i change my route and ip-chains to match
+<BR>
+and everything works.
+<BR>
+nic     old (generic) krn     new (noname) krnl
+<BR>
+de4x5     eth0                 eth1
+<BR>
+eepro     eth1                 eth0
+<BR>
+<P>linuxconf reported the same thing, i changed the driver on each card to the
+<BR>
+'other' thinking that the kernel was confused. things still would not work.
+<BR>
+after putting the eth/driver assignments back to original, booting the
+<BR>
+original kernel it reports that in fact de4x5 is eth0, eepro is eth1. i can
+<BR>
+ping and get correct response on each interface. boot kernel #1, things are
+<BR>
+ok, ip-fwd/masq works and restored rules are right.
+<BR>
+booting kernel #2 however same warnings from above, and ip-fwd/masq is just
+<BR>
+fubar'd same reversal of nic &amp; eth#
+<BR>
+<P><P>anyone have any ideas how this could happen. this is most disconcerting.
+<BR>
+could this be realted to the on-board microsoft sound system?
+<BR>
+<P>Modules: i tried to search the docs for the dependancy errors but no luck.
+<BR>
+since everything seems to be working, i am not too worried but it just bugs
+<BR>
+me.
+<BR>
+<P>thanks in advance
+<BR>
+<P>dennis
+<BR>
+dennis@pantazis.org
+<BR>
+<P><P>__________________________________________________
+<BR>
+Do You Yahoo!?
+<BR>
+Talk to your friends online with Yahoo! Messenger.
+<BR>
+<A HREF="http://im.yahoo.com">http://im.yahoo.com</A>
+<BR>
+<P><PRE>
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+</PRE>
+<P><!-- body="end" -->
+<HR>
+<P>
+<UL>
+<!-- next="start" -->
+<LI><STRONG>Next message:</STRONG> <A HREF="0237.shtml">Em Hwan KIM: "Web-server Benchmark program."</A>
+<LI><STRONG>Previous message:</STRONG> <A HREF="0235.shtml">Richard Henderson: "Re: how to simulate an unaligned ldl_l"</A>
+<!-- nextthread="start" -->
+<LI><STRONG>Next in thread:</STRONG> <A HREF="0250.shtml">Ross A. Knepper: "Re: help: weird kernel compile"</A>
+<!-- reply="end" -->
+</UL>
+<!-- trailer="footer" -->
+<HR> 
+     <P> 
+     <SMALL> 
+     <EM> 
+     This archive was generated by  <A HREF="http://www.landfield.com/hypermail">hypermail version 2a22 </A> on Wed Mar  1 06:26:23 2000 PST <BR>
+	Send any problems or questions about this archive to <A HREF="mailto:webmaster@alphalinux.org">webmaster@alphalinux.org</A>. 
+     </EM> 
+     </SMALL> 
+     </BODY> 
+     </HTML> 
